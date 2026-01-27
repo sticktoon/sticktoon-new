@@ -439,6 +439,23 @@ const FeaturedSection: React.FC<{ addToCart: (badge: Badge) => void }> = ({ addT
   const [flippedId, setFlippedId] = useState<string | null>(null);
 
 const navigate = useNavigate();
+const [quantities, setQuantities] = useState<Record<string, number>>({});
+
+const getQty = (id: string) => quantities[id] ?? 10;
+
+const increaseQty = (id: string) => {
+  setQuantities(prev => ({
+    ...prev,
+    [id]: getQty(id) + 1,
+  }));
+};
+
+const decreaseQty = (id: string) => {
+  setQuantities(prev => ({
+    ...prev,
+    [id]: Math.max(1, getQty(id) - 1),
+  }));
+};
 
 
   return (
@@ -468,11 +485,15 @@ const navigate = useNavigate();
 </div>
 
  <div className="
-  grid
-  grid-cols-3
-  sm:grid-cols-4
-  lg:grid-cols-5
-  gap-4
+grid
+grid-cols-2
+sm:grid-cols-2
+md:grid-cols-3
+lg:grid-cols-4
+xl:grid-cols-5
+gap-4 sm:gap-6
+
+
   max-w-[1600px]
   mx-auto
 ">
@@ -480,163 +501,118 @@ const navigate = useNavigate();
 
 
 
-          {featuredBadges.map((badge) => (
-    <div 
-  key={badge.id} 
-className="
-  group
-  relative
-  bg-white
-  rounded-[2rem]
-  p-3
-  shadow-[0_18px_50px_rgba(15,23,42,0.12)]
-  hover:shadow-[0_28px_70px_rgba(15,23,42,0.18)]
-  transition-all
-  duration-300
-  border border-slate-100
+         {featuredBadges.map((badge) => {
+  const qty = getQty(badge.id);
+  const total = badge.price * qty;
+
+  return (
+
+
+   <div
+  key={badge.id}
+  className="
+  bg-white rounded-2xl
+ p-2 sm:p-4
+
+  border border-slate-200
   flex flex-col
+  transition-all duration-300
+  hover:shadow-xl hover:-translate-y-1 hover:border-indigo-400
 "
 
 >
-
-
-             {/* <button className="
-  absolute top-4 right-4
-  w-10 h-10
-  rounded-full
-  bg-white
-  border border-slate-200
-  shadow-md
-  flex items-center justify-center
-  text-slate-300
-  hover:text-rose-500
-  hover:scale-110
-  transition-all
-  z-20
-">
-  <Heart className="w-5 h-5 fill-current" />
-</button> */}
-
-
-<div
-  onClick={() => navigate(`/badge/${badge.id}`)}
-  className="
-    relative
-    mb-6
-    rounded-[22px]
-    bg-[#f8fafc]
-    shadow-inner
-    flex
-    items-center
-    justify-center
-    aspect-square
-    cursor-pointer
-  "
->
-
-
-  {/* SOFT BACKGROUND PANEL (like Categories) */}
-  {/* <div className="
-    absolute inset-0
-    rounded-[1.5rem]
-    bg-gradient-to-b from-slate-50 to-white
-    shadow-inner
-  " /> */}
-
-  {/* SOFT RADIAL GLOW */}
- {/* <div className="
-  absolute inset-0
-  rounded-[1.5rem]
-  bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.08),transparent_65%)]
-" /> */}
-
-
+  {/* IMAGE BOX */}
   <div
-    style={{
-      position: "relative",
-      width: "100%",
-      height: "100%",
-      borderRadius: "9999px",
-      overflow: "hidden",
-      transformStyle: "preserve-3d",
-      transition: "transform 0.7s ease",
-      transform:
-        flippedId === badge.id ? "rotateY(180deg)" : "rotateY(0deg)",
-    }}
+    onClick={() => navigate(`/badge/${badge.id}`)}
+    className="bg-slate-100 rounded-xl flex items-center justify-center h-32 sm:h-48 md:h-60
+ cursor-pointer mb-4 overflow-hidden"
+
   >
-    {/* FRONT */}
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        backfaceVisibility: "hidden",
-      }}
+    <img
+      src={badge.image}
+      alt={badge.name}
+     className="bg-slate-100 rounded-xl flex items-center justify-center h-50 sm:h-50 md:h-50 overflow-hidden mb-4"
+    />
+  </div>
+
+  {/* CATEGORY + PRICE */}
+  <div className="flex justify-between items-center mb-1">
+    <span className="text-[10px] sm:text-[11px]
+ font-bold text-indigo-600 uppercase tracking-widest">
+      {badge.category}
+    </span>
+    <span className="text-lg font-extrabold text-slate-900">
+     ₹{total}
+
+    </span>
+  </div>
+
+ {/* NAME + QUANTITY SIDE BY SIDE (below price) */}
+<div className="flex justify-between items-center mb-3">
+  <h3 className="text-[12px] font-bold text-slate-900 uppercase tracking-wide">
+
+    {badge.name}
+  </h3>
+
+  <div className="flex items-center gap-1 border rounded-md px-1.5 py-0.5">
+
+    <button
+      onClick={() => decreaseQty(badge.id)}
+      className="w-5 text-sm font-bold"
     >
-<img
-  src={badge.image}
-  alt={badge.name}
+      -
+    </button>
+
+    <span className="w-6 text-center font-bold">
+      {qty}
+    </span>
+
+   <button
+  onClick={() => increaseQty(badge.id)}
   className="
-    w-[95%]
-    h-[95%]
-    object-contain
-    transition-transform
-    duration-500
-    group-hover:scale-110
-  "
-/>
+  w-5 h-5
+  flex items-center justify-center
+  rounded
+  border border-slate-300
+  bg-white
+  text-[11px] font-bold
+  transition-all duration-200
+  hover:bg-[#0f172a]
+  hover:text-white
+"
 
+>
+  +
+</button>
 
-    </div>
-
-    {/* BACK */}
-    {/* <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        background: "#0f172a",
-        color: "white",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontWeight: 900,
-        letterSpacing: "0.2em",
-        fontSize: "12px",
-        transform: "rotateY(180deg)",
-        backfaceVisibility: "hidden",
-      }}
-    >
-      PIN BACK
-    </div> */}
   </div>
 </div>
 
-{/* <p className="text-white">{flippedId === badge.id ? "FLIPPED" : "FRONT"}</p> */}
 
+{/* BUTTONS */}
+<div className="flex gap-2 mt-auto">
+  <button
+    onClick={() =>
+      addToCart({ ...badge, quantity: getQty(badge.id) })
+    }
+    className="flex-1 bg-[#0f172a] text-white py-2 rounded-lg text-sm font-bold"
+  >
+    Buy Now
+  </button>
 
+  <button
+    onClick={() =>
+      addToCart({ ...badge, quantity: getQty(badge.id) })
+    }
+    className="w-12 bg-[#0f172a] text-white rounded-lg flex items-center justify-center"
+  >
+    <Plus className="w-4 h-4" />
+  </button>
+</div>
 
-              <div className="mt-auto">
-                <div className="flex flex-col mb-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{badge.category}</span>
-                    <div className="text-2xl font-black text-slate-900 tracking-tighter leading-none">
-                      {formatPrice(badge.price)}
-                    </div>
-                  </div>
-                <h3 className="text-[15px] font-extrabold text-slate-900 uppercase tracking-tight leading-tight">
+</div>
+)})}
 
-{badge.name}</h3>
-                </div>
-
-                <button 
-                  onClick={() => addToCart(badge)}
-                 className="w-full py-3 bg-[#0f172a] text-white font-black rounded-xl hover:bg-indigo-600 active:scale-95 transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em] text-[10px]"
-
-                >
-                  Add to Cart <Plus className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </section>

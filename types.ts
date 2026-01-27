@@ -4,6 +4,7 @@ export interface Badge {
   name: string;
   price: number;
   category: Category;
+   quantity?: number; 
 
   image: string;            // pin image (default)
   imageMagnetic?: string;  // magnetic image (optional)

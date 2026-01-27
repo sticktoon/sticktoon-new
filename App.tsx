@@ -122,18 +122,15 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
   ];
 
   return (
-  <nav
+<nav
   className={`fixed top-0 left-0 right-0 z-50
-    bg-black
-    py-4
-    border-b border-slate-800
+    bg-black border-b border-slate-800
     shadow-[0_6px_20px_rgba(0,0,0,0.5)]
- ${
-    scrolled
-      ? "bg-black py-5 shadow-[0_10px_30px_rgba(0,0,0,0.8)] border-b border-slate-800"
-      : "bg-black py-6"
-  }`}
+    transition-all duration-300
+    ${scrolled ? "py-2" : "py-3"}
+  `}
 >
+
 
 
   <div className="px-6 lg:px-12 flex justify-between items-center">
@@ -155,11 +152,12 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
              text-sm font-extrabold tracking-[0.18em] uppercase
 
               transition-all
-              ${
-                location.pathname === link.path
-                  ? "text-indigo-600"
-                  : "text-slate-600 hover:text-slate-900"
-              }
+             ${
+  location.pathname === link.path
+    ? "text-yellow-400"
+    : "text-slate-300 hover:text-white"
+}
+
             `}
           >
             {link.name}
@@ -800,7 +798,9 @@ export default function App() {
     }
   }, [cartLoaded]);
 
-  const addToCart = async (badge: Badge, qty = 1) => {
+ const addToCart = async (badge: any) => {
+  const qty = badge.quantity || 10;
+
     const token = localStorage.getItem("token");
     if (!token) {
       setShowLoginPrompt(true);
