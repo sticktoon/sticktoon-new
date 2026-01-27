@@ -528,66 +528,51 @@ gap-4 sm:gap-6
  cursor-pointer mb-4 overflow-hidden"
 
   >
-    <img
-      src={badge.image}
-      alt={badge.name}
-     className="bg-slate-100 rounded-xl flex items-center justify-center h-50 sm:h-50 md:h-50 overflow-hidden mb-4"
-    />
+   <img
+  src={badge.image}
+  alt={badge.name}
+  className="h-24 sm:h-36 md:h-44 object-contain"
+/>
+
   </div>
 
   {/* CATEGORY + PRICE */}
-  <div className="flex justify-between items-center mb-1">
-    <span className="text-[10px] sm:text-[11px]
- font-bold text-indigo-600 uppercase tracking-widest">
-      {badge.category}
-    </span>
-    <span className="text-lg font-extrabold text-slate-900">
-     ₹{total}
+{/* CATEGORY + PRICE */}
+<div className="flex justify-between items-center mb-1">
+  <span className="text-[10px] sm:text-[11px] font-bold text-indigo-600 uppercase tracking-widest">
+    {badge.category}
+  </span>
+  <span className="text-base sm:text-lg font-extrabold text-slate-900">
+    ₹{total}
+  </span>
+</div>
 
-    </span>
-  </div>
-
- {/* NAME + QUANTITY SIDE BY SIDE (below price) */}
-<div className="flex justify-between items-center mb-3">
-  <h3 className="text-[12px] font-bold text-slate-900 uppercase tracking-wide">
-
+{/* NAME + QUANTITY (below price) */}
+<div className="flex items-center justify-between gap-2 mb-3">
+  <h3 className="text-[11px] sm:text-[12px] font-bold text-slate-900 uppercase tracking-wide">
     {badge.name}
   </h3>
 
-  <div className="flex items-center gap-1 border rounded-md px-1.5 py-0.5">
-
+  <div className="flex items-center gap-1 border rounded px-1 py-[2px] shrink-0">
     <button
       onClick={() => decreaseQty(badge.id)}
-      className="w-5 text-sm font-bold"
+      className="w-4 h-4 flex items-center justify-center border border-slate-300 rounded text-[10px] font-bold"
     >
       -
     </button>
 
-    <span className="w-6 text-center font-bold">
+    <span className="w-5 text-center text-[11px] font-bold">
       {qty}
     </span>
 
-   <button
-  onClick={() => increaseQty(badge.id)}
-  className="
-  w-5 h-5
-  flex items-center justify-center
-  rounded
-  border border-slate-300
-  bg-white
-  text-[11px] font-bold
-  transition-all duration-200
-  hover:bg-[#0f172a]
-  hover:text-white
-"
-
->
-  +
-</button>
-
+    <button
+      onClick={() => increaseQty(badge.id)}
+      className="w-4 h-4 flex items-center justify-center border border-slate-300 rounded text-[10px] font-bold"
+    >
+      +
+    </button>
   </div>
 </div>
-
 
 {/* BUTTONS */}
 <div className="flex gap-2 mt-auto">
@@ -595,7 +580,7 @@ gap-4 sm:gap-6
     onClick={() =>
       addToCart({ ...badge, quantity: getQty(badge.id) })
     }
-    className="flex-1 bg-[#0f172a] text-white py-2 rounded-lg text-sm font-bold"
+    className="flex-1 bg-[#0f172a] text-white py-1 rounded-lg text-sm font-bold"
   >
     Buy Now
   </button>
