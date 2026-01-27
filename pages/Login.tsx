@@ -496,7 +496,10 @@ export default function Login() {
             <div className="inline-flex items-center gap-2 px-5 py-3 bg-yellow-400 text-black rounded-full border-3 border-black shadow-[4px_4px_0px_#FFD600] hover:shadow-[2px_2px_0px_#FFD600] hover:translate-x-[2px] hover:translate-y-[2px] transition-all">
               <span className="text-lg">🎯</span>
               <span className="text-sm font-bold">Are you an influencer?</span>
-              <a href="/#/influencer/login" className="font-black underline">Join here →</a>
+              <Link to="/influencer/login" className="font-black underline">
+  Join here →
+</Link>
+
             </div>
           </div>
         )}
@@ -504,3 +507,5 @@ export default function Login() {
     </div>
   );
 }
+import { Link } from "react-router-dom";
+
