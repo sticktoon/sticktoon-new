@@ -294,6 +294,12 @@ exports.updateOrderStatus = async (req, res) => {
         orderId: order._id,
         invoiceId: invoice._id,
       });
+
+      // Update InfluencerEarning status to 'paid' for this order
+      await InfluencerEarning.updateMany(
+        { orderId: order._id, status: "pending" },
+        { $set: { status: "paid" } }
+      );
     }
 
     await order.save();
