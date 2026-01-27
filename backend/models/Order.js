@@ -92,7 +92,7 @@ const orderSchema = new mongoose.Schema(
 
     paymentGateway: {
       type: String,
-      default: "Cashfree",
+      default: "Razorpay",
     },
 
     paymentMethod: {

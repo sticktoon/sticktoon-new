@@ -203,36 +203,10 @@ exports.createOrder = async (req, res) => {
       }
     }
 
-    // CREATE CASHFREE ORDER
-    const response = await axios.post(
-      "https://sandbox.cashfree.com/pg/orders",
-      {
-        order_id: gatewayOrderId,
-        order_amount: totalAmount,
-        order_currency: "INR",
-        customer_details: {
-          customer_id: userId.toString(),
-          customer_email: email,
-          customer_phone: phone,
-        },
-        order_meta: {
-          notify_url: `${process.env.WEBHOOK_BASE_URL}/api/cashfree/webhook`,
-        },
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "x-client-id": process.env.CASHFREE_APP_ID,
-          "x-client-secret": process.env.CASHFREE_SECRET_KEY,
-          "x-api-version": "2023-08-01",
-        },
-      }
-    );
 
-    return res.json({
-      paymentSessionId: response.data.payment_session_id,
-      orderId: order._id,
-    });
+      return res.json({
+        orderId: order._id,
+      });
   } catch (err) {
     console.error("Create order error:", err);
     return res.status(500).json({ message: "Failed to create order" });
@@ -295,11 +269,19 @@ exports.updateOrderStatus = async (req, res) => {
         invoiceId: invoice._id,
       });
 
-      // Update InfluencerEarning status to 'paid' for this order
-      await InfluencerEarning.updateMany(
-        { orderId: order._id, status: "pending" },
-        { $set: { status: "paid" } }
-      );
+      // Update InfluencerEarning status to 'paid' for this order and update influencer pending/paid earnings
+      const earnings = await InfluencerEarning.find({ orderId: order._id, status: "pending" });
+      for (const earn of earnings) {
+        earn.status = "paid";
+        await earn.save();
+        // move pending → paid in influencer profile
+        await User.findByIdAndUpdate(earn.influencerId, {
+          $inc: {
+            "influencerProfile.pendingEarnings": -earn.totalEarning,
+            "influencerProfile.paidEarnings": earn.totalEarning,
+          },
+        });
+      }
     }
 
     await order.save();

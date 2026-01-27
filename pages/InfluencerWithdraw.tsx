@@ -23,6 +23,7 @@ interface ProfileData {
     accountHolder?: string;
     bankName?: string;
   };
+  availableToWithdraw?: number; // <-- add this
 }
 
 const InfluencerWithdraw: React.FC = () => {
@@ -75,6 +76,7 @@ const InfluencerWithdraw: React.FC = () => {
           minWithdrawalAmount: profileData.user?.influencerProfile?.minWithdrawalAmount || 100,
           upiId: profileData.user?.influencerProfile?.upiId,
           bankDetails: profileData.user?.influencerProfile?.bankDetails,
+          availableToWithdraw: profileData.user?.influencerProfile?.availableToWithdraw || 0,
         });
 
         // Pre-fill saved payment details
@@ -188,7 +190,7 @@ const InfluencerWithdraw: React.FC = () => {
     );
   }
 
-  const canWithdraw = profile && profile.pendingEarnings >= (profile.minWithdrawalAmount || 100);
+  const canWithdraw = profile && (profile.availableToWithdraw ?? 0) >= (profile.minWithdrawalAmount || 100);
   const hasPendingWithdrawal = withdrawals.some((w) => w.status === "pending" || w.status === "approved");
 
   return (
@@ -222,7 +224,7 @@ const InfluencerWithdraw: React.FC = () => {
         {/* Balance Card */}
         <div className="bg-gradient-to-br from-green-600/30 to-emerald-600/30 backdrop-blur-lg rounded-2xl p-8 border border-green-500/30 text-center mb-8">
           <p className="text-gray-300 mb-2">Available to Withdraw</p>
-          <p className="text-5xl font-bold text-white mb-2">₹{profile?.pendingEarnings || 0}</p>
+          <p className="text-5xl font-bold text-white mb-2">₹{profile?.availableToWithdraw ?? 0}</p>
           <p className="text-gray-400 text-sm">Minimum withdrawal: ₹{profile?.minWithdrawalAmount || 100}</p>
         </div>
 
@@ -265,20 +267,20 @@ const InfluencerWithdraw: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, amount: parseInt(e.target.value) || 0 })}
                   required
                   min={profile?.minWithdrawalAmount || 100}
-                  max={profile?.pendingEarnings || 0}
+                  max={profile?.availableToWithdraw || 0}
                   className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-green-500 text-xl"
                   placeholder={`Min ₹${profile?.minWithdrawalAmount || 100}`}
                 />
                 <div className="flex justify-between mt-2">
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, amount: profile?.pendingEarnings || 0 })}
+                    onClick={() => setFormData({ ...formData, amount: profile?.availableToWithdraw ?? 0 })}
                     className="text-green-400 text-sm hover:underline"
                   >
                     Withdraw All
                   </button>
                   <span className="text-gray-500 text-sm">
-                    Available: ₹{profile?.pendingEarnings || 0}
+                    Available: ₹{profile?.availableToWithdraw ?? 0}
                   </span>
                 </div>
               </div>

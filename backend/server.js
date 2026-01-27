@@ -12,13 +12,12 @@ app.use(
   cors({
     origin: [
       
-      "https://stick-toon.vercel.app",
-      "https://sticktoon.vercel.app",
       "https://sticktoon-web.vercel.app",
       "https://www.sticktoon.shop",
       "https://sticktoon.shop",
       "http://localhost:3000",
       "https://sticktoon-website.onrender.com",
+      "https://localhost:5000",
       /\.vercel\.app$/  // allows all vercel preview URLs
     ],
     credentials: true,
@@ -39,7 +38,6 @@ app.use("/api/payment", require("./routes/payment"));
 app.use("/api/razorpay", require("./routes/razorpayPayment"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/admin/orders", require("./routes/adminOrders"));
-app.use("/api/cashfree", require("./routes/cashfreeWebhook"));
 app.use("/api/admin/revenue", require("./routes/adminRevenue"));
 app.use("/api/invoice", require("./routes/invoice"));
 app.use("/api/admin/invoice", require("./routes/adminInvoice"));

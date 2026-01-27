@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
+import { Link } from "react-router-dom";
 
 const InfluencerLogin: React.FC = () => {
   const navigate = useNavigate();
@@ -24,36 +25,39 @@ const InfluencerLogin: React.FC = () => {
     setError("");
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
+ const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+  setError("");
 
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/influencer/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
-      });
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/influencer/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: formData.email,
+        password: formData.password,
+      }),
+    });
 
+    if (!res.ok) {
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Login failed");
-      }
-
-      localStorage.setItem("influencerToken", data.token);
-      localStorage.setItem("influencerUser", JSON.stringify(data.user));
-      navigate("/influencer/dashboard");
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      throw new Error(data.message || "Login failed");
     }
-  };
+
+    const data = await res.json();
+
+    localStorage.setItem("influencerToken", data.token);
+    localStorage.setItem("influencerUser", JSON.stringify(data.user));
+    navigate("/influencer/dashboard");
+
+  } catch (err: any) {
+    setError("Server is waking up. Please try again in 10 seconds.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -274,12 +278,13 @@ const InfluencerLogin: React.FC = () => {
 
         {/* Back to Home */}
         <div className="text-center mt-6">
-          <a
-            href="/#/"
-            className="text-purple-300 hover:text-white transition-colors"
-          >
-            ← Back to Store
-          </a>
+         <Link
+  to="/"
+  className="text-purple-300 hover:text-white transition-colors"
+>
+  ← Back to Store
+</Link>
+
         </div>
       </div>
     </div>

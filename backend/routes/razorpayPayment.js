@@ -256,6 +256,27 @@ router.post("/verify-payment", auth, async (req, res) => {
     order.gatewayPaymentId = razorpay_payment_id;
     await order.save();
 
+    /* =========================
+   ✅ UPDATE INFLUENCER EARNING TO PAID
+========================= */
+
+const earnings = await InfluencerEarning.find({ orderId: order._id });
+
+for (const earn of earnings) {
+  // change earning status
+  earn.status = "paid";
+  await earn.save();
+
+  // move pending → paid in influencer profile
+  await User.findByIdAndUpdate(earn.influencerId, {
+    $inc: {
+      "influencerProfile.pendingEarnings": -earn.totalEarning,
+      "influencerProfile.paidEarnings": earn.totalEarning,
+    },
+  });
+}
+
+
     // Create invoice
     const lastInvoice = await Invoice.findOne().sort({ createdAt: -1 });
     let invoiceNumber = "STK-0001";
