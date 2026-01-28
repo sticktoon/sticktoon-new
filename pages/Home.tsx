@@ -114,51 +114,138 @@ const Hero: React.FC = () => {
     bg-center
   "
   style={{
-    backgroundImage: "url('/badge/herosection.png')",
-  }}
+  backgroundImage: "url('/badge/redhero.png')",
+}}
+
 >
-  {/* ✅ OVERLAY (BELOW CONTENT) */}
-  {/* <div className="absolute inset-0 bg-gradient-to-r from-white via-white/80 to-transparent z-0" /> */}
+ {/* Fun Floating Background */}
+  <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+    {/* EXTRA LEFT DECORATIONS */}
+
+  {/* Big faded ring */}
+  <div
+    className="absolute top-40 left-6 w-28 h-28 rounded-full border-[6px] border-yellow-300 opacity-20 animate-bounce"
+    style={{ animationDuration: '7s' }}
+  />
+
+  {/* Small yellow dot near text */}
+  <div
+    className="absolute top-[55%] left-12 w-6 h-6 bg-yellow-300 rounded-full border-4 border-black opacity-70 animate-bounce"
+    style={{ animationDelay: '0.8s', animationDuration: '5s' }}
+  />
+
+  {/* Red circle behind tagline */}
+  <div
+    className="absolute top-[48%] left-1/4 w-14 h-14 bg-red-500 rounded-full border-4 border-black opacity-40 animate-bounce"
+    style={{ animationDelay: '1.2s', animationDuration: '6s' }}
+  />
+
+  {/* Tiny star near WE CREATE */}
+  <div className="absolute top-44 left-40 text-2xl opacity-40 text-yellow-300">★</div>
+
+    <div
+      className="absolute top-20 left-10 w-20 h-20 bg-red-500 rounded-full border-4 border-black shadow-[4px_4px_0px_#000] animate-bounce opacity-50"
+      style={{ animationDelay: '0s', animationDuration: '4s' }}
+    />
+
+    <div
+      className="absolute top-40 right-20 w-16 h-16 bg-yellow-400 rounded-full border-4 border-black shadow-[4px_4px_0px_#000] animate-bounce opacity-60"
+      style={{ animationDelay: '0.5s', animationDuration: '5s' }}
+    />
+
+    <div
+      className="absolute bottom-32 left-20 w-14 h-14 bg-black rounded-full border-4 border-yellow-400 shadow-[4px_4px_0px_#FFD600] animate-bounce opacity-60"
+      style={{ animationDelay: '1s', animationDuration: '6s' }}
+    />
+
+    <div
+      className="absolute bottom-20 right-32 w-12 h-12 bg-yellow-300 rounded-full border-4 border-black shadow-[4px_4px_0px_#000] animate-bounce opacity-60"
+      style={{ animationDelay: '1.5s', animationDuration: '4.5s' }}
+    />
+
+    <div className="absolute top-32 right-40 text-4xl opacity-30 text-yellow-300">★</div>
+    <div className="absolute bottom-40 left-32 text-3xl opacity-30 text-red-400">★</div>
+    <div className="absolute top-60 left-40 text-2xl opacity-20 text-black">⬤</div>
+  </div>
+  {/* STAR FIELD — center to right */}
+
+  {/* Row 1 */}
+  <div className="absolute top-24 left-[45%] text-yellow-300 opacity-40 text-xl">★</div>
+  <div className="absolute top-32 left-[55%] text-yellow-200 opacity-30 text-lg">★</div>
+  <div className="absolute top-20 left-[65%] text-yellow-300 opacity-35 text-2xl">★</div>
+  <div className="absolute top-28 left-[75%] text-yellow-200 opacity-30 text-lg">★</div>
+
+  {/* Row 2 */}
+  <div className="absolute top-48 left-[50%] text-yellow-300 opacity-30 text-lg">★</div>
+  <div className="absolute top-56 left-[62%] text-yellow-200 opacity-35 text-xl">★</div>
+  <div className="absolute top-44 left-[72%] text-yellow-300 opacity-30 text-lg">★</div>
+
+  {/* Row 3 */}
+  <div className="absolute top-72 left-[48%] text-yellow-200 opacity-35 text-lg">★</div>
+  <div className="absolute top-80 left-[60%] text-yellow-300 opacity-40 text-xl">★</div>
+  <div className="absolute top-76 left-[70%] text-yellow-200 opacity-30 text-lg">★</div>
+  <div className="absolute top-84 left-[82%] text-yellow-300 opacity-30 text-lg">★</div>
+
+  {/* Bottom spread */}
+  <div className="absolute bottom-40 left-[55%] text-yellow-300 opacity-35 text-xl">★</div>
+  <div className="absolute bottom-32 left-[68%] text-yellow-200 opacity-30 text-lg">★</div>
+  <div className="absolute bottom-44 left-[78%] text-yellow-300 opacity-30 text-lg">★</div>
 
   {/* ✅ CONTENT */}
-  <div className="relative z-10 w-full max-w-7xl mx-auto px-4 md:px-6 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center">
+  <div className="relative z-10 w-full max-w-7xl mx-auto 
+  
+  md:px-6 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center">
     
     
     {/* LEFT CONTENT */}
     <div>
-      <h1 className="relative text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-[0.17em] leading-[1.15] text-[#0f172a]
-        drop-shadow-[0_14px_22px_rgba(15,23,42,0.4)]
-      ">
-        <span className="absolute inset-0 translate-y-[2px] text-black/20">
-          WE CREATE <br /> FOR SOULS
-        </span>
+      <div className="absolute -top-4 left-[450px] w-36 h-36 rounded-full border-[8px] border-yellow-300 opacity-30 pointer-events-none" />
 
-        <span className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/10 to-transparent bg-clip-text text-transparent">
-          WE CREATE <br /> FOR SOULS
-        </span>
+ <div className="absolute -top-2 left-56 text-2xl opacity-50 text-yellow-300">★</div>
+ <div className="absolute -top-2 left-56 text-2xl opacity-50 text-yellow-300">★</div>
+  {/* RING FOR SOULS */}
+  <div className="absolute top-24 left-44 w-34 h-34 rounded-full border-[8px] border-yellow-300 opacity-25 pointer-events-none" />
 
-        <span className="relative">
-          WE CREATE <br /> FOR SOULS
-        </span>
-      </h1>
+      <h1 className="
+  text-3xl sm:text-4xl md:text-5xl lg:text-6xl
+  font-black tracking-[0.17em] leading-[1.15]
+  bg-gradient-to-r from-yellow-200 via-orange-400 to-yellow-500
+  bg-clip-text text-transparent
+  drop-shadow-[0_6px_18px_rgba(0,0,0,0.45)]
+">
+  WE CREATE <br /> FOR SOULS
+</h1>
+ 
 
-      <p className="mt-4 md:mt-6 mb-6 md:mb-10 max-w-xl text-base md:text-lg text-slate-500 font-medium leading-relaxed">
+  {/* Small red dot touching C */}
+  <div className="absolute top-6 left-96 w-6 h-6 bg-red-500 rounded-full border-4 border-black opacity-70 animate-bounce"
+       style={{ animationDelay: '0.5s', animationDuration: '5s' }} />
+<div className="absolute top-10 left-60 w-20 h-20 rounded-full border-[6px] border-yellow-300 opacity-30 animate-bounce"
+       style={{ animationDuration: '6s' }} />
+
+  {/* Tiny star above CREATE */}
+  <div className="absolute -top-2 left-56 text-2xl opacity-50 text-yellow-300">★</div>
+
+
+      <p className="mt-4 md:mt-6 mb-6 md:mb-10 max-w-xl text-base md:text-lg text-white/90 font-medium leading-relaxed">
+
         Premium custom badges designed for creators, communities, and brands who wear their vibe.
       </p>
 
       <div className="flex flex-col sm:flex-row gap-4 md:gap-6">
         <button
           onClick={() => navigate("/categories")}
-          className="px-6 md:px-10 py-3 md:py-4 rounded-xl bg-[#0f172a] text-white font-bold tracking-widest uppercase shadow-lg text-sm md:text-base
-          hover:bg-indigo-600 hover:shadow-indigo-300/40 transition-all w-full sm:w-auto"
+    className="px-6 md:px-10 py-3 md:py-4 rounded-xl bg-yellow-400 text-black font-bold tracking-widest uppercase shadow-lg text-sm md:text-base hover:brightness-95 transition-all w-full sm:w-auto"
+
         >
           View Collection
         </button>
 
         <button
           onClick={() => navigate("/custom-order")}
-          className="px-6 md:px-10 py-3 md:py-4 rounded-xl border-2 border-[#0f172a] text-[#0f172a] font-bold tracking-widest uppercase text-sm md:text-base
-          hover:bg-[#0f172a] hover:text-white transition-all w-full sm:w-auto"
+         className="px-6 md:px-10 py-3 md:py-4 rounded-xl border-2 border-yellow-400 text-yellow-400 font-bold tracking-widest uppercase text-sm md:text-base
+hover:bg-yellow-400 hover:text-black transition-all w-full sm:w-auto"
+
         >
           Custom Order
         </button>

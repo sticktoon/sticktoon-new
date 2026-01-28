@@ -71,13 +71,15 @@ const Logo: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'md' }) => {
   const scale = size === 'sm' ? 0.7 : size === 'lg' ? 1.2 : 1;
   
   return (
-    <div className="perspective-container inline-block select-none" style={{ transform: `scale(${scale})` }}>
+    <div className="perspective-container w-full flex justify-center select-none"
+style={{ transform: `scale(${scale})` }}>
       <div className="relative">
-        <img 
-          src="/images/STICKTOON_LONG.jpeg" 
-          alt="STICKTOON" 
-          className="h-12 object-contain"
-        />
+       <img 
+  src="/images/STICKTOON_LONG.jpeg" 
+  alt="STICKTOON" 
+  className="h-10 sm:h-12 w-auto max-w-[140px] sm:max-w-none object-contain mx-auto"
+/>
+
         
         {/* Blinking Eyes Overlay - Adjusted to cover original eyes */}
         <div className="absolute top-[58%] left-[60.9%] -translate-y-1/2 flex gap-[0.5px]">
@@ -124,22 +126,37 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
   return (
 <nav
   className={`fixed top-0 left-0 right-0 z-50
-    bg-black border-b border-slate-800
+    bg-black
     shadow-[0_6px_20px_rgba(0,0,0,0.5)]
     transition-all duration-300
-    ${scrolled ? "py-2" : "py-3"}
+    h-[80px] ${scrolled ? "h-[52px]" : ""}
   `}
 >
 
 
 
-  <div className="px-6 lg:px-12 flex justify-between items-center">
+
+
+<div className="px-6 lg:px-12 h-full flex items-center justify-between">
+
+
+<div className="flex lg:hidden justify-start">
+  <button
+    onClick={() => setIsOpen(!isOpen)}
+    className="p-2 rounded-xl text-white hover:bg-slate-800 transition"
+  >
+    {isOpen ? <X size={26} /> : <Menu size={26} />}
+  </button>
+</div>
 
 
     {/* LOGO */}
-    <Link to="/">
-      <Logo />
-    </Link>
+    <div className="flex justify-center lg:justify-start">
+  <Link to="/">
+    <Logo />
+  </Link>
+</div>
+
 
     {/* NAV LINKS */}
     <div className="hidden lg:flex items-center space-x-16">
@@ -226,176 +243,153 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
 
 
     {/* RIGHT ICONS */}
-    <div className="flex items-center gap-6">
-      <Link
-        to="/checkout"
-        className="
-          relative
-          p-3
-            rounded-2xl
-            text-slate-300
-            transition-all
-            hover:bg-slate-800
-            hover:text-white
-        "
-      >
-        <ShoppingCart className="w-6 h-6" />
+   {/* RIGHT ICONS */}
+<div className="flex items-center gap-4 justify-end min-w-[90px] sm:min-w-0">
 
-        {cartCount > 0 && (
-          <span className="
-            absolute top-1 right-1
-            w-5 h-5
-            rounded-full
-            bg-indigo-600
-            text-white
-            text-[9px]
-            font-black
-            flex items-center justify-center
-            border-2 border-white
-            animate-bounce
-          ">
-            {cartCount}
-          </span>
-        )}
-      </Link>
+  {/* 🛒 CART — ALWAYS VISIBLE */}
+  <Link
+    to="/checkout"
+     className="relative p-2 sm:p-3 rounded-2xl text-slate-300 hover:bg-slate-800 hover:text-white transition"
+  >
+    <ShoppingCart className="w-6 h-6" />
 
-      {user ? (
-        <div className="relative group">
-          {/* AVATAR */}
-          {user.avatar ? (
-            <img
-              src={user.avatar}
-              alt={user.name || user.email}
-              className="
-                w-10 h-10
-                rounded-full
-                object-cover
-                cursor-pointer
-                transition-all
-                border-2 border-transparent
-                group-hover:border-indigo-500
-                group-hover:shadow-[0_6px_14px_rgba(99,102,241,0.35)]
-              "
-            />
-          ) : (
-            <div
-              className="
-                w-10 h-10
-                rounded-full
-                bg-indigo-600
-                text-white
-                flex items-center justify-center
-                font-black uppercase
-                cursor-pointer
-                transition-all
-                group-hover:bg-indigo-700
-                group-hover:shadow-[0_6px_14px_rgba(99,102,241,0.35)]
-              "
-            >
-              {(user.email?.charAt(0) || "U").toUpperCase()}
-            </div>
-          )}
+    {cartCount > 0 && (
+    <span className="
+  absolute 
+  -top-1 -right-1
+  sm:top-1 sm:right-1
+  w-5 h-5 rounded-full
+  bg-indigo-600 text-white text-[9px] font-black
+  flex items-center justify-center
+  border-2 border-white
+">
 
-          {/* DROPDOWN */}
-          <div
-            className="
-              absolute right-0 mt-3 w-48
-              bg-white rounded-xl
-              shadow-lg border border-slate-100
-              opacity-0 scale-95
-              group-hover:opacity-100 group-hover:scale-100
-              transition-all origin-top-right z-50
-            "
-          >
-            <div className="px-4 py-3 border-b">
-              <p className="font-bold">{user.name || "User"}</p>
-              <p className="text-xs text-slate-500">{user.email}</p>
-            </div>
-
-            <Link
-              to="/profile"
-              className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
-            >
-              My Profile
-            </Link>
-
-            {user.role === "admin" && (
-              <Link
-                to="/admin"
-                className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
-              >
-                Admin Panel
-              </Link>
-            )}
-
-            <button
-              onClick={handleLogout}
-              className="w-full text-left px-4 py-3 text-red-600 hover:bg-red-50"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
+        {cartCount}
+      </span>
+    )}
+  </Link>
+<div className="hidden lg:block">
+  {/* 👤 USER */}
+  {user ? (
+    <div className="relative group">
+      {user.avatar ? (
+        <img
+          src={user.avatar}
+          alt={user.name || user.email}
+          className="w-10 h-10 rounded-full object-cover cursor-pointer border-2 border-transparent group-hover:border-indigo-500"
+        />
       ) : (
-        <Link
-          to="/login"
-          className="
-            p-3
-            rounded-2xl
-            text-slate-300
-            transition-all
-            hover:bg-slate-800
-            hover:text-white
-          "
-        >
-          <UserIcon className="w-6 h-6" />
-        </Link>
+        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black uppercase cursor-pointer group-hover:bg-indigo-700">
+          {(user.email?.charAt(0) || "U").toUpperCase()}
+        </div>
       )}
+
+      {/* DROPDOWN */}
+      <div className="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-lg border border-slate-100 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all origin-top-right z-50">
+        <div className="px-4 py-3 border-b">
+          <p className="font-bold">{user.name || "User"}</p>
+          <p className="text-xs text-slate-500">{user.email}</p>
+        </div>
+
+        <Link to="/profile" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50">
+          My Profile
+        </Link>
+
+        {user.role === "admin" && (
+          <Link to="/admin" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50">
+            Admin Panel
+          </Link>
+        )}
+
+        <button
+          onClick={handleLogout}
+          className="w-full text-left px-4 py-3 text-red-600 hover:bg-red-50"
+        >
+          Logout
+        </button>
+      </div>
     </div>
+  ) : (
+    <Link
+      to="/login"
+      className="p-3 rounded-2xl text-slate-300 hover:bg-slate-800 hover:text-white transition"
+    >
+      <UserIcon className="w-6 h-6" />
+    </Link>
+  )}
+  </div>
+</div>
+
   </div>
 
   {/* MOBILE MENU DROPDOWN */}
-  <div className={`
-    fixed inset-x-0 top-[60px] 
-    bg-black border-b border-slate-800 shadow-2xl
-    transition-all duration-300 ease-in-out
-    lg:hidden
-    ${isOpen ? "opacity-100 translate-y-0 visible" : "opacity-0 -translate-y-4 invisible pointer-events-none"}
-  `}>
-    <div className="flex flex-col p-6 space-y-4">
-      {navLinks.map((link) => (
-        <div key={link.name}>
-          <Link
-            to={link.path}
-            onClick={() => setIsOpen(false)}
-            className={`
-              block text-lg font-extrabold tracking-[0.15em] uppercase
-              ${location.pathname === link.path ? "text-yellow-400" : "text-white hover:text-yellow-400"}
-            `}
-          >
-            {link.name}
-          </Link>
-          
-          {/* Mobile Submenu for Categories */}
-          {link.name === "CATEGORIES" && (
-             <div className="pl-4 mt-2 border-l-2 border-slate-800 space-y-2">
-               {CATEGORIES.map(cat => (
-                 <Link 
-                   key={cat.id}
-                   to={`/categories?cat=${cat.id}`}
-                   onClick={() => setIsOpen(false)}
-                   className="block text-sm font-medium text-slate-400 hover:text-yellow-400 uppercase tracking-widest"
-                 >
-                   {cat.name}
-                 </Link>
-               ))}
-             </div>
-          )}
+   <div
+        className={`fixed inset-x-0 top-[72px] bg-black border-b border-slate-800 transition-all duration-300 lg:hidden ${
+          isOpen
+            ? "opacity-100 translate-y-0 visible"
+            : "opacity-0 -translate-y-4 invisible pointer-events-none"
+        }`}
+      >
+        <div className="flex flex-col p-6 space-y-4">
+
+          {/* 👤 PROFILE SECTION (MOBILE) */}
+          <div className="border-b border-slate-800 pb-4 mb-4">
+            {user ? (
+              <>
+                <Link
+                  to="/profile"
+                  onClick={() => setIsOpen(false)}
+                  className="block text-lg font-bold text-white"
+                >
+                  My Profile
+                </Link>
+
+                {user.role === "admin" && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setIsOpen(false)}
+                    className="block mt-3 text-lg font-bold text-white"
+                  >
+                    Admin Panel
+                  </Link>
+                )}
+
+                <button
+                  onClick={handleLogout}
+                  className="block mt-3 text-lg font-bold text-red-500"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/login"
+                onClick={() => setIsOpen(false)}
+                className="block text-lg font-bold text-white"
+              >
+                Login
+              </Link>
+            )}
+          </div>
+
+          {/* NAV LINKS */}
+          {navLinks.map((link) => (
+            <Link
+              key={link.name}
+              to={link.path}
+              onClick={() => setIsOpen(false)}
+              className={`block text-lg font-extrabold uppercase ${
+                location.pathname === link.path
+                  ? "text-yellow-400"
+                  : "text-white"
+              }`}
+            >
+              {link.name}
+            </Link>
+          ))}
         </div>
-      ))}
-    </div>
-  </div>
-</nav>
+      </div>
+    </nav>
 
   );
 };
