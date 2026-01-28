@@ -3,6 +3,9 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
 import { Eye, EyeOff, LogOut, Users, AlertCircle, Check, X, Upload, Plus, Edit2, Trash2, TrendingUp, DollarSign, CheckCircle, XCircle, Info } from "lucide-react";
 
+// Super Admin Email - Only this email can edit/remove other admins
+const SUPER_ADMIN_EMAIL = import.meta.env.VITE_SUPER_ADMIN_EMAIL || "";
+
 // Add CSS for animations
 const style = document.createElement('style');
 style.textContent = `
@@ -156,6 +159,9 @@ const Admin: React.FC = () => {
   // Toast notification state
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [toastIdCounter, setToastIdCounter] = useState(0);
+
+  // Check if current user is super admin
+  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
 
   /* ===========================
      EFFECTS
@@ -407,6 +413,13 @@ const Admin: React.FC = () => {
     const token = localStorage.getItem("adminToken");
     if (!token) return;
 
+    // Check if trying to delete admin without super admin privileges
+    const targetUser = allUsers.find(u => u._id === userId);
+    if (targetUser?.role === 'admin' && user?.email !== SUPER_ADMIN_EMAIL) {
+      showToast("error", "🔒 Only super admin can delete other admins");
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
         method: "DELETE",
@@ -425,6 +438,13 @@ const Admin: React.FC = () => {
   const handleUpdateUser = async (userId: string, updates: { name?: string; email?: string }) => {
     const token = localStorage.getItem("adminToken");
     if (!token) return;
+
+    // Check if trying to update admin without super admin privileges
+    const targetUser = allUsers.find(u => u._id === userId);
+    if (targetUser?.role === 'admin' && user?.email !== SUPER_ADMIN_EMAIL) {
+      showToast("error", "🔒 Only super admin can update other admins");
+      return;
+    }
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
@@ -450,6 +470,13 @@ const Admin: React.FC = () => {
     const token = localStorage.getItem("adminToken");
     if (!token) return;
 
+    // Check if trying to reset admin password without super admin privileges
+    const targetUser = allUsers.find(u => u._id === userId);
+    if (targetUser?.role === 'admin' && user?.email !== SUPER_ADMIN_EMAIL) {
+      showToast("error", "🔒 Only super admin can reset admin passwords");
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/reset-password`, {
         method: "PATCH",
@@ -473,6 +500,13 @@ const Admin: React.FC = () => {
   const handleUpdateRole = async (userId: string, role: string) => {
     const token = localStorage.getItem("adminToken");
     if (!token) return;
+
+    // Check if trying to modify admin without super admin privileges
+    const targetUser = allUsers.find(u => u._id === userId);
+    if (targetUser?.role === 'admin' && user?.email !== SUPER_ADMIN_EMAIL) {
+      showToast("error", "🔒 Only super admin can modify other admins");
+      return;
+    }
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/role`, {
@@ -1177,11 +1211,12 @@ const Admin: React.FC = () => {
                             value={user.role}
                             onChange={(e) => handleUpdateRole(user._id, e.target.value)}
                             className={`px-2 py-1.5 rounded text-xs font-semibold border transition-colors ${
-                              user.role === 'admin' ? 'bg-purple-500/20 border-purple-500/30 text-purple-300 cursor-not-allowed' :
+                              (user.role === 'admin' && !isSuperAdmin) ? 'bg-purple-500/20 border-purple-500/30 text-purple-300 cursor-not-allowed' :
+                              user.role === 'admin' ? 'bg-purple-500/20 border-purple-500/30 text-purple-300 hover:bg-purple-500/30' :
                               user.role === 'influencer' ? 'bg-amber-500/20 border-amber-500/30 text-amber-300 hover:bg-amber-500/30' :
                               'bg-blue-500/20 border-blue-500/30 text-blue-300 hover:bg-blue-500/30'
                             }`}
-                            disabled={user.role === 'admin'}
+                            disabled={user.role === 'admin' && !isSuperAdmin}
                           >
                             <option value="user">User</option>
                             <option value="influencer">Influencer</option>
@@ -1192,28 +1227,33 @@ const Admin: React.FC = () => {
                         <td className="px-4 py-3 text-gray-400 text-sm">{new Date(user.createdAt).toLocaleDateString()}</td>
                         <td className="px-4 py-3">
                           <div className="flex justify-center gap-2">
-                            <button
-                              onClick={() => setEditingUser(user)}
-                              className="p-1.5 hover:bg-blue-500/20 rounded-lg text-blue-400 hover:text-blue-300 transition-colors"
-                              title="Edit user"
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              onClick={() => setResettingPassword(user)}
-                              className="p-1.5 hover:bg-yellow-500/20 rounded-lg text-yellow-400 hover:text-yellow-300 transition-colors"
-                              title="Reset password"
-                            >
-                              🔑
-                            </button>
-                            {user.role !== 'admin' && (
-                              <button
-                                onClick={() => setConfirmingDelete(user)}
-                                className="p-1.5 hover:bg-red-500/20 rounded-lg text-red-400 hover:text-red-300 transition-colors"
-                                title="Delete user"
-                              >
-                                🗑️
-                              </button>
+                            {(user.role !== 'admin' || isSuperAdmin) && (
+                              <>
+                                <button
+                                  onClick={() => setEditingUser(user)}
+                                  className="p-1.5 hover:bg-blue-500/20 rounded-lg text-blue-400 hover:text-blue-300 transition-colors"
+                                  title="Edit user"
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={() => setResettingPassword(user)}
+                                  className="p-1.5 hover:bg-yellow-500/20 rounded-lg text-yellow-400 hover:text-yellow-300 transition-colors"
+                                  title="Reset password"
+                                >
+                                  🔑
+                                </button>
+                                <button
+                                  onClick={() => setConfirmingDelete(user)}
+                                  className="p-1.5 hover:bg-red-500/20 rounded-lg text-red-400 hover:text-red-300 transition-colors"
+                                  title="Delete user"
+                                >
+                                  🗑️
+                                </button>
+                              </>
+                            )}
+                            {(user.role === 'admin' && !isSuperAdmin) && (
+                              <span className="text-xs text-gray-500 italic px-2">🔒 Protected</span>
                             )}
                           </div>
                         </td>
