@@ -356,15 +356,15 @@ router.get("/earnings", auth, influencerOnly, async (req, res) => {
     ]);
     const withdrawnAmount = paidEarnings[0]?.withdrawnAmount || 0;
 
-    // Calculate availableToWithdraw: sum of all paid earnings - sum of all withdrawals (pending/approved)
+    // Calculate availableToWithdraw: sum of all paid earnings - sum of all withdrawals (pending/approved/paid)
     const paidEarningsSum = await InfluencerEarning.aggregate([
       { $match: { influencerId: user._id, status: "paid" } },
       { $group: { _id: null, total: { $sum: "$totalEarning" } } }
     ]);
     const totalPaidEarnings = paidEarningsSum[0]?.total || 0;
 
-    // Sum of all withdrawal requests (pending/approved)
-    const withdrawals = await WithdrawalRequest.find({ influencerId: user._id, status: { $in: ["pending", "approved"] } });
+    // Sum of all withdrawal requests (pending/approved/paid) - all active withdrawals
+    const withdrawals = await WithdrawalRequest.find({ influencerId: user._id, status: { $in: ["pending", "approved", "paid"] } });
     const totalWithdrawRequested = withdrawals.reduce((sum, w) => sum + (w.amount || 0), 0);
 
     const availableToWithdraw = totalPaidEarnings - totalWithdrawRequested;
