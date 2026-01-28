@@ -1,7 +1,7 @@
 import React, { useState, useEffect, JSX } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
-import { Eye, EyeOff, LogOut, Users, AlertCircle, Check, X, Upload, Plus, Edit2, Trash2, TrendingUp, DollarSign } from "lucide-react";
+import { Eye, EyeOff, LogOut, Users, AlertCircle, Check, X, Upload, Plus, Edit2, Trash2, TrendingUp, DollarSign, CheckCircle, XCircle, Info } from "lucide-react";
 
 // Add CSS for animations
 const style = document.createElement('style');
@@ -17,8 +17,38 @@ style.textContent = `
     }
   }
   
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes slideOutRight {
+    from {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+  }
+  
   .animate-fadeIn {
     animation: fadeIn 0.3s ease-out;
+  }
+  
+  .animate-slideInRight {
+    animation: slideInRight 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+  
+  .animate-slideOutRight {
+    animation: slideOutRight 0.3s ease-in;
   }
 `;
 document.head.appendChild(style);
@@ -62,6 +92,13 @@ interface Product {
   image: string;
   stock: number;
   createdAt: string;
+}
+
+interface Toast {
+  id: number;
+  type: "success" | "error" | "info" | "warning";
+  message: string;
+  isExiting?: boolean;
 }
 
 /* ===========================
@@ -116,6 +153,10 @@ const Admin: React.FC = () => {
     stock: 0,
   });
 
+  // Toast notification state
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [toastIdCounter, setToastIdCounter] = useState(0);
+
   /* ===========================
      EFFECTS
   =========================== */
@@ -142,6 +183,34 @@ const Admin: React.FC = () => {
     }
   }, [location.search, isAuthenticated]);
 
+  // Toast notification functions
+  const showToast = (type: "success" | "error" | "info" | "warning", message: string) => {
+    const id = toastIdCounter;
+    setToastIdCounter(id + 1);
+    
+    const newToast: Toast = { id, type, message };
+    setToasts((prev) => [...prev, newToast]);
+
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+      setToasts((prev) => 
+        prev.map((t) => (t.id === id ? { ...t, isExiting: true } : t))
+      );
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 300);
+    }, 5000);
+  };
+
+  const removeToast = (id: number) => {
+    setToasts((prev) => 
+      prev.map((t) => (t.id === id ? { ...t, isExiting: true } : t))
+    );
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 300);
+  };
+
   const checkAuth = () => {
     const token = localStorage.getItem("adminToken");
     const storedUser = localStorage.getItem("adminUser");
@@ -155,6 +224,10 @@ const Admin: React.FC = () => {
     } else {
       setIsAuthenticated(false);
       setCurrentView("login");
+      // Show authentication required toast
+      setTimeout(() => {
+        showToast("info", "🔐 Please login to access admin panel");
+      }, 100);
     }
   };
 
@@ -388,9 +461,9 @@ const Admin: React.FC = () => {
       });
 
       if (res.ok) {
+        showToast("success", "✅ Password reset successfully!");
         setResettingPassword(null);
         setNewPassword("");
-        alert("Password reset successfully!");
       }
     } catch (err) {
       console.error("Error resetting password:", err);
@@ -444,15 +517,15 @@ const Admin: React.FC = () => {
         setProducts([...products, data]);
         setProductForm({ name: "", description: "", price: 0, category: "Moody", image: "", stock: 0 });
         setShowProductForm(false);
-        alert("✅ Product added successfully!");
+        showToast("success", "✅ Product added successfully!");
       } else {
         const errorData = await res.json();
         console.error("Add failed:", errorData);
-        alert(`❌ Error: ${errorData.error || "Failed to add product"}`);
+        showToast("error", `❌ ${errorData.error || "Failed to add product"}`);
       }
     } catch (err) {
       console.error("Error adding product:", err);
-      alert("❌ Error adding product. Check console for details.");
+      showToast("error", "❌ Error adding product. Please try again.");
     }
   };
 
@@ -481,15 +554,15 @@ const Admin: React.FC = () => {
         
         setEditingProduct(null);
         setProductForm({ name: "", description: "", price: 0, category: "Moody", image: "", stock: 0 });
-        alert("✅ Product updated successfully! Refresh karne ki zarurat nahi hai.");
+        showToast("success", "✅ Product updated successfully!");
       } else {
         const errorData = await res.json();
         console.error("Update failed:", errorData);
-        alert(`❌ Error: ${errorData.error || "Failed to update product"}`);
+        showToast("error", `❌ ${errorData.error || "Failed to update product"}`);
       }
     } catch (err) {
       console.error("Error updating product:", err);
-      alert("❌ Error updating product. Check console for details.");
+      showToast("error", "❌ Error updating product. Please try again.");
     }
   };
 
@@ -507,15 +580,15 @@ const Admin: React.FC = () => {
         console.log("Product deleted:", productId);
         setProducts(products.filter((p) => p._id !== productId));
         setConfirmingDeleteProduct(null);
-        alert("✅ Product deleted successfully!");
+        showToast("success", "✅ Product deleted successfully!");
       } else {
         const errorData = await res.json();
         console.error("Delete failed:", errorData);
-        alert(`❌ Error: ${errorData.error || "Failed to delete product"}`);
+        showToast("error", `❌ ${errorData.error || "Failed to delete product"}`);
       }
     } catch (err) {
       console.error("Error deleting product:", err);
-      alert("❌ Error deleting product. Check console for details.");
+      showToast("error", "❌ Error deleting product. Please try again.");
     }
   };
 
@@ -1583,6 +1656,52 @@ const Admin: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Toast Notifications Container */}
+      <div className="fixed top-6 right-6 z-[9999] space-y-3 max-w-md">
+        {toasts.map((toast) => {
+          const icons = {
+            success: <CheckCircle className="w-6 h-6 text-green-400" />,
+            error: <XCircle className="w-6 h-6 text-red-400" />,
+            info: <Info className="w-6 h-6 text-blue-400" />,
+            warning: <AlertCircle className="w-6 h-6 text-yellow-400" />,
+          };
+
+          const colors = {
+            success: "from-green-500/20 via-emerald-500/10 to-transparent border-green-400/50 shadow-[0_8px_32px_rgba(34,197,94,0.3)]",
+            error: "from-red-500/20 via-pink-500/10 to-transparent border-red-400/50 shadow-[0_8px_32px_rgba(239,68,68,0.3)]",
+            info: "from-blue-500/20 via-indigo-500/10 to-transparent border-blue-400/50 shadow-[0_8px_32px_rgba(59,130,246,0.3)]",
+            warning: "from-yellow-500/20 via-orange-500/10 to-transparent border-yellow-400/50 shadow-[0_8px_32px_rgba(234,179,8,0.3)]",
+          };
+
+          return (
+            <div
+              key={toast.id}
+              className={`
+                relative bg-gradient-to-br ${colors[toast.type]} 
+                backdrop-blur-xl border-2 rounded-2xl p-4 pr-12
+                ${toast.isExiting ? "animate-slideOutRight" : "animate-slideInRight"}
+                hover:scale-105 transition-transform duration-200
+              `}
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  {icons[toast.type]}
+                </div>
+                <p className="text-white font-semibold text-sm leading-relaxed flex-1">
+                  {toast.message}
+                </p>
+              </div>
+              <button
+                onClick={() => removeToast(toast.id)}
+                className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center transition-all group"
+              >
+                <X className="w-4 h-4 text-white/70 group-hover:text-white transition-colors" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

@@ -1,8 +1,16 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { XCircle, AlertCircle } from "lucide-react";
 import AdminBackButton from "./AdminBackButton";
 import { API_BASE_URL } from "../config/api";
 const DELIVERY_CHARGES = 99;
+
+interface Toast {
+  id: number;
+  type: "error" | "warning";
+  message: string;
+  isExiting?: boolean;
+}
 
 export default function AdminOrders() {
   const token = localStorage.getItem("token");
@@ -11,6 +19,31 @@ export default function AdminOrders() {
   const [activeOrder, setActiveOrder] = useState<any>(null);
   const [invoice, setInvoice] = useState<any>(null);
   const navigate = useNavigate();
+
+  // Toast state
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [toastIdCounter, setToastIdCounter] = useState(0);
+
+  const showToast = (type: "error" | "warning", message: string) => {
+    const id = toastIdCounter;
+    setToastIdCounter(id + 1);
+    const newToast: Toast = { id, type, message };
+    setToasts((prev) => [...prev, newToast]);
+
+    setTimeout(() => {
+      setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, isExiting: true } : t)));
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 300);
+    }, 4000);
+  };
+
+  const removeToast = (id: number) => {
+    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, isExiting: true } : t)));
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 300);
+  };
 
 
   useEffect(() => {
@@ -116,7 +149,7 @@ export default function AdminOrders() {
                   : activeOrder.invoiceId?._id;
 
               if (!invoiceId) {
-                alert("Invoice not available yet");
+                showToast("warning", "⚠️ Invoice not available yet. Please try again later.");
                 return;
               }
 
@@ -187,6 +220,42 @@ navigate(`/admin/invoice/${invoiceId}`);
           </div>
         </Modal>
       )}
+      
+      {/* Toast Notifications */}
+      <div className="fixed top-6 right-6 z-[9999] space-y-3 max-w-md">
+        {toasts.map((toast) => {
+          const Icon = toast.type === "error" ? XCircle : AlertCircle;
+          const colors = {
+            error: "from-red-500/20 via-pink-500/10 to-transparent border-red-400/50 shadow-[0_8px_32px_rgba(239,68,68,0.3)]",
+            warning: "from-yellow-500/20 via-orange-500/10 to-transparent border-yellow-400/50 shadow-[0_8px_32px_rgba(234,179,8,0.3)]",
+          };
+
+          return (
+            <div
+              key={toast.id}
+              className={`
+                relative bg-gradient-to-br ${colors[toast.type]} 
+                backdrop-blur-xl border-2 rounded-2xl p-4 pr-12
+                ${toast.isExiting ? 'opacity-0 translate-x-full' : 'opacity-100 translate-x-0'}
+                transition-all duration-300 hover:scale-105
+              `}
+            >
+              <div className="flex items-start gap-3">
+                <Icon className={`w-6 h-6 flex-shrink-0 mt-0.5 ${toast.type === 'error' ? 'text-red-400' : 'text-yellow-400'}`} />
+                <p className="text-white font-semibold text-sm leading-relaxed flex-1">
+                  {toast.message}
+                </p>
+              </div>
+              <button
+                onClick={() => removeToast(toast.id)}
+                className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center transition-all group"
+              >
+                <span className="text-white/70 group-hover:text-white text-lg leading-none">✕</span>
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

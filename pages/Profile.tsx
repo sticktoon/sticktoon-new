@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Camera, X, Save, LogOut, Mail, Calendar, ShoppingBag } from "lucide-react";
+import { User, Camera, X, Save, LogOut, Mail, Calendar, ShoppingBag, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { API_BASE_URL } from "../config/api";
 
 interface UserProfile {
@@ -10,6 +10,13 @@ interface UserProfile {
   avatar?: string;
   role: string;
   createdAt: string;
+}
+
+interface Toast {
+  id: number;
+  type: "success" | "error" | "warning";
+  message: string;
+  isExiting?: boolean;
 }
 
 const Profile: React.FC = () => {
@@ -25,6 +32,31 @@ const Profile: React.FC = () => {
   const [editName, setEditName] = useState("");
   const [editAvatar, setEditAvatar] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Toast state
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [toastIdCounter, setToastIdCounter] = useState(0);
+
+  const showToast = (type: "success" | "error" | "warning", message: string) => {
+    const id = toastIdCounter;
+    setToastIdCounter(id + 1);
+    const newToast: Toast = { id, type, message };
+    setToasts((prev) => [...prev, newToast]);
+
+    setTimeout(() => {
+      setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, isExiting: true } : t)));
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 300);
+    }, 4000);
+  };
+
+  const removeToast = (id: number) => {
+    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, isExiting: true } : t)));
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 300);
+  };
 
   useEffect(() => {
     fetchProfile();
@@ -78,7 +110,7 @@ const Profile: React.FC = () => {
 
     // Check file size (max 2MB)
     if (file.size > 2 * 1024 * 1024) {
-      alert("Image size must be less than 2MB");
+      showToast("warning", "⚠️ Image size must be less than 2MB");
       return;
     }
 
@@ -128,11 +160,14 @@ const Profile: React.FC = () => {
       }
       
       setShowEditModal(false);
+      showToast("success", "✅ Profile updated successfully!");
       
       // Reload page to update navbar
-      window.location.reload();
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (err) {
-      alert("Failed to update profile");
+      showToast("error", "❌ Failed to update profile. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -335,6 +370,51 @@ const Profile: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Toast Notifications */}
+      <div className="fixed top-6 right-6 z-[9999] space-y-3 max-w-md">
+        {toasts.map((toast) => {
+          const icons = {
+            success: <CheckCircle className="w-6 h-6 text-green-400" />,
+            error: <XCircle className="w-6 h-6 text-red-400" />,
+            warning: <AlertCircle className="w-6 h-6 text-yellow-400" />,
+          };
+
+          const colors = {
+            success: "from-green-500/20 via-emerald-500/10 to-transparent border-green-400/50 shadow-[0_8px_32px_rgba(34,197,94,0.3)]",
+            error: "from-red-500/20 via-pink-500/10 to-transparent border-red-400/50 shadow-[0_8px_32px_rgba(239,68,68,0.3)]",
+            warning: "from-yellow-500/20 via-orange-500/10 to-transparent border-yellow-400/50 shadow-[0_8px_32px_rgba(234,179,8,0.3)]",
+          };
+
+          return (
+            <div
+              key={toast.id}
+              className={`
+                relative bg-gradient-to-br ${colors[toast.type]} 
+                backdrop-blur-xl border-2 rounded-2xl p-4 pr-12
+                ${toast.isExiting ? 'opacity-0 translate-x-full' : 'opacity-100 translate-x-0'}
+                transition-all duration-300
+                hover:scale-105
+              `}
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  {icons[toast.type]}
+                </div>
+                <p className="text-white font-semibold text-sm leading-relaxed flex-1">
+                  {toast.message}
+                </p>
+              </div>
+              <button
+                onClick={() => removeToast(toast.id)}
+                className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center transition-all group"
+              >
+                <X className="w-4 h-4 text-white/70 group-hover:text-white transition-colors" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
