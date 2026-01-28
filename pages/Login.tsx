@@ -490,16 +490,18 @@ export default function Login() {
           )}
         </div>
 
-        {/* Influencer Portal Link */}
+        {/* Portal Links */}
         {!forgotMode && (
-          <div className="mt-6 text-center">
-            <div className="inline-flex items-center gap-2 px-5 py-3 bg-yellow-400 text-black rounded-full border-3 border-black shadow-[4px_4px_0px_#FFD600] hover:shadow-[2px_2px_0px_#FFD600] hover:translate-x-[2px] hover:translate-y-[2px] transition-all">
-              <span className="text-lg">🎯</span>
-              <span className="text-sm font-bold">Are you an influencer?</span>
-              <Link to="/influencer/login" className="font-black underline">
-  Join here →
-</Link>
-
+          <div className="mt-6 space-y-3">
+            <div className="flex gap-3">
+              <Link to="/influencer/login" className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 bg-yellow-400 text-black rounded-full border-3 border-black shadow-[4px_4px_0px_#FFD600] hover:shadow-[2px_2px_0px_#FFD600] hover:translate-x-[2px] hover:translate-y-[2px] transition-all">
+                <span className="text-lg">🎯</span>
+                <span className="text-sm font-bold">Influencer</span>
+              </Link>
+              <Link to="/admin/login" className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-full border-3 border-black shadow-[4px_4px_0px_#4F46E5] hover:shadow-[2px_2px_0px_#4F46E5] hover:translate-x-[2px] hover:translate-y-[2px] transition-all">
+                <span className="text-lg">🛡️</span>
+                <span className="text-sm font-bold">Admin</span>
+              </Link>
             </div>
           </div>
         )}

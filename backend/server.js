@@ -45,6 +45,7 @@ app.use("/api/promo", require("./routes/promo"));
 app.use("/api/admin/promo", require("./routes/adminPromo"));
 app.use("/api/admin/influencer", require("./routes/adminInfluencer"));
 app.use("/api/admin/influencer-manage", require("./routes/adminInfluencerManage"));
+app.use("/api/products", require("./routes/adminProducts"));
 app.use("/api/influencer", require("./routes/influencer"));
 app.use("/api/cart", require("./routes/cart"));
 

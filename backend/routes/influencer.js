@@ -17,6 +17,24 @@ const influencerOnly = (req, res, next) => {
   next();
 };
 
+/* Approved influencer only middleware */
+const approvedInfluencerOnly = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== "influencer") {
+      return res.status(403).json({ message: "Influencer access only" });
+    }
+    if (!user.influencerProfile?.isApproved) {
+      return res.status(403).json({ 
+        message: "Your account is pending admin approval. You'll be able to access the dashboard once approved." 
+      });
+    }
+    next();
+  } catch (err) {
+    res.status(500).json({ message: "Error verifying access" });
+  }
+};
+
 /* =========================
    INFLUENCER SIGNUP
 ========================= */
@@ -41,7 +59,7 @@ router.post("/signup", async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create influencer user
+    // Create influencer user with isApproved: false (requires admin approval)
     const user = await User.create({
       name,
       email: email.toLowerCase(),
@@ -49,7 +67,7 @@ router.post("/signup", async (req, res) => {
       role: "influencer",
       provider: "credentials",
       influencerProfile: {
-        isApproved: true, // Auto-approved - no admin approval needed
+        isApproved: false, // ✅ REQUIRES ADMIN APPROVAL
         phone,
         instagram,
         youtube,
@@ -61,16 +79,35 @@ router.post("/signup", async (req, res) => {
       },
     });
 
-    // Generate token so user can login immediately
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    // Send approval request email to admin
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.FROM_EMAIL || "sticktoon.xyz@gmail.com";
+    try {
+      await sendEmail({
+        to: adminEmail,
+        subject: `New Influencer Request: ${name}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #7c3aed;">New Influencer Application</h2>
+            <p><strong>Name:</strong> ${name}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Phone:</strong> ${phone || "N/A"}</p>
+            <p><strong>Instagram:</strong> @${instagram || "N/A"}</p>
+            <p><strong>YouTube:</strong> ${youtube || "N/A"}</p>
+            <p><strong>Bio:</strong> ${bio || "N/A"}</p>
+            <p style="margin-top: 20px;">Please review this application in the admin panel and approve or reject.</p>
+            <a href="${process.env.FRONTEND_URL || "http://localhost:3000"}/admin/login" 
+               style="display: inline-block; background: #7c3aed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin-top: 20px;">
+              Review in Admin Panel
+            </a>
+          </div>
+        `,
+      });
+    } catch (emailErr) {
+      console.error("Signup email error:", emailErr);
+    }
 
     res.status(201).json({
-      message: "Influencer account created successfully!",
-      token,
+      message: "Signup successful! Your request has been sent to admin for approval. You'll receive an email once approved.",
       user: {
         id: user._id,
         name: user.name,
@@ -138,7 +175,7 @@ router.post("/login", async (req, res) => {
 /* =========================
    GET INFLUENCER PROFILE
 ========================= */
-router.get("/profile", auth, influencerOnly, async (req, res) => {
+router.get("/profile", auth, approvedInfluencerOnly, async (req, res) => {
   try {
     const user = await User.findById(req.user.id)
       .populate("influencerProfile.promoCodeId");
@@ -164,7 +201,7 @@ router.get("/profile", auth, influencerOnly, async (req, res) => {
 /* =========================
    UPDATE PAYMENT DETAILS
 ========================= */
-router.put("/payment-details", auth, influencerOnly, async (req, res) => {
+router.put("/payment-details", auth, approvedInfluencerOnly, async (req, res) => {
   try {
     const { upiId, bankDetails, phone } = req.body;
 
@@ -191,7 +228,7 @@ router.put("/payment-details", auth, influencerOnly, async (req, res) => {
 /* =========================
    CREATE PROMO CODE
 ========================= */
-router.post("/create-promo", auth, influencerOnly, async (req, res) => {
+router.post("/create-promo", auth, approvedInfluencerOnly, async (req, res) => {
   try {
     const { code, discountType, discountValue, description } = req.body;
 
@@ -257,7 +294,7 @@ router.post("/create-promo", auth, influencerOnly, async (req, res) => {
 /* =========================
    GET MY PROMO CODES (all promo codes by this influencer)
 ========================= */
-router.get("/my-promo", auth, influencerOnly, async (req, res) => {
+router.get("/my-promo", auth, approvedInfluencerOnly, async (req, res) => {
   try {
     // Get all promo codes created by this influencer
     const promos = await PromoCode.find({ createdBy: req.user.id }).sort({ createdAt: -1 });
@@ -278,7 +315,7 @@ router.get("/my-promo", auth, influencerOnly, async (req, res) => {
 /* =========================
    DELETE PROMO CODE
 ========================= */
-router.delete("/delete-promo/:promoId", auth, influencerOnly, async (req, res) => {
+router.delete("/delete-promo/:promoId", auth, approvedInfluencerOnly, async (req, res) => {
   try {
     const { promoId } = req.params;
     
@@ -317,7 +354,7 @@ router.delete("/delete-promo/:promoId", auth, influencerOnly, async (req, res) =
 /* =========================
    GET EARNINGS DASHBOARD
 ========================= */
-router.get("/earnings", auth, influencerOnly, async (req, res) => {
+router.get("/earnings", auth, approvedInfluencerOnly, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
 
@@ -390,7 +427,7 @@ router.get("/earnings", auth, influencerOnly, async (req, res) => {
 /* =========================
    REQUEST WITHDRAWAL
 ========================= */
-router.post("/withdraw", auth, influencerOnly, async (req, res) => {
+router.post("/withdraw", auth, approvedInfluencerOnly, async (req, res) => {
   try {
     const { amount, paymentMethod, paymentDetails } = req.body;
 
@@ -482,7 +519,7 @@ router.post("/withdraw", auth, influencerOnly, async (req, res) => {
 /* =========================
    GET WITHDRAWAL HISTORY
 ========================= */
-router.get("/withdrawals", auth, influencerOnly, async (req, res) => {
+router.get("/withdrawals", auth, approvedInfluencerOnly, async (req, res) => {
   try {
     const withdrawals = await WithdrawalRequest.find({ influencerId: req.user.id })
       .sort({ createdAt: -1 });

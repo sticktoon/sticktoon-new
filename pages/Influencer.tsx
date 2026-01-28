@@ -285,15 +285,22 @@ const Influencer: React.FC = () => {
         throw new Error(data.message || "Signup failed");
       }
 
-      localStorage.setItem("influencerToken", data.token);
-      localStorage.setItem("influencerUser", JSON.stringify(data.user));
+      // Show success message - approval is pending
+      setSuccess("✅ Signup successful! Your request has been sent to the admin. You'll receive an email once approved.");
+      setSignupForm({
+        name: "",
+        email: "",
+        password: "",
+        phone: "",
+        instagram: "",
+        youtube: "",
+        bio: "",
+      });
       
-      setIsAuthenticated(true);
-      setUser(data.user);
-      setCurrentView("dashboard");
-      navigate("/influencer/dashboard");
-      
-      await fetchAllData(data.token);
+      // After 3 seconds, redirect to login
+      setTimeout(() => {
+        setCurrentView("login");
+      }, 3000);
     } catch (err: any) {
       setError(err.message || "Signup failed. Please try again.");
     } finally {
