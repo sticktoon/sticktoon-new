@@ -34,6 +34,16 @@ const adminOnly = (req, res, next) => {
 };
 
 /* ======================
+   SUPER ADMIN ONLY
+====================== */
+const superAdminOnly = (req, res, next) => {
+  if (req.user.role !== "admin" || req.user.email !== process.env.ADMIN_EMAIL) {
+    return res.status(403).json({ message: "Super admin only" });
+  }
+  next();
+};
+
+/* ======================
    ADMIN LOGIN
 ====================== */
 router.post("/login", async (req, res) => {
@@ -210,7 +220,7 @@ router.patch("/users/:id/role", auth, adminOnly, async (req, res) => {
 /* ======================
    RESET USER PASSWORD
 ====================== */
-router.patch("/users/:id/reset-password", auth, adminOnly, async (req, res) => {
+router.patch("/users/:id/reset-password", auth, superAdminOnly, async (req, res) => {
   try {
     const { newPassword } = req.body;
 
@@ -230,7 +240,7 @@ router.patch("/users/:id/reset-password", auth, adminOnly, async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.json({ message: "Password reset successfully", user });
+    res.json({ message: "Password reset successfully by super admin", user });
   } catch (err) {
     console.error("Reset password error:", err);
     res.status(500).json({ message: "Failed to reset password" });

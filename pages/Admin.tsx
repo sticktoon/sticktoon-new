@@ -470,10 +470,9 @@ const Admin: React.FC = () => {
     const token = localStorage.getItem("adminToken");
     if (!token) return;
 
-    // Check if trying to reset admin password without super admin privileges
-    const targetUser = allUsers.find(u => u._id === userId);
-    if (targetUser?.role === 'admin' && user?.email !== SUPER_ADMIN_EMAIL) {
-      showToast("error", "🔒 Only super admin can reset admin passwords");
+    // Check if trying to reset password without super admin privileges
+    if (user?.email !== SUPER_ADMIN_EMAIL) {
+      showToast("error", "🔒 Only super admin can reset passwords");
       return;
     }
 
@@ -487,13 +486,18 @@ const Admin: React.FC = () => {
         body: JSON.stringify({ newPassword }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
         showToast("success", "✅ Password reset successfully!");
         setResettingPassword(null);
         setNewPassword("");
+      } else {
+        showToast("error", `❌ ${data.message || "Failed to reset password"}`);
       }
     } catch (err) {
       console.error("Error resetting password:", err);
+      showToast("error", "❌ Error resetting password. Please try again.");
     }
   };
 
@@ -1235,13 +1239,15 @@ const Admin: React.FC = () => {
                                   title="Edit user"
                                 >
                                   ✏️
-                                </button>
-                                <button
-                                  onClick={() => setResettingPassword(user)}
-                                  className="p-1.5 hover:bg-yellow-500/20 rounded-lg text-yellow-400 hover:text-yellow-300 transition-colors"
-                                  title="Reset password"
-                                >
-                                  🔑
+                                {isSuperAdmin && (
+                                  <button
+                                    onClick={() => setResettingPassword(user)}
+                                    className="p-1.5 hover:bg-yellow-500/20 rounded-lg text-yellow-400 hover:text-yellow-300 transition-colors"
+                                    title="Reset password (Super Admin only)"
+                                  >
+                                    🔑
+                                  </button>
+                                )}
                                 </button>
                                 <button
                                   onClick={() => setConfirmingDelete(user)}
@@ -1447,13 +1453,21 @@ const Admin: React.FC = () => {
       )}
 
       {/* Reset Password Modal */}
-      {resettingPassword && (
+      {resettingPassword && isSuperAdmin && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-yellow-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-yellow-500/20 transform transition-all duration-300">
             {/* Header */}
             <div className="mb-6 pb-4 border-b border-yellow-500/20">
-              <h3 className="text-white font-bold text-xl flex items-center gap-2">🔑 Reset Password</h3>
-              <p className="text-gray-400 text-sm mt-1 truncate">User: {resettingPassword.email}</p>
+              <h3 className="text-white font-bold text-xl flex items-center gap-2">🔐 Super Admin Password Reset</h3>
+              <p className="text-gray-400 text-sm mt-1">Resetting password for:</p>
+              <p className="text-yellow-300 text-sm font-semibold truncate">{resettingPassword.email}</p>
+            </div>
+            
+            {/* Info Box */}
+            <div className="mb-6 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+              <p className="text-yellow-300 text-xs">
+                ⚠️ Only super admin can reset user passwords. Enter a new password below.
+              </p>
             </div>
             
             {/* Form */}

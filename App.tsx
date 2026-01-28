@@ -45,7 +45,6 @@ import Influencer from "./pages/Influencer";
 import Admin from "./pages/Admin";
 import OrderSuccess from "./pages/OrderSuccess";
 import Profile from "./pages/Profile";
-import Products from "./pages/Products";
 
 
 
@@ -117,7 +116,6 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
   const navLinks = [
     { name: "HOME", path: "/" },
     { name: "CATEGORIES", path: "/categories" },
-    { name: "PRODUCTS", path: "/products" },
     { name: "CUSTOMIZE", path: "/custom-order" },
     { name: "CONTACT", path: "/contact" },
   ];
@@ -960,7 +958,6 @@ export default function App() {
             }
           />
           <Route path="/login" element={<Login />} />
-          <Route path="/products" element={<Products />} />
           <Route path="/custom-order" element={<CustomOrder addToCart={addToCart} />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/Faq" element={< Faq/>} />
