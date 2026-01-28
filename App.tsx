@@ -41,11 +41,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsConditions from "./pages/TermsConditions";
 import RefundCancellation from "./pages/RefundCancellation";
 import Faq from "./pages/Faq";
-import InfluencerLogin from "./pages/InfluencerLogin";
-import InfluencerDashboard from "./pages/InfluencerDashboard";
-import InfluencerPromo from "./pages/InfluencerPromo";
-import InfluencerWithdraw from "./pages/InfluencerWithdraw";
-import InfluencerProfile from "./pages/InfluencerProfile";
+import Influencer from "./pages/Influencer";
 import OrderSuccess from "./pages/OrderSuccess";
 import Profile from "./pages/Profile";
 
@@ -977,12 +973,13 @@ export default function App() {
           <Route path="/admin/invoice/:id" element={<AdminInvoice />} />
           <Route path="/admin/promo" element={<AdminPromo />} />
           <Route path="/admin/influencers" element={<AdminInfluencerManage />} />
-          {/* Influencer Portal Routes */}
-          <Route path="/influencer/login" element={<InfluencerLogin />} />
-          <Route path="/influencer/dashboard" element={<InfluencerDashboard />} />
-          <Route path="/influencer/promo" element={<InfluencerPromo />} />
-          <Route path="/influencer/withdraw" element={<InfluencerWithdraw />} />
-          <Route path="/influencer/profile" element={<InfluencerProfile />} />
+          {/* Influencer Portal Routes - Unified */}
+          <Route path="/influencer/login" element={<Influencer />} />
+          <Route path="/influencer/signup" element={<Influencer />} />
+          <Route path="/influencer/dashboard" element={<Influencer />} />
+          <Route path="/influencer/promo" element={<Influencer />} />
+          <Route path="/influencer/withdraw" element={<Influencer />} />
+          <Route path="/influencer/profile" element={<Influencer />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-conditions" element={<TermsConditions />} />
           <Route path="/refund-cancellation" element={<RefundCancellation />} />

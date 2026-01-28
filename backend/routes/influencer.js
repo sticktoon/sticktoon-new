@@ -7,6 +7,7 @@ const PromoCode = require("../models/PromoCode");
 const InfluencerEarning = require("../models/InfluencerEarning");
 const WithdrawalRequest = require("../models/WithdrawalRequest");
 const auth = require("../middleware/auth");
+const sendEmail = require("../utils/sendEmail");
 
 /* Influencer only middleware */
 const influencerOnly = (req, res, next) => {
@@ -394,16 +395,35 @@ router.post("/withdraw", auth, influencerOnly, async (req, res) => {
     const { amount, paymentMethod, paymentDetails } = req.body;
 
     const user = await User.findById(req.user.id);
-    const pendingEarnings = user.influencerProfile?.pendingEarnings || 0;
     const minAmount = user.influencerProfile?.minWithdrawalAmount || 100;
+
+    // Normalize payment method for backward compatibility
+    const normalizedPaymentMethod = paymentMethod === "bank" ? "bank_transfer" : paymentMethod;
+
+    // Calculate availableToWithdraw: sum of all paid earnings - sum of all withdrawals (pending/approved)
+    const paidEarningsSum = await InfluencerEarning.aggregate([
+      { $match: { influencerId: user._id, status: "paid" } },
+      { $group: { _id: null, total: { $sum: "$totalEarning" } } }
+    ]);
+    const totalPaidEarnings = paidEarningsSum[0]?.total || 0;
+
+    const withdrawals = await WithdrawalRequest.find({
+      influencerId: user._id,
+      status: { $in: ["pending", "approved"] }
+    });
+    const totalWithdrawRequested = withdrawals.reduce(
+      (sum, w) => sum + (w.amount || 0),
+      0
+    );
+    const availableToWithdraw = totalPaidEarnings - totalWithdrawRequested;
 
     if (!amount || amount <= 0) {
       return res.status(400).json({ message: "Invalid amount" });
     }
 
-    if (amount > pendingEarnings) {
+    if (amount > availableToWithdraw) {
       return res.status(400).json({
-        message: `Insufficient balance. Available: ₹${pendingEarnings}`,
+        message: `Insufficient balance. Available: ₹${availableToWithdraw}`,
       });
     }
 
@@ -413,7 +433,7 @@ router.post("/withdraw", auth, influencerOnly, async (req, res) => {
       });
     }
 
-    if (!paymentMethod) {
+    if (!normalizedPaymentMethod) {
       return res.status(400).json({ message: "Payment method required" });
     }
 
@@ -421,15 +441,33 @@ router.post("/withdraw", auth, influencerOnly, async (req, res) => {
     const withdrawal = await WithdrawalRequest.create({
       influencerId: req.user.id,
       amount,
-      paymentMethod,
+      paymentMethod: normalizedPaymentMethod,
       paymentDetails,
       status: "pending",
     });
 
-    // Deduct from pending, but don't add to withdrawn until paid
-    await User.findByIdAndUpdate(req.user.id, {
-      $inc: { "influencerProfile.pendingEarnings": -amount },
-    });
+    // Notify admin via email
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.FROM_EMAIL || "sticktoon.xyz@gmail.com";
+    try {
+      await sendEmail({
+        to: adminEmail,
+        subject: `New Withdrawal Request: ₹${amount}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #7c3aed;">New Influencer Withdrawal Request</h2>
+            <p><strong>Influencer:</strong> ${user.name} (${user.email})</p>
+            <p><strong>Amount:</strong> ₹${amount}</p>
+            <p><strong>Method:</strong> ${normalizedPaymentMethod}</p>
+            <p><strong>Requested At:</strong> ${new Date().toLocaleString()}</p>
+            <h3 style="margin-top: 20px;">Payment Details</h3>
+            <pre style="background: #f3f4f6; padding: 12px; border-radius: 8px; overflow-x: auto;">${JSON.stringify(paymentDetails || {}, null, 2)}</pre>
+            <p style="margin-top: 20px;">Please review and process this request in the admin panel.</p>
+          </div>
+        `,
+      });
+    } catch (emailErr) {
+      console.error("Withdrawal email error:", emailErr);
+    }
 
     res.status(201).json({
       message: "Withdrawal request submitted! It will be processed within 3-5 business days.",
