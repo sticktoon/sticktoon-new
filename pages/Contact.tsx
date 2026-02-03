@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Mail, Phone, MapPin, Send, Loader2, CheckCircle2, Sparkle } from 'lucide-react';
+import { Mail, Send, Loader2, CheckCircle2, Sparkle, MessageCircle } from 'lucide-react';
 import { Instagram } from "lucide-react";
 
 export default function Contact() {
@@ -22,147 +22,159 @@ export default function Contact() {
     {
       title: 'Email Us',
       value: 'sticktoon.xyz@gmail.com',
-      icon: <Mail className="w-6 h-6" />,
-      color: 'bg-blue-50 text-blue-600'
+      icon: <Mail className="w-7 h-7" />,
+      color: 'bg-yellow-100 text-yellow-700',
+      action: 'mailto:sticktoon.xyz@gmail.com'
     },
     {
       title: 'Instagram',
-      value: 'https://www.instagram.com/sticktoon.shop?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==',
-      icon:   <Instagram className="w-6 h-6" />,
-      color: 'bg-indigo-50 text-indigo-600',
-       type: 'link'
-    },
-    // {
-    //   title: 'Visit Us',
-    //   value: 'Sticker Street, Mumbai',
-    //   icon: <MapPin className="w-6 h-6" />,
-    //   color: 'bg-emerald-50 text-emerald-600'
-    // }
+      value: '@sticktoon.shop',
+      icon: <Instagram className="w-7 h-7" />,
+      color: 'bg-pink-100 text-pink-700',
+      action: 'https://www.instagram.com/sticktoon.shop'
+    }
   ];
 
   return (
-    <div className="min-h-screen bg-white pt-16 pb-24 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-full mx-auto px-4 sm:px-10 lg:px-20">
-        <div className="text-center mb-16">
-          <h1 className="text-4xl lg:text-5xl font-black text-slate-900 mb-4 tracking-tight">Contact Us</h1>
-          <p className="text-slate-500 text-lg max-w-xl mx-auto">Got a question or a custom request? We'd love to hear from you!</p>
+    <div className="relative min-h-screen bg-gradient-to-br from-white via-slate-50 to-yellow-50/30 pt-20 pb-8 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      
+      {/* Background Effects - Light */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute top-[-150px] left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-yellow-500/8 rounded-full blur-[140px]" />
+        <div className="absolute bottom-[-100px] right-[-150px] w-[500px] h-[500px] bg-orange-400/8 rounded-full blur-[120px]" />
+        <div className="absolute top-1/3 left-[-100px] w-[400px] h-[400px] bg-red-400/8 rounded-full blur-[100px]" />
+        
+        {/* Floating Circles - Light */}
+        <div className="absolute top-40 -left-8 w-20 h-20 rounded-full border-[6px] border-yellow-400/20 animate-pulse" style={{ animationDuration: '4s' }} />
+        <div className="absolute bottom-32 -right-10 w-24 h-24 rounded-full border-[8px] border-orange-400/15 animate-bounce" style={{ animationDuration: '5s' }} />
+        <div className="absolute top-1/2 -left-12 w-28 h-28 rounded-full border-[8px] border-red-400/15 animate-pulse" style={{ animationDuration: '6s', animationDelay: '1s' }} />
+      </div>
+      
+      <div className="relative z-10 max-w-7xl mx-auto w-full">
+        <div className="text-center mb-6">
+          <h1 className="text-3xl lg:text-4xl font-black bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent mb-2 tracking-tight">Contact Us</h1>
+          <p className="text-slate-600 text-sm lg:text-base max-w-xl mx-auto font-semibold">Got a question? We'd love to hear from you!</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-          <div className="bg-slate-50 rounded-[2.5rem] p-8 sm:p-12 border border-slate-100">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8 items-start max-w-5xl mx-auto lg:mx-auto">
+          {/* Form - Left */}
+          <div className="bg-white rounded-3xl p-6 border-4 border-black shadow-[6px_6px_0px_#000] h-fit hover:shadow-[8px_8px_0px_#000] transition-all">
             {submitted ? (
-              <div className="text-center py-12 space-y-6">
-                <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle2 className="w-10 h-10" />
+              <div className="text-center py-8 space-y-4">
+                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-black shadow-[4px_4px_0px_#000]">
+                  <CheckCircle2 className="w-8 h-8" />
                 </div>
-                <h3 className="text-2xl font-black text-slate-900">Message Sent!</h3>
-                <p className="text-slate-500">Our crew will get back to you within 24 hours.</p>
+                <h3 className="text-lg font-black text-slate-900">Message Sent! ✨</h3>
+                <p className="text-slate-600 font-semibold text-sm">Our crew will get back to you within 24 hours.</p>
                 <button 
                   onClick={() => setSubmitted(false)}
-                  className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-blue-600 transition-colors"
+                  className="px-6 py-2 bg-yellow-400 text-black font-black rounded-lg border-2 border-black hover:bg-yellow-300 transition-all shadow-[3px_3px_0px_#000]"
                 >
                   Send Another
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Your Name</label>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <h2 className="text-xl font-black text-black mb-6 tracking-tight" style={{ WebkitTextStroke: '0.5px #FFD600' }}>
+                  Get In Touch 💬
+                </h2>
+
+                <div>
+                  <label className="block text-sm font-black text-black mb-2 uppercase tracking-widest">Your Name</label>
                   <input 
                     required
                     type="text" 
-                    placeholder="Enter your name" 
+                    placeholder="Name" 
                     value={formData.name}
                     onChange={e => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-5 py-4 bg-white border-2 border-transparent rounded-2xl focus:border-blue-400 outline-none font-bold transition-all text-slate-700"
+                    className="w-full px-4 py-3 bg-yellow-50 border-3 border-black rounded-xl focus:border-red-500 focus:outline-none font-bold transition-all text-slate-900 placeholder:text-slate-400 shadow-[3px_3px_0px_#FFD600] focus:shadow-[3px_3px_0px_#FF0000]"
                   />
                 </div>
 
-                <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                  Phone Number
-                </label>
+                <div>
+                <label className="block text-sm font-black text-black mb-2 uppercase tracking-widest">Phone</label>
                 <input
                   required
                   type="tel"
-                  placeholder="Enter your phone number"
+                  placeholder="Phone"
                   value={formData.phone}
                   onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-5 py-4 bg-white border-2 border-transparent rounded-2xl focus:border-blue-400 outline-none font-bold transition-all text-slate-700"
+                  className="w-full px-4 py-3 bg-yellow-50 border-3 border-black rounded-xl focus:border-red-500 focus:outline-none font-bold transition-all text-slate-900 placeholder:text-slate-400 shadow-[3px_3px_0px_#FFD600] focus:shadow-[3px_3px_0px_#FF0000]"
                 />
               </div>
 
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Email Address</label>
+                <div>
+                  <label className="block text-sm font-black text-black mb-2 uppercase tracking-widest">Email</label>
                   <input 
                     required
                     type="email" 
-                    placeholder="name@example.com" 
+                    placeholder="Email" 
                     value={formData.email}
                     onChange={e => setFormData({...formData, email: e.target.value})}
-                    className="w-full px-5 py-4 bg-white border-2 border-transparent rounded-2xl focus:border-blue-400 outline-none font-bold transition-all text-slate-700"
+                    className="w-full px-4 py-3 bg-yellow-50 border-3 border-black rounded-xl focus:border-red-500 focus:outline-none font-bold transition-all text-slate-900 placeholder:text-slate-400 shadow-[3px_3px_0px_#FFD600] focus:shadow-[3px_3px_0px_#FF0000]"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Message</label>
+                <div>
+                  <label className="block text-sm font-black text-black mb-2 uppercase tracking-widest">Message</label>
                   <textarea 
                     required
-                    placeholder="How can we help?" 
-                    rows={5}
+                    placeholder="Message" 
+                    rows={3}
                     value={formData.message}
                     onChange={e => setFormData({...formData, message: e.target.value})}
-                    className="w-full px-5 py-4 bg-white border-2 border-transparent rounded-2xl focus:border-blue-400 outline-none font-bold transition-all text-slate-700 resize-none"
+                    className="w-full px-4 py-3 bg-yellow-50 border-3 border-black rounded-xl focus:border-red-500 focus:outline-none font-bold transition-all text-slate-900 placeholder:text-slate-400 shadow-[3px_3px_0px_#FFD600] focus:shadow-[3px_3px_0px_#FF0000] resize-none"
                   />
                 </div>
 
                 <button 
                   disabled={isSubmitting}
-                  className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-100 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                  className="w-full py-3 bg-red-500 text-white font-black rounded-xl shadow-[4px_4px_0px_#000] border-3 border-black hover:bg-red-600 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 uppercase tracking-widest text-sm"
                 >
-                  {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-5 h-5" />}
-                  Send Message
+                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  Send
                 </button>
               </form>
             )}
           </div>
 
-          <div className="space-y-8">
+          {/* Info Cards + Our Vibes - Right */}
+          <div className="space-y-4">
             {infoCards.map((card, idx) => (
-              <div key={idx} className="flex items-center gap-6 p-6 bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${card.color} shadow-sm`}>
+              <a 
+                key={idx}
+                href={card.action}
+                target={card.action?.startsWith('http') ? '_blank' : undefined}
+                rel={card.action?.startsWith('http') ? 'noopener noreferrer' : undefined}
+                className="flex items-center gap-3 p-4 bg-white rounded-2xl border-3 border-black hover:shadow-[4px_4px_0px_#000] transition-all cursor-pointer shadow-[3px_3px_0px_#FFD600]"
+              >
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${card.color} border-2 border-black`}>
                   {card.icon}
                 </div>
-                <div>
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">{card.title}</h3>
-                    {card.type === 'link' ? (
-                      <a
-                        href={card.value}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xl font-black text-indigo-600 tracking-tight hover:underline"
-                      >
-                        StickToon Instagram Page
-                      </a>
-                    ) : (
-                      <p className="text-xl font-black text-slate-800 tracking-tight">
-                        {card.value}
-                      </p>
-                    )}
+                <div className="min-w-0">
+                  <h3 className="text-xs font-black text-black uppercase tracking-widest">{card.title}</h3>
+                  <p className="text-sm font-bold text-slate-800 truncate hover:text-clip">
+                    {card.value}
+                  </p>
                 </div>
-              </div>
+              </a>
             ))}
-            
-            <div className="mt-12 p-8 bg-blue-600 rounded-[2.5rem] text-white relative overflow-hidden group">
-               <Sparkle className="absolute -top-6 -right-6 w-32 h-32 opacity-20 group-hover:rotate-12 transition-transform" />
-               <h4 className="text-2xl font-black mb-2">Our Vibes</h4>
-               <p className="font-medium mb-6 opacity-90">Follow us for daily drops and behind-the-scenes content!</p>
-               {/* <div className="flex gap-4">
-                 <button className="bg-white/10 hover:bg-white/20 p-2 rounded-lg transition-colors">IG</button>
-                 <button className="bg-white/10 hover:bg-white/20 p-2 rounded-lg transition-colors">TW</button>
-                 <button className="bg-white/10 hover:bg-white/20 p-2 rounded-lg transition-colors">YT</button>
-               </div> */}
+
+            {/* Logo + Quote Section */}
+            <div className="p-6 bg-gradient-to-br from-yellow-50 via-yellow-100 to-orange-50 rounded-3xl text-slate-900 relative overflow-hidden shadow-[6px_6px_0px_#000] border-4 border-black hover:shadow-[8px_8px_0px_#000] transition-all">
+              <div className="relative z-10 text-center space-y-5">
+                {/* Logo */}
+                <img 
+                  src="/images/STICKTOON_LONG.jpeg" 
+                  alt="STICKTOON" 
+                  className="h-16 w-auto mx-auto drop-shadow-xl filter contrast-125 brightness-105"
+                />
+                
+                {/* Quote */}
+                <p className="text-sm font-black text-slate-900 italic leading-relaxed">
+                  "Express yourself with badges that tell your story! 🎨"
+                </p>
+              </div>
             </div>
           </div>
         </div>

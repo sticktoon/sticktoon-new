@@ -41,6 +41,8 @@ interface CustomOrderProps {
 
 export default function CustomOrder({ addToCart }: CustomOrderProps) {
   const [activeTool, setActiveTool] = useState('model'); 
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
@@ -446,7 +448,10 @@ const handleReset = () => {
 
   const ToolButton = ({ icon: Icon, id, label, count }: { icon: any, id: string, label: string, count?: number }) => (
     <button 
-      onClick={() => setActiveTool(id)}
+      onClick={() => {
+        setActiveTool(id);
+        setPanelOpen(true);
+      }}
       className={`w-full h-16 flex flex-col items-center justify-center gap-1 transition-all border-b border-slate-100 relative ${activeTool === id ? 'bg-blue-50 text-blue-600 border-r-4 border-r-blue-600 shadow-[inset_-3px_0_0_#2563eb]'
   : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
     >
@@ -506,9 +511,7 @@ const handleReset = () => {
   );
 
   return (
-  <div className="flex h-[calc(100vh-64px)] w-full bg-gradient-to-br from-slate-100 via-slate-100 to-slate-200 overflow-hidden select-none relative flex-col md:flex-row">
-
-
+  <div className="flex h-[calc(100vh-64px)] w-full bg-gradient-to-br from-slate-100 via-slate-100 to-slate-200 overflow-hidden select-none relative">
 
       {errorMessage && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-4 duration-300">
@@ -519,10 +522,8 @@ const handleReset = () => {
         </div>
       )}
 
-      {/* Sidebar Tool Rail */}
-  <div className="w-16 bg-white border-r border-slate-200 flex flex-col z-30 shadow-[6px_0_30px_rgba(15,23,42,0.08)] hidden md:flex">
-
-
+      {/* Sidebar Tool Rail - Desktop Only */}
+  <div className="hidden md:flex w-16 bg-white border-r border-slate-200 flex-col z-30 shadow-[6px_0_30px_rgba(15,23,42,0.08)]">
         <ToolButton icon={Box} id="model" label="MODEL" />
         <ToolButton icon={Type} id="text" label="TEXT" />
         <ToolButton icon={ImageIcon} id="image" label="IMAGE" />
@@ -535,558 +536,105 @@ const handleReset = () => {
         </div>
       </div>
 
-      {/* Control Panel */}
-<div className="
-  w-full md:w-[320px]
-  bg-white
-  border-r border-slate-900
-  flex flex-col
-  z-20
-  shadow-[6px_0_25px_rgba(15,23,42,0.15)]
-  ml-0
-  max-h-[calc(100vh-64px)] md:max-h-full
-  overflow-y-auto md:overflow-y-auto
-">
+      {/* Desktop Control Panel */}
+      <div className={`w-[320px] bg-white border-r border-slate-900 flex-col z-20 shadow-[6px_0_25px_rgba(15,23,42,0.15)] max-h-full overflow-y-auto transition-all duration-300 ${panelOpen ? 'hidden md:flex' : 'hidden'}`}>
 
-
-
-{/* 
-        <div className="p-4 border-b border-slate-100 text-center">
-          <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-            {activeTool === 'model' ? 'PIN BACK BUTTON BADGE' : activeTool.toUpperCase()}
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+          <h2 className="text-[11px] font-bold tracking-wide uppercase text-slate-900">
+            {activeTool.toUpperCase()}
           </h2>
-        </div> */}
-      <div className="p-4 border-b border-slate-100 text-center bg-slate-50/60">
+          <button
+            onClick={() => setPanelOpen(false)}
+            className="p-1 hover:bg-slate-200 rounded transition-colors"
+          >
+            <X className="w-4 h-4 text-slate-600" />
+          </button>
+        </div>
 
-  <h2 className="text-[11px] font-bold tracking-wide uppercase text-slate-900">
-  
-  </h2>
-</div>
-
-
-       <div className="overflow-y-auto">
-
-
-         <div className="p-4 flex flex-col space-y-5">
-
-            
-            
-            {/* MODEL TAB */}
-            {activeTool === 'model' && (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                
-                {/* 58MM Size Specification Box */}
-                <div className="rounded-xl bg-red-50 border-2 border-red-300 px-4 py-4 text-center">
-                  <div className="text-2xl font-black text-red-600 tracking-tight">
-                    ⭕ 58 MM
-                  </div>
-                  <div className="mt-2 text-[9px] font-bold tracking-widest text-red-600 uppercase">
-                    FIXED BADGE SIZE
-                  </div>
-                  <div className="mt-1 text-[8px] font-semibold text-red-500">
-                    All designs must fit within 58mm circle
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold tracking-wide text-slate-900">
-  Fastner:
-</label>
-
-                  <div className="relative">
-                    <select 
-                      value={fastener}
-                      onChange={(e) => setFastener(e.target.value)}
-               className="w-full h-11 px-4 pr-10 bg-white border border-slate-900 rounded-xl text-sm font-semibold text-slate-900 appearance-none">
-                      {fasteners.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                <div className="rounded-2xl bg-slate-50 border border-slate-900 px-6 py-5 text-center shadow-[0_8px_25px_rgba(15,23,42,0.12)]">
-
-<div className="text-3xl font-black text-slate-900 tracking-tight">
-
-    {formatPrice(BASE_PRICE * quantity)}
-  </div>
-  <div className="mt-1 text-[10px] font-semibold tracking-widest text-slate-500 uppercase">
-    Inclusive of all taxes
-  </div>
-</div>
-
-
-                <StepperControl 
-                  label="Quantity" 
-                  value={quantity} 
-                  onIncrease={() => setQuantity(q => q + 1)}
-                  onDecrease={() => setQuantity(q => Math.max(1, q - 1))}
-                />
-
-                <div className="space-y-2 pt-4">
-                  <button 
-                    onClick={handleAddToCart}
-                    disabled={loading}
-   className="
-  w-full h-12
-  rounded-2xl
-  bg-black text-white
-  flex items-center justify-center gap-3
-
-  text-sm font-semibold
-  tracking-normal
-
-  transition-colors duration-300
-  hover:bg-indigo-600
-
-  shadow-[0_14px_35px_rgba(0,0,0,0.25)]
-  active:scale-[0.97]
-"
-
-
-
-                  >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />} ADD TO CART
-                  </button>
-                  {/* Secondary Tools */}
-
-
+        <div className="overflow-y-auto">
+          <div className="p-4 flex flex-col space-y-5">
+          {activeTool === 'model' && (
+            <div className="space-y-4">
+              <div className="rounded-xl bg-red-50 border-2 border-red-300 px-3 py-3 text-center">
+                <div className="text-xl font-black text-red-600">⭕ 58 MM</div>
+                <div className="text-[8px] font-bold text-red-600 uppercase mt-1">Fixed Badge Size</div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-900">Fastener:</label>
+                <select value={fastener} onChange={(e) => setFastener(e.target.value)} className="w-full mt-1 h-10 px-3 bg-white border border-slate-900 rounded-xl text-sm font-semibold">
+                  {fasteners.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-900">Quantity:</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-lg bg-slate-100 font-black text-lg">-</button>
+                  <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="flex-1 h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-center font-bold" />
+                  <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 rounded-lg bg-slate-100 font-black text-lg">+</button>
                 </div>
               </div>
-            )}
-
-            {/* DESIGN/PATTERN TAB */}
-            {activeTool === 'pattern' && (
-              <div className="space-y-8 animate-in fade-in duration-300">
-                <div className="grid grid-cols-5 gap-3 px-2">
-                  {backgroundPresets.map((color, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setBgColor(color)}
-                      className={`w-10 h-10 rounded-full border border-slate-200 relative shadow-sm hover:scale-110 transition-transform active:scale-95 flex items-center justify-center overflow-hidden ${color === '#TRANSPARENT' ? 'bg-white' : ''}`}
-                      style={{ backgroundColor: color === '#TRANSPARENT' ? 'white' : color }}
-                    >
-
-                      {color === '#TRANSPARENT' ? (
-                        <div className="relative w-full h-full flex items-center justify-center">
-                          <div className="w-[1px] h-full bg-red-500 rotate-45 absolute"></div>
-                          <span className="text-[7px] font-black text-slate-400 uppercase tracking-tighter absolute bottom-1">None</span>
-                          {bgColor === '#TRANSPARENT' && (
-                             <Check className="w-5 h-5 text-slate-900 z-10 opacity-50" />
-                          )}
-                        </div>
-                      ) : (
-                        bgColor.toUpperCase() === color.toUpperCase() && (
-                          <Check className={`w-5 h-5 ${color.toUpperCase() === '#FFFFFF' ? 'text-black' : 'text-white'}`} />
-                        )
-                      )}
-                    </button>
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <span className="text-xs font-bold text-slate-600 uppercase">Total Price:</span>
+                <span className="text-lg font-black text-slate-900">{formatPrice(BASE_PRICE * quantity)}</span>
+              </div>
+              <button onClick={handleAddToCart} disabled={loading} className="w-full h-12 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2">
+                <ShoppingCart className="w-4 h-4" /> Add to Cart
+              </button>
+            </div>
+          )}
+          {activeTool === 'text' && (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)} placeholder="Enter text..." className="flex-1 h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+                <button onClick={addText} className="px-4 h-10 bg-blue-600 text-white rounded-xl font-bold text-sm">Add</button>
+              </div>
+            </div>
+          )}
+          {activeTool === 'image' && (
+            <div className="space-y-3">
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+              <button onClick={() => fileInputRef.current?.click()} className="w-full h-12 rounded-xl border-2 border-dashed border-slate-300 text-slate-600 font-bold text-sm flex items-center justify-center gap-2">
+                <Upload className="w-4 h-4" /> Upload Image
+              </button>
+            </div>
+          )}
+          {activeTool === 'qr' && (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input type="text" value={qrUrl} onChange={(e) => setQrUrl(e.target.value)} placeholder="Enter URL..." className="flex-1 h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+                <button onClick={addQRCode} className="px-4 h-10 bg-blue-600 text-white rounded-xl font-bold text-sm">Add QR</button>
+              </div>
+            </div>
+          )}
+          {activeTool === 'pattern' && (
+            <div className="space-y-3">
+              <label className="text-xs font-semibold text-slate-900">Background Color:</label>
+              <div className="grid grid-cols-6 gap-2">
+                {backgroundPresets.slice(0, 12).map(color => (
+                  <button key={color} onClick={() => setBgColor(color)} className={`w-full aspect-square rounded-lg border-2 ${bgColor === color ? 'border-blue-500' : 'border-slate-200'}`} style={{ backgroundColor: color === '#TRANSPARENT' ? '#fff' : color }}></button>
+                ))}
+              </div>
+            </div>
+          )}
+          {activeTool === 'layers' && (
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-slate-900">Manage Layers</p>
+              {elements.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">No layers added</p>
+              ) : (
+                <div className="space-y-2">
+                  {elements.sort((a,b) => b.zIndex - a.zIndex).map((el) => (
+                    <div key={el.id} onClick={() => setSelectedId(el.id)} className={`flex items-center justify-between p-2 rounded-lg border-2 ${selectedId === el.id ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
+                      <span className="text-sm font-semibold truncate">{el.type === 'text' ? el.content : el.type.toUpperCase()}</span>
+                      <button onClick={(e) => { e.stopPropagation(); removeElement(el.id); }} className="text-red-600">✕</button>
+                    </div>
                   ))}
                 </div>
-
-                <div className="pt-4 border-t border-slate-100">
-                  <div className="flex items-center justify-between p-3 border border-slate-200 rounded-md bg-slate-50 ">
-                    <div className="flex items-center gap-3">
-                      <Palette className="w-4 h-4 text-slate-400" />
-                      <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Background color</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                        {bgColor === '#TRANSPARENT' ? 'None' : bgColor}
-                      </span>
-                      <div className="relative w-12 h-6 rounded border border-slate-300 overflow-hidden">
-                        <div className="w-full h-full shadow-inner" style={{ backgroundColor: bgColor === '#TRANSPARENT' ? 'white' : bgColor }}>
-                          {bgColor === '#TRANSPARENT' && <div className="absolute inset-0 bg-white flex items-center justify-center"><div className="w-[1px] h-full bg-red-500 rotate-45"></div></div>}
-                        </div>
-                        <input 
-                          type="color" 
-                          value={bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor} 
-                          onChange={(e) => setBgColor(e.target.value)}
-                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2 pt-4">
-                  <button 
-                    onClick={handleAddToCart}
-                    disabled={loading}
-                    className="w-full py-3.5 bg-white border border-slate-300 rounded-md flex items-center justify-center gap-2 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition-all uppercase shadow-sm"
-                  >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />} ADD TO CART
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* TEXT TAB */}
-            {activeTool === 'text' && (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                <textarea 
-                  value={textInput} 
-                  onChange={(e) => setTextInput(e.target.value)} 
-                  placeholder="Enter your message..." 
-                  className="w-full h-24 p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none" 
-                />
-                
-                {selectedId && elements.find(el => el.id === selectedId)?.type === 'text' && (
-                  <StepperControl 
-                    label="Font Size" 
-                    value={Math.round(elements.find(el => el.id === selectedId)!.height)} 
-                    onIncrease={() => handleScaleElement(selectedId, 5)}
-                    onDecrease={() => handleScaleElement(selectedId, -5)}
-                  />
-                )}
-
-                <button 
-                  onClick={addText} 
-                  className="w-full py-4 bg-slate-900 text-white rounded-lg font-black text-[11px] uppercase tracking-widest hover:bg-blue-600 transition-colors shadow-lg shadow-slate-200"
-                >
-                  Add Text Layer
-                </button>
-              </div>
-            )}
-
-            {/* IMAGE TAB */}
-            {activeTool === 'image' && (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
-                <button 
-                  onClick={() => fileInputRef.current?.click()} 
-                  className="w-full py-12 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center gap-3 text-slate-400 hover:border-blue-400 hover:text-blue-500 transition-all bg-slate-50/50 group"
-                >
-                  <Upload className="w-8 h-8 group-hover:scale-110 transition-transform" />
-                  <span className="text-[11px] font-black uppercase tracking-widest">Upload Custom Art</span>
-                </button>
-
-                {selectedId && elements.find(el => el.id === selectedId)?.type === 'image' && (
-                  <StepperControl 
-                    label="Image Size" 
-                    value={Math.round(elements.find(el => el.id === selectedId)!.width)} 
-                    onIncrease={() => handleScaleElement(selectedId, 10)}
-                    onDecrease={() => handleScaleElement(selectedId, -10)}
-                  />
-                )}
-
-                <div className="pt-6 border-t border-slate-100">
-                  {/* <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Wand2 className="w-3.5 h-3.5" /> AI Asset Generator</h3> */}
-                  {/* <textarea 
-                    value={prompt} 
-                    onChange={(e) => setPrompt(e.target.value)} 
-                    placeholder="E.g. 'Cyberpunk neon cat head'" 
-                    className="w-full h-24 p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 mb-4 focus:outline-none focus:ring-1 focus:ring-blue-400" 
-                  /> */}
-                  {/* <button 
-                    onClick={handleAIUpload} 
-                    disabled={loading} 
-                    className="w-full py-4 bg-blue-600 text-white rounded-xl font-black text-[11px] uppercase tracking-widest disabled:opacity-50 shadow-xl shadow-blue-100 hover:bg-blue-700 transition-colors"
-                  >
-                    {loading ? 'Processing...' : 'Generate Asset'}
-                  </button> */}
-                </div>
-              </div>
-            )}
-
-            {/* QR TAB */}
-            
-            {activeTool === 'qr' && (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">QR Destination Link</label>
-                  <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      value={qrUrl} 
-                      onChange={(e) => setQrUrl(e.target.value)} 
-                    className="w-full h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-
-                    />
-                    <button onClick={addQRCode} className="w-11 h-11 bg-white border border-slate-200 rounded flex items-center justify-center text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"><Edit3 className="w-4 h-4" /></button>
-                  </div>
-                </div>
-
-                {selectedId && elements.find(el => el.id === selectedId)?.type === 'qr' && (
-                  <StepperControl 
-                    label="QR Code Size" 
-                    value={Math.round(elements.find(el => el.id === selectedId)!.width)} 
-                    onIncrease={() => handleScaleElement(selectedId, 10)}
-                    onDecrease={() => handleScaleElement(selectedId, -10)}
-                  />
-                )}
-              </div>
-            )}
-            
-             {/* 🔽 ADD THIS BLOCK EXACTLY HERE */}
-    {activeTool === 'layers' && (
-      <div className="space-y-4">
-
-        <p className="text-xs font-extrabold tracking-widest text-slate-900 uppercase">
-          Manage Layers
-        </p>
-
-        {elements.length === 0 ? (
-          <p className="text-sm text-slate-500">No layers added</p>
-        ) : (
-          <div className="space-y-3">
-            {elements
-              .slice()
-              .sort((a, b) => b.zIndex - a.zIndex)
-              .map((el) => {
-                const isSelected = selectedId === el.id;
-
-                return (
-                  <div
-                    key={el.id}
-                    onClick={() => setSelectedId(el.id)}
-                    className={`
-                      flex items-center justify-between
-                      rounded-xl
-                      border
-                      px-3 py-2
-                      cursor-pointer
-                      transition
-                      ${
-                        isSelected
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-slate-300 bg-white hover:border-slate-500'
-                      }
-                    `}
-                  >
-                    {/* LEFT */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center text-xs font-black uppercase">
-                        {el.type[0]}
-                      </div>
-
-                      <span className="text-sm font-semibold text-slate-900 truncate max-w-[150px]">
-                        {el.type === 'text'
-                          ? el.content
-                          : el.type.toUpperCase()}
-                      </span>
-                    </div>
-
-                    {/* RIGHT */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeElement(el.id);
-                      }}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                );
-              })}
-          </div>
-        )}
-
-      </div>
-    )}
-            {activeTool !== 'layers' && (
-           <div className="
-  mt-6 rounded-2xl
-  bg-white
-  border border-slate-400
-  p-4
-  shadow-[0_10px_30px_rgba(15,23,42,0.12)]
-">
-  
-
-  <p className="mb-3 text-xs font-extrabold tracking-widest text-slate-900 uppercase">
-
-    Editing Tools
-  </p>
-  
-
-  <div className="grid grid-cols-3 gap-3">
-    
-   <button
-  onClick={handleUndo}
-  disabled={!undoStack.length}
- className="
-  flex flex-col items-center justify-center gap-1
-  h-[78px]
-  rounded-xl
-
-  bg-white
-  border border-slate-300
-
-  text-slate-900
-  font-semibold
-
-  shadow-[0_6px_18px_rgba(15,23,42,0.12)]
-
-  hover:border-slate-500
-  hover:shadow-[0_10px_25px_rgba(15,23,42,0.18)]
-  hover:bg-slate-50
-
-  active:scale-[0.97]
-
-  transition-all
-  disabled:opacity-40
-"
-
->
-  ↶
-  <span className="text-[11px] font-medium">Undo</span>
-</button>
-
-
-    <button
-    onClick={handleRedo} disabled={!redoStack.length}
-className="
-  flex flex-col items-center justify-center gap-1
-  h-[78px]
-  rounded-xl
-
-  bg-white
-  border border-slate-300
-
-  text-slate-900
-  font-semibold
-
-  shadow-[0_6px_18px_rgba(15,23,42,0.12)]
-
-  hover:border-slate-500
-  hover:shadow-[0_10px_25px_rgba(15,23,42,0.18)]
-  hover:bg-slate-50
-
-  active:scale-[0.97]
-
-  transition-all
-  disabled:opacity-40
-"
-
->
-      ↷
-      <span className="text-[11px] font-medium">Redo</span>
-    </button>
-
-    <button
-    onClick={handleDelete} disabled={!selectedId}
-    className="
-  flex flex-col items-center justify-center gap-1
-  h-[78px]
-  rounded-xl
-
-  bg-white
-  border border-slate-300
-
-  text-slate-900
-  font-semibold
-
-  shadow-[0_6px_18px_rgba(15,23,42,0.12)]
-
-  hover:border-slate-500
-  hover:shadow-[0_10px_25px_rgba(15,23,42,0.18)]
-  hover:bg-slate-50
-
-  active:scale-[0.97]
-
-  transition-all
-  disabled:opacity-40
-"
->
-      🗑
-      <span className="text-[11px] font-medium">Delete</span>
-    </button>
-
-    <button 
-    onClick={handleCenter} disabled={!selectedId}
-   className="
-  flex flex-col items-center justify-center gap-1
-  h-[78px]
-  rounded-xl
-
-  bg-white
-  border border-slate-300
-
-  text-slate-900
-  font-semibold
-
-  shadow-[0_6px_18px_rgba(15,23,42,0.12)]
-
-  hover:border-slate-500
-  hover:shadow-[0_10px_25px_rgba(15,23,42,0.18)]
-  hover:bg-slate-50
-
-  active:scale-[0.97]
-
-  transition-all
-  disabled:opacity-40
-"
->
-      ⊕
-      <span className="text-[11px] font-medium">Center</span>
-    </button>
-
-    <button
-    onClick={handleClear} disabled={!elements.length}
-    className="
-  flex flex-col items-center justify-center gap-1
-  h-[78px]
-  rounded-xl
-
-  bg-white
-  border border-slate-300
-
-  text-slate-900
-  font-semibold
-
-  shadow-[0_6px_18px_rgba(15,23,42,0.12)]
-
-  hover:border-slate-500
-  hover:shadow-[0_10px_25px_rgba(15,23,42,0.18)]
-  hover:bg-slate-50
-
-  active:scale-[0.97]
-
-  transition-all
-  disabled:opacity-40
-"
->
-      ✕
-      <span className="text-[11px] font-medium">Clear</span>
-    </button>
-
-    <button 
-    onClick={handleReset}
-  className="
-  flex flex-col items-center justify-center gap-1
-  h-[78px]
-  rounded-xl
-
-  bg-white
-  border border-slate-300
-
-  text-slate-900
-  font-semibold
-
-  shadow-[0_6px_18px_rgba(15,23,42,0.12)]
-
-  hover:border-slate-500
-  hover:shadow-[0_10px_25px_rgba(15,23,42,0.18)]
-  hover:bg-slate-50
-
-  active:scale-[0.97]
-
-  transition-all
-  disabled:opacity-40
-"
->
-      ↺
-      <span className="text-[11px] font-medium">Reset</span>
-    </button>
-    
-
-  </div>
-</div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
+      </div>
       </div>
 
       {/* Main Workspace */}
@@ -1121,22 +669,22 @@ className="
           <TopBarIcon icon={Eye} label="Preview" />
         </div> */}
 
-        <div className="flex-grow relative flex flex-col items-center justify-center p-8 overflow-auto">
+        <div className="flex-grow relative flex flex-col items-center justify-center p-2 sm:p-4 md:p-8 overflow-auto pb-32 md:pb-8">
           
-          {/* Badge Preview - Top Right Corner - LARGER */}
-          <div className="absolute top-6 right-6 flex flex-col items-center gap-3 z-50 hidden md:flex">
-            <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Final Badge</div>
+          {/* Badge Preview - Top Right Corner - LARGER - Desktop Only */}
+          <div className="absolute top-4 right-4 md:top-6 md:right-6 hidden lg:flex lg:flex-col items-center gap-2 md:gap-3 z-50">
+            <div className="text-[8px] md:text-[10px] font-black text-slate-600 uppercase tracking-widest">Final Badge</div>
             <div 
-              className="rounded-full shadow-2xl border-4 border-white flex items-center justify-center overflow-hidden"
+              className="rounded-full shadow-2xl border-2 md:border-4 border-white flex items-center justify-center overflow-hidden"
               style={{
-                width: 180,
-                height: 180,
+                width: 120,
+                height: 120,
                 backgroundColor: bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor
               }}
             >
               <div className="w-full h-full relative flex items-center justify-center">
                 {elements.sort((a,b) => a.zIndex - b.zIndex).map((el) => {
-                  const scale = 180 / DISPLAY_CANVAS_SIZE;
+                  const scale = 120 / DISPLAY_CANVAS_SIZE;
                   return (
                     <div 
                       key={el.id}
@@ -1164,8 +712,8 @@ className="
             </div>
           </div>
 
-          <div className="text-center mb-6 max-w-md px-4 sm:px-2">
-             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-3 hidden md:block">
+          <div className="text-center mb-4 md:mb-6 max-w-md px-2 md:px-4">
+             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 md:p-4 mb-2 md:mb-3 hidden md:block">
                <p className="text-[12px] md:text-[12px] font-black text-blue-600 uppercase tracking-widest text-center">
                  ⭕ Badge Size: 58 MM
                </p>
@@ -1327,6 +875,133 @@ className="
           </div>
         </div>
       </div>
+
+      {/* Mobile Bottom Toolbar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-slate-200 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
+        <div className="flex items-center justify-around px-2 py-3">
+          <button onClick={() => { setActiveTool('model'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'model' ? 'bg-blue-50 text-blue-600' : 'text-slate-600'}`}>
+            <Box className="w-5 h-5" />
+            <span className="text-[9px] font-bold uppercase">Model</span>
+          </button>
+          <button onClick={() => { setActiveTool('text'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'text' ? 'bg-blue-50 text-blue-600' : 'text-slate-600'}`}>
+            <Type className="w-5 h-5" />
+            <span className="text-[9px] font-bold uppercase">Text</span>
+          </button>
+          <button onClick={() => { setActiveTool('image'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'image' ? 'bg-blue-50 text-blue-600' : 'text-slate-600'}`}>
+            <ImageIcon className="w-5 h-5" />
+            <span className="text-[9px] font-bold uppercase">Image</span>
+          </button>
+          <button onClick={() => { setActiveTool('qr'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'qr' ? 'bg-blue-50 text-blue-600' : 'text-slate-600'}`}>
+            <QrCode className="w-5 h-5" />
+            <span className="text-[9px] font-bold uppercase">QR</span>
+          </button>
+          <button onClick={() => { setActiveTool('pattern'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'pattern' ? 'bg-blue-50 text-blue-600' : 'text-slate-600'}`}>
+            <Palette className="w-5 h-5" />
+            <span className="text-[9px] font-bold uppercase">Design</span>
+          </button>
+          <button onClick={() => { setActiveTool('layers'); setMobileSheetOpen(true); }} className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'layers' ? 'bg-blue-50 text-blue-600' : 'text-slate-600'}`}>
+            <Layers className="w-5 h-5" />
+            <span className="text-[9px] font-bold uppercase">Layers</span>
+            {elements.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center">{elements.length}</span>}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Control Panel - Slide Up Sheet */}
+      <div className={`md:hidden fixed bottom-20 left-0 right-0 bg-white border-t-2 border-slate-200 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] max-h-[50vh] overflow-y-auto rounded-t-3xl transition-all duration-300 ${mobileSheetOpen ? 'block' : 'hidden'}`}>
+        <div className="p-4 space-y-4">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200">
+            <span className="text-sm font-bold text-slate-900 uppercase">{activeTool}</span>
+            <button 
+              onClick={() => setMobileSheetOpen(false)}
+              className="p-1 hover:bg-slate-200 rounded transition-colors"
+            >
+              <X className="w-4 h-4 text-slate-600" />
+            </button>
+          </div>
+          {activeTool === 'model' && (
+            <div className="space-y-4">
+              <div className="rounded-xl bg-red-50 border-2 border-red-300 px-3 py-3 text-center">
+                <div className="text-xl font-black text-red-600">⭕ 58 MM</div>
+                <div className="text-[8px] font-bold text-red-600 uppercase mt-1">Fixed Badge Size</div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-900">Fastener:</label>
+                <select value={fastener} onChange={(e) => setFastener(e.target.value)} className="w-full mt-1 h-10 px-3 bg-white border border-slate-900 rounded-xl text-sm font-semibold">
+                  {fasteners.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-900">Quantity:</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-lg bg-slate-100 font-black text-lg">-</button>
+                  <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="flex-1 h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-center font-bold" />
+                  <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 rounded-lg bg-slate-100 font-black text-lg">+</button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <span className="text-xs font-bold text-slate-600 uppercase">Total Price:</span>
+                <span className="text-lg font-black text-slate-900">{formatPrice(BASE_PRICE * quantity)}</span>
+              </div>
+              <button onClick={handleAddToCart} disabled={loading} className="w-full h-12 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2">
+                <ShoppingCart className="w-4 h-4" /> Add to Cart
+              </button>
+            </div>
+          )}
+          {activeTool === 'text' && (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)} placeholder="Enter text..." className="flex-1 h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+                <button onClick={addText} className="px-4 h-10 bg-blue-600 text-white rounded-xl font-bold text-sm">Add</button>
+              </div>
+            </div>
+          )}
+          {activeTool === 'image' && (
+            <div className="space-y-3">
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+              <button onClick={() => fileInputRef.current?.click()} className="w-full h-12 rounded-xl border-2 border-dashed border-slate-300 text-slate-600 font-bold text-sm flex items-center justify-center gap-2">
+                <Upload className="w-4 h-4" /> Upload Image
+              </button>
+            </div>
+          )}
+          {activeTool === 'qr' && (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input type="text" value={qrUrl} onChange={(e) => setQrUrl(e.target.value)} placeholder="Enter URL..." className="flex-1 h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+                <button onClick={addQRCode} className="px-4 h-10 bg-blue-600 text-white rounded-xl font-bold text-sm">Add QR</button>
+              </div>
+            </div>
+          )}
+          {activeTool === 'pattern' && (
+            <div className="space-y-3">
+              <label className="text-xs font-semibold text-slate-900">Background Color:</label>
+              <div className="grid grid-cols-6 gap-2">
+                {backgroundPresets.slice(0, 12).map(color => (
+                  <button key={color} onClick={() => setBgColor(color)} className={`w-full aspect-square rounded-lg border-2 ${bgColor === color ? 'border-blue-500' : 'border-slate-200'}`} style={{ backgroundColor: color === '#TRANSPARENT' ? '#fff' : color }}></button>
+                ))}
+              </div>
+            </div>
+          )}
+          {activeTool === 'layers' && (
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-slate-900">Manage Layers</p>
+              {elements.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">No layers added</p>
+              ) : (
+                <div className="space-y-2">
+                  {elements.sort((a,b) => b.zIndex - a.zIndex).map((el) => (
+                    <div key={el.id} onClick={() => setSelectedId(el.id)} className={`flex items-center justify-between p-2 rounded-lg border-2 ${selectedId === el.id ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
+                      <span className="text-sm font-semibold truncate">{el.type === 'text' ? el.content : el.type.toUpperCase()}</span>
+                      <button onClick={(e) => { e.stopPropagation(); removeElement(el.id); }} className="text-red-600">✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
     </div>
   );
 }

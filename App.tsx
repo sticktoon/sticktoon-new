@@ -68,13 +68,13 @@ const Logo: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'md' }) => {
   const scale = size === 'sm' ? 0.7 : size === 'lg' ? 1.2 : 1;
   
   return (
-    <div className="perspective-container w-full flex justify-center select-none"
+    <div className="perspective-container w-full flex justify-center select-none shrink-0"
 style={{ transform: `scale(${scale})` }}>
       <div className="relative">
        <img 
   src="/images/STICKTOON_LONG.jpeg" 
   alt="STICKTOON" 
-  className="h-10 sm:h-12 w-auto max-w-[140px] sm:max-w-none object-contain mx-auto"
+  className="h-12 sm:h-12 w-[150px] sm:w-auto max-w-none object-contain mx-auto shrink-0"
 />
 
         
@@ -148,15 +148,15 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
 
 
     {/* LOGO */}
-    <div className="flex justify-center lg:justify-start">
-  <Link to="/">
-    <Logo />
-  </Link>
-</div>
+    <div className="flex items-center justify-center lg:justify-start shrink-0">
+      <Link to="/" className="shrink-0">
+        <Logo />
+      </Link>
+    </div>
 
 
     {/* NAV LINKS */}
-    <div className="hidden lg:flex items-center space-x-16">
+    <div className="hidden lg:flex items-center space-x-16 flex-1 justify-center">
       {navLinks.map((link) => (
         <div key={link.name} className="relative group">
           <Link
@@ -395,7 +395,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
    FOOTER
 ======================= */
 const Footer: React.FC = () => (
-<footer className="bg-slate-900 text-white pt-8 pb-4 relative z-50">
+<footer className="bg-black text-white pt-8 pb-4 relative z-50">
 
 
 
@@ -408,12 +408,12 @@ const Footer: React.FC = () => (
 <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
 
 
-   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-y-10 gap-x-12 mb-10">
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-y-10 gap-x-12 mb-10">
 
 
 
 
-      <div className="text-left">
+      <div className="text-left lg:col-span-2">
 
 
       <Link
@@ -424,8 +424,12 @@ const Footer: React.FC = () => (
 
             <Logo size="md" />
           </Link>
-          <p className="text-slate-400 max-w-xs leading-relaxed font-medium">
-            Premium die-cut badges for the digital generation.
+          <div className="mt-4">
+            <h4 className="font-black text-xs tracking-[0.2em] text-white/70">ABOUT US</h4>
+            <div className="mt-2 w-6 h-[2px] bg-white/20 rounded-full"></div>
+          </div>
+          <p className="text-slate-400 max-w-md leading-relaxed font-medium mt-4">
+            Creators of bold, affordable pin badges and custom merch. Every design tells your story. Badge culture, redefined with unbeatable quality and prices.
           </p>
         </div>
 
@@ -442,13 +446,14 @@ const Footer: React.FC = () => (
           <ul className="space-y-3">
             <li><Link to="/about" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">OUR STORY</Link></li>
             <li><Link to="/categories" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">ALL DROPS</Link></li>
-            {/* <li><Link to="/custom-order" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">CUSTOM MOCKUPS</Link></li> */}
+            <li><Link to="/custom-order" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">CUSTOM ORDER</Link></li>
+            <li><Link to="/faq" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">FAQ</Link></li>
           </ul>
         </div>
 {/* INFORMATION */}
 <div className="text-center sm:text-left">
 
- <div className="mb-8">
+ <div className="mb-5">
   <h4 className="font-black text-xs tracking-[0.2em] text-white/70">
     INFORMATION
   </h4>
@@ -456,19 +461,11 @@ const Footer: React.FC = () => (
 </div>
 
 
-  <ul className="space-y-5">
+  <ul className="space-y-3">
     <li>
      <Link
   to="/privacy-policy"
-  className="
-    inline-block
-    py-1
-    text-sm
-    font-bold
-    text-slate-300
-    hover:text-white
-    transition-colors
-  "
+  className="text-sm font-bold text-slate-300 hover:text-white transition-colors"
 >
   PRIVACY POLICY
 </Link>
@@ -487,96 +484,24 @@ const Footer: React.FC = () => (
     <li>
       <Link
         to="/refund-cancellation"
-      className="
-    inline-block
-    py-1
-    text-sm
-    font-bold
-    text-slate-300
-    hover:text-white
-    transition-colors
-  "
+      className="text-sm font-bold text-slate-300 hover:text-white transition-colors"
       >
         REFUND POLICY
+      </Link>
+    </li>
+    <li>
+      <Link
+        to="/contact"
+        className="text-sm font-bold text-slate-300 hover:text-white transition-colors"
+      >
+        GET IN TOUCH
       </Link>
     </li>
   </ul>
 </div>
 
-      <div className="text-left">
-
-
-        <div className="mb-8">
-  <h4 className="font-black text-xs tracking-[0.2em] text-white/70">
-    SUPPORT
-  </h4>
-  <div className="mt-3 w-8 h-[2px] bg-white/30 rounded-full"></div>
-
-
-</div>
-
-          <ul className="space-y-5">
-            {/* <li><button className="text-sm font-bold text-slate-300 hover:text-white transition-colors">TRACK ORDER</button></li>
-            <li><button className="text-sm font-bold text-slate-300 hover:text-white transition-colors">SHIPPING POLICY</button></li> */}
-            <li><Link to="/custom-order" className="
-    inline-block
-    py-1
-    text-sm
-    font-bold
-    text-slate-300
-    hover:text-white
-    transition-colors
-  ">CUSTOM ORDER</Link></li>
-            <li><Link to="/contact" className="
-    inline-block
-    py-1
-    text-sm
-    font-bold
-    text-slate-300
-    hover:text-white
-    transition-colors
-  ">GET IN TOUCH</Link></li>
-
-             {/* ✅ FAQ LINK */}
-    <li>
-      <Link
-        to="/faq"
-        className="
-    inline-block
-    py-1
-    text-sm
-    font-bold
-    text-slate-300
-    hover:text-white
-    transition-colors
-  "
-      >
-        FAQ
-      </Link>
-    </li>
-{/* ✅ PRIVACY POLICY — EXACTLY BELOW FAQ
-    <li>
-      <Link
-        to="/privacy-policy"
-        className="text-sm font-bold text-slate-300 hover:text-white transition-colors"
-      >
-        PRIVACY POLICY
-      </Link>
-    </li> */}
-    {/* <li>
-    <Link to="/terms-conditions">TERMS & CONDITIONS</Link>
-  </li>
-  <li>
-    <Link to="/refund-cancellation">
-      REFUND & CANCELLATION POLICY
-    </Link>
-  </li> */}
-          </ul>
-        </div>
-      
-
-     <div>
-      <div className="mb-8">
+<div className="text-center sm:text-left">
+      <div className="mb-5">
   <h4 className="font-black text-xs tracking-[0.2em] text-white/70">
     FOLLOW
   </h4>
@@ -602,6 +527,19 @@ const Footer: React.FC = () => (
           >
             <Mail className="w-5 h-5 text-white" />
           </a>
+        </div>
+      </div>
+
+      <div className="text-center sm:text-left lg:justify-self-end">
+        <div className="mb-5">
+          <h4 className="font-black text-xs tracking-[0.2em] text-white/70">MADE IN INDIA</h4>
+          <div className="mt-2 w-6 h-[2px] bg-white/30 rounded-full"></div>
+        </div>
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-lg">🇮🇳</div>
+          <p className="text-slate-400 text-sm leading-relaxed max-w-[220px]">
+            Proudly designed and produced in India—crafted with care, quality, and local talent.
+          </p>
         </div>
       </div>
 

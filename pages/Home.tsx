@@ -293,20 +293,33 @@ hover:bg-yellow-400 hover:text-black transition-all w-full sm:w-auto"
 
 
 const HowItWorksSection: React.FC = () => (
-  <section className="min-h-screen bg-white flex items-center py-12 md:py-0">
-    <div className="max-w-6xl mx-auto px-4 md:px-6 w-full">
+  <section className="relative min-h-screen bg-gradient-to-br from-white via-slate-50 to-yellow-50/30 flex items-center py-12 md:py-0 overflow-hidden">
+    
+    {/* Background Effects - Same as Browse Category */}
+    <div className="pointer-events-none absolute inset-0">
+      <div className="absolute top-[-200px] left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-yellow-500/5 rounded-full blur-[140px]" />
+      <div className="absolute bottom-[-100px] right-[-200px] w-[600px] h-[600px] bg-orange-400/5 rounded-full blur-[120px]" />
+      <div className="absolute top-1/2 left-[-150px] w-[500px] h-[500px] bg-red-400/5 rounded-full blur-[100px]" />
+      
+      {/* Floating Circles - Lighter */}
+      <div className="absolute top-20 -left-8 w-24 h-24 rounded-full border-[6px] border-yellow-500/20 animate-bounce" style={{ animationDuration: '5s' }} />
+      <div className="absolute top-40 -right-10 w-28 h-28 rounded-full border-[6px] border-orange-500/15 animate-pulse" style={{ animationDuration: '4s' }} />
+      <div className="absolute bottom-32 -left-12 w-32 h-32 rounded-full border-[8px] border-red-500/15 animate-bounce" style={{ animationDuration: '6s', animationDelay: '1s' }} />
+    </div>
+    
+    <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 w-full">
 
       {/* HEADER */}
       <div className="text-center mb-10">
-        <span className="inline-block mb-3 px-4 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600">
+        <span className="inline-block mb-3 px-4 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-yellow-400/30 text-orange-700 border-3 border-black shadow-[2px_2px_0px_#000]">
           The Craft
         </span>
 
-        <h2 className="text-3xl md:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight">
+        <h2 className="text-3xl md:text-4xl lg:text-5xl font-black bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent tracking-tight drop-shadow-sm">
           How It Works
         </h2>
 
-        <p className="mt-2 text-slate-500 text-xs md:text-sm">
+        <p className="mt-2 text-slate-600 text-xs md:text-sm font-semibold">
           Simple steps to getting your custom vibes manufactured.
         </p>
       </div>
@@ -321,15 +334,15 @@ const HowItWorksSection: React.FC = () => (
         ].map((step, idx) => (
           <div
             key={idx}
-            className="relative bg-slate-50 rounded-2xl p-6 text-center border border-slate-100 hover:shadow-md transition"
+            className="relative bg-white rounded-3xl p-6 text-center border-4 border-black shadow-[6px_6px_0px_#000] hover:shadow-[8px_8px_0px_#000] transition-all hover:-translate-y-1"
           >
             {/* STEP NUMBER */}
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-indigo-600 text-white text-xs font-black flex items-center justify-center">
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 text-xs font-black flex items-center justify-center shadow-lg border-3 border-black">
               {idx + 1}
             </div>
 
             {/* ICON */}
-            <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-white shadow-sm flex items-center justify-center text-indigo-600">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 shadow-lg flex items-center justify-center text-slate-900 border-3 border-black">
               <step.icon className="w-7 h-7" />
             </div>
 
@@ -338,7 +351,7 @@ const HowItWorksSection: React.FC = () => (
               {step.title}
             </h3>
 
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-relaxed font-semibold">
               {step.desc}
             </p>
           </div>
@@ -349,7 +362,7 @@ const HowItWorksSection: React.FC = () => (
       <div className="flex justify-center">
         <Link
          to="/custom-order"
-          className="inline-flex items-center gap-3 px-10 py-4 rounded-xl bg-slate-900 text-white text-sm font-black uppercase tracking-widest hover:bg-indigo-600 transition shadow-lg"
+          className="inline-flex items-center gap-3 px-10 py-4 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 text-sm font-black uppercase tracking-widest hover:from-yellow-400 hover:to-orange-400 transition-all shadow-[6px_6px_0px_#000] border-4 border-black hover:shadow-[8px_8px_0px_#000] hover:scale-105"
         >
           Make My Badge <Sparkles className="w-5 h-5" />
         </Link>
@@ -369,50 +382,55 @@ const CustomisedProductsSection: React.FC = () => {
   ];
 
   return (
-    <section className="bg-white py-16">
-      <div className="max-w-7xl mx-auto px-6">
+    <section className="relative bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 py-16 overflow-hidden">
+      {/* Canva-style Background Elements */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute top-[-150px] right-[-100px] w-[500px] h-[500px] bg-purple-300/20 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-100px] left-[-100px] w-[400px] h-[400px] bg-blue-300/20 rounded-full blur-[100px]" />
+        <div className="absolute top-1/2 right-1/3 w-[300px] h-[300px] bg-pink-300/15 rounded-full blur-[90px]" />
+        
+        {/* Floating Shapes */}
+        <div className="absolute top-20 right-20 w-16 h-16 rounded-lg bg-purple-400/10 rotate-12 animate-pulse" style={{ animationDuration: '4s' }} />
+        <div className="absolute bottom-40 left-16 w-20 h-20 rounded-full bg-blue-400/10 animate-bounce" style={{ animationDuration: '5s' }} />
+      </div>
+      
+      <div className="relative z-10 max-w-7xl mx-auto px-6">
 
         {/* HEADER */}
-        <div className="relative flex items-center justify-center mb-14">
-          <div className="absolute left-0 right-0 h-px bg-slate-200" />
-          <span className="relative z-10 bg-white px-6 py-2 text-xs font-black tracking-widest text-slate-700 border border-slate-300">
+        <div className="text-center mb-14">
+          <span className="inline-block mb-3 px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg">
             CUSTOMISED PRODUCTS
           </span>
+          <h2 className="text-3xl md:text-4xl font-black bg-gradient-to-r from-purple-600 via-blue-600 to-pink-600 bg-clip-text text-transparent tracking-tight">
+            Choose Your Style
+          </h2>
         </div>
 
         {/* GRID */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 justify-center">
-
-
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {products.map((item, idx) => (
             <div
               key={idx}
-              className="
-                relative
-                flex flex-col items-center text-center px-6 py-6
-                lg:col-span-2
-              "
+              className="relative group bg-white rounded-3xl p-6 text-center border-3 border-purple-200 shadow-[4px_4px_0px_rgba(168,85,247,0.4)] hover:shadow-[6px_6px_0px_rgba(168,85,247,0.6)] transition-all hover:-translate-y-1"
             >
-
-              {/* Vertical Divider */}
-              {idx !== products.length - 1 && (
-                <div className="hidden lg:block absolute right-0 top-10 bottom-10 border-r border-dashed border-slate-300" />
-              )}
-
+              {/* Gradient Accent */}
+              <div className="absolute -top-2 -right-2 w-12 h-12 bg-gradient-to-br from-purple-400 to-blue-400 rounded-full border-3 border-white shadow-lg opacity-80" />
+              
               {/* IMAGE */}
-              <img
-                src={item.image}
-                alt={item.name}
-                className="w-28 h-28 object-contain mb-6"
-              />
+              <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-4 mb-4">
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  className="w-28 h-28 object-contain mx-auto transform group-hover:scale-110 transition-transform duration-300"
+                />
+              </div>
 
               {/* TEXT */}
-              <p className="text-sm font-semibold text-slate-700 leading-snug">
+              <p className="text-sm font-black text-slate-800 leading-snug uppercase tracking-wide">
                 {item.name}
               </p>
             </div>
           ))}
-
         </div>
       </div>
     </section>
@@ -421,25 +439,38 @@ const CustomisedProductsSection: React.FC = () => {
 
 
 const CategoryGrid: React.FC = () => (
-  <section className="py-12 pb-10 bg-slate-50">
-    <div className="max-w-full mx-auto px-4 sm:px-10 lg:px-20">
+  <section className="relative py-12 pb-10 bg-gradient-to-br from-slate-50 via-white to-slate-100 overflow-hidden">
+    
+    {/* Background Effects - Lighter */}
+    <div className="pointer-events-none absolute inset-0">
+      <div className="absolute top-[-200px] left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-yellow-500/5 rounded-full blur-[140px]" />
+      <div className="absolute bottom-[-100px] right-[-200px] w-[600px] h-[600px] bg-orange-400/5 rounded-full blur-[120px]" />
+      <div className="absolute top-1/2 left-[-150px] w-[500px] h-[500px] bg-red-400/5 rounded-full blur-[100px]" />
+      
+      {/* Floating Circles - Lighter */}
+      <div className="absolute top-20 -left-8 w-24 h-24 rounded-full border-[6px] border-yellow-500/20 animate-bounce" style={{ animationDuration: '5s' }} />
+      <div className="absolute top-40 -right-10 w-28 h-28 rounded-full border-[6px] border-orange-500/15 animate-pulse" style={{ animationDuration: '4s' }} />
+      <div className="absolute bottom-32 -left-12 w-32 h-32 rounded-full border-[8px] border-red-500/15 animate-bounce" style={{ animationDuration: '6s', animationDelay: '1s' }} />
+    </div>
+    
+    <div className="relative z-10 max-w-full mx-auto px-4 sm:px-10 lg:px-20">
 
       {/* HEADER */}
     <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
 
         <div className="max-w-4xl">
-         <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight mb-4 uppercase leading-tight">
+         <h2 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent tracking-tight mb-4 uppercase leading-tight">
   Browse Category
 </h2>
 
-          <p className="text-lg text-slate-500 font-medium">
+          <p className="text-lg text-slate-600 font-semibold">
             Ready-to-ship collections for every subculture.
           </p>
         </div>
 
         <Link
           to="/categories"
-          className="text-xs font-black tracking-[0.3em] text-indigo-600 uppercase flex items-center gap-3 border-b-2 border-indigo-600 pb-1"
+          className="text-xs font-black tracking-[0.3em] text-orange-600 uppercase flex items-center gap-3 border-b-2 border-orange-600 pb-1 hover:text-orange-700 hover:border-orange-700 transition-colors"
         >
           Browse All Drops <ArrowRight className="w-4 h-4" />
         </Link>
@@ -486,14 +517,15 @@ const CategoryGrid: React.FC = () => (
       absolute
       bottom-1
       left-4
-      bg-black/80
-      text-white
+      bg-gradient-to-r from-yellow-500 to-orange-500
+      text-slate-900
       text-[11px]
       font-black
       tracking-widest
       uppercase
       px-4 py-2
       rounded-full
+      shadow-lg
     "
   >
     {cat.name}
@@ -522,7 +554,7 @@ const CategoryGrid: React.FC = () => (
 
 
 const FeaturedSection: React.FC<{ addToCart: (badge: Badge) => void }> = ({ addToCart }) => {
-  const featuredBadges = BADGES.filter(b => b.isFeatured).slice(0, 10);
+  const featuredBadges = BADGES.filter(b => b.isFeatured).slice(0, 8);
   const [flippedId, setFlippedId] = useState<string | null>(null);
 
 const navigate = useNavigate();
@@ -548,37 +580,43 @@ const decreaseQty = (id: string) => {
   return (
 <section className="relative pt-12 pb-24 overflow-hidden bg-white">
 
-          {/* Premium background glow */}
+          {/* Premium background glow - Logo Theme */}
 <div className="pointer-events-none absolute inset-0">
- <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-indigo-500/10 rounded-full blur-[140px]" />
-
-  <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-sky-400/10 rounded-full blur-[120px]" />
+ <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px]" />
+  <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-orange-400/10 rounded-full blur-[120px]" />
+  <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
+  
+  {/* Funny Floating Circles - Outer Edges Only */}
+  <div className="absolute top-32 -left-8 w-24 h-24 rounded-full border-[8px] border-yellow-400/30 animate-bounce" style={{ animationDuration: '4s' }} />
+  <div className="absolute top-64 -right-12 w-32 h-32 rounded-full border-[10px] border-orange-400/25 animate-pulse" style={{ animationDuration: '3s' }} />
+  <div className="absolute bottom-40 -left-16 w-28 h-28 rounded-full border-[8px] border-red-400/20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }} />
+  <div className="absolute bottom-72 -right-8 w-20 h-20 rounded-full border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
 </div>
 
   
       <div className="max-w-7xl mx-auto px-6 lg:px-12">
 
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-3 bg-indigo-600/5 px-6 py-2 rounded-full mb-4 border border-indigo-600/10">
-            <Sparkles className="w-5 h-5 text-indigo-500" />
-            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Trending Now</span>
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-6 py-3 rounded-full mb-4 border-2 border-yellow-500/30">
+            <Zap className="w-5 h-5 text-yellow-600 animate-pulse" />
+            <span className="text-[11px] font-black text-yellow-700 uppercase tracking-widest">Trending Now</span>
+            <Zap className="w-5 h-5 text-orange-600 animate-pulse" />
           </div>
-        <h2 className="text-5xl font-black tracking-tight text-slate-900 mb-1">
-
+        <h2 className="text-5xl md:text-6xl font-black tracking-tight bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent mb-2">
   HOT DROPS
 </h2>
-      <p className="mt-1 text-[10px] tracking-[0.22em] text-slate-400 uppercase">
-        Grab them before they disappear into the vault</p>
+      <p className="mt-2 text-[11px] tracking-[0.22em] text-slate-600 uppercase font-bold">
+        Grab them before they disappear into the vault ⚡</p>
 </div>
 
  <div className="
 grid
 grid-cols-2
 sm:grid-cols-2
-md:grid-cols-3
-lg:grid-cols-4
-xl:grid-cols-5
-gap-4 sm:gap-6
+md:grid-cols-2
+lg:grid-cols-3
+xl:grid-cols-4
+gap-4 sm:gap-6 md:gap-8
 
 
   max-w-[1600px]
@@ -598,63 +636,64 @@ gap-4 sm:gap-6
    <div
   key={badge.id}
   className="
-  bg-white rounded-2xl
- p-2 sm:p-4
-
-  border border-slate-200
+  bg-gradient-to-br from-slate-900 to-slate-800
+  rounded-2xl sm:rounded-3xl
+  p-2 sm:p-4 md:p-6
+  border-2 border-yellow-500/20
   flex flex-col
   transition-all duration-300
-  hover:shadow-xl hover:-translate-y-1 hover:border-indigo-400
+  hover:shadow-2xl hover:shadow-yellow-500/20 hover:-translate-y-2 hover:border-yellow-500/60
+  hover:scale-105
+  group
 "
 
 >
   {/* IMAGE BOX */}
   <div
     onClick={() => navigate(`/badge/${badge.id}`)}
-    className="bg-slate-100 rounded-xl flex items-center justify-center h-32 sm:h-48 md:h-60
- cursor-pointer mb-4 overflow-hidden"
+    className="bg-white rounded-xl sm:rounded-2xl flex items-center justify-center h-32 sm:h-56 md:h-64 lg:h-72
+ cursor-pointer mb-2 sm:mb-4 md:mb-5 overflow-hidden shadow-lg ring-2 sm:ring-4 ring-yellow-500/10 group-hover:ring-yellow-500/30 transition-all"
 
   >
    <img
   src={badge.image}
   alt={badge.name}
-  className="h-24 sm:h-36 md:h-44 object-contain"
+  className="h-28 sm:h-48 md:h-56 lg:h-64 w-28 sm:w-48 md:w-56 lg:w-64 object-contain group-hover:scale-110 transition-transform duration-300"
 />
 
   </div>
 
   {/* CATEGORY + PRICE */}
-{/* CATEGORY + PRICE */}
-<div className="flex justify-between items-center mb-1">
-  <span className="text-[10px] sm:text-[11px] font-bold text-indigo-600 uppercase tracking-widest">
+<div className="flex justify-between items-center mb-1 sm:mb-2">
+  <span className="text-[9px] sm:text-[11px] md:text-[12px] font-black text-yellow-400 uppercase tracking-wider sm:tracking-widest">
     {badge.category}
   </span>
-  <span className="text-base sm:text-lg font-extrabold text-slate-900">
+  <span className="text-sm sm:text-xl md:text-2xl font-black text-white">
     ₹{total}
   </span>
 </div>
 
-{/* NAME + QUANTITY (below price) */}
-<div className="flex items-center justify-between gap-2 mb-3">
-  <h3 className="text-[11px] sm:text-[12px] font-bold text-slate-900 uppercase tracking-wide">
+{/* NAME + QUANTITY */}
+<div className="flex items-center justify-between gap-1 sm:gap-2 md:gap-3 mb-2 sm:mb-3 md:mb-4">
+  <h3 className="text-[10px] sm:text-[12px] md:text-[14px] font-black text-white uppercase tracking-tight sm:tracking-wide leading-tight flex-1 truncate">
     {badge.name}
   </h3>
 
-  <div className="flex items-center gap-1 border rounded px-1 py-[2px] shrink-0">
+  <div className="flex items-center gap-1 bg-slate-700/50 border border-yellow-500/30 sm:border-2 rounded px-1 py-0.5 sm:px-2 sm:py-1 shrink-0">
     <button
       onClick={() => decreaseQty(badge.id)}
-      className="w-4 h-4 flex items-center justify-center border border-slate-300 rounded text-[10px] font-bold"
+      className="w-4 h-4 sm:w-6 sm:h-6 flex items-center justify-center bg-yellow-500 hover:bg-yellow-400 rounded text-slate-900 text-xs sm:text-sm font-black transition-colors"
     >
       -
     </button>
 
-    <span className="w-5 text-center text-[11px] font-bold">
+    <span className="w-4 sm:w-6 text-center text-[10px] sm:text-[13px] font-black text-white">
       {qty}
     </span>
 
     <button
       onClick={() => increaseQty(badge.id)}
-      className="w-4 h-4 flex items-center justify-center border border-slate-300 rounded text-[10px] font-bold"
+      className="w-4 h-4 sm:w-6 sm:h-6 flex items-center justify-center bg-yellow-500 hover:bg-yellow-400 rounded text-slate-900 text-xs sm:text-sm font-black transition-colors"
     >
       +
     </button>
@@ -662,12 +701,12 @@ gap-4 sm:gap-6
 </div>
 
 {/* BUTTONS */}
-<div className="flex gap-2 mt-auto">
+<div className="flex gap-1.5 sm:gap-2 md:gap-3 mt-auto">
   <button
     onClick={() =>
       addToCart({ ...badge, quantity: getQty(badge.id) })
     }
-    className="flex-1 bg-[#0f172a] text-white py-1 rounded-lg text-sm font-bold"
+    className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 py-1.5 sm:py-2 md:py-3 rounded-lg sm:rounded-xl text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-wide sm:tracking-wider hover:from-yellow-400 hover:to-orange-400 transition-all shadow-lg hover:shadow-xl"
   >
     Buy Now
   </button>
@@ -676,9 +715,9 @@ gap-4 sm:gap-6
     onClick={() =>
       addToCart({ ...badge, quantity: getQty(badge.id) })
     }
-    className="w-12 bg-[#0f172a] text-white rounded-lg flex items-center justify-center"
+    className="w-8 sm:w-10 md:w-14 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 rounded-lg sm:rounded-xl flex items-center justify-center hover:from-yellow-400 hover:to-orange-400 transition-all shadow-lg hover:shadow-xl"
   >
-    <Plus className="w-4 h-4" />
+    <Plus className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 font-black" />
   </button>
 </div>
 

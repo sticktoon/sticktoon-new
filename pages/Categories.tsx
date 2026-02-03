@@ -40,7 +40,7 @@ export default function Categories({ addToCart }: CategoriesProps) {
             name: p.name,
             category: p.category.toLowerCase(),
             price: p.price,
-            image: p.image,
+            image: p.image?.startsWith('/') ? p.image : `/${p.image}`,
             description: p.description,
           }));
           setProducts(mappedProducts);
@@ -111,7 +111,7 @@ export default function Categories({ addToCart }: CategoriesProps) {
 
   // Group products by category for section-wise display
   const productsByCategory = CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = products.filter(p => p.category === cat.id);
+    acc[cat.id] = products.filter(p => p.category.toLowerCase() === cat.id.toLowerCase());
     return acc;
   }, {} as Record<string, Badge[]>);
 
@@ -136,7 +136,7 @@ export default function Categories({ addToCart }: CategoriesProps) {
             {/* Admin Add Product Button */}
             {isAdmin && activeCategory !== 'all' && (
               <button
-                onClick={handleAddProduct}
+                onClick={() => handleAddProduct()}
                 className="flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-[1.5rem] font-black text-xs md:text-sm tracking-widest uppercase transition-all shadow-lg"
               >
                 <Plus className="w-4 h-4" />
@@ -251,6 +251,10 @@ export default function Categories({ addToCart }: CategoriesProps) {
                               src={badge.image}
                               alt={badge.name}
                               className="relative w-[125%] h-[125%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-transform duration-500 group-hover:scale-[1.06]"
+                              onError={(e) => {
+                                console.log('Image failed to load:', badge.image);
+                                e.currentTarget.style.display = 'none';
+                              }}
                             />
                           </div>
                         </Link>
@@ -349,6 +353,10 @@ export default function Categories({ addToCart }: CategoriesProps) {
     transition-transform duration-500
     group-hover:scale-[1.06]
   "
+  onError={(e) => {
+    console.log('Image failed to load:', badge.image);
+    e.currentTarget.style.display = 'none';
+  }}
 />
 
     </div>
