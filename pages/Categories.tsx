@@ -26,6 +26,24 @@ export default function Categories({ addToCart }: CategoriesProps) {
   // Check if user is admin
   const isAdmin = !!localStorage.getItem('adminToken');
 
+  const normalizeImagePath = (path?: string) => {
+    if (!path) return undefined;
+    
+    // Fix common typos: sport -> sports, entert3 -> enter3, animal.jpg -> animal1.png
+    path = path.replace(/\/sport([0-9])/g, '/sports$1').replace(/^sport([0-9])/g, 'sports$1');
+    path = path.replace(/\/entert3/g, '/enter3').replace(/^entert3/g, 'enter3');
+    path = path.replace(/\/animal\.jpg/g, '/animal1.png').replace(/^animal\.jpg/g, 'animal1.png');
+    
+    // If already starts with /, return as is
+    if (path.startsWith('/')) return path;
+    
+    // If starts with 'badge/', add leading slash
+    if (path.startsWith('badge/')) return `/${path}`;
+    
+    // If just filename, prepend /badge/
+    return `/badge/${path}`;
+  };
+
   // Fetch products from API
   useEffect(() => {
     const fetchProducts = async () => {
@@ -40,8 +58,10 @@ export default function Categories({ addToCart }: CategoriesProps) {
             name: p.name,
             category: p.category.toLowerCase(),
             price: p.price,
-            image: p.image?.startsWith('/') ? p.image : `/${p.image}`,
-            description: p.description,
+            image: normalizeImagePath(p.image) || '/badge/placeholder.png',
+            imageMagnetic: normalizeImagePath(p.imageMagnetic),
+            details: p.description || '',
+            color: p.color || 'bg-transparent',
           }));
           setProducts(mappedProducts);
         } else {
@@ -116,10 +136,19 @@ export default function Categories({ addToCart }: CategoriesProps) {
   }, {} as Record<string, Badge[]>);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_rgba(59,130,246,0.04),_transparent_60%),linear-gradient(to_bottom,#fafbff,#ffffff)]">
+    <div className="min-h-screen bg-white relative overflow-hidden">
+      {/* Premium background glow - Hot Drops Theme */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px]" />
+        <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-orange-400/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
+        <div className="absolute top-28 -left-8 w-24 h-24 rounded-full border-[8px] border-yellow-400/30 animate-bounce" style={{ animationDuration: '4s' }} />
+        <div className="absolute top-52 -right-10 w-28 h-28 rounded-full border-[10px] border-orange-400/25 animate-pulse" style={{ animationDuration: '3s' }} />
+        <div className="absolute bottom-36 -left-12 w-32 h-32 rounded-full border-[8px] border-red-400/20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }} />
+        <div className="absolute bottom-64 -right-8 w-20 h-20 rounded-full border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
+      </div>
 
-
-      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-12 pt-24">
+      <div className="relative z-10 max-w-full mx-auto px-4 sm:px-6 lg:px-12 pt-24">
        <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center md:gap-6 mb-8 md:mb-10">
 
        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900">
@@ -242,43 +271,51 @@ export default function Categories({ addToCart }: CategoriesProps) {
                     {categoryProducts.map((badge) => (
                       <div
                         key={badge.id}
-                        className="group bg-white rounded-[22px] border border-slate-100 shadow-[0_8px_30px_rgba(15,23,42,0.06)] hover:shadow-[0_30px_80px_rgba(15,23,42,0.12)] transition-all duration-500 p-3 md:p-4 flex flex-col"
+                        className="group bg-[#0b1320] rounded-[28px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-4 md:p-5 flex flex-col"
                       >
                         <Link to={`/badge/${badge.id}`} className="w-full">
-                          <div className="relative w-full aspect-square rounded-2xl bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center mb-4 overflow-hidden">
-                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.06),transparent_65%)]" />
+                          <div className="relative w-full aspect-square rounded-2xl bg-white flex items-center justify-center mb-4 overflow-hidden border-[6px] border-slate-900/70 shadow-inner">
+                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.06),transparent_65%)]" />
                             <img
                               src={badge.image}
                               alt={badge.name}
                               className="relative w-[125%] h-[125%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-transform duration-500 group-hover:scale-[1.06]"
                               onError={(e) => {
                                 console.log('Image failed to load:', badge.image);
-                                e.currentTarget.style.display = 'none';
+                                const target = e.currentTarget;
+                                // Try with absolute path if relative failed
+                                if (!target.src.startsWith('http') && !target.dataset.retried) {
+                                  target.dataset.retried = 'true';
+                                  const cleanPath = badge.image.startsWith('/') ? badge.image.substring(1) : badge.image;
+                                  target.src = `/${cleanPath}`;
+                                } else {
+                                  target.style.display = 'none';
+                                }
                               }}
                             />
                           </div>
                         </Link>
 
-                        <div className="flex items-center justify-between mb-1 gap-2">
-                          <span className="text-[9px] md:text-[11px] font-semibold tracking-widest text-blue-600 uppercase truncate">
+                        <div className="flex items-center justify-between mb-2 gap-2">
+                          <span className="text-[10px] md:text-[11px] font-semibold tracking-[0.3em] text-yellow-400 uppercase truncate">
                             {badge.category}
                           </span>
-                          <span className="text-base md:text-lg font-extrabold text-slate-900 whitespace-nowrap">
+                          <span className="text-xl md:text-2xl font-black text-white whitespace-nowrap">
                             {formatPrice(badge.price)}
                           </span>
                         </div>
 
-                        <h3 className="text-[13px] md:text-[15px] font-extrabold text-slate-900 uppercase leading-snug mb-3">
+                        <h3 className="text-[14px] md:text-[15px] font-extrabold text-white uppercase leading-snug mb-4">
                           {badge.name}
                         </h3>
 
-                        <div className="my-3 h-px w-full bg-slate-100" />
+                        <div className="my-2 h-px w-full bg-yellow-500/25" />
 
                         <button
                           onClick={() => addToCart(badge)}
-                          className="mt-auto w-full py-3 rounded-xl bg-gradient-to-r from-slate-900 to-slate-800 text-white text-[11px] font-bold tracking-[0.22em] uppercase hover:from-blue-600 hover:to-blue-700 transition-all duration-300 active:scale-95"
+                          className="mt-auto w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 text-[12px] font-black tracking-[0.22em] uppercase hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95"
                         >
-                          Add to Cart
+                          Buy Now
                         </button>
                       </div>
                     ))}
@@ -306,117 +343,70 @@ export default function Categories({ addToCart }: CategoriesProps) {
               )}
             </div>
 
-   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+              {filteredBadges.map((badge) => (
+                <div
+                  key={badge.id}
+                  className="group bg-[#0b1320] rounded-[28px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-4 md:p-5 flex flex-col"
+                >
+                  {/* PREMIUM BADGE STAGE */}
+                  <Link to={`/badge/${badge.id}`} className="w-full">
+                    <div className="relative w-full aspect-square rounded-2xl bg-white flex items-center justify-center mb-4 overflow-hidden border-[6px] border-slate-900/70 shadow-inner">
+                      {/* soft halo */}
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.06),transparent_65%)]" />
+                      <img
+                        src={badge.image}
+                        alt={badge.name}
+                        className="relative w-[125%] h-[125%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-transform duration-500 group-hover:scale-[1.06]"
+                        onError={(e) => {
+                          console.log('Image failed to load:', badge.image);
+                            const target = e.currentTarget;
+                            // Try with absolute path if relative failed
+                            if (!target.src.startsWith('http') && !target.dataset.retried) {
+                              target.dataset.retried = 'true';
+                              const cleanPath = badge.image.startsWith('/') ? badge.image.substring(1) : badge.image;
+                              target.src = `/${cleanPath}`;
+                            } else {
+                              target.style.display = 'none';
+                            }
+                        }}
+                      />
+                    </div>
+                  </Link>
 
-            {filteredBadges.map((badge) => (
-  <div
-  key={badge.id}
-  className="
-    group
-    bg-white
-    rounded-[22px]
-    border border-slate-100
-    shadow-[0_8px_30px_rgba(15,23,42,0.06)]
-    hover:shadow-[0_30px_80px_rgba(15,23,42,0.12)]
-    transition-all duration-500
-    p-3 md:p-4
-    flex flex-col
-  "
->
- {/* PREMIUM BADGE STAGE */}
-  <Link to={`/badge/${badge.id}`} className="w-full">
-   <div
-  className="
-    relative
-    w-full
-    aspect-square
-    rounded-2xl
-    bg-gradient-to-br from-slate-50 via-white to-slate-50
-    flex items-center justify-center
-    mb-4
-    overflow-hidden
-  "
->
+                  <div className="flex items-center justify-between mb-2 gap-2">
+                    <span className="text-[10px] md:text-[11px] font-semibold tracking-[0.3em] text-yellow-400 uppercase truncate">
+                      {badge.category}
+                    </span>
+                    <span className="text-xl md:text-2xl font-black text-white whitespace-nowrap">
+                      {formatPrice(badge.price)}
+                    </span>
+                  </div>
 
-      {/* soft halo */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.06),transparent_65%)]" />
+                  <h3 className="text-[14px] md:text-[15px] font-extrabold text-white uppercase leading-snug mb-4">
+                    {badge.name}
+                  </h3>
 
-     <img
-  src={badge.image}
-  alt={badge.name}
-  className="
-    relative
-    w-[125%]
-    h-[125%]
-    object-contain
-    drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)]
-    transition-transform duration-500
-    group-hover:scale-[1.06]
-  "
-  onError={(e) => {
-    console.log('Image failed to load:', badge.image);
-    e.currentTarget.style.display = 'none';
-  }}
-/>
+                  {/* DIVIDER */}
+                  <div className="my-2 h-px w-full bg-yellow-500/25" />
 
-    </div>
-  </Link>
+                  {viewType === 'list' && (
+                    <p className="text-slate-300 mt-2 mb-8 text-xl leading-relaxed font-medium">
+                      {badge.details}
+                    </p>
+                  )}
 
-
-              
-              {/* <div className="flex-1 flex flex-col"> */}
-           <div className="flex items-center justify-between mb-1 gap-2">
-    <span className="text-[9px] md:text-[11px] font-semibold tracking-widest text-blue-600 uppercase truncate">
-      {badge.category}
-    </span>
-    <span className="text-base md:text-lg font-extrabold text-slate-900 whitespace-nowrap">
-      {formatPrice(badge.price)}
-    </span>
-  </div>
-
-    {/* TITLE */}
-   {/* TITLE */}
-  <h3 className="text-[13px] md:text-[15px] font-extrabold text-slate-900 uppercase leading-snug mb-3">
-    {badge.name}
-  </h3>
-
-
-  {/* DIVIDER */}
-  <div className="my-3 h-px w-full bg-slate-100" />
-
-                {viewType === 'list' && (
-                  <p className="text-slate-500 mt-2 mb-8 text-xl leading-relaxed font-medium">
-                    {badge.details}
-                  </p>
-                )}
-
-                 {/* CTA */}
-  {/* CTA */}
- <button
-    onClick={() => addToCart(badge)}
-    className="
-      mt-auto
-      w-full
-      py-3
-      rounded-xl
-      bg-gradient-to-r from-slate-900 to-slate-800
-      text-white
-      text-[11px]
-      font-bold
-      tracking-[0.22em]
-      uppercase
-      hover:from-blue-600 hover:to-blue-700
-      transition-all duration-300
-      active:scale-95
-    "
-  >
-    Add to Cart
-  </button>
-              {/* </div> */}
+                  {/* CTA */}
+                  <button
+                    onClick={() => addToCart(badge)}
+                    className="mt-auto w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 text-[12px] font-black tracking-[0.22em] uppercase hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95"
+                  >
+                    Buy Now
+                  </button>
+                </div>
+              ))}
             </div>
-          ))}
           </div>
-        </div>
         )}
 
         {!loading && filteredBadges.length === 0 && (

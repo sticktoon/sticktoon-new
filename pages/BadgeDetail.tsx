@@ -1,10 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { BADGES, formatPrice } from '../constants';
+import { BADGES } from '../constants';
 import { Badge } from '../types';
 import { getBadgeDescription } from '../geminiService';
-import { ShoppingCart, Zap, Shield, RotateCcw, ArrowLeft, Star, Heart, Truck } from 'lucide-react';
+import { ShoppingCart, Zap, Shield, RotateCcw, ArrowLeft, Star, Truck } from 'lucide-react';
+import { API_BASE_URL } from '../config/api';
 
 interface BadgeDetailProps {
   addToCart: (badge: Badge) => void;
@@ -13,25 +14,100 @@ interface BadgeDetailProps {
 export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-if (!id) {
-  return <div className="p-20 text-center">Invalid badge</div>;
-}
-
-const badge = BADGES.find(b => b.id === id);
-const [currentImage, setCurrentImage] = useState(0);
-
-
+  const [currentImage, setCurrentImage] = useState(0);
   const [description, setDescription] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [badgeType, setBadgeType] = useState<'pin' | 'magnetic'>('pin');
-const [activeTab, setActiveTab] = useState<'description' | 'info'>('description');
+  const [activeTab, setActiveTab] = useState<'description' | 'info'>('description');
+  const [badge, setBadge] = useState<Badge | null>(null);
+  const [loading, setLoading] = useState(true);
+  const magneticFallback = '/badge/magnectbadge.png';
 
+  const normalizeImagePath = (path?: string) => {
+    if (!path) return undefined;
+    
+    // Fix common typos: sport -> sports, entert3 -> enter3, animal.jpg -> animal1.png
+    path = path.replace(/\/sport([0-9])/g, '/sports$1').replace(/^sport([0-9])/g, 'sports$1');
+    path = path.replace(/\/entert3/g, '/enter3').replace(/^entert3/g, 'enter3');
+    path = path.replace(/\/animal\.jpg/g, '/animal1.png').replace(/^animal\.jpg/g, 'animal1.png');
+    
+    // If already starts with /, return as is
+    if (path.startsWith('/')) return path;
+    
+    // If starts with 'badge/', add leading slash
+    if (path.startsWith('badge/')) return `/${path}`;
+    
+    // If just filename, prepend /badge/
+    return `/badge/${path}`;
+  };
+
+  const normalizeBadge = (b: Badge | null) => {
+    if (!b) return null;
+    return {
+      ...b,
+      image: normalizeImagePath(b.image) || b.image,
+      imageMagnetic: normalizeImagePath(b.imageMagnetic) || b.imageMagnetic,
+    } as Badge;
+  };
 
   useEffect(() => {
-    if (badge) {
+    if (!id) return;
+
+    const loadBadge = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${API_BASE_URL}/api/products/${id}`);
+        if (res.ok) {
+          const p = await res.json();
+          const mappedBadge: Badge = {
+            id: p._id,
+            name: p.name,
+            category: p.category?.toLowerCase?.() ?? p.category,
+            price: p.price,
+            image: normalizeImagePath(p.image) || p.image,
+            details: p.description || p.details || '',
+            imageMagnetic: normalizeImagePath(p.imageMagnetic),
+            color: p.color || 'bg-transparent',
+          };
+          setBadge(mappedBadge);
+          return;
+        }
+
+        const fallback = BADGES.find((b) => b.id === id) || null;
+        setBadge(normalizeBadge(fallback));
+      } catch (err) {
+        console.error('Error fetching badge:', err);
+        const fallback = BADGES.find((b) => b.id === id) || null;
+        setBadge(normalizeBadge(fallback));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadBadge();
+  }, [id]);
+
+  useEffect(() => {
+    if (badge?.name) {
       getBadgeDescription(badge.name).then(setDescription);
     }
   }, [badge]);
+
+  useEffect(() => {
+    if (badgeType === 'magnetic') {
+      setCurrentImage(1);
+      return;
+    }
+    setCurrentImage(0);
+  }, [badgeType]);
+
+  if (!id) {
+    return <div className="p-20 text-center">Invalid badge</div>;
+  }
+
+  if (loading) {
+    return <div className="p-20 text-center">Loading badge...</div>;
+  }
 
   if (!badge) {
     return <div className="p-20 text-center">Badge not found</div>;
@@ -41,54 +117,79 @@ const [activeTab, setActiveTab] = useState<'description' | 'info'>('description'
     addToCart(badge);
     navigate('/checkout');
   };
+const magneticImage = badge.imageMagnetic || magneticFallback;
 const images =
   badgeType === 'magnetic'
-    ? [badge.image, badge.imageMagnetic || badge.image]
+    ? [badge.image, magneticImage]
     : [badge.image];
 
  return (
-  <div className="bg-white min-h-[calc(100vh-64px)]">
-    <div className="max-w-7xl mx-auto px-4 md:px-6 py-8 md:py-12">
+  <div className="min-h-screen bg-white relative overflow-hidden">
+    {/* Premium background glow - Hot Drops Theme */}
+    <div className="pointer-events-none absolute inset-0">
+      <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px]" />
+      <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-orange-400/10 rounded-full blur-[120px]" />
+      <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
+    </div>
+
+    <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 py-5 md:py-8">
 
       {/* Back */}
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-slate-400 hover:text-slate-900 font-bold mb-6 md:mb-10 text-sm md:text-base"
+        className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold mb-4 md:mb-6 text-sm md:text-base bg-white/70 border border-slate-200 px-4 py-2 rounded-full shadow-sm"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Collection
       </button>
 
       {/* HERO SECTION */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12 lg:gap-14 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 lg:gap-10 items-start">
 
         {/* IMAGE */}
-        <div className="lg:col-span-5">
-          
-        <div className="bg-white rounded-2xl border border-slate-500 
-                p-4 md:p-6 w-full flex justify-center">
+        <div className="lg:col-span-5 space-y-4">
+          <div className="bg-white/90 backdrop-blur rounded-3xl border border-slate-200 shadow-[0_24px_60px_rgba(0,0,0,0.12)] p-5 md:p-6 w-full">
+            <div className="flex items-center justify-between mb-4">
+              <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-700 bg-amber-100 px-3 py-1 rounded-full">
+                <Zap className="w-3 h-3" />
+                Hot Drop
+              </span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                {badgeType === 'pin' ? 'Pin Badge' : 'Magnetic Badge'}
+              </span>
+            </div>
 
+            <div className="w-full h-[210px] md:h-[280px] flex items-center justify-center">
+              <img
+                src={images[currentImage]}
+                alt={badge.name}
+                className="max-w-full max-h-full object-contain transition-all duration-300"
+              />
+            </div>
 
- <div className="w-[180px] md:w-[260px] h-[180px] md:h-[260px] flex items-center justify-center">
-  <img
-    src={
-      badgeType === 'pin'
-        ? badge.image
-        : badge.imageMagnetic || badge.image
-    }
-    alt={badge.name}
-    className="max-w-full max-h-full object-contain transition-all duration-300"
-  />
-</div>
-
-
-
-</div>
+            {images.length > 1 && (
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                {images.map((img, idx) => (
+                  <button
+                    key={img}
+                    onClick={() => setCurrentImage(idx)}
+                    className={`rounded-2xl border-2 p-3 flex items-center justify-center transition ${
+                      currentImage === idx
+                        ? 'border-blue-600 bg-blue-50'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <img src={img} alt={`${badge.name} view ${idx + 1}`} className="h-16 object-contain" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
            {/* TABS — NOW BELOW IMAGE */}
   <div>
     {/* Tabs Header */}
-   <div className="w-full mt-6">
+  <div className="w-full mt-4">
 
 <div className="grid grid-cols-2 bg-slate-300 rounded-xl p-1">
     <button
@@ -118,32 +219,30 @@ const images =
 
     {/* Tabs Content */}
   <div className="mt-2">
-  {activeTab === 'description' && (
-   <p className="w-full mt-4 bg-white rounded-xl 
-                border border-slate-700 p-3 text-slate-600 text-sm leading-relaxed">
+    {activeTab === 'description' && (
+      <div className="w-full mt-4 bg-white/95 rounded-2xl border border-slate-200 p-4 text-slate-600 text-sm leading-relaxed">
+        {description || badge.details || `The ${badge.name} badge is crafted with premium materials, designed for durability and everyday flex.`}
+      </div>
+    )}
 
-      A premium die-cut sticker badge designed to show off your unique
-      personality and style.
-    </p>
-  )}
-
-  {activeTab === 'info' && (
-  <div className="w-full mt-4 bg-white rounded-xl 
-                border border-slate-700 divide-y text-sm">
-
-  <div className="flex justify-between px-5 py-3">
-    <span className="font-medium text-slate-700">Weight</span>
-    <span className="text-slate-900">0.05 g</span>
+    {activeTab === 'info' && (
+      <div className="w-full mt-4 bg-white/95 rounded-2xl border border-slate-200 text-sm overflow-hidden shadow-sm">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-0">
+          {[
+            ['Weight', '0.05 g'],
+            ['Dimensions', '5.8 × 5.8 × 1 cm'],
+            ['Material', 'Metal with gloss finish'],
+            ['Finish', 'Glossy + Scratch resistant'],
+          ].map(([label, value]) => (
+            <div key={label} className="p-4 border-b md:border-b-0 md:border-r border-slate-200 last:border-r-0">
+              <p className="text-[10px] uppercase tracking-widest font-black text-slate-500">{label}</p>
+              <p className="mt-1 font-black text-slate-900">{value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
   </div>
-
-  <div className="flex justify-between px-4 py-3">
-    <span className="font-medium text-slate-900">Dimensions</span>
-    <span className="text-slate-600">5.8 × 5.8 × 1 cm</span>
-  </div>
-</div>
-
-  )}
-</div>
 
 
   </div>
@@ -153,7 +252,7 @@ const images =
         
 
         {/* DETAILS */}
-        <div className="lg:col-span-7 space-y-8">
+        <div className="lg:col-span-7 space-y-6">
 
 
           {/* Category */}
@@ -162,23 +261,52 @@ const images =
           </p>
 
           {/* Title */}
-          <h1 className="text-4xl font-extrabold text-slate-900">
-            {badge.name}
-          </h1>
+          <div className="flex items-start justify-between gap-4">
+            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
+              {badge.name}
+            </h1>
+          </div>
+
+          {/* Rating */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star key={i} className="w-4 h-4 text-amber-500 fill-amber-500" />
+              ))}
+            </div>
+            <span className="text-xs font-bold text-slate-500">4.9 · 128 reviews</span>
+          </div>
 
           {/* Price */}
-          <div className="flex items-center gap-4">
-            <span className="text-4xl font-black text-slate-900">
-              ₹{badge.price}
-            </span>
-            <span className="line-through text-slate-400">₹299</span>
-            <span className="text-xs font-black bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full">
-              50% OFF
-            </span>
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-3xl md:text-4xl font-black text-slate-900">
+                ₹{badge.price * quantity}
+              </span>
+              <span className="line-through text-slate-400">₹{299 * quantity}</span>
+              <span className="text-xs font-black bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full">
+                50% OFF
+              </span>
+              <span className="text-xs font-black bg-slate-100 text-slate-700 px-3 py-1 rounded-full">
+                Best Seller
+              </span>
+            </div>
+            {quantity > 1 && (
+              <p className="text-xs text-slate-500">₹{badge.price} × {quantity} items</p>
+            )}
+          </div>
+
+          {/* Delivery */}
+          <div className="flex items-center gap-3 bg-white/90 border border-slate-200 rounded-2xl px-4 py-3">
+            <Truck className="w-5 h-5 text-blue-500" />
+            <div className="text-sm">
+              <p className="font-bold text-slate-800">Free delivery by Feb 7</p>
+              <p className="text-slate-500 text-xs">Ships in 24 hours · Easy returns</p>
+            </div>
           </div>
 
           {/* Badge Type */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Choose Badge Style
             </p>
@@ -186,10 +314,10 @@ const images =
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setBadgeType('pin')}
-                className={`py-3 rounded-xl border-2 font-bold ${
+                className={`py-3 rounded-2xl border-2 font-black uppercase tracking-widest text-[11px] ${
                   badgeType === 'pin'
-                    ? 'border-blue-600 bg-blue-50 text-blue-700'
-                    : 'border-slate-300 text-slate-700'
+                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm'
+                    : 'border-slate-200 text-slate-700 bg-white hover:border-slate-300'
                 }`}
               >
                 Pin Badge
@@ -197,76 +325,92 @@ const images =
 
               <button
                 onClick={() => setBadgeType('magnetic')}
-                className={`py-3 rounded-xl border-2 font-bold ${
+                className={`py-3 rounded-2xl border-2 font-black uppercase tracking-widest text-[11px] ${
                   badgeType === 'magnetic'
-                    ? 'border-blue-600 bg-blue-50 text-blue-700'
-                    : 'border-slate-300 text-slate-700'
+                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm'
+                    : 'border-slate-200 text-slate-700 bg-white hover:border-slate-300'
                 }`}
               >
-                Pin + Fridge  Magnetic Badge
+                Pin + Magnetic
               </button>
             </div>
 
-            <p className="text-xs text-slate-500">
+            {/* <p className="text-xs text-slate-500">
               {badgeType === 'pin'
                 ? 'Classic pin-back badge'
                 : 'No-pin magnetic badge'}
-            </p>
+            </p> */}
           </div>
 
           {/* Quantity */}
           <div className="flex items-center gap-6">
-            <div className="flex items-center border border-slate-300 rounded-xl">
+            <div className="flex items-center border border-slate-200 bg-white rounded-xl shadow-sm">
               <button
                 onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                className="px-4 py-2 font-bold"
+                className="px-4 py-2 font-bold text-slate-700"
               >
                 −
               </button>
-              <span className="px-4 font-black">{quantity}</span>
+              <span className="px-4 font-black text-slate-900">{quantity}</span>
               <button
                 onClick={() => setQuantity(q => q + 1)}
-                className="px-4 py-2 font-bold"
+                className="px-4 py-2 font-bold text-slate-700"
               >
                 +
               </button>
             </div>
 
             <span className="text-sm font-bold text-rose-500">
-              Only 12 left
+              Limited stock available!
             </span>
           </div>
 
           {/* CTA */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => addToCart(badge)}
-              className="border-2 border-slate-900 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition"
+              className="border-2 border-slate-900 py-3 md:py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition flex items-center justify-center gap-2 bg-white text-sm"
             >
+              <ShoppingCart className="w-4 h-4" />
               Add to Cart
             </button>
 
             <button
               onClick={handleBuyNow}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg"
+              className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white py-3 md:py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg text-sm"
             >
               Buy Now
             </button>
           </div>
 
           {/* TRUST */}
-          <div className="grid grid-cols-3 gap-4 pt-8 border-t border-slate-200 text-center">
-            <div className="space-y-2">
-              <Truck className="mx-auto text-blue-500" />
-              <p className="text-xs font-bold text-slate-500">Free Shipping</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-6 border-t border-slate-200">
+            <div className="flex items-center gap-3 bg-white/90 border border-slate-200 rounded-2xl px-4 py-3 shadow-sm">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                <Truck className="text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xs font-black text-slate-800 uppercase tracking-widest">Free Delivery</p>
+                <p className="text-xs text-slate-500">On all orders</p>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Shield className="mx-auto text-emerald-500" />
-              <p className="text-xs font-bold text-slate-500">Secure Payment</p>
+            <div className="flex items-center gap-3 bg-white/90 border border-slate-200 rounded-2xl px-4 py-3 shadow-sm">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                <Shield className="text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-xs font-black text-slate-800 uppercase tracking-widest">Secure Payment</p>
+                <p className="text-xs text-slate-500">256-bit protection</p>
+              </div>
             </div>
-            <div className="space-y-2">
-              <RotateCcw className="mx-auto text-rose-500" />
-              <p className="text-xs font-bold text-slate-500">Easy Returns</p>
+            <div className="flex items-center gap-3 bg-white/90 border border-slate-200 rounded-2xl px-4 py-3 shadow-sm">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center">
+                <RotateCcw className="text-rose-600" />
+              </div>
+              <div>
+                <p className="text-xs font-black text-slate-800 uppercase tracking-widest">Easy Returns</p>
+                <p className="text-xs text-slate-500">7-day window</p>
+              </div>
             </div>
           </div>
         </div>

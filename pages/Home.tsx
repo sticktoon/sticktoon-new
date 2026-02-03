@@ -258,24 +258,24 @@ const HowItWorksSection: React.FC = () => (
         ].map((step, idx) => (
           <div
             key={idx}
-            className="relative bg-white rounded-3xl p-6 text-center border-4 border-black shadow-[6px_6px_0px_#000] hover:shadow-[8px_8px_0px_#000] transition-all hover:-translate-y-1"
+            className="relative bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 text-center border-2 border-yellow-500/20 shadow-lg hover:shadow-2xl hover:shadow-yellow-500/20 transition-all duration-300 hover:-translate-y-2 hover:border-yellow-500/60"
           >
             {/* STEP NUMBER */}
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 text-xs font-black flex items-center justify-center shadow-lg border-3 border-black">
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 text-xs font-black flex items-center justify-center shadow-lg border-2 border-yellow-500/20">
               {idx + 1}
             </div>
 
             {/* ICON */}
-            <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 shadow-lg flex items-center justify-center text-slate-900 border-3 border-black">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 shadow-lg flex items-center justify-center text-slate-900 border-2 border-yellow-500/20">
               <step.icon className="w-7 h-7" />
             </div>
 
             {/* TEXT */}
-            <h3 className="text-sm font-black uppercase text-slate-900 mb-1 tracking-wide">
+            <h3 className="text-sm font-black uppercase text-white mb-1 tracking-wide">
               {step.title}
             </h3>
 
-            <p className="text-xs text-slate-600 leading-relaxed font-semibold">
+            <p className="text-xs text-slate-300 leading-relaxed font-semibold">
               {step.desc}
             </p>
           </div>
@@ -335,13 +335,13 @@ const CustomisedProductsSection: React.FC = () => {
           {products.map((item, idx) => (
             <div
               key={idx}
-              className="relative group bg-white rounded-3xl p-6 text-center border-3 border-purple-200 shadow-[4px_4px_0px_rgba(168,85,247,0.4)] hover:shadow-[6px_6px_0px_rgba(168,85,247,0.6)] transition-all hover:-translate-y-1"
+              className="relative group bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 text-center border-2 border-yellow-500/20 shadow-lg hover:shadow-2xl hover:shadow-yellow-500/20 transition-all duration-300 hover:-translate-y-2 hover:border-yellow-500/60"
             >
               {/* Gradient Accent */}
-              <div className="absolute -top-2 -right-2 w-12 h-12 bg-gradient-to-br from-purple-400 to-blue-400 rounded-full border-3 border-white shadow-lg opacity-80" />
+              <div className="absolute -top-2 -right-2 w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-full border-2 border-yellow-500/20 shadow-lg opacity-90" />
               
               {/* IMAGE */}
-              <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-4 mb-4">
+              <div className="bg-gradient-to-br from-white to-yellow-50/50 rounded-2xl p-4 mb-4">
                 <img
                   src={item.image}
                   alt={item.name}
@@ -350,7 +350,7 @@ const CustomisedProductsSection: React.FC = () => {
               </div>
 
               {/* TEXT */}
-              <p className="text-sm font-black text-slate-800 leading-snug uppercase tracking-wide">
+              <p className="text-sm font-black text-white leading-snug uppercase tracking-wide">
                 {item.name}
               </p>
             </div>
