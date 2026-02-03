@@ -452,14 +452,14 @@ const handleReset = () => {
         setActiveTool(id);
         setPanelOpen(true);
       }}
-      className={`w-full h-16 flex flex-col items-center justify-center gap-1 transition-all border-b border-slate-100 relative ${activeTool === id ? 'bg-blue-50 text-blue-600 border-r-4 border-r-blue-600 shadow-[inset_-3px_0_0_#2563eb]'
-  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+      className={`w-full h-16 flex flex-col items-center justify-center gap-1 transition-all border-b border-slate-700/50 relative ${activeTool === id ? 'bg-yellow-500/20 text-yellow-400 border-r-4 border-r-yellow-500 shadow-[inset_-3px_0_0_#eab308]'
+  : 'text-slate-400 hover:text-yellow-400 hover:bg-slate-700/30'}`}
     >
      <Icon className="w-5 h-5 drop-shadow-sm" />
 
       <span className="text-[8px] font-black uppercase tracking-widest">{label}</span>
       {count !== undefined && count > 0 && (
-        <span className="absolute top-2 right-2 bg-blue-600 text-white text-[8px] font-black rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 border border-white shadow-sm">{count}</span>
+        <span className="absolute top-2 right-2 bg-yellow-500 text-slate-900 text-[8px] font-black rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 border border-slate-800 shadow-sm">{count}</span>
       )}
     </button>
   );
@@ -511,7 +511,14 @@ const handleReset = () => {
   );
 
   return (
-  <div className="flex h-[calc(100vh-64px)] w-full bg-gradient-to-br from-slate-100 via-slate-100 to-slate-200 overflow-hidden select-none relative">
+  <div className="flex h-[calc(100vh-64px)] w-full bg-white overflow-hidden select-none relative">
+
+      {/* Premium background glow - Logo Theme */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px]" />
+        <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-orange-400/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
+      </div>
 
       {errorMessage && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-4 duration-300">
@@ -523,31 +530,31 @@ const handleReset = () => {
       )}
 
       {/* Sidebar Tool Rail - Desktop Only */}
-  <div className="hidden md:flex w-16 bg-white border-r border-slate-200 flex-col z-30 shadow-[6px_0_30px_rgba(15,23,42,0.08)]">
+  <div className="hidden md:flex w-16 bg-gradient-to-b from-slate-900 to-slate-800 border-r border-yellow-500/20 flex-col z-30 shadow-[6px_0_30px_rgba(234,179,8,0.15)]">
         <ToolButton icon={Box} id="model" label="MODEL" />
         <ToolButton icon={Type} id="text" label="TEXT" />
         <ToolButton icon={ImageIcon} id="image" label="IMAGE" />
         <ToolButton icon={QrCode} id="qr" label="QR" />
         <ToolButton icon={Palette} id="pattern" label="DESIGN" />
         <ToolButton icon={Layers} id="layers" label="LAYERS" count={elements.length} />
-        <div className="mt-auto border-t border-slate-100">
+        <div className="mt-auto border-t border-yellow-500/20">
           {/* <ToolButton icon={User} id="user" label="USER" />
            */}
         </div>
       </div>
 
       {/* Desktop Control Panel */}
-      <div className={`w-[320px] bg-white border-r border-slate-900 flex-col z-20 shadow-[6px_0_25px_rgba(15,23,42,0.15)] max-h-full overflow-y-auto transition-all duration-300 ${panelOpen ? 'hidden md:flex' : 'hidden'}`}>
+      <div className={`w-[320px] bg-gradient-to-b from-slate-900 to-slate-800 border-r border-yellow-500/20 flex-col z-20 shadow-[6px_0_25px_rgba(234,179,8,0.15)] max-h-full overflow-y-auto transition-all duration-300 ${panelOpen ? 'hidden md:flex' : 'hidden'}`}>
 
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-          <h2 className="text-[11px] font-bold tracking-wide uppercase text-slate-900">
+        <div className="p-4 border-b border-yellow-500/20 flex items-center justify-between bg-slate-800/60">
+          <h2 className="text-[11px] font-bold tracking-wide uppercase text-yellow-400">
             {activeTool.toUpperCase()}
           </h2>
           <button
             onClick={() => setPanelOpen(false)}
-            className="p-1 hover:bg-slate-200 rounded transition-colors"
+            className="p-1 hover:bg-slate-700 rounded transition-colors"
           >
-            <X className="w-4 h-4 text-slate-600" />
+            <X className="w-4 h-4 text-slate-400" />
           </button>
         </div>
 
@@ -560,24 +567,24 @@ const handleReset = () => {
                 <div className="text-[8px] font-bold text-red-600 uppercase mt-1">Fixed Badge Size</div>
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-900">Fastener:</label>
-                <select value={fastener} onChange={(e) => setFastener(e.target.value)} className="w-full mt-1 h-10 px-3 bg-white border border-slate-900 rounded-xl text-sm font-semibold">
+                <label className="text-xs font-semibold text-yellow-400">Fastener:</label>
+                <select value={fastener} onChange={(e) => setFastener(e.target.value)} className="w-full mt-1 h-10 px-3 bg-slate-700 border border-yellow-500/30 rounded-xl text-sm font-semibold text-white">
                   {fasteners.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-900">Quantity:</label>
+                <label className="text-xs font-semibold text-yellow-400">Quantity:</label>
                 <div className="flex items-center gap-2 mt-1">
-                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-lg bg-slate-100 font-black text-lg">-</button>
-                  <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="flex-1 h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-center font-bold" />
-                  <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 rounded-lg bg-slate-100 font-black text-lg">+</button>
+                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-lg bg-slate-700 hover:bg-yellow-500/20 font-black text-lg text-white">-</button>
+                  <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="flex-1 h-10 px-3 bg-slate-700 border border-yellow-500/30 rounded-xl text-center font-bold text-white" />
+                  <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 rounded-lg bg-slate-700 hover:bg-yellow-500/20 font-black text-lg text-white">+</button>
                 </div>
               </div>
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                <span className="text-xs font-bold text-slate-600 uppercase">Total Price:</span>
-                <span className="text-lg font-black text-slate-900">{formatPrice(BASE_PRICE * quantity)}</span>
+              <div className="flex items-center justify-between p-3 bg-slate-700/50 border border-yellow-500/20 rounded-xl">
+                <span className="text-xs font-bold text-yellow-400 uppercase">Total Price:</span>
+                <span className="text-lg font-black text-white">{formatPrice(BASE_PRICE * quantity)}</span>
               </div>
-              <button onClick={handleAddToCart} disabled={loading} className="w-full h-12 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2">
+              <button onClick={handleAddToCart} disabled={loading} className="w-full h-12 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-yellow-500/30 transition-all">
                 <ShoppingCart className="w-4 h-4" /> Add to Cart
               </button>
             </div>
@@ -585,15 +592,15 @@ const handleReset = () => {
           {activeTool === 'text' && (
             <div className="space-y-3">
               <div className="flex gap-2">
-                <input type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)} placeholder="Enter text..." className="flex-1 h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
-                <button onClick={addText} className="px-4 h-10 bg-blue-600 text-white rounded-xl font-bold text-sm">Add</button>
+                <input type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)} placeholder="Enter text..." className="flex-1 h-10 px-3 bg-slate-700 border border-yellow-500/30 rounded-xl text-sm text-white placeholder-slate-400" />
+                <button onClick={addText} className="px-4 h-10 bg-yellow-500 text-slate-900 rounded-xl font-bold text-sm hover:bg-yellow-400 transition-colors">Add</button>
               </div>
             </div>
           )}
           {activeTool === 'image' && (
             <div className="space-y-3">
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-              <button onClick={() => fileInputRef.current?.click()} className="w-full h-12 rounded-xl border-2 border-dashed border-slate-300 text-slate-600 font-bold text-sm flex items-center justify-center gap-2">
+              <button onClick={() => fileInputRef.current?.click()} className="w-full h-12 rounded-xl border-2 border-dashed border-yellow-500/30 text-slate-300 font-bold text-sm flex items-center justify-center gap-2 hover:border-yellow-500/60 hover:text-yellow-400 transition-all">
                 <Upload className="w-4 h-4" /> Upload Image
               </button>
             </div>
@@ -601,32 +608,32 @@ const handleReset = () => {
           {activeTool === 'qr' && (
             <div className="space-y-3">
               <div className="flex gap-2">
-                <input type="text" value={qrUrl} onChange={(e) => setQrUrl(e.target.value)} placeholder="Enter URL..." className="flex-1 h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
-                <button onClick={addQRCode} className="px-4 h-10 bg-blue-600 text-white rounded-xl font-bold text-sm">Add QR</button>
+                <input type="text" value={qrUrl} onChange={(e) => setQrUrl(e.target.value)} placeholder="Enter URL..." className="flex-1 h-10 px-3 bg-slate-700 border border-yellow-500/30 rounded-xl text-sm text-white placeholder-slate-400" />
+                <button onClick={addQRCode} className="px-4 h-10 bg-yellow-500 text-slate-900 rounded-xl font-bold text-sm hover:bg-yellow-400 transition-colors">Add QR</button>
               </div>
             </div>
           )}
           {activeTool === 'pattern' && (
             <div className="space-y-3">
-              <label className="text-xs font-semibold text-slate-900">Background Color:</label>
+              <label className="text-xs font-semibold text-yellow-400">Background Color:</label>
               <div className="grid grid-cols-6 gap-2">
                 {backgroundPresets.slice(0, 12).map(color => (
-                  <button key={color} onClick={() => setBgColor(color)} className={`w-full aspect-square rounded-lg border-2 ${bgColor === color ? 'border-blue-500' : 'border-slate-200'}`} style={{ backgroundColor: color === '#TRANSPARENT' ? '#fff' : color }}></button>
+                  <button key={color} onClick={() => setBgColor(color)} className={`w-full aspect-square rounded-lg border-2 ${bgColor === color ? 'border-yellow-500' : 'border-slate-600'}`} style={{ backgroundColor: color === '#TRANSPARENT' ? '#fff' : color }}></button>
                 ))}
               </div>
             </div>
           )}
           {activeTool === 'layers' && (
             <div className="space-y-3">
-              <p className="text-xs font-bold text-slate-900">Manage Layers</p>
+              <p className="text-xs font-bold text-yellow-400">Manage Layers</p>
               {elements.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center py-4">No layers added</p>
+                <p className="text-sm text-slate-400 text-center py-4">No layers added</p>
               ) : (
                 <div className="space-y-2">
                   {elements.sort((a,b) => b.zIndex - a.zIndex).map((el) => (
-                    <div key={el.id} onClick={() => setSelectedId(el.id)} className={`flex items-center justify-between p-2 rounded-lg border-2 ${selectedId === el.id ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
-                      <span className="text-sm font-semibold truncate">{el.type === 'text' ? el.content : el.type.toUpperCase()}</span>
-                      <button onClick={(e) => { e.stopPropagation(); removeElement(el.id); }} className="text-red-600">✕</button>
+                    <div key={el.id} onClick={() => setSelectedId(el.id)} className={`flex items-center justify-between p-2 rounded-lg border-2 ${selectedId === el.id ? 'border-yellow-500 bg-yellow-500/10' : 'border-slate-600 bg-slate-700/50'}`}>
+                      <span className="text-sm font-semibold truncate text-white">{el.type === 'text' ? el.content : el.type.toUpperCase()}</span>
+                      <button onClick={(e) => { e.stopPropagation(); removeElement(el.id); }} className="text-red-400 hover:text-red-300">✕</button>
                     </div>
                   ))}
                 </div>
@@ -639,7 +646,7 @@ const handleReset = () => {
 
       {/* Main Workspace */}
   <div
-  className="flex-grow flex flex-col relative bg-gradient-to-br from-slate-200 to-slate-300 overflow-auto md:overflow-hidden w-full md:w-auto"
+  className="flex-grow flex flex-col relative bg-transparent overflow-auto md:overflow-hidden w-full md:w-auto"
   onMouseDown={() => setSelectedId(null)}
 >
 
@@ -671,65 +678,25 @@ const handleReset = () => {
 
         <div className="flex-grow relative flex flex-col items-center justify-center p-2 sm:p-4 md:p-8 overflow-auto pb-32 md:pb-8">
           
-          {/* Badge Preview - Top Right Corner - LARGER - Desktop Only */}
-          <div className="absolute top-4 right-4 md:top-6 md:right-6 hidden lg:flex lg:flex-col items-center gap-2 md:gap-3 z-50">
-            <div className="text-[8px] md:text-[10px] font-black text-slate-600 uppercase tracking-widest">Final Badge</div>
-            <div 
-              className="rounded-full shadow-2xl border-2 md:border-4 border-white flex items-center justify-center overflow-hidden"
-              style={{
-                width: 120,
-                height: 120,
-                backgroundColor: bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor
-              }}
-            >
-              <div className="w-full h-full relative flex items-center justify-center">
-                {elements.sort((a,b) => a.zIndex - b.zIndex).map((el) => {
-                  const scale = 120 / DISPLAY_CANVAS_SIZE;
-                  return (
-                    <div 
-                      key={el.id}
-                      className="absolute"
-                      style={{
-                        left: el.x * scale,
-                        top: el.y * scale,
-                        width: el.width * scale,
-                        height: el.height * scale,
-                        transform: `rotate(${el.rotation}deg)`,
-                        zIndex: el.zIndex
-                      }}
-                    >
-                      {el.type === 'text' ? (
-                        <div className="w-full h-full flex items-center justify-center font-black text-slate-900 text-center" style={{ fontSize: `${el.height * 0.7 * scale}px` }}>
-                          {el.content}
-                        </div>
-                      ) : (
-                        <img src={el.content} className="w-full h-full object-cover" />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          <div className="text-center mb-4 md:mb-6 max-w-md px-2 md:px-4">
-             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 md:p-4 mb-2 md:mb-3 hidden md:block">
-               <p className="text-[12px] md:text-[12px] font-black text-blue-600 uppercase tracking-widest text-center">
+          <div className="text-center mb-4 md:mb-6 max-w-6xl px-2 md:px-4">
+             <div className="bg-yellow-50 border-2 border-yellow-400/50 rounded-lg p-3 md:p-4 mb-2 md:mb-3">
+               <p className="text-[12px] md:text-[12px] font-black text-yellow-700 uppercase tracking-widest text-center">
                  ⭕ Badge Size: 58 MM
                </p>
-               <p className="text-[9px] md:text-[10px] font-semibold text-blue-500 uppercase tracking-widest text-center mt-2">
-                 The circle below represents exactly 58 MM
+               <p className="text-[9px] md:text-[10px] font-semibold text-orange-600 uppercase tracking-widest text-center mt-2">
+                 Drag, resize and zoom your design on the left • Preview on the right
                </p>
              </div>
-             <p className="text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">
-  PLEASE KEEP ALL ARTWORKS INSIDE THE CIRCLE.
-  ANY ARTWORK BEYOND THE CIRCLE WILL GET CUT.
-</p>
-
           </div>
 
-          <div className="relative" ref={canvasRef}> {/* Zoom disabled: style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.1s ease-out' }} */}
-            <div className="absolute inset-0 bg-slate-900/10 rounded-full blur-[40px] translate-y-8 scale-110"></div>
+          {/* Dual Circle Layout - Editor + Preview */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 w-full max-w-6xl px-4">
+            
+            {/* LEFT: Editing Circle with Crop Overlay */}
+            <div className="flex flex-col items-center gap-4">
+              <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Design Canvas</h3>
+              <div className="relative" ref={canvasRef}>
+                <div className="absolute inset-0 bg-slate-900/10 rounded-full blur-[40px] translate-y-8 scale-110"></div>
             
             {/* Outer 70MM Circle - Hidden when image is uploaded */}
             {elements.length === 0 && (
@@ -741,9 +708,9 @@ const handleReset = () => {
                   backgroundColor: bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor
                 }}
               >
-                {/* Inner 58MM Black Dashed Circle Indicator */}
+                {/* Inner 58MM Red Circle Indicator */}
                 <div 
-                  className="absolute border-[3px] border-dashed border-black rounded-full z-20 pointer-events-none"
+                  className="absolute border-[3px] border-solid border-red-500 rounded-full z-20 pointer-events-none"
                   title="58mm badge area"
                   style={{
                     width: Math.min(DISPLAY_CANVAS_SIZE, window.innerWidth * 0.85 * (DISPLAY_CANVAS_SIZE / DISPLAY_OUTER_CANVAS_SIZE)),
@@ -828,6 +795,7 @@ const handleReset = () => {
                   backgroundColor: bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor
                 }}
               >
+                <div className="absolute inset-3 border-[3px] border-solid border-red-500 rounded-full z-20 pointer-events-none" />
                 <div className="w-full h-full relative z-10" style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.1s ease-out' }}>
                   {elements.sort((a,b) => a.zIndex - b.zIndex).map((el) => {
                     const isSelected = selectedId === el.id;
@@ -867,11 +835,80 @@ const handleReset = () => {
                 <div className="pin-button-dome opacity-30 z-30 pointer-events-none"></div>
               </div>
             )}
+
+            </div>
+            
+              {/* Zoom Controls */}
+              <div className="flex items-center gap-3 mt-4">
+                <button 
+                  onClick={() => setZoom(prev => Math.max(0.5, prev - 0.1))} 
+                  className="px-4 py-2 bg-slate-700 text-white rounded-lg font-bold hover:bg-yellow-500 transition-colors"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="text-sm font-black text-slate-700 min-w-[60px] text-center">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <button 
+                  onClick={() => setZoom(prev => Math.min(3, prev + 0.1))} 
+                  className="px-4 py-2 bg-slate-700 text-white rounded-lg font-bold hover:bg-yellow-500 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* RIGHT: Preview Circle */}
+            <div className="flex flex-col items-center gap-4">
+              <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Final Preview</h3>
+              <div className="relative">
+                <div className="absolute inset-0 bg-yellow-500/20 rounded-full blur-[40px] translate-y-8 scale-110"></div>
+                <div 
+                  className="rounded-full relative shadow-2xl overflow-hidden flex items-center justify-center transition-colors duration-300 border-4 border-yellow-400/30"
+                  style={{ 
+                    width: Math.min(DISPLAY_CANVAS_SIZE, window.innerWidth * 0.85),
+                    height: Math.min(DISPLAY_CANVAS_SIZE, window.innerWidth * 0.85),
+                    backgroundColor: bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor
+                  }}
+                >
+                  <div className="absolute inset-3 border-[3px] border-solid border-red-500 rounded-full z-20 pointer-events-none" />
+                  <div className="w-full h-full relative z-10" style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.1s ease-out' }}>
+                    {elements.sort((a,b) => a.zIndex - b.zIndex).map((el) => {
+                      return (
+                        <div 
+                          key={el.id}
+                          className="absolute"
+                          style={{
+                            left: el.x,
+                            top: el.y,
+                            width: el.width,
+                            height: el.height,
+                            transform: `rotate(${el.rotation}deg)`,
+                            zIndex: el.zIndex
+                          }}
+                        >
+                          <div className="w-full h-full flex items-center justify-center overflow-hidden">
+                            {el.type === 'text' ? (
+                              <div className="font-black text-slate-900 text-center leading-tight whitespace-nowrap select-none" style={{ fontSize: `${el.height * 0.7}px` }}>{el.content}</div>
+                            ) : (
+                              <img src={el.content} className="w-full h-full object-cover pointer-events-none select-none" />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="pin-button-dome opacity-30 z-30 pointer-events-none"></div>
+                </div>
+              </div>
+              <p className="text-[10px] font-black text-yellow-600 uppercase tracking-widest mt-2">
+                ⭕ 58MM Final Badge
+              </p>
+            </div>
           </div>
 
           <div className="mt-8 text-center">
-            <p className="text-[10px] font-black text-red-500 uppercase tracking-[0.5em]">⭕ 58MM BADGE TEMPLATE</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">All designs must fit within the 58mm red circle</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">Scroll with mouse wheel on canvas to zoom</p>
           </div>
         </div>
       </div>
@@ -879,27 +916,27 @@ const handleReset = () => {
       {/* Mobile Bottom Toolbar */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-slate-200 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
         <div className="flex items-center justify-around px-2 py-3">
-          <button onClick={() => { setActiveTool('model'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'model' ? 'bg-blue-50 text-blue-600' : 'text-slate-600'}`}>
+          <button onClick={() => { setActiveTool('model'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'model' ? 'bg-yellow-50 text-yellow-600' : 'text-slate-600'}`}>
             <Box className="w-5 h-5" />
             <span className="text-[9px] font-bold uppercase">Model</span>
           </button>
-          <button onClick={() => { setActiveTool('text'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'text' ? 'bg-blue-50 text-blue-600' : 'text-slate-600'}`}>
+          <button onClick={() => { setActiveTool('text'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'text' ? 'bg-yellow-50 text-yellow-600' : 'text-slate-600'}`}>
             <Type className="w-5 h-5" />
             <span className="text-[9px] font-bold uppercase">Text</span>
           </button>
-          <button onClick={() => { setActiveTool('image'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'image' ? 'bg-blue-50 text-blue-600' : 'text-slate-600'}`}>
+          <button onClick={() => { setActiveTool('image'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'image' ? 'bg-yellow-50 text-yellow-600' : 'text-slate-600'}`}>
             <ImageIcon className="w-5 h-5" />
             <span className="text-[9px] font-bold uppercase">Image</span>
           </button>
-          <button onClick={() => { setActiveTool('qr'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'qr' ? 'bg-blue-50 text-blue-600' : 'text-slate-600'}`}>
+          <button onClick={() => { setActiveTool('qr'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'qr' ? 'bg-yellow-50 text-yellow-600' : 'text-slate-600'}`}>
             <QrCode className="w-5 h-5" />
             <span className="text-[9px] font-bold uppercase">QR</span>
           </button>
-          <button onClick={() => { setActiveTool('pattern'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'pattern' ? 'bg-blue-50 text-blue-600' : 'text-slate-600'}`}>
+          <button onClick={() => { setActiveTool('pattern'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'pattern' ? 'bg-yellow-50 text-yellow-600' : 'text-slate-600'}`}>
             <Palette className="w-5 h-5" />
             <span className="text-[9px] font-bold uppercase">Design</span>
           </button>
-          <button onClick={() => { setActiveTool('layers'); setMobileSheetOpen(true); }} className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'layers' ? 'bg-blue-50 text-blue-600' : 'text-slate-600'}`}>
+          <button onClick={() => { setActiveTool('layers'); setMobileSheetOpen(true); }} className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'layers' ? 'bg-yellow-50 text-yellow-600' : 'text-slate-600'}`}>
             <Layers className="w-5 h-5" />
             <span className="text-[9px] font-bold uppercase">Layers</span>
             {elements.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center">{elements.length}</span>}

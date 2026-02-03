@@ -36,100 +36,103 @@ export default function Contact() {
   ];
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-white via-slate-50 to-yellow-50/30 pt-20 pb-8 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <div className="relative min-h-screen bg-white pt-20 pb-8 px-4 sm:px-6 lg:px-8 overflow-hidden">
       
-      {/* Background Effects - Light */}
+      {/* Premium background glow - Hot Drops Theme */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-[-150px] left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-yellow-500/8 rounded-full blur-[140px]" />
-        <div className="absolute bottom-[-100px] right-[-150px] w-[500px] h-[500px] bg-orange-400/8 rounded-full blur-[120px]" />
-        <div className="absolute top-1/3 left-[-100px] w-[400px] h-[400px] bg-red-400/8 rounded-full blur-[100px]" />
-        
-        {/* Floating Circles - Light */}
-        <div className="absolute top-40 -left-8 w-20 h-20 rounded-full border-[6px] border-yellow-400/20 animate-pulse" style={{ animationDuration: '4s' }} />
-        <div className="absolute bottom-32 -right-10 w-24 h-24 rounded-full border-[8px] border-orange-400/15 animate-bounce" style={{ animationDuration: '5s' }} />
-        <div className="absolute top-1/2 -left-12 w-28 h-28 rounded-full border-[8px] border-red-400/15 animate-pulse" style={{ animationDuration: '6s', animationDelay: '1s' }} />
+        <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px]" />
+        <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-orange-400/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
       </div>
+
+      {/* Funny Floating Circles - Outer Edges Only */}
+      <div className="absolute top-32 -left-8 w-24 h-24 rounded-full border-[8px] border-yellow-400/30 animate-bounce" style={{ animationDuration: '4s' }} />
+      <div className="absolute top-64 -right-12 w-32 h-32 rounded-full border-[10px] border-orange-400/25 animate-pulse" style={{ animationDuration: '3s' }} />
+      <div className="absolute bottom-40 -left-16 w-28 h-28 rounded-full border-[8px] border-red-400/20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }} />
+      <div className="absolute bottom-72 -right-8 w-20 h-20 rounded-full border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
       
       <div className="relative z-10 max-w-7xl mx-auto w-full">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl lg:text-4xl font-black bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent mb-2 tracking-tight">Contact Us</h1>
-          <p className="text-slate-600 text-sm lg:text-base max-w-xl mx-auto font-semibold">Got a question? We'd love to hear from you!</p>
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-6 py-3 rounded-full mb-4 border-2 border-yellow-500/30">
+            <span className="text-[11px] font-black text-yellow-700 uppercase tracking-widest">Get In Touch</span>
+          </div>
+          <h1 className="text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent mb-2">Contact Us</h1>
+          <p className="text-slate-600 text-sm md:text-base max-w-2xl mx-auto">Got a question? We'd love to hear from you!</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8 items-start max-w-5xl mx-auto lg:mx-auto">
           {/* Form - Left */}
-          <div className="bg-white rounded-3xl p-6 border-4 border-black shadow-[6px_6px_0px_#000] h-fit hover:shadow-[8px_8px_0px_#000] transition-all">
-            {submitted ? (
+          <div className="bg-gradient-to-br from-white to-yellow-50/50 backdrop-blur border-2 border-yellow-500/20 rounded-2xl shadow-sm hover:shadow-2xl hover:shadow-yellow-500/20 hover:border-yellow-500/60 transition-all duration-300 p-6 h-fit">{submitted ? (
               <div className="text-center py-8 space-y-4">
-                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-black shadow-[4px_4px_0px_#000]">
+                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3 border-2 border-green-500/30">
                   <CheckCircle2 className="w-8 h-8" />
                 </div>
                 <h3 className="text-lg font-black text-slate-900">Message Sent! ✨</h3>
                 <p className="text-slate-600 font-semibold text-sm">Our crew will get back to you within 24 hours.</p>
                 <button 
                   onClick={() => setSubmitted(false)}
-                  className="px-6 py-2 bg-yellow-400 text-black font-black rounded-lg border-2 border-black hover:bg-yellow-300 transition-all shadow-[3px_3px_0px_#000]"
+                  className="px-6 py-2 bg-yellow-500 text-white font-bold rounded-lg hover:bg-yellow-600 transition-all"
                 >
                   Send Another
                 </button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
-                <h2 className="text-xl font-black text-black mb-6 tracking-tight" style={{ WebkitTextStroke: '0.5px #FFD600' }}>
+                <h2 className="text-xl font-black text-slate-900 mb-6 tracking-tight">
                   Get In Touch 💬
                 </h2>
 
                 <div>
-                  <label className="block text-sm font-black text-black mb-2 uppercase tracking-widest">Your Name</label>
+                  <label className="block text-sm font-bold text-slate-900 mb-2">Your Name</label>
                   <input 
                     required
                     type="text" 
                     placeholder="Name" 
                     value={formData.name}
                     onChange={e => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-4 py-3 bg-yellow-50 border-3 border-black rounded-xl focus:border-red-500 focus:outline-none font-bold transition-all text-slate-900 placeholder:text-slate-400 shadow-[3px_3px_0px_#FFD600] focus:shadow-[3px_3px_0px_#FF0000]"
+                    className="w-full px-4 py-3 bg-white border-2 border-yellow-500/20 rounded-xl focus:border-yellow-500 focus:outline-none transition-all text-slate-900 placeholder:text-slate-400"
                   />
                 </div>
 
                 <div>
-                <label className="block text-sm font-black text-black mb-2 uppercase tracking-widest">Phone</label>
+                <label className="block text-sm font-bold text-slate-900 mb-2">Phone</label>
                 <input
                   required
                   type="tel"
                   placeholder="Phone"
                   value={formData.phone}
                   onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-4 py-3 bg-yellow-50 border-3 border-black rounded-xl focus:border-red-500 focus:outline-none font-bold transition-all text-slate-900 placeholder:text-slate-400 shadow-[3px_3px_0px_#FFD600] focus:shadow-[3px_3px_0px_#FF0000]"
+                  className="w-full px-4 py-3 bg-white border-2 border-yellow-500/20 rounded-xl focus:border-yellow-500 focus:outline-none transition-all text-slate-900 placeholder:text-slate-400"
                 />
               </div>
 
                 <div>
-                  <label className="block text-sm font-black text-black mb-2 uppercase tracking-widest">Email</label>
+                  <label className="block text-sm font-bold text-slate-900 mb-2">Email</label>
                   <input 
                     required
                     type="email" 
                     placeholder="Email" 
                     value={formData.email}
                     onChange={e => setFormData({...formData, email: e.target.value})}
-                    className="w-full px-4 py-3 bg-yellow-50 border-3 border-black rounded-xl focus:border-red-500 focus:outline-none font-bold transition-all text-slate-900 placeholder:text-slate-400 shadow-[3px_3px_0px_#FFD600] focus:shadow-[3px_3px_0px_#FF0000]"
+                    className="w-full px-4 py-3 bg-white border-2 border-yellow-500/20 rounded-xl focus:border-yellow-500 focus:outline-none transition-all text-slate-900 placeholder:text-slate-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-black text-black mb-2 uppercase tracking-widest">Message</label>
+                  <label className="block text-sm font-bold text-slate-900 mb-2">Message</label>
                   <textarea 
                     required
                     placeholder="Message" 
                     rows={3}
                     value={formData.message}
                     onChange={e => setFormData({...formData, message: e.target.value})}
-                    className="w-full px-4 py-3 bg-yellow-50 border-3 border-black rounded-xl focus:border-red-500 focus:outline-none font-bold transition-all text-slate-900 placeholder:text-slate-400 shadow-[3px_3px_0px_#FFD600] focus:shadow-[3px_3px_0px_#FF0000] resize-none"
+                    className="w-full px-4 py-3 bg-white border-2 border-yellow-500/20 rounded-xl focus:border-yellow-500 focus:outline-none transition-all text-slate-900 placeholder:text-slate-400 resize-none"
                   />
                 </div>
 
                 <button 
                   disabled={isSubmitting}
-                  className="w-full py-3 bg-red-500 text-white font-black rounded-xl shadow-[4px_4px_0px_#000] border-3 border-black hover:bg-red-600 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 uppercase tracking-widest text-sm"
+                  className="w-full py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold rounded-xl hover:from-yellow-600 hover:to-orange-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                   Send
@@ -146,14 +149,14 @@ export default function Contact() {
                 href={card.action}
                 target={card.action?.startsWith('http') ? '_blank' : undefined}
                 rel={card.action?.startsWith('http') ? 'noopener noreferrer' : undefined}
-                className="flex items-center gap-3 p-4 bg-white rounded-2xl border-3 border-black hover:shadow-[4px_4px_0px_#000] transition-all cursor-pointer shadow-[3px_3px_0px_#FFD600]"
+                className="flex items-center gap-3 p-4 bg-gradient-to-br from-white to-yellow-50/50 backdrop-blur border-2 border-yellow-500/20 rounded-2xl hover:shadow-2xl hover:shadow-yellow-500/20 hover:border-yellow-500/60 transition-all duration-300 cursor-pointer"
               >
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${card.color} border-2 border-black`}>
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${card.color} border-2 border-yellow-500/30`}>
                   {card.icon}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-xs font-black text-black uppercase tracking-widest">{card.title}</h3>
-                  <p className="text-sm font-bold text-slate-800 truncate hover:text-clip">
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">{card.title}</h3>
+                  <p className="text-sm font-semibold text-slate-700 truncate hover:text-clip">
                     {card.value}
                   </p>
                 </div>
@@ -161,7 +164,7 @@ export default function Contact() {
             ))}
 
             {/* Logo + Quote Section */}
-            <div className="p-6 bg-gradient-to-br from-yellow-50 via-yellow-100 to-orange-50 rounded-3xl text-slate-900 relative overflow-hidden shadow-[6px_6px_0px_#000] border-4 border-black hover:shadow-[8px_8px_0px_#000] transition-all">
+            <div className="p-6 bg-gradient-to-br from-white to-yellow-50/50 backdrop-blur border-2 border-yellow-500/20 rounded-2xl text-slate-900 relative overflow-hidden hover:shadow-2xl hover:shadow-yellow-500/20 hover:border-yellow-500/60 transition-all duration-300">
               <div className="relative z-10 text-center space-y-5">
                 {/* Logo */}
                 <img 
@@ -171,7 +174,7 @@ export default function Contact() {
                 />
                 
                 {/* Quote */}
-                <p className="text-sm font-black text-slate-900 italic leading-relaxed">
+                <p className="text-sm font-bold text-slate-900 italic leading-relaxed">
                   "Express yourself with badges that tell your story! 🎨"
                 </p>
               </div>

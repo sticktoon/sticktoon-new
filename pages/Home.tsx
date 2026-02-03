@@ -103,93 +103,20 @@ const Hero: React.FC = () => {
 
   return (
 <section
-  className="
-    relative
-    w-full
-   min-h-screen
-
-    overflow-hidden
-    flex items-center
-    bg-cover
-    bg-center
-  "
-  style={{
-  backgroundImage: "url('/badge/redhero.png')",
-}}
-
+  className="relative w-full min-h-screen overflow-hidden flex items-center bg-white"
 >
- {/* Fun Floating Background */}
-  <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-    {/* EXTRA LEFT DECORATIONS */}
-
-  {/* Big faded ring */}
-  <div
-    className="absolute top-40 left-6 w-28 h-28 rounded-full border-[6px] border-yellow-300 opacity-20 animate-bounce"
-    style={{ animationDuration: '7s' }}
-  />
-
-  {/* Small yellow dot near text */}
-  <div
-    className="absolute top-[55%] left-12 w-6 h-6 bg-yellow-300 rounded-full border-4 border-black opacity-70 animate-bounce"
-    style={{ animationDelay: '0.8s', animationDuration: '5s' }}
-  />
-
-  {/* Red circle behind tagline */}
-  <div
-    className="absolute top-[48%] left-1/4 w-14 h-14 bg-red-500 rounded-full border-4 border-black opacity-40 animate-bounce"
-    style={{ animationDelay: '1.2s', animationDuration: '6s' }}
-  />
-
-  {/* Tiny star near WE CREATE */}
-  <div className="absolute top-44 left-40 text-2xl opacity-40 text-yellow-300">★</div>
-
-    <div
-      className="absolute top-20 left-10 w-20 h-20 bg-red-500 rounded-full border-4 border-black shadow-[4px_4px_0px_#000] animate-bounce opacity-50"
-      style={{ animationDelay: '0s', animationDuration: '4s' }}
-    />
-
-    <div
-      className="absolute top-40 right-20 w-16 h-16 bg-yellow-400 rounded-full border-4 border-black shadow-[4px_4px_0px_#000] animate-bounce opacity-60"
-      style={{ animationDelay: '0.5s', animationDuration: '5s' }}
-    />
-
-    <div
-      className="absolute bottom-32 left-20 w-14 h-14 bg-black rounded-full border-4 border-yellow-400 shadow-[4px_4px_0px_#FFD600] animate-bounce opacity-60"
-      style={{ animationDelay: '1s', animationDuration: '6s' }}
-    />
-
-    <div
-      className="absolute bottom-20 right-32 w-12 h-12 bg-yellow-300 rounded-full border-4 border-black shadow-[4px_4px_0px_#000] animate-bounce opacity-60"
-      style={{ animationDelay: '1.5s', animationDuration: '4.5s' }}
-    />
-
-    <div className="absolute top-32 right-40 text-4xl opacity-30 text-yellow-300">★</div>
-    <div className="absolute bottom-40 left-32 text-3xl opacity-30 text-red-400">★</div>
-    <div className="absolute top-60 left-40 text-2xl opacity-20 text-black">⬤</div>
+  {/* Premium background glow - Hot Drops Theme */}
+  <div className="pointer-events-none absolute inset-0">
+    <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px]" />
+    <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-orange-400/10 rounded-full blur-[120px]" />
+    <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
   </div>
-  {/* STAR FIELD — center to right */}
 
-  {/* Row 1 */}
-  <div className="absolute top-24 left-[45%] text-yellow-300 opacity-40 text-xl">★</div>
-  <div className="absolute top-32 left-[55%] text-yellow-200 opacity-30 text-lg">★</div>
-  <div className="absolute top-20 left-[65%] text-yellow-300 opacity-35 text-2xl">★</div>
-  <div className="absolute top-28 left-[75%] text-yellow-200 opacity-30 text-lg">★</div>
-
-  {/* Row 2 */}
-  <div className="absolute top-48 left-[50%] text-yellow-300 opacity-30 text-lg">★</div>
-  <div className="absolute top-56 left-[62%] text-yellow-200 opacity-35 text-xl">★</div>
-  <div className="absolute top-44 left-[72%] text-yellow-300 opacity-30 text-lg">★</div>
-
-  {/* Row 3 */}
-  <div className="absolute top-72 left-[48%] text-yellow-200 opacity-35 text-lg">★</div>
-  <div className="absolute top-80 left-[60%] text-yellow-300 opacity-40 text-xl">★</div>
-  <div className="absolute top-76 left-[70%] text-yellow-200 opacity-30 text-lg">★</div>
-  <div className="absolute top-84 left-[82%] text-yellow-300 opacity-30 text-lg">★</div>
-
-  {/* Bottom spread */}
-  <div className="absolute bottom-40 left-[55%] text-yellow-300 opacity-35 text-xl">★</div>
-  <div className="absolute bottom-32 left-[68%] text-yellow-200 opacity-30 text-lg">★</div>
-  <div className="absolute bottom-44 left-[78%] text-yellow-300 opacity-30 text-lg">★</div>
+  {/* Funny Floating Circles - Outer Edges Only */}
+  <div className="absolute top-24 -left-8 w-24 h-24 rounded-full border-[8px] border-yellow-400/30 animate-bounce" style={{ animationDuration: '4s' }} />
+  <div className="absolute top-48 -right-10 w-28 h-28 rounded-full border-[10px] border-orange-400/25 animate-pulse" style={{ animationDuration: '3s' }} />
+  <div className="absolute bottom-36 -left-12 w-28 h-28 rounded-full border-[8px] border-red-400/20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }} />
+  <div className="absolute bottom-64 -right-8 w-20 h-20 rounded-full border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
 
   {/* ✅ CONTENT */}
   <div className="relative z-10 w-full max-w-7xl mx-auto 
@@ -209,16 +136,16 @@ const Hero: React.FC = () => {
       <h1 className="
   text-3xl sm:text-4xl md:text-5xl lg:text-6xl
   font-black tracking-[0.17em] leading-[1.15]
-  bg-gradient-to-r from-yellow-200 via-orange-400 to-yellow-500
+  bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700
   bg-clip-text text-transparent
-  drop-shadow-[0_6px_18px_rgba(0,0,0,0.45)]
+  drop-shadow-[0_2px_12px_rgba(245,158,11,0.25)]
 ">
   WE CREATE <br /> FOR SOULS
 </h1>
  
 
   {/* Small red dot touching C */}
-  <div className="absolute top-6 left-96 w-6 h-6 bg-red-500 rounded-full border-4 border-black opacity-70 animate-bounce"
+  <div className="absolute top-6 left-96 w-6 h-6 bg-red-500 rounded-full border-2 border-yellow-400/30 opacity-70 animate-bounce"
        style={{ animationDelay: '0.5s', animationDuration: '5s' }} />
 <div className="absolute top-10 left-60 w-20 h-20 rounded-full border-[6px] border-yellow-300 opacity-30 animate-bounce"
        style={{ animationDuration: '6s' }} />
@@ -227,7 +154,7 @@ const Hero: React.FC = () => {
   <div className="absolute -top-2 left-56 text-2xl opacity-50 text-yellow-300">★</div>
 
 
-      <p className="mt-4 md:mt-6 mb-6 md:mb-10 max-w-xl text-base md:text-lg text-white/90 font-medium leading-relaxed">
+      <p className="mt-4 md:mt-6 mb-6 md:mb-10 max-w-xl text-base md:text-lg text-slate-600 font-medium leading-relaxed">
 
         Premium custom badges designed for creators, communities, and brands who wear their vibe.
       </p>
@@ -235,17 +162,14 @@ const Hero: React.FC = () => {
       <div className="flex flex-col sm:flex-row gap-4 md:gap-6">
         <button
           onClick={() => navigate("/categories")}
-    className="px-6 md:px-10 py-3 md:py-4 rounded-xl bg-yellow-400 text-black font-bold tracking-widest uppercase shadow-lg text-sm md:text-base hover:brightness-95 transition-all w-full sm:w-auto"
-
+          className="px-6 md:px-10 py-3 md:py-4 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-bold tracking-widest uppercase shadow-lg hover:shadow-xl hover:shadow-yellow-500/20 text-sm md:text-base hover:from-yellow-400 hover:to-orange-400 transition-all w-full sm:w-auto"
         >
           View Collection
         </button>
 
         <button
           onClick={() => navigate("/custom-order")}
-         className="px-6 md:px-10 py-3 md:py-4 rounded-xl border-2 border-yellow-400 text-yellow-400 font-bold tracking-widest uppercase text-sm md:text-base
-hover:bg-yellow-400 hover:text-black transition-all w-full sm:w-auto"
-
+          className="px-6 md:px-10 py-3 md:py-4 rounded-xl border-2 border-yellow-500/40 text-slate-900 font-bold tracking-widest uppercase text-sm md:text-base bg-white/70 hover:bg-yellow-500 hover:text-slate-900 hover:border-yellow-500 transition-all w-full sm:w-auto shadow-sm hover:shadow-lg hover:shadow-yellow-500/20"
         >
           Custom Order
         </button>
@@ -272,7 +196,7 @@ hover:bg-yellow-400 hover:text-black transition-all w-full sm:w-auto"
   <button
     key={i}
     onClick={() => navigate(`/categories?cat=${b.cat}`)}
-    className="hover:scale-110 active:scale-95 transition"
+    className="hover:scale-110 active:scale-95 transition hover:drop-shadow-[0_18px_35px_rgba(245,158,11,0.35)]"
   >
     <img
       src={b.img}
@@ -439,29 +363,35 @@ const CustomisedProductsSection: React.FC = () => {
 
 
 const CategoryGrid: React.FC = () => (
-  <section className="relative py-12 pb-10 bg-gradient-to-br from-slate-50 via-white to-slate-100 overflow-hidden">
+  <section className="relative pt-12 pb-20 overflow-hidden bg-white">
     
-    {/* Background Effects - Lighter */}
+    {/* Premium background glow - Hot Drops Style */}
     <div className="pointer-events-none absolute inset-0">
-      <div className="absolute top-[-200px] left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-yellow-500/5 rounded-full blur-[140px]" />
-      <div className="absolute bottom-[-100px] right-[-200px] w-[600px] h-[600px] bg-orange-400/5 rounded-full blur-[120px]" />
-      <div className="absolute top-1/2 left-[-150px] w-[500px] h-[500px] bg-red-400/5 rounded-full blur-[100px]" />
+      <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px]" />
+      <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-orange-400/10 rounded-full blur-[120px]" />
+      <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
       
-      {/* Floating Circles - Lighter */}
-      <div className="absolute top-20 -left-8 w-24 h-24 rounded-full border-[6px] border-yellow-500/20 animate-bounce" style={{ animationDuration: '5s' }} />
-      <div className="absolute top-40 -right-10 w-28 h-28 rounded-full border-[6px] border-orange-500/15 animate-pulse" style={{ animationDuration: '4s' }} />
-      <div className="absolute bottom-32 -left-12 w-32 h-32 rounded-full border-[8px] border-red-500/15 animate-bounce" style={{ animationDuration: '6s', animationDelay: '1s' }} />
+      {/* Floating Circles - Outer Edges Only */}
+      <div className="absolute top-20 -left-8 w-24 h-24 rounded-full border-[8px] border-yellow-400/30 animate-bounce" style={{ animationDuration: '4s' }} />
+      <div className="absolute top-40 -right-10 w-28 h-28 rounded-full border-[10px] border-orange-400/25 animate-pulse" style={{ animationDuration: '3s' }} />
+      <div className="absolute bottom-32 -left-12 w-32 h-32 rounded-full border-[8px] border-red-400/20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }} />
+      <div className="absolute bottom-64 -right-8 w-20 h-20 rounded-full border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
     </div>
     
     <div className="relative z-10 max-w-full mx-auto px-4 sm:px-10 lg:px-20">
 
       {/* HEADER */}
-    <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
+      <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
 
         <div className="max-w-4xl">
-         <h2 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent tracking-tight mb-4 uppercase leading-tight">
-  Browse Category
-</h2>
+          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-6 py-3 rounded-full mb-4 border-2 border-yellow-500/30">
+            <Zap className="w-5 h-5 text-yellow-600 animate-pulse" />
+            <span className="text-[11px] font-black text-yellow-700 uppercase tracking-widest">All Drops</span>
+            <Zap className="w-5 h-5 text-orange-600 animate-pulse" />
+          </div>
+          <h2 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent tracking-tight mb-3 uppercase leading-tight">
+            Browse Category
+          </h2>
 
           <p className="text-lg text-slate-600 font-semibold">
             Ready-to-ship collections for every subculture.
@@ -486,12 +416,14 @@ const CategoryGrid: React.FC = () => (
   className="
     relative
     h-[220px]
-    rounded-[2.2rem]
+    rounded-2xl
     overflow-hidden
-    
     group
-    bg-white
-    shadow-[0_12px_35px_rgba(15,23,42,0.18)]
+    bg-gradient-to-br from-slate-900 to-slate-800
+    border-2 border-yellow-500/20
+    shadow-[0_12px_35px_rgba(15,23,42,0.25)]
+    transition-all duration-300
+    hover:shadow-2xl hover:shadow-yellow-500/20 hover:-translate-y-2 hover:border-yellow-500/60
   "
 >
   {/* BACKGROUND IMAGE */}
@@ -500,8 +432,9 @@ const CategoryGrid: React.FC = () => (
       absolute inset-0
       bg-cover bg-center
       transition-transform duration-500
-      group-hover:scale-105
+      group-hover:scale-110
       brightness-105 contrast-105
+      opacity-90
     "
     style={{ backgroundImage: `url(${cat.image})` }}
   />
@@ -510,15 +443,15 @@ const CategoryGrid: React.FC = () => (
   {/* <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/15 to-transparent" /> */}
 
   {/* TEXT CONTENT */}
- <div className="relative z-10 h-full flex flex-col justify-end p-6 pb-14">
+ <div className="relative z-10 h-full flex flex-col justify-end p-6 pb-12">
 
   <span
     className="
       absolute
-      bottom-1
+      bottom-3
       left-4
-      bg-gradient-to-r from-yellow-500 to-orange-500
-      text-slate-900
+      bg-black
+      text-white
       text-[11px]
       font-black
       tracking-widest
@@ -526,6 +459,7 @@ const CategoryGrid: React.FC = () => (
       px-4 py-2
       rounded-full
       shadow-lg
+      border-2 border-black/30
     "
   >
     {cat.name}

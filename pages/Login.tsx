@@ -270,31 +270,28 @@ export default function Login() {
      UI
   ========================== */
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-white flex items-center justify-center px-4 md:px-6 relative overflow-hidden">
-      {/* Fun Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Floating Stickers */}
-        <div className="absolute top-20 left-10 w-20 h-20 bg-red-500 rounded-full border-4 border-black shadow-[4px_4px_0px_#000] animate-bounce opacity-60" style={{ animationDelay: '0s', animationDuration: '3s' }}></div>
-        <div className="absolute top-40 right-20 w-16 h-16 bg-yellow-400 rounded-full border-4 border-black shadow-[4px_4px_0px_#000] animate-bounce opacity-60" style={{ animationDelay: '0.5s', animationDuration: '3.5s' }}></div>
-        <div className="absolute bottom-32 left-20 w-14 h-14 bg-black rounded-full border-4 border-yellow-400 shadow-[4px_4px_0px_#FFD600] animate-bounce opacity-60" style={{ animationDelay: '1s', animationDuration: '4s' }}></div>
-        <div className="absolute bottom-20 right-32 w-12 h-12 bg-yellow-400 rounded-full border-4 border-black shadow-[4px_4px_0px_#000] animate-bounce opacity-60" style={{ animationDelay: '1.5s', animationDuration: '3.2s' }}></div>
-        {/* Star decorations */}
-        <div className="absolute top-32 right-40 text-4xl opacity-40 text-yellow-400"></div>
-        <div className="absolute bottom-40 left-32 text-3xl opacity-40 text-red-500">★</div>
-        <div className="absolute top-60 left-40 text-2xl opacity-30 text-black">⬤</div>
+    <div className="min-h-[calc(100vh-64px)] bg-white flex items-center justify-center px-4 md:px-6 relative overflow-hidden pt-3">
+      {/* Premium background glow - Hot Drops Theme */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px]" />
+        <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-orange-400/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
       </div>
 
-      <div className="relative max-w-sm w-full">
-        {/* Main Card - Sticker Style */}
-        <div className="bg-white rounded-3xl px-6 py-8 border-4 border-black shadow-[8px_8px_0px_#000] relative">
-          {/* Corner Stickers */}
-          <div className="absolute -top-4 -right-4 w-10 h-10 bg-red-500 rounded-full border-4 border-black flex items-center justify-center text-lg shadow-[3px_3px_0px_#000]">★</div>
-          <div className="absolute -bottom-4 -left-4 w-10 h-10 bg-yellow-400 rounded-full border-4 border-black flex items-center justify-center text-lg shadow-[3px_3px_0px_#000]">⬤</div>
+      {/* Funny Floating Circles - Outer Edges Only */}
+      <div className="absolute top-32 -left-8 w-24 h-24 rounded-full border-[8px] border-yellow-400/30 animate-bounce" style={{ animationDuration: '4s' }} />
+      <div className="absolute top-64 -right-12 w-32 h-32 rounded-full border-[10px] border-orange-400/25 animate-pulse" style={{ animationDuration: '3s' }} />
+      <div className="absolute bottom-40 -left-16 w-28 h-28 rounded-full border-[8px] border-red-400/20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }} />
+      <div className="absolute bottom-72 -right-8 w-20 h-20 rounded-full border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
+
+      <div className="relative max-w-sm w-full z-10">
+        {/* Main Card - Hot Drops Style */}
+        <div className="bg-gradient-to-br from-white to-yellow-50/50 backdrop-blur rounded-2xl px-6 py-5 border-2 border-yellow-500/20 shadow-sm hover:shadow-2xl hover:shadow-yellow-500/20 hover:border-yellow-500/60 transition-all duration-300 relative">
 
           {/* Header */}
-          <div className="text-center mb-6">
+          <div className="text-center mb-3">
             {/* Eyes Logo */}
-            <div className="inline-flex items-center justify-center gap-2 mb-4">
+            <div className="inline-flex items-center justify-center gap-2 mb-2">
               <div className="w-10 h-10 bg-white rounded-full border-4 border-black flex items-center justify-center shadow-[3px_3px_0px_#FFD600]">
                 <div className="w-3 h-4 bg-black rounded-full"></div>
               </div>
@@ -302,14 +299,14 @@ export default function Login() {
                 <div className="w-3 h-4 bg-black rounded-full"></div>
               </div>
             </div>
-            <h2 className="text-2xl font-black text-black tracking-tight" style={{ WebkitTextStroke: '1px #FFD600' }}>
+            <h2 className="text-2xl font-black bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent tracking-tight">
               {forgotMode
                 ? "Oops! Forgot?"
                 : isLogin
                 ? "Welcome Back!"
                 : "Join The Fun!"}
             </h2>
-            <p className="text-black mt-1 text-sm font-medium">
+            <p className="text-slate-600 mt-0.5 text-xs md:text-sm font-medium">
               {forgotMode
                 ? "No worries, we got you! "
                 : isLogin
@@ -318,16 +315,16 @@ export default function Login() {
             </p>
           </div>
 
-          {/* Toggle - Sticker Style */}
+          {/* Toggle - Hot Drops Style */}
           {!forgotMode && (
-            <div className="flex p-1.5 bg-yellow-100 rounded-2xl mb-6 border-2 border-yellow-400">
+            <div className="flex p-1 bg-white rounded-2xl mb-3 border-2 border-yellow-500/20">
               <button
                 type="button"
                 onClick={() => setIsLogin(true)}
-                className={`flex-1 py-3 text-sm font-black rounded-xl transition-all ${
+                className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${
                   isLogin 
-                    ? "bg-red-500 text-white border-2 border-black shadow-[3px_3px_0px_#FFD600]" 
-                    : "text-black hover:text-red-500"
+                    ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-2 border-yellow-500/20" 
+                    : "text-slate-600 hover:text-yellow-700"
                 }`}
               >
                 Login
@@ -335,10 +332,10 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setIsLogin(false)}
-                className={`flex-1 py-3 text-sm font-black rounded-xl transition-all ${
+                className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${
                   !isLogin 
-                    ? "bg-yellow-400 text-black border-2 border-black shadow-[3px_3px_0px_#FFD600]" 
-                    : "text-black hover:text-yellow-500"
+                    ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-2 border-yellow-500/20" 
+                    : "text-slate-600 hover:text-yellow-700"
                 }`}
               >
                 Sign Up
@@ -347,21 +344,21 @@ export default function Login() {
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-2.5">
             {!isLogin && !forgotMode && (
               <div>
-                <label className="block text-sm font-bold text-black mb-1.5">Your Name 👋</label>
+                <label className="block text-xs font-bold text-slate-900 mb-1">Your Name 👋</label>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="What should we call you?"
-                  className="w-full px-4 py-3 rounded-xl bg-white border-3 border-black focus:border-red-500 focus:outline-none transition-all text-black font-medium placeholder:text-yellow-400 shadow-[3px_3px_0px_#FFD600] focus:shadow-[3px_3px_0px_#FFD600]"
+                  className="w-full px-3 py-2.5 rounded-lg bg-white border-2 border-yellow-500/20 focus:border-yellow-500 focus:outline-none transition-all text-sm text-slate-900 font-medium placeholder:text-slate-400"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-bold text-black mb-1.5">Email Address 📧</label>
+              <label className="block text-xs font-bold text-slate-900 mb-1">Email Address 📧</label>
               <input
                 value={email}
                 onChange={(e) => {
@@ -371,25 +368,25 @@ export default function Login() {
                 }}
                 type="email"
                 placeholder="your@email.com"
-                className="w-full px-4 py-3 rounded-xl bg-white border-3 border-black focus:border-yellow-400 focus:outline-none transition-all text-black font-medium placeholder:text-yellow-400 shadow-[3px_3px_0px_#FFD600] focus:shadow-[3px_3px_0px_#FFD600]"
+                  className="w-full px-3 py-2.5 rounded-lg bg-white border-2 border-yellow-500/20 focus:border-yellow-500 focus:outline-none transition-all text-sm text-slate-900 font-medium placeholder:text-slate-400"
               />
             </div>
 
             {!forgotMode && (
               <div>
-                <label className="block text-sm font-bold text-black mb-1.5">Password 🔐</label>
+                <label className="block text-xs font-bold text-slate-900 mb-1">Password 🔐</label>
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Super secret password"
-                    className="w-full px-4 py-3 pr-12 rounded-xl bg-white border-3 border-black focus:border-red-500 focus:outline-none transition-all text-black font-medium placeholder:text-yellow-400 shadow-[3px_3px_0px_#FFD600] focus:shadow-[3px_3px_0px_#FFD600]"
+                    className="w-full px-3 py-2.5 pr-10 rounded-lg bg-white border-2 border-yellow-500/20 focus:border-yellow-500 focus:outline-none transition-all text-sm text-slate-900 font-medium placeholder:text-slate-400"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-yellow-400 hover:text-red-500 transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-yellow-600 hover:text-orange-600 transition-colors"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -398,16 +395,16 @@ export default function Login() {
             )}
 
             {!isLogin && password && !forgotMode && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 rounded-xl border-2 border-yellow-400">
+              <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border-2 border-yellow-500/20">
                 <div className="flex-1 flex gap-1">
-                  <div className={`flex-1 h-2 rounded-full transition-all border border-yellow-400 ${passwordStrength === 'weak' ? 'bg-red-500' : 'bg-yellow-100'}`}></div>
-                  <div className={`flex-1 h-2 rounded-full transition-all border border-yellow-400 ${passwordStrength === 'medium' || passwordStrength === 'strong' ? 'bg-yellow-400' : 'bg-yellow-100'}`}></div>
-                  <div className={`flex-1 h-2 rounded-full transition-all border border-yellow-400 ${passwordStrength === 'strong' ? 'bg-black' : 'bg-yellow-100'}`}></div>
+                  <div className={`flex-1 h-2 rounded-full transition-all border border-yellow-500/20 ${passwordStrength === 'weak' ? 'bg-red-500' : 'bg-yellow-100'}`}></div>
+                  <div className={`flex-1 h-2 rounded-full transition-all border border-yellow-500/20 ${passwordStrength === 'medium' || passwordStrength === 'strong' ? 'bg-yellow-500' : 'bg-yellow-100'}`}></div>
+                  <div className={`flex-1 h-2 rounded-full transition-all border border-yellow-500/20 ${passwordStrength === 'strong' ? 'bg-orange-500' : 'bg-yellow-100'}`}></div>
                 </div>
                 <span className={`text-xs font-bold capitalize ${
                   passwordStrength === 'weak' ? 'text-red-500' :
                   passwordStrength === 'medium' ? 'text-yellow-600' :
-                  'text-black'
+                  'text-orange-600'
                 }`}>
                   {passwordStrength === 'weak' ? '😟 Weak' : passwordStrength === 'medium' ? '😊 Medium' : '💪 Strong'}
                 </span>
@@ -415,22 +412,22 @@ export default function Login() {
             )}
 
             {error && (
-              <div className="flex items-center gap-2 px-4 py-3 bg-red-100 border-2 border-red-500 rounded-xl">
+              <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border-2 border-red-500/30 rounded-xl">
                 <span className="text-lg">😵</span>
-                <p className="text-sm font-bold text-red-700">{error}</p>
+                <p className="text-sm font-bold text-red-600">{error}</p>
               </div>
             )}
             {success && (
-              <div className="flex items-center gap-2 px-4 py-3 bg-yellow-100 border-2 border-yellow-400 rounded-xl">
+              <div className="flex items-center gap-2 px-4 py-3 bg-yellow-50 border-2 border-yellow-500/30 rounded-xl">
                 <span className="text-lg">🎉</span>
-                <p className="text-sm font-bold text-black">{success}</p>
+                <p className="text-sm font-bold text-yellow-700">{success}</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-red-500 hover:bg-black text-white rounded-xl font-black text-sm uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed border-3 border-black shadow-[4px_4px_0px_#FFD600] hover:shadow-[2px_2px_0px_#FFD600] hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+              className="w-full py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white rounded-xl font-bold text-sm uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed border-2 border-yellow-500/20 transition-all"
             >
               {loading
                 ? "Hold on... ⏳"
@@ -445,7 +442,7 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setForgotMode(true)}
-                className="w-full text-sm font-bold text-black hover:text-red-500 transition-colors py-2"
+                className="w-full text-sm font-bold text-slate-600 hover:text-yellow-700 transition-colors py-2"
               >
                 Forgot password? 🤔
               </button>
@@ -455,7 +452,7 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setForgotMode(false)}
-                className="w-full text-sm font-bold text-black hover:text-yellow-500 transition-colors flex items-center justify-center gap-1.5 py-2"
+                className="w-full text-sm font-bold text-slate-600 hover:text-yellow-700 transition-colors flex items-center justify-center gap-1.5 py-2"
               >
                 ← Back to Login
               </button>
@@ -465,10 +462,10 @@ export default function Login() {
           {/* Divider */}
           {!forgotMode && (
             <>
-              <div className="my-5 flex items-center gap-3">
-                <div className="flex-1 h-0.5 bg-yellow-400 rounded"></div>
-                <span className="text-xs font-black text-black uppercase tracking-wider px-2 py-1 bg-yellow-100 rounded-lg">or</span>
-                <div className="flex-1 h-0.5 bg-yellow-400 rounded"></div>
+              <div className="my-4 flex items-center gap-3">
+                <div className="flex-1 h-0.5 bg-yellow-500/20 rounded"></div>
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider px-2 py-1 bg-white rounded-lg border border-yellow-500/20">or</span>
+                <div className="flex-1 h-0.5 bg-yellow-500/20 rounded"></div>
               </div>
 
               {/* Google Button */}
@@ -476,7 +473,7 @@ export default function Login() {
                 type="button"
                 onClick={() => googleLogin()}
                 disabled={isGoogleLoading}
-                className="w-full py-3.5 bg-white border-3 border-black rounded-xl text-sm font-bold text-black flex items-center justify-center gap-3 hover:bg-yellow-100 transition-all shadow-[4px_4px_0px_#FFD600] hover:shadow-[2px_2px_0px_#FFD600] hover:translate-x-[2px] hover:translate-y-[2px]"
+                className="w-full py-3 bg-white border-2 border-yellow-500/20 hover:border-yellow-500/60 rounded-xl text-sm font-bold text-slate-900 flex items-center justify-center gap-3 hover:shadow-lg hover:shadow-yellow-500/10 transition-all"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -492,17 +489,15 @@ export default function Login() {
 
         {/* Portal Links */}
         {!forgotMode && (
-          <div className="mt-6 space-y-3">
-            <div className="flex gap-3">
-              <Link to="/influencer/login" className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 bg-yellow-400 text-black rounded-full border-3 border-black shadow-[4px_4px_0px_#FFD600] hover:shadow-[2px_2px_0px_#FFD600] hover:translate-x-[2px] hover:translate-y-[2px] transition-all">
-                <span className="text-lg">🎯</span>
-                <span className="text-sm font-bold">Influencer</span>
-              </Link>
-              <Link to="/admin/login" className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-full border-3 border-black shadow-[4px_4px_0px_#4F46E5] hover:shadow-[2px_2px_0px_#4F46E5] hover:translate-x-[2px] hover:translate-y-[2px] transition-all">
-                <span className="text-lg">🛡️</span>
-                <span className="text-sm font-bold">Admin</span>
-              </Link>
-            </div>
+          <div className="mt-6 mb-5 flex gap-3 sm:gap-4 md:gap-6">
+            <Link to="/influencer/login" className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 rounded-2xl border-2 border-yellow-500/20 font-bold text-sm uppercase tracking-wider hover:shadow-lg hover:shadow-yellow-500/20 hover:border-yellow-500/60 transition-all">
+              <span className="text-lg">🎯</span>
+              <span>Influencer</span>
+            </Link>
+            <Link to="/admin/login" className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-2xl border-2 border-indigo-500/20 font-bold text-sm uppercase tracking-wider hover:shadow-lg hover:shadow-indigo-500/20 hover:border-indigo-500/60 transition-all">
+              <span className="text-lg">🛡️</span>
+              <span>Admin</span>
+            </Link>
           </div>
         )}
       </div>
