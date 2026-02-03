@@ -2,9 +2,10 @@ import React, { useState, useEffect, JSX } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
 import { Eye, EyeOff, LogOut, Users, AlertCircle, Check, X, Upload, Plus, Edit2, Trash2, TrendingUp, DollarSign, CheckCircle, XCircle, Info } from "lucide-react";
+import { useGoogleLogin } from "@react-oauth/google";
 
 // Super Admin Email - Only this email can edit/remove other admins
-const SUPER_ADMIN_EMAIL = import.meta.env.VITE_SUPER_ADMIN_EMAIL || "";
+const SUPER_ADMIN_EMAIL = "sticktoon.xyz@gmail.com";
 
 // Add CSS for animations
 const style = document.createElement('style');
@@ -114,13 +115,14 @@ const Admin: React.FC = () => {
   // Auth state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<AdminUser | null>(null);
-  const [currentView, setCurrentView] = useState<"login" | "dashboard" | "users" | "all-influencers" | "influencers" | "withdrawals" | "products" | "orders">("login");
+  const [currentView, setCurrentView] = useState<"login" | "dashboard" | "users" | "all-influencers" | "influencers" | "withdrawals" | "products" | "orders" | "profile">("login");
 
   // Login state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
   // Data states
@@ -130,6 +132,7 @@ const Admin: React.FC = () => {
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [viewingOrder, setViewingOrder] = useState<any>(null);
 
   // Modal states
   const [editingUser, setEditingUser] = useState<any>(null);
@@ -160,6 +163,16 @@ const Admin: React.FC = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [toastIdCounter, setToastIdCounter] = useState(0);
 
+  // Profile edit state
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    email: "",
+    avatar: "",
+    currentPassword: "",
+    newPassword: "",
+  });
+  const [updatingProfile, setUpdatingProfile] = useState(false);
+
   // Check if current user is super admin
   const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
 
@@ -169,6 +182,19 @@ const Admin: React.FC = () => {
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // Sync profile form with user data
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        name: user.name || "",
+        email: user.email || "",
+        avatar: (user as any).avatar || "",
+        currentPassword: "",
+        newPassword: "",
+      });
+    }
+  }, [user]);
 
   // Handle URL parameters for navigation
   useEffect(() => {
@@ -353,6 +379,124 @@ const Admin: React.FC = () => {
   };
 
   /* ===========================
+     GOOGLE LOGIN
+  =========================== */
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      try {
+        setIsGoogleLoading(true);
+        setError("");
+
+        const res = await fetch(
+          "https://www.googleapis.com/oauth2/v3/userinfo",
+          {
+            headers: {
+              Authorization: `Bearer ${tokenResponse.access_token}`,
+            },
+          }
+        );
+
+        const googleUser = await res.json();
+
+        const backendRes = await fetch(
+          `${API_BASE_URL}/api/admin/google-login`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: googleUser.name,
+              email: googleUser.email,
+              avatar: googleUser.picture,
+            }),
+          }
+        );
+
+        const data = await backendRes.json();
+
+        if (!backendRes.ok) {
+          setError(data.message || "Google login failed");
+          return;
+        }
+
+        localStorage.setItem("adminToken", data.token);
+        localStorage.setItem("adminUser", JSON.stringify(data.user));
+
+        setIsAuthenticated(true);
+        setUser(data.user);
+        setCurrentView("dashboard");
+        await fetchDashboardData(data.token);
+      } catch {
+        setError("Google login failed");
+      } finally {
+        setIsGoogleLoading(false);
+      }
+    },
+  });
+
+  /* ===========================
+     UPDATE PROFILE
+  =========================== */
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUpdatingProfile(true);
+    setError("");
+
+    try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) return;
+
+      const updateData: any = {
+        name: profileForm.name,
+        avatar: profileForm.avatar,
+        email: profileForm.email,
+      };
+
+      // Only include password fields if new password is provided
+      if (profileForm.newPassword) {
+        if (profileForm.newPassword.length < 6) {
+          setError("New password must be at least 6 characters");
+          setUpdatingProfile(false);
+          return;
+        }
+        updateData.currentPassword = profileForm.currentPassword;
+        updateData.newPassword = profileForm.newPassword;
+      }
+
+      const res = await fetch(`${API_BASE_URL}/api/admin/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Update failed");
+      }
+
+      // Update local user data
+      setUser(data.user);
+      localStorage.setItem("adminUser", JSON.stringify(data.user));
+
+      // Reset password fields
+      setProfileForm({
+        ...profileForm,
+        currentPassword: "",
+        newPassword: "",
+      });
+
+      showToast("success", "Profile updated successfully!");
+    } catch (err: any) {
+      setError(err.message || "Failed to update profile");
+    } finally {
+      setUpdatingProfile(false);
+    }
+  };
+
+  /* ===========================
      INFLUENCER APPROVAL
   =========================== */
   const handleApproveInfluencer = async (influencerId: string, approve: boolean) => {
@@ -435,20 +579,25 @@ const Admin: React.FC = () => {
     }
   };
 
-  const handleUpdateUser = async (userId: string, updates: { name?: string; email?: string }) => {
+  const handleUpdateUser = async (userId: string, updates: { name?: string; email?: string; password?: string; avatar?: string }) => {
     const token = localStorage.getItem("adminToken");
     if (!token) return;
 
-    // Check if trying to update admin without super admin privileges
     const targetUser = allUsers.find(u => u._id === userId);
-    if (targetUser?.role === 'admin' && user?.email !== SUPER_ADMIN_EMAIL) {
-      showToast("error", "🔒 Only super admin can update other admins");
-      return;
-    }
-
+    
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
-        method: "PATCH",
+      let endpoint = `${API_BASE_URL}/api/admin/users/${userId}`;
+      
+      // Super admin can use the full edit endpoint if changing password or avatar
+      if ((updates.password || updates.avatar) && isSuperAdmin) {
+        endpoint = `${API_BASE_URL}/api/admin/users/${userId}/super-edit`;
+      } else if (targetUser?.role === 'admin' && !isSuperAdmin) {
+        showToast("error", "🔒 Only super admin can update other admins");
+        return;
+      }
+
+      const res = await fetch(endpoint, {
+        method: endpoint.includes('/super-edit') ? "PUT" : "PATCH",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -460,9 +609,14 @@ const Admin: React.FC = () => {
         const data = await res.json();
         setAllUsers(allUsers.map((u) => (u._id === userId ? data.user : u)));
         setEditingUser(null);
+        showToast("success", "✅ User updated successfully!");
+      } else {
+        const error = await res.json();
+        showToast("error", error.message || "Failed to update user");
       }
     } catch (err) {
       console.error("Error updating user:", err);
+      showToast("error", "❌ Error updating user");
     }
   };
 
@@ -703,6 +857,29 @@ const Admin: React.FC = () => {
                 {loading ? "Signing in... ⏳" : "Admin Login 🔐"}
               </button>
             </form>
+
+            {/* Divider */}
+            <div className="my-4 flex items-center gap-3">
+              <div className="flex-1 h-0.5 bg-indigo-500/20 rounded"></div>
+              <span className="text-xs font-bold text-black uppercase tracking-wider px-2 py-1 bg-white rounded-lg border border-indigo-500/20">or</span>
+              <div className="flex-1 h-0.5 bg-indigo-500/20 rounded"></div>
+            </div>
+
+            {/* Google Button */}
+            <button
+              type="button"
+              onClick={() => googleLogin()}
+              disabled={isGoogleLoading}
+              className="w-full py-3 bg-white border-3 border-black hover:border-indigo-600 rounded-xl text-sm font-bold text-black flex items-center justify-center gap-3 hover:shadow-[4px_4px_0px_#6366F1] transition-all disabled:opacity-50"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              {isGoogleLoading ? "Connecting..." : "Continue with Google"}
+            </button>
           </div>
         </div>
       </div>
@@ -721,13 +898,22 @@ const Admin: React.FC = () => {
             <h1 className="text-2xl font-black text-white">🛡️ StickToon Admin</h1>
             <span className="px-3 py-1 bg-indigo-600/50 rounded-full text-indigo-200 text-xs font-bold">ADMIN MODE</span>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg border border-red-500/50 transition-colors"
-          >
-            <LogOut className="w-4 h-4 text-red-400" />
-            <span className="text-red-300 text-sm font-medium">Logout</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setCurrentView("profile")}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 rounded-lg border border-indigo-500/50 transition-colors"
+            >
+              <Edit2 className="w-4 h-4 text-indigo-400" />
+              <span className="text-indigo-300 text-sm font-medium">Edit Profile</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg border border-red-500/50 transition-colors"
+            >
+              <LogOut className="w-4 h-4 text-red-400" />
+              <span className="text-red-300 text-sm font-medium">Logout</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1365,7 +1551,7 @@ const Admin: React.FC = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {orders.map((order) => (
-                  <div key={order._id} className="bg-gradient-to-br from-white/5 to-white/10 backdrop-blur-xl border border-indigo-500/20 hover:border-indigo-500/40 rounded-xl p-4 transition-all hover:shadow-lg hover:shadow-indigo-500/10">
+                  <div key={order._id} onClick={() => setViewingOrder(order)} className="bg-gradient-to-br from-white/5 to-white/10 backdrop-blur-xl border border-indigo-500/20 hover:border-indigo-500/40 rounded-xl p-4 transition-all hover:shadow-lg hover:shadow-indigo-500/10 cursor-pointer">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <h3 className="text-white font-bold text-sm">#{order.orderId || order._id.slice(-6)}</h3>
@@ -1397,7 +1583,259 @@ const Admin: React.FC = () => {
             )}
           </div>
         )}
+
+        {/* PROFILE VIEW */}
+        {currentView === "profile" && (
+          <div className="max-w-2xl mx-auto space-y-6">
+            <div className="bg-gradient-to-br from-indigo-500/20 via-purple-500/10 to-transparent backdrop-blur-xl rounded-3xl p-8 border-2 border-white/20">
+              <div className="flex items-center gap-4 mb-6">
+                {(user as any)?.avatar ? (
+                  <img 
+                    src={(user as any).avatar} 
+                    alt="Profile" 
+                    className="w-16 h-16 rounded-full border-4 border-white/20 object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = document.createElement('div');
+                      fallback.className = "w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-3xl font-black text-white border-4 border-white/20";
+                      fallback.textContent = user?.name?.charAt(0).toUpperCase() || "A";
+                      e.currentTarget.parentElement?.appendChild(fallback);
+                    }}
+                  />
+                ) : (
+                  <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-3xl font-black text-white border-4 border-white/20">
+                    {user?.name?.charAt(0).toUpperCase() || "A"}
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-2xl font-black text-white">Edit Profile</h2>
+                  <p className="text-indigo-300 text-sm">Update your account information</p>
+                </div>
+              </div>
+
+              {error && (
+                <div className="flex items-center gap-2 px-4 py-3 bg-red-100 border-2 border-red-500 rounded-xl mb-6">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                  <p className="text-sm font-bold text-red-700">{error}</p>
+                </div>
+              )}
+
+              <form onSubmit={handleUpdateProfile} className="space-y-6">
+                {/* Basic Info */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-bold text-white border-b border-white/20 pb-2">Basic Information</h3>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-white mb-2">Name</label>
+                    <input
+                      type="text"
+                      value={profileForm.name}
+                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                      required
+                      className="w-full px-4 py-3 rounded-xl bg-white/10 border-2 border-white/20 focus:border-indigo-500 focus:outline-none transition-all text-white font-medium placeholder:text-gray-400"
+                      placeholder="Your name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-white mb-2">Email</label>
+                    <input
+                      type="email"
+                      value={profileForm.email}
+                      onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                      required
+                      className="w-full px-4 py-3 rounded-xl bg-white/10 border-2 border-white/20 focus:border-indigo-500 focus:outline-none transition-all text-white font-medium placeholder:text-gray-400"
+                      placeholder="your@email.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-white mb-2">Avatar URL</label>
+                    <input
+                      type="text"
+                      value={profileForm.avatar}
+                      onChange={(e) => setProfileForm({ ...profileForm, avatar: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-white/10 border-2 border-white/20 focus:border-indigo-500 focus:outline-none transition-all text-white font-medium placeholder:text-gray-400"
+                      placeholder="https://example.com/avatar.jpg (optional)"
+                    />
+                    {profileForm.avatar && (
+                      <div className="mt-3 flex items-center gap-3">
+                        <img 
+                          src={profileForm.avatar} 
+                          alt="Avatar preview" 
+                          className="w-16 h-16 rounded-full border-2 border-indigo-500 object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                        <span className="text-xs text-gray-400">Preview</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Change Password */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-bold text-white border-b border-white/20 pb-2">Change Password (Optional)</h3>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-white mb-2">Current Password</label>
+                    <input
+                      type="password"
+                      value={profileForm.currentPassword}
+                      onChange={(e) => setProfileForm({ ...profileForm, currentPassword: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-white/10 border-2 border-white/20 focus:border-indigo-500 focus:outline-none transition-all text-white font-medium placeholder:text-gray-400"
+                      placeholder="Enter current password"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-white mb-2">New Password</label>
+                    <input
+                      type="password"
+                      value={profileForm.newPassword}
+                      onChange={(e) => setProfileForm({ ...profileForm, newPassword: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-white/10 border-2 border-white/20 focus:border-indigo-500 focus:outline-none transition-all text-white font-medium placeholder:text-gray-400"
+                      placeholder="Enter new password (min 6 characters)"
+                    />
+                  </div>
+
+                  <p className="text-xs text-gray-400">
+                    💡 Leave password fields empty to keep your current password
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-4 pt-4">
+                  <button
+                    type="submit"
+                    disabled={updatingProfile}
+                    className="flex-1 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-black text-sm uppercase tracking-wide disabled:opacity-50 border-3 border-white/20 shadow-lg transition-all"
+                  >
+                    {updatingProfile ? "Updating... ⏳" : "Save Changes ✓"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentView("dashboard")}
+                    className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold border-2 border-white/20 transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Order Details Modal */}
+      {viewingOrder && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-indigo-500/30 rounded-2xl p-6 max-w-2xl w-full shadow-2xl shadow-indigo-500/20 transform transition-all duration-300 max-h-[90vh] overflow-y-auto">
+            <div className="mb-6 pb-4 border-b border-indigo-500/20 flex items-start justify-between">
+              <div>
+                <h3 className="text-white font-bold text-xl flex items-center gap-2">📦 Order Details</h3>
+                <p className="text-gray-400 text-sm mt-1">#{viewingOrder.orderId || viewingOrder._id}</p>
+              </div>
+              <button onClick={() => setViewingOrder(null)} className="text-gray-400 hover:text-white text-2xl leading-none">✕</button>
+            </div>
+
+            {/* Order Items */}
+            <div className="space-y-3 mb-6">
+              {viewingOrder.items?.map((item: any, i: number) => (
+                <div key={i} className="flex items-center gap-4 bg-white/5 rounded-xl p-3">
+                  <img src={item.image} alt={item.name} className="w-16 h-16 rounded-lg object-cover border border-indigo-500/30" />
+                  <div className="flex-1">
+                    <p className="text-white font-semibold">{item.name}</p>
+                    <p className="text-gray-400 text-sm">₹{item.price} × {item.quantity}</p>
+                  </div>
+                  <p className="text-white font-bold">₹{item.price * item.quantity}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Order Summary */}
+            <div className="bg-white/5 rounded-xl p-4 mb-6 space-y-2">
+              <div className="flex justify-between text-gray-300">
+                <span>Subtotal</span>
+                <span>₹{viewingOrder.subtotal || viewingOrder.amount - 99}</span>
+              </div>
+              <div className="flex justify-between text-gray-300">
+                <span>Delivery</span>
+                <span>₹99</span>
+              </div>
+              <div className="flex justify-between text-white font-bold text-lg pt-2 border-t border-white/10">
+                <span>Total</span>
+                <span>₹{viewingOrder.amount}</span>
+              </div>
+            </div>
+
+            {/* Customer & Payment Info */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-white/5 rounded-xl p-3">
+                <p className="text-gray-400 text-xs mb-1">Customer</p>
+                <p className="text-white font-semibold">{viewingOrder.userId?.name || 'Anonymous'}</p>
+                <p className="text-gray-400 text-xs">{viewingOrder.userId?.email || 'N/A'}</p>
+              </div>
+              <div className="bg-white/5 rounded-xl p-3">
+                <p className="text-gray-400 text-xs mb-1">Status</p>
+                <p className={`font-bold ${viewingOrder.status === 'SUCCESS' ? 'text-emerald-400' : viewingOrder.status === 'PENDING' ? 'text-amber-400' : 'text-red-400'}`}>
+                  {viewingOrder.status}
+                </p>
+                <p className="text-gray-400 text-xs">{new Date(viewingOrder.createdAt).toLocaleString()}</p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  const invoiceId = typeof viewingOrder.invoiceId === 'string' ? viewingOrder.invoiceId : viewingOrder.invoiceId?._id;
+                  if (!invoiceId) {
+                    showToast('warning', '⚠️ Invoice not available yet');
+                    return;
+                  }
+                  window.open(`/admin/invoice/${invoiceId}`, '_blank');
+                }}
+                className="flex-1 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 rounded-lg text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-indigo-500/30"
+              >
+                🧾 View Invoice
+              </button>
+              <button
+                onClick={async () => {
+                  const invoiceId = typeof viewingOrder.invoiceId === 'string' ? viewingOrder.invoiceId : viewingOrder.invoiceId?._id;
+                  if (!invoiceId) {
+                    showToast('warning', '⚠️ Invoice not available yet');
+                    return;
+                  }
+                  try {
+                    const token = localStorage.getItem('adminToken');
+                    const res = await fetch(`${API_BASE_URL}/api/invoice/${invoiceId}/download`, {
+                      headers: { Authorization: `Bearer ${token}` }
+                    });
+                    if (!res.ok) throw new Error('Failed to download');
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `invoice-${invoiceId}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    showToast('success', '✅ Invoice downloaded!');
+                  } catch (error) {
+                    showToast('error', '❌ Download failed');
+                  }
+                }}
+                className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 rounded-lg text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-purple-500/30"
+              >
+                📥 Download PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit User Modal */}
       {editingUser && (
@@ -1431,12 +1869,63 @@ const Admin: React.FC = () => {
                   className="w-full px-4 py-2.5 bg-white/10 border border-indigo-500/30 hover:border-indigo-500/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
                 />
               </div>
+              
+              {/* Super Admin Password Field */}
+              {isSuperAdmin && (
+                <div>
+                  <label className="text-gray-300 text-sm font-medium block mb-2">🔐 Password (Super Admin Only)</label>
+                  <input
+                    type="password"
+                    placeholder="Leave empty to keep unchanged"
+                    value={editingUser.password || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, password: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-yellow-500/10 border border-yellow-500/30 hover:border-yellow-500/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 transition-all"
+                  />
+                  {editingUser.password && editingUser.password.length < 6 && (
+                    <p className="text-yellow-300 text-xs mt-1">⚠️ Password must be at least 6 characters</p>
+                  )}
+                </div>
+              )}
+              
+              {/* Super Admin Avatar Field */}
+              {isSuperAdmin && (
+                <div>
+                  <label className="text-gray-300 text-sm font-medium block mb-2">🖼️ Avatar URL (Super Admin Only)</label>
+                  <input
+                    type="url"
+                    placeholder="Enter image URL (leave empty to remove avatar)"
+                    value={editingUser.avatar || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, avatar: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-yellow-500/10 border border-yellow-500/30 hover:border-yellow-500/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 transition-all"
+                  />
+                  {editingUser.avatar && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <img 
+                        src={editingUser.avatar} 
+                        alt="preview" 
+                        className="w-8 h-8 rounded-full object-cover border border-indigo-500/30"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                      <span className="text-gray-400 text-xs">Preview</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             
             {/* Actions */}
             <div className="flex gap-3">
               <button
-                onClick={() => handleUpdateUser(editingUser._id, { name: editingUser.name, email: editingUser.email })}
+                onClick={() => {
+                  const updates: any = { name: editingUser.name, email: editingUser.email };
+                  if (isSuperAdmin && editingUser.password) {
+                    updates.password = editingUser.password;
+                  }
+                  if (isSuperAdmin && editingUser.avatar !== undefined) {
+                    updates.avatar = editingUser.avatar;
+                  }
+                  handleUpdateUser(editingUser._id, updates);
+                }}
                 className="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 rounded-lg text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-lg hover:shadow-indigo-500/30"
               >
                 ✓ Save Changes

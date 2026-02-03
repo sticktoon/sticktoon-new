@@ -34,10 +34,17 @@ const adminOnly = (req, res, next) => {
 };
 
 /* ======================
+   SUPER ADMIN CHECK
+====================== */
+const isSuperAdmin = (email) => {
+  return email === process.env.ADMIN_EMAIL;
+};
+
+/* ======================
    SUPER ADMIN ONLY
 ====================== */
 const superAdminOnly = (req, res, next) => {
-  if (req.user.role !== "admin" || req.user.email !== process.env.ADMIN_EMAIL) {
+  if (req.user.role !== "admin" || !isSuperAdmin(req.user.email)) {
     return res.status(403).json({ message: "Super admin only" });
   }
   next();
@@ -54,22 +61,30 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Email and password required" });
     }
 
+    const cleanEmail = email.toLowerCase().trim();
     const user = await User.findOne({ 
-      email: email.toLowerCase().trim(),
+      email: cleanEmail,
       role: "admin"
     }).select("+password");
 
     if (!user) {
-      return res.status(404).json({ message: "Admin not found" });
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
+
+    // If no password set (Google account), ask to reset password
+    if (!user.password) {
+      return res.status(400).json({ 
+        message: "No password set for this admin account. Please reset your password first." 
+      });
     }
 
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(400).json({ message: "Invalid credentials" });
     }
 
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id, role: user.role, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -86,6 +101,143 @@ router.post("/login", async (req, res) => {
   } catch (err) {
     console.error("Admin login error:", err);
     res.status(500).json({ message: "Login failed" });
+  }
+});
+
+/* ======================
+   ADMIN GOOGLE LOGIN
+====================== */
+router.post("/google-login", async (req, res) => {
+  try {
+    const { name, email, avatar } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Google login failed" });
+    }
+
+    let user = await User.findOne({ email });
+
+    // If user doesn't exist, create with admin role
+    if (!user) {
+      user = await User.create({
+        name: name?.trim() || email.split("@")[0],
+        email,
+        provider: "google",
+        avatar,
+        role: "admin",
+      });
+    } else {
+      // User exists - ensure they are admin
+      if (user.role !== "admin") {
+        return res.status(403).json({ 
+          message: "Access denied. This account is not an admin account." 
+        });
+      }
+      
+      // Update provider to Google if it was credentials
+      if (user.provider === "credentials") {
+        user.provider = "google";
+      }
+      // Update avatar if provided
+      if (avatar) {
+        user.avatar = avatar;
+      }
+      await user.save();
+    }
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.error("Admin Google login error:", err);
+    res.status(500).json({ message: "Google login failed" });
+  }
+});
+
+/* ======================
+   UPDATE ADMIN PROFILE
+====================== */
+router.put("/profile", auth, adminOnly, async (req, res) => {
+  try {
+    const { name, email, avatar, currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(req.user.id).select("+password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Update basic info
+    if (name) user.name = name.trim();
+    if (email) {
+      const emailExists = await User.findOne({ 
+        email: email.toLowerCase().trim(),
+        _id: { $ne: user._id }
+      });
+      if (emailExists) {
+        return res.status(400).json({ message: "Email already in use" });
+      }
+      user.email = email.toLowerCase().trim();
+    }
+    
+    // Update avatar
+    if (avatar !== undefined) {
+      user.avatar = avatar.trim() || null;
+    }
+
+    // Update password if provided
+    if (newPassword) {
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "New password must be at least 6 characters" });
+      }
+
+      // Only verify current password for non-super admins
+      const isSuper = isSuperAdmin(req.user.email);
+      if (!isSuper && user.password) {
+        if (!currentPassword) {
+          return res.status(400).json({ message: "Current password is required" });
+        }
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+          return res.status(400).json({ message: "Current password is incorrect" });
+        }
+      }
+
+      // Hash and set new password
+      user.password = await bcrypt.hash(newPassword, 10);
+      // Update provider to credentials if it was Google
+      if (user.provider === "google") {
+        user.provider = "credentials";
+      }
+    }
+
+    await user.save();
+
+    res.json({
+      message: "Profile updated successfully",
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.error("Update profile error:", err);
+    res.status(500).json({ message: "Failed to update profile" });
   }
 });
 
@@ -176,9 +328,14 @@ router.delete("/users/:id", auth, adminOnly, async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Prevent deleting admin users
-    if (user.role === "admin") {
-      return res.status(403).json({ message: "Cannot delete admin users" });
+    // Prevent deleting yourself (safety measure)
+    if (user._id.toString() === req.user.id) {
+      return res.status(403).json({ message: "Cannot delete yourself" });
+    }
+
+    // Only super admin can delete admin users
+    if (user.role === "admin" && !isSuperAdmin(req.user.email)) {
+      return res.status(403).json({ message: "Only super admin can delete admin users" });
     }
 
     await User.findByIdAndDelete(req.params.id);
@@ -200,15 +357,21 @@ router.patch("/users/:id/role", auth, adminOnly, async (req, res) => {
       return res.status(400).json({ message: "Invalid role" });
     }
 
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Only super admin can change admin roles or make someone admin
+    if ((targetUser.role === "admin" || role === "admin") && !isSuperAdmin(req.user.email)) {
+      return res.status(403).json({ message: "Only super admin can manage admin roles" });
+    }
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { role },
       { new: true }
     ).select("_id name email role");
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
 
     res.json({ message: "Role updated successfully", user });
   } catch (err) {
@@ -240,7 +403,7 @@ router.patch("/users/:id/reset-password", auth, superAdminOnly, async (req, res)
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.json({ message: "Password reset successfully by super admin", user });
+    res.json({ message: "Password reset successfully", user });
   } catch (err) {
     console.error("Reset password error:", err);
     res.status(500).json({ message: "Failed to reset password" });
@@ -248,12 +411,22 @@ router.patch("/users/:id/reset-password", auth, superAdminOnly, async (req, res)
 });
 
 /* ======================
-   UPDATE USER DETAILS
+   UPDATE USER INFO
 ====================== */
 router.patch("/users/:id", auth, adminOnly, async (req, res) => {
   try {
     const { name, email } = req.body;
     
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Super admin can edit ANYONE, regular admins can only edit non-admins
+    if (targetUser.role === "admin" && targetUser._id.toString() !== req.user.id && !isSuperAdmin(req.user.email)) {
+      return res.status(403).json({ message: "Only super admin can edit other admin accounts" });
+    }
+
     const updateData = {};
     if (name) updateData.name = name;
     if (email) updateData.email = email.toLowerCase();
@@ -264,13 +437,62 @@ router.patch("/users/:id", auth, adminOnly, async (req, res) => {
       { new: true }
     ).select("_id name email role provider createdAt");
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
     res.json({ message: "User updated successfully", user });
   } catch (err) {
     console.error("Update user error:", err);
+    res.status(500).json({ message: "Failed to update user" });
+  }
+});
+
+/* ======================
+   SUPER ADMIN EDIT ANY USER (COMPLETE ACCESS)
+====================== */
+router.put("/users/:id/super-edit", auth, superAdminOnly, async (req, res) => {
+  try {
+    const { name, email, password, avatar } = req.body;
+    
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const updateData = {};
+    
+    if (name) updateData.name = name.trim();
+    
+    if (email) {
+      const emailExists = await User.findOne({ 
+        email: email.toLowerCase().trim(),
+        _id: { $ne: targetUser._id }
+      });
+      if (emailExists) {
+        return res.status(400).json({ message: "Email already in use" });
+      }
+      updateData.email = email.toLowerCase().trim();
+    }
+    
+    if (avatar !== undefined) {
+      updateData.avatar = avatar.trim() || null;
+    }
+    
+    // Super admin can change password without verification
+    if (password) {
+      if (password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+      updateData.password = await bcrypt.hash(password, 10);
+      updateData.provider = "credentials";
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true }
+    ).select("_id name email role provider avatar createdAt");
+
+    res.json({ message: "User updated successfully by super admin", user });
+  } catch (err) {
+    console.error("Super admin edit user error:", err);
     res.status(500).json({ message: "Failed to update user" });
   }
 });

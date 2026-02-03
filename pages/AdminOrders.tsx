@@ -141,31 +141,65 @@ export default function AdminOrders() {
             </div>
           </div>
 
-          <button
-            onClick={async () => {
-              const invoiceId =
-                typeof activeOrder.invoiceId === "string"
-                  ? activeOrder.invoiceId
-                  : activeOrder.invoiceId?._id;
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={async () => {
+                const invoiceId =
+                  typeof activeOrder.invoiceId === "string"
+                    ? activeOrder.invoiceId
+                    : activeOrder.invoiceId?._id;
 
-              if (!invoiceId) {
-                showToast("warning", "⚠️ Invoice not available yet. Please try again later.");
-                return;
-              }
+                if (!invoiceId) {
+                  showToast("warning", "⚠️ Invoice not available yet. Please try again later.");
+                  return;
+                }
 
-              const res = await fetch(
-                `${API_BASE_URL}/api/invoice/${invoiceId}`,
-                { headers: { Authorization: `Bearer ${token}` } }
-              );
+                navigate(`/admin/invoice/${invoiceId}`);
+              }}
+              className="flex-1 bg-black text-white py-4 rounded-xl font-black hover:bg-gray-800 transition-colors"
+            >
+              🧾 View Invoice
+            </button>
+            
+            <button
+              onClick={async () => {
+                const invoiceId =
+                  typeof activeOrder.invoiceId === "string"
+                    ? activeOrder.invoiceId
+                    : activeOrder.invoiceId?._id;
 
-              const data = await res.json();
-              
-navigate(`/admin/invoice/${invoiceId}`);
-            }}
-            className="w-full mt-6 bg-black text-white py-4 rounded-xl font-black"
-          >
-            🧾 View Invoice
-          </button>
+                if (!invoiceId) {
+                  showToast("warning", "⚠️ Invoice not available yet. Please try again later.");
+                  return;
+                }
+
+                try {
+                  const res = await fetch(
+                    `${API_BASE_URL}/api/invoice/${invoiceId}/download`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                  );
+
+                  if (!res.ok) throw new Error("Failed to download invoice");
+
+                  const blob = await res.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `invoice-${invoiceId}.pdf`;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                  showToast("warning", "✅ Invoice downloaded successfully!");
+                } catch (error) {
+                  showToast("error", "❌ Failed to download invoice");
+                }
+              }}
+              className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-black hover:bg-indigo-700 transition-colors"
+            >
+              📥 Download PDF
+            </button>
+          </div>
         </Modal>
       )}
 

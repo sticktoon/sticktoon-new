@@ -71,20 +71,23 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Email and password required" });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() }).select("+password");
+    const cleanEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: cleanEmail }).select("+password");
+    
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    if (user.provider === "google") {
-      return res
-        .status(400)
-        .json({ message: "Please login using Google" });
+    // If no password set, allow them to set one or use Google
+    if (!user.password) {
+      return res.status(400).json({ 
+        message: "No password set for this account. Please use Google login or reset your password." 
+      });
     }
 
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(400).json({ message: "Invalid credentials" });
     }
 
     const token = jwt.sign(
@@ -121,13 +124,8 @@ router.post("/google", async (req, res) => {
 
     let user = await User.findOne({ email });
 
-    if (user && user.provider === "credentials") {
-      return res.status(400).json({
-        message: "Account exists. Please login using email & password.",
-      });
-    }
-
     if (!user) {
+      // Create new user with Google provider
       user = await User.create({
         name: name?.trim() || email.split("@")[0],
         email,
@@ -135,6 +133,16 @@ router.post("/google", async (req, res) => {
         avatar,
         role: "user",
       });
+    } else {
+      // User exists - update provider to Google if it was credentials
+      if (user.provider === "credentials") {
+        user.provider = "google";
+      }
+      // Update avatar if provided
+      if (avatar) {
+        user.avatar = avatar;
+      }
+      await user.save();
     }
 
     const token = jwt.sign(

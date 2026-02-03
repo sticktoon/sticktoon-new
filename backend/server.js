@@ -55,7 +55,7 @@ const FALLBACK_PORTS = [5001, 5002, 5003, 5004, 5005];
 const PORT = process.env.PORT || DEFAULT_PORT;
 
 const startServer = (port) => {
-  const server = app.listen(port, () => {
+  const server = app.listen(port, "0.0.0.0", () => {
     console.log(`🚀 Backend running on port ${port}`);
   });
 
