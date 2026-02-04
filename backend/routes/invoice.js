@@ -42,18 +42,27 @@ router.get("/:id/download", async (req, res) => {
 
     // 🔎 Try invoiceId first
     let invoice = await Invoice.findById(id)
-      .populate("userId", "name email")
+      .populate("userId", "name email phone")
       .populate("orderId");
 
     // 🔁 If not found, try orderId
     if (!invoice) {
       invoice = await Invoice.findOne({ orderId: id })
-        .populate("userId", "name email")
+        .populate("userId", "name email phone")
         .populate("orderId");
     }
 
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    // If userId is not populated but we have order, get user from order
+    if (!invoice.userId && invoice.orderId) {
+      const User = require("../models/User");
+      const user = await User.findById(invoice.orderId.userId).select("name email phone");
+      if (user) {
+        invoice.userId = user;
+      }
     }
 
     // Generate PDF

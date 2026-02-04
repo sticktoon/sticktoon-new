@@ -139,7 +139,7 @@ module.exports = ({ invoice, order }) => {
        .text("Bill To", billX, infoY + 8);
     
     // Get customer name from multiple possible sources
-    const customerName = invoice.userId?.name || invoice.address?.name || "Customer Name";
+    const customerName = invoice.userId?.name || invoice.address?.name || order.address?.name || "Customer Name";
     doc.font("Helvetica-Bold").fontSize(9).fillColor("#111827")
        .text(customerName, billX, infoY + 22);
     
@@ -153,9 +153,12 @@ module.exports = ({ invoice, order }) => {
     doc.font("Helvetica").fontSize(8).fillColor("#4b5563")
        .text(fullAddress || "Address", billX, infoY + 34, { width: colWidth - 15 });
     
+    const customerEmail = invoice.userId?.email || invoice.email || order.address?.email || "N/A";
+    const customerPhone = invoice.userId?.phone || invoice.address?.phone || order.address?.phone || "N/A";
+    
     doc.font("Helvetica").fontSize(7).fillColor("#6b7280")
-       .text("Email: " + (invoice.userId?.email || "N/A"), billX, infoY + 54)
-       .text("Phone: " + (invoice.userId?.phone || "N/A"), billX, infoY + 64);
+       .text("Email: " + customerEmail, billX, infoY + 54)
+       .text("Phone: " + customerPhone, billX, infoY + 64);
     
     if (invoice.userId?.gstin) {
       doc.font("Helvetica-Bold").fontSize(7).fillColor("#1f2937")
