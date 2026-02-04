@@ -12,27 +12,68 @@ const adminOnly = (req, res, next) => {
 };
 
 /* ========================
-   GET ALL PRODUCTS
+   GET ALL PRODUCTS (WITH PAGINATION)
 ======================== */
 router.get("/", async (req, res) => {
   try {
-    const products = await Product.find({ isActive: true }).sort("-createdAt");
-    res.json(products);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const products = await Product.find({ isActive: true })
+      .sort("-createdAt")
+      .skip(skip)
+      .limit(limit)
+      .lean(); // Use lean() for faster reads
+
+    const total = await Product.countDocuments({ isActive: true });
+
+    res.json({
+      products,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 /* ========================
-   GET PRODUCTS BY CATEGORY
+   GET PRODUCTS BY CATEGORY (WITH PAGINATION)
 ======================== */
 router.get("/category/:category", async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
     const products = await Product.find({
       category: req.params.category,
       isActive: true,
-    }).sort("-createdAt");
-    res.json(products);
+    })
+      .sort("-createdAt")
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const total = await Product.countDocuments({
+      category: req.params.category,
+      isActive: true,
+    });
+
+    res.json({
+      products,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

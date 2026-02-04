@@ -15,17 +15,30 @@ const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<"Anime" | "Cartoon" | "Custom" | "All">("All");
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const limit = 12;
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    fetchProducts(page);
+  }, [page]);
 
-  const fetchProducts = async () => {
+  useEffect(() => {
+    setPage(1); // Reset to first page when category changes
+  }, [selectedCategory]);
+
+  const fetchProducts = async (pageNum: number) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/products`);
+      setLoading(true);
+      let url = `${API_BASE_URL}/api/adminProducts?page=${pageNum}&limit=${limit}`;
+      
+      if (selectedCategory !== "All") {
+        url = `${API_BASE_URL}/api/adminProducts/category/${selectedCategory}?page=${pageNum}&limit=${limit}`;
+      }
+
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        setProducts(data);
+        setProducts(data.products || data);
       }
     } catch (err) {
       console.error("Error fetching products:", err);
@@ -34,10 +47,7 @@ const Products: React.FC = () => {
     }
   };
 
-  const filteredProducts =
-    selectedCategory === "All"
-      ? products
-      : products.filter((p) => p.category === selectedCategory);
+  const filteredProducts = products;
 
   const categories = ["All", "Anime", "Cartoon", "Custom"] as const;
 
@@ -93,6 +103,7 @@ const Products: React.FC = () => {
                   <img
                     src={product.image}
                     alt={product.name}
+                    loading="lazy"
                     className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
                   />
                 </div>
