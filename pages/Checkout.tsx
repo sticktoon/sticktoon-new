@@ -237,8 +237,8 @@ export default function Checkout({
                 console.error("Failed to clear cart from DB");
               }
               
-              // Redirect to success page
-              window.location.href = `/#/order-success?orderId=${verifyData.orderId}`;
+              // Redirect to home page with order confirmation modal
+              window.location.href = `/#/?orderId=${verifyData.orderId}&orderSuccess=true`;
             } else {
               setPaymentError("Payment verification failed");
             }

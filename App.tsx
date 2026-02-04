@@ -643,6 +643,8 @@ export default function App() {
   });
   const [user, setUser] = useState<AuthUser | null>(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [showOrderConfirmation, setShowOrderConfirmation] = useState(false);
+  const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
   const [cartLoaded, setCartLoaded] = useState(false);
 
   // Save cart to localStorage whenever it changes (for guests or as backup)
@@ -850,6 +852,24 @@ export default function App() {
     syncCartWithDatabase();
   }, []);
 
+  // Check for order success on component mount
+  useEffect(() => {
+    // For hash routing, check window.location.hash instead of search
+    const hash = window.location.hash;
+    const queryString = hash.includes('?') ? hash.split('?')[1] : '';
+    const params = new URLSearchParams(queryString);
+    const orderId = params.get('orderId');
+    const orderSuccess = params.get('orderSuccess');
+    
+    if (orderId && orderSuccess === 'true') {
+      setConfirmedOrderId(orderId);
+      setShowOrderConfirmation(true);
+      
+      // Clean up URL without reloading
+      window.location.hash = '#/';
+    }
+  }, []);
+
   return (
     <BrowserRouter>
       <Navbar
@@ -876,6 +896,75 @@ export default function App() {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Order Confirmation Modal */}
+      {showOrderConfirmation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center animate-fade-in">
+            {/* Success Icon */}
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+              <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+
+            {/* Title */}
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-3">
+              Order Confirmed! 🎉
+            </h2>
+
+            <p className="text-slate-600 mb-6">
+              Thank you for your order! We've sent a confirmation email with your order details.
+            </p>
+
+            {/* Order ID */}
+            {confirmedOrderId && (
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4 mb-6">
+                <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider">Order ID</p>
+                <p className="text-lg font-mono font-bold text-slate-900">
+                  #{confirmedOrderId.slice(-8).toUpperCase()}
+                </p>
+              </div>
+            )}
+
+            {/* What's Next */}
+            <div className="bg-slate-50 rounded-xl p-5 mb-6 text-left">
+              <h3 className="font-bold text-slate-900 mb-3 text-sm">📦 What happens next?</h3>
+              <ul className="space-y-2 text-xs text-slate-600">
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs flex-shrink-0">1</span>
+                  <span>We'll start preparing your order</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs flex-shrink-0">2</span>
+                  <span>You'll receive tracking info via email</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs flex-shrink-0">3</span>
+                  <span>Your items will arrive in 5-7 business days</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => setShowOrderConfirmation(false)}
+                className="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl"
+              >
+                Continue Shopping
+              </button>
+              <Link
+                to="/profile"
+                className="w-full px-6 py-3 border-2 border-slate-300 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-all text-center"
+                onClick={() => setShowOrderConfirmation(false)}
+              >
+                View My Orders
+              </Link>
+            </div>
           </div>
         </div>
       )}
