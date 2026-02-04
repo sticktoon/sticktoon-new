@@ -138,8 +138,10 @@ module.exports = ({ invoice, order }) => {
     doc.font("Helvetica-Bold").fontSize(10).fillColor("#1f2937")
        .text("Bill To", billX, infoY + 8);
     
+    // Get customer name from multiple possible sources
+    const customerName = invoice.userId?.name || invoice.address?.name || "Customer Name";
     doc.font("Helvetica-Bold").fontSize(9).fillColor("#111827")
-       .text(invoice.userId?.name || "Customer Name", billX, infoY + 22);
+       .text(customerName, billX, infoY + 22);
     
     const fullAddress = [
       invoice.address?.street,
@@ -468,8 +470,14 @@ module.exports = ({ invoice, order }) => {
     // Row 4: Discount
     doc.rect(left, currentY, labelColWidth, rowH).fill("#f9fafb").stroke("#e5e7eb");
     doc.rect(valueColX, currentY, valueColWidth, rowH).fill("#f9fafb").stroke("#e5e7eb");
+    
+    let discountLabel = "Discount";
+    if (invoice.promoCode) {
+      discountLabel = `Discount (${invoice.promoCode})`;
+    }
+    
     doc.font("Helvetica").fontSize(9).fillColor("#374151")
-       .text("Discount", left + 12, currentY + 6);
+       .text(discountLabel, left + 12, currentY + 6);
     doc.font("Helvetica-Bold").fontSize(9).fillColor("#111827")
        .text("- Rs. " + discount.toFixed(2), valueColX + 10, currentY + 6);
 

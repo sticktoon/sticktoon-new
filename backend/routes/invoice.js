@@ -73,7 +73,8 @@ router.get("/:id/download", async (req, res) => {
     return res.send(pdfBuffer);
   } catch (err) {
     console.error("❌ Invoice download error:", err);
-    return res.status(500).json({ message: "Failed to generate PDF" });
+    console.error("❌ Error details:", err.message, err.stack);
+    return res.status(500).json({ message: "Failed to generate PDF", error: err.message });
   }
 });
 

@@ -45,6 +45,16 @@ const invoiceSchema = new mongoose.Schema(
       street: String,
       phone: String,
     },
+
+    discount: {
+      type: Number,
+      default: 0,
+    },
+
+    promoCode: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

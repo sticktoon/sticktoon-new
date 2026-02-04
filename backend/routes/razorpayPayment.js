@@ -298,6 +298,8 @@ for (const earn of earnings) {
       paymentMethod: "Razorpay",
       paymentGateway: "razorpay",
       address: order.address,
+      discount: order.discount || 0,
+      promoCode: order.promoCode || null,
     });
 
     // Update order with invoice ID
@@ -314,7 +316,11 @@ for (const earn of earnings) {
     // Generate Invoice PDF
     let invoicePdfBuffer = null;
     try {
-      invoicePdfBuffer = await generateInvoicePDF({ invoice, order });
+      // Populate invoice with user data for PDF generation
+      const populatedInvoice = await Invoice.findById(invoice._id)
+        .populate("userId", "name email phone");
+      
+      invoicePdfBuffer = await generateInvoicePDF({ invoice: populatedInvoice, order });
       console.log("✅ Invoice PDF generated successfully");
     } catch (pdfErr) {
       console.error("Invoice PDF generation error:", pdfErr.message);

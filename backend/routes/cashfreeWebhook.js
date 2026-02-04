@@ -103,6 +103,8 @@ router.post("/webhook", async (req, res) => {
           address: order.address,
           paymentMethod: resolvedMethod,
           paymentGateway: "Cashfree",
+          discount: order.discount || 0,
+          promoCode: order.promoCode || null,
         });
       }
 
@@ -128,8 +130,12 @@ router.post("/webhook", async (req, res) => {
       /* =========================
          GENERATE PDF
       ========================= */
+      // Populate invoice with user data for PDF generation
+      const populatedInvoice = await Invoice.findById(invoice._id)
+        .populate("userId", "name email phone");
+      
       const pdfBuffer = await generateInvoicePDF({
-        invoice,
+        invoice: populatedInvoice,
         order: {
           ...order.toObject(),
           userEmail,
