@@ -240,7 +240,6 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
 
 
     {/* RIGHT ICONS */}
-   {/* RIGHT ICONS */}
 <div className="flex items-center gap-4 justify-end min-w-[90px] sm:min-w-0">
 
   {/* 🛒 CART — ALWAYS VISIBLE */}
@@ -265,25 +264,27 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
       </span>
     )}
   </Link>
-<div className="hidden lg:block">
+
   {/* 👤 USER */}
   {user ? (
-    <div className="relative group">
-      {user.avatar ? (
-        <img
-          src={user.avatar}
-          alt={user.name || user.email}
-          className="w-10 h-10 rounded-full object-cover cursor-pointer border-2 border-transparent group-hover:border-indigo-500"
-        />
-      ) : (
-        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black uppercase cursor-pointer group-hover:bg-indigo-700">
-          {(user.email?.charAt(0) || "U").toUpperCase()}
-        </div>
-      )}
+    <div className="hidden lg:block relative group">
+      <div className="cursor-pointer">
+        {user.avatar ? (
+          <img
+            src={user.avatar}
+            alt={user.name || user.email}
+            className="w-10 h-10 rounded-full object-cover"
+          />
+        ) : (
+          <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black uppercase">
+            {(user.email?.charAt(0) || "U").toUpperCase()}
+          </div>
+        )}
+      </div>
 
       {/* DROPDOWN */}
-      <div className="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-lg border border-slate-100 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all origin-top-right z-50">
-        <div className="px-4 py-3 border-b">
+      <div className="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-lg border border-slate-100 opacity-0 scale-95 invisible pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:visible group-hover:pointer-events-auto transition-all duration-200 origin-top-right z-50">
+        <div className="px-4 py-3 border-b border-slate-100">
           <p className="font-bold">{user.name || "User"}</p>
           <p className="text-xs text-slate-500">{user.email}</p>
         </div>
@@ -309,12 +310,11 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
   ) : (
     <Link
       to="/login"
-      className="p-3 rounded-2xl text-slate-300 hover:bg-slate-800 hover:text-white transition"
+      className="hidden lg:block p-3 rounded-2xl text-slate-300 hover:bg-slate-800 hover:text-white transition"
     >
       <UserIcon className="w-6 h-6" />
     </Link>
   )}
-  </div>
 </div>
 
   </div>
@@ -336,7 +336,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
                 <Link
                   to="/profile"
                   onClick={() => setIsOpen(false)}
-                  className="block text-lg font-bold text-white"
+                  className="block text-lg font-bold text-white focus:outline-none focus-visible:outline-none focus-visible:ring-0"
                 >
                   My Profile
                 </Link>
@@ -345,7 +345,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
                   <Link
                     to="/admin"
                     onClick={() => setIsOpen(false)}
-                    className="block mt-3 text-lg font-bold text-white"
+                    className="block mt-3 text-lg font-bold text-white focus:outline-none focus-visible:outline-none focus-visible:ring-0"
                   >
                     Admin Panel
                   </Link>
@@ -353,7 +353,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
 
                 <button
                   onClick={handleLogout}
-                  className="block mt-3 text-lg font-bold text-red-500"
+                  className="block mt-3 text-lg font-bold text-red-500 focus:outline-none focus-visible:outline-none focus-visible:ring-0"
                 >
                   Logout
                 </button>
