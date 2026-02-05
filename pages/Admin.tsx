@@ -443,6 +443,25 @@ const Admin: React.FC = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [viewingOrder, setViewingOrder] = useState<any>(null);
   const productsForDisplay = ensureMinimumProductsPerCategory(products);
+  
+  // Track what data has been loaded to avoid unnecessary fetches
+  const [loadedData, setLoadedData] = useState({
+    users: false,
+    allInfluencers: false,
+    pendingInfluencers: false,
+    withdrawals: false,
+    products: false,
+    orders: false,
+  });
+  
+  // Track loading states for each view
+  const [loadingData, setLoadingData] = useState({
+    users: false,
+    allInfluencers: false,
+    withdrawals: false,
+    products: false,
+    orders: false,
+  });
 
   // Modal states
   const [editingUser, setEditingUser] = useState<any>(null);
@@ -525,6 +544,29 @@ const Admin: React.FC = () => {
     }
   }, [location.search, isAuthenticated]);
 
+  // Lazy load data when view changes
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    switch (currentView) {
+      case 'users':
+        fetchUsersData();
+        break;
+      case 'all-influencers':
+        fetchAllInfluencersData();
+        break;
+      case 'withdrawals':
+        fetchWithdrawalsData();
+        break;
+      case 'orders':
+        fetchOrdersData();
+        break;
+      case 'products':
+        fetchProductsData();
+        break;
+    }
+  }, [currentView, isAuthenticated]);
+
   // Toast notification functions
   const showToast = (type: "success" | "error" | "info" | "warning", message: string) => {
     const id = toastIdCounter;
@@ -575,7 +617,7 @@ const Admin: React.FC = () => {
 
   const fetchDashboardData = async (token: string) => {
     try {
-      // Fetch stats
+      // Fetch stats (always needed for dashboard)
       const statsRes = await fetch(`${API_BASE_URL}/api/admin/influencer-manage/stats/overview`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -584,59 +626,128 @@ const Admin: React.FC = () => {
         setStats(data);
       }
 
-      // Fetch pending influencers
+      // Only fetch pending influencers for initial dashboard view
       const influencersRes = await fetch(`${API_BASE_URL}/api/admin/influencer-manage/pending`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (influencersRes.ok) {
         const data = await influencersRes.json();
         setPendingInfluencers(data);
+        setLoadedData(prev => ({ ...prev, pendingInfluencers: true }));
       }
+    } catch (err) {
+      console.error("Fetch data error:", err);
+    }
+  };
 
-      // Fetch all influencers
-      const allInfluencersRes = await fetch(`${API_BASE_URL}/api/admin/influencer-manage`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (allInfluencersRes.ok) {
-        const data = await allInfluencersRes.json();
-        setAllInfluencers(data);
-      }
+  // Lazy load data only when user navigates to that view
+  const fetchUsersData = async () => {
+    if (loadedData.users) return; // Already loaded
+    
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
 
-      // Fetch all users
+    setLoadingData(prev => ({ ...prev, users: true }));
+    try {
       const usersRes = await fetch(`${API_BASE_URL}/api/admin/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (usersRes.ok) {
         const data = await usersRes.json();
         setAllUsers(data);
+        setLoadedData(prev => ({ ...prev, users: true }));
       }
+    } catch (err) {
+      console.error("Fetch users error:", err);
+    } finally {
+      setLoadingData(prev => ({ ...prev, users: false }));
+    }
+  };
 
-      // Fetch pending withdrawals
+  const fetchAllInfluencersData = async () => {
+    if (loadedData.allInfluencers) return; // Already loaded
+    
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    setLoadingData(prev => ({ ...prev, allInfluencers: true }));
+    try {
+      const allInfluencersRes = await fetch(`${API_BASE_URL}/api/admin/influencer-manage`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (allInfluencersRes.ok) {
+        const data = await allInfluencersRes.json();
+        setAllInfluencers(data);
+        setLoadedData(prev => ({ ...prev, allInfluencers: true }));
+      }
+    } catch (err) {
+      console.error("Fetch all influencers error:", err);
+    } finally {
+      setLoadingData(prev => ({ ...prev, allInfluencers: false }));
+    }
+  };
+
+  const fetchWithdrawalsData = async () => {
+    if (loadedData.withdrawals) return; // Already loaded
+    
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    setLoadingData(prev => ({ ...prev, withdrawals: true }));
+    try {
       const withdrawalsRes = await fetch(`${API_BASE_URL}/api/admin/influencer-manage/withdrawals/all?status=pending`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (withdrawalsRes.ok) {
         const data = await withdrawalsRes.json();
         setWithdrawals(data);
+        setLoadedData(prev => ({ ...prev, withdrawals: true }));
       }
+    } catch (err) {
+      console.error("Fetch withdrawals error:", err);
+    } finally {
+      setLoadingData(prev => ({ ...prev, withdrawals: false }));
+    }
+  };
 
-      // Fetch all orders
+  const fetchOrdersData = async () => {
+    if (loadedData.orders) return; // Already loaded
+    
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    setLoadingData(prev => ({ ...prev, orders: true }));
+    try {
       const ordersRes = await fetch(`${API_BASE_URL}/api/admin/orders`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (ordersRes.ok) {
         const data = await ordersRes.json();
         setOrders(data);
+        setLoadedData(prev => ({ ...prev, orders: true }));
       }
+    } catch (err) {
+      console.error("Fetch orders error:", err);
+    } finally {
+      setLoadingData(prev => ({ ...prev, orders: false }));
+    }
+  };
 
-      // Fetch all products
+  const fetchProductsData = async () => {
+    if (loadedData.products) return; // Already loaded
+
+    setLoadingData(prev => ({ ...prev, products: true }));
+    try {
       const productsRes = await fetch(`${API_BASE_URL}/api/products`);
       if (productsRes.ok) {
         const data = await productsRes.json();
         setProducts(data.products);
+        setLoadedData(prev => ({ ...prev, products: true }));
       }
     } catch (err) {
-      console.error("Fetch data error:", err);
+      console.error("Fetch products error:", err);
+    } finally {
+      setLoadingData(prev => ({ ...prev, products: false }));
     }
   };
 
@@ -824,9 +935,22 @@ const Admin: React.FC = () => {
       });
 
       if (res.ok) {
-        // Refresh data
+        // Refresh data - only update pending list and stats
         setPendingInfluencers(pendingInfluencers.filter((inf) => inf._id !== influencerId));
-        fetchDashboardData(token);
+        
+        // Refresh stats only (not all data)
+        const statsRes = await fetch(`${API_BASE_URL}/api/admin/influencer-manage/stats/overview`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (statsRes.ok) {
+          const data = await statsRes.json();
+          setStats(data);
+        }
+        
+        // Mark all influencers as needing refresh if that view is active
+        if (loadedData.allInfluencers) {
+          setLoadedData(prev => ({ ...prev, allInfluencers: false }));
+        }
       }
     } catch (err) {
       console.error("Error:", err);
@@ -851,9 +975,17 @@ const Admin: React.FC = () => {
       });
 
       if (res.ok) {
-        // Refresh
+        // Refresh - only update withdrawal list and stats
         setWithdrawals(withdrawals.filter((w) => w._id !== withdrawalId));
-        fetchDashboardData(token);
+        
+        // Refresh stats only (not all data)
+        const statsRes = await fetch(`${API_BASE_URL}/api/admin/influencer-manage/stats/overview`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (statsRes.ok) {
+          const data = await statsRes.json();
+          setStats(data);
+        }
       }
     } catch (err) {
       console.error("Error:", err);
@@ -1471,7 +1603,12 @@ const Admin: React.FC = () => {
         {currentView === "withdrawals" && (
           <div className="space-y-4">
             <h2 className="text-2xl font-bold text-white mb-6">Pending Withdrawal Requests</h2>
-            {withdrawals.length === 0 ? (
+            {loadingData.withdrawals ? (
+              <div className="bg-white/10 border border-white/20 rounded-2xl p-8 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400 mx-auto mb-4"></div>
+                <p className="text-gray-400">Loading withdrawal requests...</p>
+              </div>
+            ) : withdrawals.length === 0 ? (
               <div className="bg-white/10 border border-white/20 rounded-2xl p-8 text-center">
                 <p className="text-gray-400">No pending withdrawals</p>
               </div>
@@ -1650,7 +1787,12 @@ const Admin: React.FC = () => {
             )}
 
             {/* Products by Category */}
-            {products.length > 0 ? (
+            {loadingData.products ? (
+              <div className="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-12 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                <p className="text-gray-500 text-lg">Loading products...</p>
+              </div>
+            ) : products.length > 0 ? (
               <div className="space-y-8">
                 {ADMIN_PRODUCT_CATEGORIES.map((category) => {
                   const categoryProducts = productsForDisplay.filter(
@@ -1776,7 +1918,12 @@ const Admin: React.FC = () => {
                 </div>
               )}
             </div>
-            {allUsers.length === 0 ? (
+            {loadingData.users ? (
+              <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-indigo-500/20 rounded-2xl p-8 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto mb-4"></div>
+                <p className="text-gray-400">Loading users...</p>
+              </div>
+            ) : allUsers.length === 0 ? (
               <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-indigo-500/20 rounded-2xl p-8 text-center">
                 <p className="text-gray-400">No users found</p>
               </div>
@@ -1872,7 +2019,12 @@ const Admin: React.FC = () => {
                 </div>
               )}
             </div>
-            {allInfluencers.length === 0 ? (
+            {loadingData.allInfluencers ? (
+              <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                <p className="text-gray-500">Loading influencers...</p>
+              </div>
+            ) : allInfluencers.length === 0 ? (
               <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
                 <p className="text-gray-500">No influencers found</p>
               </div>
@@ -1946,7 +2098,12 @@ const Admin: React.FC = () => {
                 </div>
               )}
             </div>
-            {orders.length === 0 ? (
+            {loadingData.orders ? (
+              <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-indigo-500/20 rounded-2xl p-12 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto mb-4"></div>
+                <p className="text-gray-400">Loading orders...</p>
+              </div>
+            ) : orders.length === 0 ? (
               <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-indigo-500/20 rounded-2xl p-12 text-center">
                 <p className="text-gray-400">No orders found</p>
               </div>
