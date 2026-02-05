@@ -20,13 +20,13 @@ router.get("/", async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    const products = await Product.find({ isActive: true })
+    const products = await Product.find({})
       .sort("-createdAt")
       .skip(skip)
       .limit(limit)
       .lean(); // Use lean() for faster reads
 
-    const total = await Product.countDocuments({ isActive: true });
+    const total = await Product.countDocuments({});
 
     res.json({
       products,

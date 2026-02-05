@@ -323,7 +323,7 @@ const Admin: React.FC = () => {
       const productsRes = await fetch(`${API_BASE_URL}/api/products`);
       if (productsRes.ok) {
         const data = await productsRes.json();
-        setProducts(data);
+        setProducts(data.products);
       }
     } catch (err) {
       console.error("Fetch data error:", err);
