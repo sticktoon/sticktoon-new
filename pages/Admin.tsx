@@ -1,6 +1,7 @@
 import React, { useState, useEffect, JSX } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
+import { BADGES } from "../constants";
 import { Eye, EyeOff, LogOut, Users, AlertCircle, Check, X, Upload, Plus, Edit2, Trash2, TrendingUp, DollarSign, CheckCircle, XCircle, Info } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 
@@ -96,7 +97,68 @@ interface Product {
   image: string;
   stock: number;
   createdAt: string;
+  isPlaceholder?: boolean;
 }
+
+const ADMIN_PRODUCT_CATEGORIES = ["Moody", "Sports", "Religious", "Entertainment", "Events", "Animal", "Couple", "Anime", "Custom"] as const;
+type AdminProductCategory = (typeof ADMIN_PRODUCT_CATEGORIES)[number];
+
+const ensureMinimumProductsPerCategory = (items: Product[], minCount = 4): Product[] => {
+  const result: Product[] = [...items];
+
+  ADMIN_PRODUCT_CATEGORIES.forEach((category) => {
+    const current = result.filter((p) => p.category === category);
+    if (current.length >= minCount) return;
+
+    const fallbackBadges = BADGES.filter((b) => b.category === category);
+    const needed = minCount - current.length;
+    const existingNames = new Set(current.map((p) => p.name));
+    const toAdd = fallbackBadges
+      .filter((b) => !existingNames.has(b.name))
+      .slice(0, needed)
+      .map((b, index) => ({
+        _id: `placeholder-${category}-${b.id}-${index}`,
+        name: b.name,
+        description: b.details || "",
+        price: b.price,
+        category: category as AdminProductCategory,
+        image: b.image,
+        stock: 0,
+        createdAt: "1970-01-01T00:00:00.000Z",
+        isPlaceholder: true,
+      }));
+
+    if (toAdd.length === 0 && current.length < minCount) {
+      const fillerNeeded = minCount - current.length;
+      for (let i = 0; i < fillerNeeded; i += 1) {
+        result.push({
+          _id: `placeholder-${category}-generic-${i}`,
+          name: `${category} Badge`,
+          description: "",
+          price: 0,
+          category: category as AdminProductCategory,
+          image: "/badge/placeholder.png",
+          stock: 0,
+          createdAt: "1970-01-01T00:00:00.000Z",
+          isPlaceholder: true,
+        });
+      }
+      return;
+    }
+
+    result.push(...toAdd);
+  });
+
+  return result;
+};
+
+const hasValidImage = (image?: string) => {
+  if (!image) return false;
+  const trimmed = image.trim();
+  if (!trimmed) return false;
+  if (trimmed === "undefined" || trimmed === "null") return false;
+  return true;
+};
 
 interface Toast {
   id: number;
@@ -133,6 +195,7 @@ const Admin: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [viewingOrder, setViewingOrder] = useState<any>(null);
+  const productsForDisplay = ensureMinimumProductsPerCategory(products);
 
   // Modal states
   const [editingUser, setEditingUser] = useState<any>(null);
@@ -1260,8 +1323,10 @@ const Admin: React.FC = () => {
             {/* Products by Category */}
             {products.length > 0 ? (
               <div className="space-y-8">
-                {["Moody", "Sports", "Religious", "Entertainment", "Events", "Animal", "Couple", "Anime", "Custom"].map((category) => {
-                  const categoryProducts = products.filter((p) => p.category === category);
+                {ADMIN_PRODUCT_CATEGORIES.map((category) => {
+                  const categoryProducts = productsForDisplay.filter(
+                    (p) => p.category === category && (p.isPlaceholder || hasValidImage(p.image))
+                  );
                   if (categoryProducts.length === 0) return null;
 
                   return (
@@ -1300,7 +1365,7 @@ const Admin: React.FC = () => {
                                     ? "bg-green-500/30 border-green-400/50 text-green-100 shadow-[0_0_20px_rgba(34,197,94,0.4)]" 
                                     : "bg-red-500/30 border-red-400/50 text-red-100 shadow-[0_0_20px_rgba(239,68,68,0.4)]"
                                 }`}>
-                                  {product.stock} stock
+                                  {product.isPlaceholder ? "Sample" : `${product.stock} stock`}
                                 </span>
                               </div>
                             </div>
@@ -1318,33 +1383,41 @@ const Admin: React.FC = () => {
                               </div>
 
                               {/* Actions */}
-                              <div className="flex gap-2 pt-2">
-                                <button
-                                  onClick={() => {
-                                    setEditingProduct(product);
-                                    setProductForm({
-                                      name: product.name,
-                                      description: product.description,
-                                      price: product.price,
-                                      category: product.category,
-                                      image: product.image,
-                                      stock: product.stock,
-                                    });
-                                    setShowProductForm(false);
-                                  }}
-                                  className="flex-1 group/btn py-2.5 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30 border-2 border-blue-400/30 hover:border-blue-400/60 rounded-xl text-blue-300 hover:text-blue-200 font-bold transition-all text-sm hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                  <span className="text-lg">✏️</span>
-                                  <span>Edit</span>
-                                </button>
-                                <button
-                                  onClick={() => setConfirmingDeleteProduct(product)}
-                                  className="flex-1 group/btn py-2.5 bg-gradient-to-r from-red-500/20 to-pink-500/20 hover:from-red-500/30 hover:to-pink-500/30 border-2 border-red-400/30 hover:border-red-400/60 rounded-xl text-red-300 hover:text-red-200 font-bold transition-all text-sm hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                  <span className="text-lg">🗑️</span>
-                                  <span>Delete</span>
-                                </button>
-                              </div>
+                              {product.isPlaceholder ? (
+                                <div className="flex gap-2 pt-2">
+                                  <div className="flex-1 py-2.5 bg-white/5 border-2 border-white/10 rounded-xl text-gray-300 font-bold text-sm text-center">
+                                    Sample Badge
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex gap-2 pt-2">
+                                  <button
+                                    onClick={() => {
+                                      setEditingProduct(product);
+                                      setProductForm({
+                                        name: product.name,
+                                        description: product.description,
+                                        price: product.price,
+                                        category: product.category,
+                                        image: product.image,
+                                        stock: product.stock,
+                                      });
+                                      setShowProductForm(false);
+                                    }}
+                                    className="flex-1 group/btn py-2.5 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30 border-2 border-blue-400/30 hover:border-blue-400/60 rounded-xl text-blue-300 hover:text-blue-200 font-bold transition-all text-sm hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                                  >
+                                    <span className="text-lg">✏️</span>
+                                    <span>Edit</span>
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmingDeleteProduct(product)}
+                                    className="flex-1 group/btn py-2.5 bg-gradient-to-r from-red-500/20 to-pink-500/20 hover:from-red-500/30 hover:to-pink-500/30 border-2 border-red-400/30 hover:border-red-400/60 rounded-xl text-red-300 hover:text-red-200 font-bold transition-all text-sm hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                                  >
+                                    <span className="text-lg">🗑️</span>
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}

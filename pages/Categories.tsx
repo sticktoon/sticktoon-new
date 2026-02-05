@@ -44,6 +44,39 @@ export default function Categories({ addToCart }: CategoriesProps) {
     return `/badge/${path}`;
   };
 
+  const mapApiProductsToBadges = (items: any[]): Badge[] =>
+    items.map((p: any) => ({
+      id: p._id,
+      name: p.name,
+      category: p.category.toLowerCase(),
+      price: p.price,
+      image: normalizeImagePath(p.image) || '/badge/placeholder.png',
+      imageMagnetic: normalizeImagePath(p.imageMagnetic),
+      details: p.description || '',
+      color: p.color || 'bg-transparent',
+    }));
+
+  const ensureMinimumPerCategory = (items: Badge[], minCount = 4): Badge[] => {
+    const normalized = [...items];
+    const byCategory = CATEGORIES.reduce((acc, cat) => {
+      acc[cat.id] = normalized.filter((p) => p.category.toLowerCase() === cat.id.toLowerCase());
+      return acc;
+    }, {} as Record<string, Badge[]>);
+
+    CATEGORIES.forEach((cat) => {
+      const current = byCategory[cat.id] || [];
+      if (current.length >= minCount) return;
+
+      const fallback = BADGES.filter((b) => b.category.toLowerCase() === cat.id.toLowerCase());
+      const needed = minCount - current.length;
+      const existingIds = new Set(current.map((b) => b.id));
+      const toAdd = fallback.filter((b) => !existingIds.has(b.id)).slice(0, needed);
+      normalized.push(...toAdd);
+    });
+
+    return normalized;
+  };
+
   // Fetch products from API
   useEffect(() => {
     const fetchProducts = async () => {
@@ -52,26 +85,17 @@ export default function Categories({ addToCart }: CategoriesProps) {
         const res = await fetch(`${API_BASE_URL}/api/products`);
         if (res.ok) {
           const data = await res.json();
-          // Map API products to Badge format
-          const mappedProducts: Badge[] = data.map((p: any) => ({
-            id: p._id,
-            name: p.name,
-            category: p.category.toLowerCase(),
-            price: p.price,
-            image: normalizeImagePath(p.image) || '/badge/placeholder.png',
-            imageMagnetic: normalizeImagePath(p.imageMagnetic),
-            details: p.description || '',
-            color: p.color || 'bg-transparent',
-          }));
-          setProducts(mappedProducts);
+          const apiItems = Array.isArray(data) ? data : data.products || [];
+          const mappedProducts = mapApiProductsToBadges(apiItems);
+          setProducts(ensureMinimumPerCategory(mappedProducts));
         } else {
           // Fallback to static badges if API fails
-          setProducts(BADGES);
+          setProducts(ensureMinimumPerCategory(BADGES));
         }
       } catch (err) {
         console.error('Error fetching products:', err);
         // Fallback to static badges
-        setProducts(BADGES);
+        setProducts(ensureMinimumPerCategory(BADGES));
       } finally {
         setLoading(false);
       }
