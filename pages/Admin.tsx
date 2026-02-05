@@ -55,6 +55,253 @@ style.textContent = `
   .animate-slideOutRight {
     animation: slideOutRight 0.3s ease-in;
   }
+
+  /* Optimized Black & White Admin Theme */
+  .admin-zoho {
+    background-color: #f9fafb;
+    color: #111827;
+  }
+
+  /* Text Color Overrides - Keep white text only on dark backgrounds */
+  .admin-zoho .text-white {
+    color: #111827 !important;
+  }
+
+  .admin-zoho .admin-zoho-keep-white {
+    color: #ffffff !important;
+  }
+
+  /* Convert all colored text to grayscale */
+  .admin-zoho .text-gray-300,
+  .admin-zoho .text-gray-400,
+  .admin-zoho .text-gray-500,
+  .admin-zoho .text-indigo-300,
+  .admin-zoho .text-indigo-200,
+  .admin-zoho .text-indigo-100,
+  .admin-zoho .text-indigo-400,
+  .admin-zoho .text-blue-400,
+  .admin-zoho .text-blue-500,
+  .admin-zoho .text-purple-300,
+  .admin-zoho .text-purple-400,
+  .admin-zoho .text-emerald-300,
+  .admin-zoho .text-emerald-400,
+  .admin-zoho .text-yellow-200,
+  .admin-zoho .text-yellow-300,
+  .admin-zoho .text-green-300,
+  .admin-zoho .text-green-400,
+  .admin-zoho .text-red-300,
+  .admin-zoho .text-red-400 {
+    color: #6b7280 !important;
+  }
+
+  /* Background Color Overrides - Convert to white/gray */
+  .admin-zoho .bg-black\/30,
+  .admin-zoho .bg-black\/20,
+  .admin-zoho .bg-black\/10,
+  .admin-zoho .bg-white\/5,
+  .admin-zoho .bg-white\/10,
+  .admin-zoho .bg-white\/20,
+  .admin-zoho .bg-white\/30,
+  .admin-zoho .bg-white\/50 {
+    background-color: #ffffff !important;
+  }
+
+  .admin-zoho .bg-indigo-500\/10,
+  .admin-zoho .bg-indigo-500\/20,
+  .admin-zoho .bg-indigo-500\/30,
+  .admin-zoho .bg-indigo-600\/50,
+  .admin-zoho .bg-purple-500\/10,
+  .admin-zoho .bg-purple-500\/20,
+  .admin-zoho .bg-purple-500\/30,
+  .admin-zoho .bg-blue-500\/10,
+  .admin-zoho .bg-blue-500\/20,
+  .admin-zoho .bg-green-500\/10,
+  .admin-zoho .bg-green-500\/20,
+  .admin-zoho .bg-yellow-500\/10,
+  .admin-zoho .bg-yellow-500\/20,
+  .admin-zoho .bg-red-500\/10,
+  .admin-zoho .bg-red-500\/20 {
+    background-color: #f3f4f6 !important;
+  }
+
+  /* Border Color Overrides */
+  .admin-zoho .border-white\/10,
+  .admin-zoho .border-white\/20,
+  .admin-zoho .border-white\/30,
+  .admin-zoho .border-white\/50 {
+    border-color: #e5e7eb !important;
+  }
+
+  .admin-zoho .border-indigo-500\/20,
+  .admin-zoho .border-indigo-500\/30,
+  .admin-zoho .border-indigo-500\/40,
+  .admin-zoho .border-indigo-500\/50,
+  .admin-zoho .border-purple-500\/20,
+  .admin-zoho .border-purple-500\/30,
+  .admin-zoho .border-red-500\/20,
+  .admin-zoho .border-red-500\/30,
+  .admin-zoho .border-red-500\/50,
+  .admin-zoho .border-yellow-500\/20,
+  .admin-zoho .border-yellow-500\/30,
+  .admin-zoho .border-green-400\/30,
+  .admin-zoho .border-green-400\/50,
+  .admin-zoho .border-blue-400\/50 {
+    border-color: #d1d5db !important;
+  }
+
+  /* Remove Gradients - Convert to Solid White */
+  .admin-zoho .bg-gradient-to-br,
+  .admin-zoho .bg-gradient-to-r,
+  .admin-zoho .bg-gradient-to-l,
+  .admin-zoho .bg-gradient-to-t,
+  .admin-zoho .bg-gradient-to-b {
+    background-image: none !important;
+    background-color: #ffffff !important;
+  }
+
+  /* Card Background */
+  .admin-zoho .rounded-3xl,
+  .admin-zoho .rounded-2xl,
+  .admin-zoho .rounded-xl {
+    background-color: #ffffff !important;
+  }
+
+  .admin-zoho .bg-slate-50 {
+    background-color: #f9fafb !important;
+  }
+
+  /* Remove Blur Effects */
+  .admin-zoho .backdrop-blur-sm,
+  .admin-zoho .backdrop-blur-md,
+  .admin-zoho .backdrop-blur-xl,
+  .admin-zoho .backdrop-blur-2xl {
+    backdrop-filter: none !important;
+  }
+
+  /* Button Styling */
+  .admin-zoho button {
+    color: #111827 !important;
+  }
+
+  .admin-zoho button.bg-slate-900,
+  .admin-zoho button.bg-slate-800,
+  .admin-zoho button.bg-black,
+  .admin-zoho button.bg-gray-900,
+  .admin-zoho button.bg-gray-800 {
+    background-color: #111827 !important;
+    color: #ffffff !important;
+    border-color: #111827 !important;
+  }
+
+  .admin-zoho button.bg-white,
+  .admin-zoho button.bg-slate-100,
+  .admin-zoho button.bg-gray-100 {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    border-color: #e5e7eb !important;
+  }
+
+  /* Remove Gradient Buttons */
+  .admin-zoho button[class*="bg-gradient"] {
+    background-image: none !important;
+    background-color: #111827 !important;
+    color: #ffffff !important;
+  }
+
+  .admin-zoho button:hover {
+    filter: brightness(0.95) !important;
+  }
+
+  /* Form Elements */
+  .admin-zoho input,
+  .admin-zoho textarea,
+  .admin-zoho select {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    border-color: #d1d5db !important;
+  }
+
+  .admin-zoho input::placeholder,
+  .admin-zoho textarea::placeholder {
+    color: #9ca3af !important;
+  }
+
+  .admin-zoho input:focus,
+  .admin-zoho textarea:focus,
+  .admin-zoho select:focus {
+    border-color: #111827 !important;
+    ring-color: #111827 !important;
+  }
+
+  /* Shadows - Subtle and Clean */
+  .admin-zoho .shadow-2xl,
+  .admin-zoho .shadow-xl,
+  .admin-zoho .shadow-lg,
+  .admin-zoho .shadow-md {
+    box-shadow: 0 4px 16px rgba(17, 24, 39, 0.08) !important;
+  }
+
+  /* Table Styling */
+  .admin-zoho table {
+    background-color: #ffffff !important;
+  }
+
+  .admin-zoho table thead tr {
+    background-color: #f9fafb !important;
+    border-bottom: 2px solid #e5e7eb !important;
+  }
+
+  .admin-zoho table td,
+  .admin-zoho table th {
+    color: #111827 !important;
+    border-color: #e5e7eb !important;
+  }
+
+  .admin-zoho table tbody tr:hover {
+    background-color: #f9fafb !important;
+  }
+
+  /* Text and Special Elements */
+  .admin-zoho .text-slate-500,
+  .admin-zoho .text-slate-600,
+  .admin-zoho .text-slate-700 {
+    color: #6b7280 !important;
+  }
+
+  .admin-zoho .text-transparent {
+    color: #111827 !important;
+    -webkit-text-fill-color: #111827 !important;
+  }
+
+  /* Modal Backgrounds */
+  .admin-zoho .bg-black\/60 {
+    background-color: rgba(17, 24, 39, 0.6) !important;
+  }
+
+  /* Status Indicators - Keep Minimal Color for Clarity */
+  .admin-zoho .text-green-400,
+  .admin-zoho .text-green-500,
+  .admin-zoho .text-green-600 {
+    color: #16a34a !important;
+  }
+
+  .admin-zoho .text-red-400,
+  .admin-zoho .text-red-500,
+  .admin-zoho .text-red-600 {
+    color: #dc2626 !important;
+  }
+
+  .admin-zoho .text-yellow-400,
+  .admin-zoho .text-yellow-500,
+  .admin-zoho .text-yellow-600 {
+    color: #ca8a04 !important;
+  }
+
+  /* Clean Card Hover Effect */
+  .admin-zoho .group:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12) !important;
+  }
 `;
 document.head.appendChild(style);
 
@@ -953,37 +1200,16 @@ const Admin: React.FC = () => {
      RENDER DASHBOARD
   =========================== */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-black">
-      {/* Header */}
-      <header className="bg-black/30 backdrop-blur-sm border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-black text-white">🛡️ StickToon Admin</h1>
-            <span className="px-3 py-1 bg-indigo-600/50 rounded-full text-indigo-200 text-xs font-bold">ADMIN MODE</span>
+    <div className="min-h-screen bg-slate-50 text-slate-900 admin-zoho flex">
+      {/* Left Sidebar Navigation */}
+      <aside className="w-64 bg-slate-950 border-r border-slate-800 h-screen sticky top-0 overflow-y-auto">
+        <div className="p-6">
+          <div className="mb-8">
+            <h1 className="text-xl font-black text-white admin-zoho-keep-white">🛡️ StickToon</h1>
+            <span className="inline-block mt-2 px-3 py-1 bg-white text-slate-950 rounded-full text-xs font-bold">ADMIN MODE</span>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setCurrentView("profile")}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 rounded-lg border border-indigo-500/50 transition-colors"
-            >
-              <Edit2 className="w-4 h-4 text-indigo-400" />
-              <span className="text-indigo-300 text-sm font-medium">Edit Profile</span>
-            </button>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg border border-red-500/50 transition-colors"
-            >
-              <LogOut className="w-4 h-4 text-red-400" />
-              <span className="text-red-300 text-sm font-medium">Logout</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation */}
-      <div className="bg-black/20 backdrop-blur-sm border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-2 overflow-x-auto">
+          
+          <nav className="space-y-2">
             {[
               { id: "dashboard", label: "Dashboard", icon: "📊" },
               { id: "users", label: "All Users", icon: "👥" },
@@ -996,99 +1222,206 @@ const Admin: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setCurrentView(tab.id as any)}
-                className={`flex items-center gap-2 px-6 py-4 font-medium transition-all whitespace-nowrap ${
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-bold transition-all text-left ${
                   currentView === tab.id
-                    ? "text-white border-b-2 border-indigo-500 bg-indigo-500/10"
-                    : "text-gray-400 hover:text-white hover:bg-white/5"
+                    ? "bg-white text-slate-950 shadow-lg"
+                    : "text-white admin-zoho-keep-white hover:bg-slate-800"
                 }`}
               >
-                {tab.icon} {tab.label}
+                <span className="text-xl">{tab.icon}</span>
+                <span className="text-base">{tab.label}</span>
               </button>
             ))}
+          </nav>
+
+          <div className="mt-8 pt-6 border-t border-slate-700 space-y-2">
+            <button
+              onClick={() => setCurrentView("profile")}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-bold transition-all text-left text-white admin-zoho-keep-white hover:bg-slate-800"
+            >
+              <Edit2 className="w-5 h-5" />
+              <span className="text-base">Edit Profile</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-bold transition-all text-left text-red-400 hover:bg-red-950/50 hover:text-red-300"
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="text-base">Logout</span>
+            </button>
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* DASHBOARD VIEW */}
-        {currentView === "dashboard" && (
-          <div className="space-y-6">
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="group relative bg-gradient-to-br from-indigo-500/20 via-purple-500/10 to-transparent backdrop-blur-xl rounded-3xl p-8 border-2 border-white/20 hover:border-indigo-400/50 transition-all duration-500 hover:scale-105 overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl"></div>
-                <div className="relative flex items-center justify-between">
-                  <div>
-                    <p className="text-indigo-200/80 text-sm font-bold uppercase tracking-wider mb-2">Total Influencers</p>
-                    <p className="text-5xl font-black text-white mt-2">{stats.totalInfluencers}</p>
-                  </div>
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/30 to-purple-500/30 flex items-center justify-center">
-                    <Users className="w-8 h-8 text-indigo-300" />
-                  </div>
-                </div>
-              </div>
+      {/* Main Content Area */}
+      <div className="flex-1">
+        {/* Header */}
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+          <div className="px-8 py-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-black text-slate-900">
+                {currentView === "dashboard" && "Dashboard"}
+                {currentView === "users" && "All Users"}
+                {currentView === "all-influencers" && "All Influencers"}
+                {currentView === "influencers" && "Pending Approvals"}
+                {currentView === "withdrawals" && "Withdrawals"}
+                {currentView === "orders" && "Orders"}
+                {currentView === "products" && "Products"}
+                {currentView === "profile" && "Edit Profile"}
+              </h2>
+            </div>
+            <div className="text-sm text-slate-500">
+              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </div>
+          </div>
+        </header>
 
-              <div className="group relative bg-gradient-to-br from-yellow-500/20 via-orange-500/10 to-transparent backdrop-blur-xl rounded-3xl p-8 border-2 border-white/20 hover:border-yellow-400/50 transition-all duration-500 hover:scale-105 overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/20 rounded-full blur-2xl"></div>
-                <div className="relative flex items-center justify-between">
-                  <div>
-                    <p className="text-yellow-200/80 text-sm font-bold uppercase tracking-wider mb-2">Pending Approvals</p>
-                    <p className="text-5xl font-black text-white mt-2">{stats.pendingApprovals}</p>
+        {/* Content */}
+        <div className="p-8">
+          {/* DASHBOARD VIEW */}
+          {currentView === "dashboard" && (
+          <div className="space-y-6">{/* Key Metrics Overview */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Total Users */}
+              <button 
+                onClick={() => setCurrentView("users")}
+                className="bg-white rounded-xl p-5 border border-gray-200 hover:shadow-lg transition-all hover:border-gray-400 cursor-pointer text-left"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center">
+                    <Users className="w-5 h-5 text-white admin-zoho-keep-white" />
                   </div>
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-500/30 to-orange-500/30 flex items-center justify-center">
-                    <AlertCircle className="w-8 h-8 text-yellow-300" />
-                  </div>
+                  <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">+12%</span>
                 </div>
-              </div>
+                <p className="text-gray-600 text-xs font-bold uppercase mb-1">Total Users</p>
+                <p className="text-3xl font-black text-gray-900">{allUsers.length}</p>
+                <p className="text-xs text-gray-500 mt-1 font-medium">Active accounts</p>
+              </button>
 
-              <div className="group relative bg-gradient-to-br from-green-500/20 via-emerald-500/10 to-transparent backdrop-blur-xl rounded-3xl p-8 border-2 border-white/20 hover:border-green-400/50 transition-all duration-500 hover:scale-105 overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/20 rounded-full blur-2xl"></div>
-                <div className="relative flex items-center justify-between">
-                  <div>
-                    <p className="text-green-200/80 text-sm font-bold uppercase tracking-wider mb-2">Pending Withdrawals</p>
-                    <p className="text-5xl font-black text-white mt-2">{stats.pendingWithdrawals.count}</p>
+              {/* Total Influencers */}
+              <button 
+                onClick={() => setCurrentView("all-influencers")}
+                className="bg-white rounded-xl p-5 border border-gray-200 hover:shadow-lg transition-all hover:border-gray-400 cursor-pointer text-left"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-white admin-zoho-keep-white" />
                   </div>
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500/30 to-emerald-500/30 flex items-center justify-center">
-                    <DollarSign className="w-8 h-8 text-green-300" />
-                  </div>
+                  <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">+8%</span>
                 </div>
-              </div>
+                <p className="text-gray-600 text-xs font-bold uppercase mb-1">Influencers</p>
+                <p className="text-3xl font-black text-gray-900">{stats.totalInfluencers}</p>
+                <p className="text-xs text-gray-500 mt-1 font-medium">Verified partners</p>
+              </button>
+
+              {/* Total Orders */}
+              <button 
+                onClick={() => setCurrentView("orders")}
+                className="bg-white rounded-xl p-5 border border-gray-200 hover:shadow-lg transition-all hover:border-gray-400 cursor-pointer text-left"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center">
+                    <DollarSign className="w-5 h-5 text-white admin-zoho-keep-white" />
+                  </div>
+                  <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">+24%</span>
+                </div>
+                <p className="text-gray-600 text-xs font-bold uppercase mb-1">Total Orders</p>
+                <p className="text-3xl font-black text-gray-900">{orders.length}</p>
+                <p className="text-xs text-gray-500 mt-1 font-medium">All time orders</p>
+              </button>
+
+              {/* Total Products */}
+              <button 
+                onClick={() => setCurrentView("products")}
+                className="bg-white rounded-xl p-5 border border-gray-200 hover:shadow-lg transition-all hover:border-gray-400 cursor-pointer text-left"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center">
+                    <AlertCircle className="w-5 h-5 text-white admin-zoho-keep-white" />
+                  </div>
+                  <span className="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded">Live</span>
+                </div>
+                <p className="text-gray-600 text-xs font-bold uppercase mb-1">Products</p>
+                <p className="text-3xl font-black text-gray-900">{products.length}</p>
+                <p className="text-xs text-gray-500 mt-1 font-medium">In inventory</p>
+              </button>
             </div>
 
-            {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <button
-                onClick={() => setCurrentView("influencers")}
-                className="group relative bg-gradient-to-br from-indigo-500/10 to-purple-500/5 backdrop-blur-sm hover:from-indigo-500/20 hover:to-purple-500/10 border-2 border-white/20 hover:border-indigo-400/50 rounded-3xl p-8 transition-all duration-300 text-left hover:scale-105 active:scale-95 overflow-hidden"
-              >
-                <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-all"></div>
-                <div className="relative">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/30 to-purple-500/30 flex items-center justify-center text-2xl">
-                      👥
-                    </div>
-                    <p className="text-white font-black text-xl">Review Influencer Requests</p>
-                  </div>
-                  <p className="text-indigo-200/60 text-sm font-semibold">{stats.pendingApprovals} pending approval</p>
+            {/* Action Required & Revenue */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Pending Actions */}
+              <div className="lg:col-span-2 bg-white rounded-xl p-6 border border-gray-200">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-lg font-black text-gray-900">Action Required</h3>
+                  <span className="text-xs font-bold text-gray-500">{stats.pendingApprovals + stats.pendingWithdrawals.count} items</span>
                 </div>
-              </button>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setCurrentView("influencers")}
+                    className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                        <AlertCircle className="w-5 h-5 text-yellow-600" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-bold text-gray-900 text-sm">Pending Influencer Approvals</p>
+                        <p className="text-xs text-gray-500">{stats.pendingApprovals} requests awaiting review</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-black text-gray-900">{stats.pendingApprovals}</span>
+                      <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </button>
 
-              <button
-                onClick={() => setCurrentView("withdrawals")}
-                className="group relative bg-gradient-to-br from-green-500/10 to-emerald-500/5 backdrop-blur-sm hover:from-green-500/20 hover:to-emerald-500/10 border-2 border-white/20 hover:border-green-400/50 rounded-3xl p-8 transition-all duration-300 text-left hover:scale-105 active:scale-95 overflow-hidden"
-              >
-                <div className="absolute top-0 right-0 w-40 h-40 bg-green-500/10 rounded-full blur-3xl group-hover:bg-green-500/20 transition-all"></div>
-                <div className="relative">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-500/30 to-emerald-500/30 flex items-center justify-center text-2xl">
-                      💰
+                  <button
+                    onClick={() => setCurrentView("withdrawals")}
+                    className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                        <DollarSign className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-bold text-gray-900 text-sm">Pending Withdrawals</p>
+                        <p className="text-xs text-gray-500">₹{stats.pendingWithdrawals.total.toLocaleString()} total amount</p>
+                      </div>
                     </div>
-                    <p className="text-white font-black text-xl">Process Withdrawals</p>
-                  </div>
-                  <p className="text-green-200/60 text-sm font-semibold">{stats.pendingWithdrawals.count} pending requests</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-black text-gray-900">{stats.pendingWithdrawals.count}</span>
+                      <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setCurrentView("orders")}
+                    className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                        </svg>
+                      </div>
+                      <div className="text-left">
+                        <p className="font-bold text-gray-900 text-sm">Recent Orders</p>
+                        <p className="text-xs text-gray-500">{orders.slice(0, 5).length} new orders today</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-black text-gray-900">{orders.length}</span>
+                      <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </button>
                 </div>
-              </button>
+              </div>
             </div>
           </div>
         )}
@@ -1184,14 +1517,14 @@ const Admin: React.FC = () => {
           <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-              <h2 className="text-3xl font-bold text-white">Products ({products.length})</h2>
+              <h2 className="text-3xl font-bold text-gray-900">Products ({products.length})</h2>
               <button
                 onClick={() => {
                   setShowProductForm(!showProductForm);
                   setEditingProduct(null);
                   setProductForm({ name: "", description: "", price: 0, category: "Moody", image: "", stock: 0 });
                 }}
-                className="group flex items-center gap-2 px-6 py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 rounded-2xl text-white font-black tracking-wide uppercase transition-all duration-300 shadow-[0_10px_30px_rgba(79,70,229,0.4)] hover:shadow-[0_15px_40px_rgba(79,70,229,0.6)] hover:scale-105 active:scale-95"
+                className="group flex items-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white font-bold tracking-wide transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
               >
                 <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" /> 
                 Add Product
@@ -1200,34 +1533,30 @@ const Admin: React.FC = () => {
 
             {/* Add Product Form (only show when not editing) */}
             {showProductForm && !editingProduct && (
-              <div className="relative bg-gradient-to-br from-indigo-900/40 via-purple-900/30 to-pink-900/20 backdrop-blur-xl border-2 border-white/20 rounded-3xl p-8 md:p-10 shadow-[0_20px_60px_rgba(79,70,229,0.3)] animate-fadeIn">
-                {/* Decorative gradient orbs */}
-                <div className="absolute top-0 right-0 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl -z-10"></div>
-                <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl -z-10"></div>
-                
-                <div className="flex items-center gap-3 mb-8">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+              <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-md">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 rounded-lg bg-indigo-600 flex items-center justify-center shadow-md">
                     <Plus className="w-6 h-6 text-white" />
                   </div>
-                  <h3 className="text-3xl font-black text-white tracking-tight">
+                  <h3 className="text-2xl font-bold text-gray-900">
                     Add New Product
                   </h3>
                 </div>
                 <form onSubmit={handleAddProduct} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-white/90 font-bold text-sm mb-3 tracking-wide uppercase">Product Name</label>
+                    <label className="block text-gray-700 font-bold text-sm mb-2">Product Name</label>
                     <input
                       type="text"
                       placeholder="e.g., Anime Sticker Set"
                       value={productForm.name}
                       onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
                       required
-                      className="w-full px-5 py-4 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-2xl text-white placeholder-gray-400 focus:border-indigo-400 focus:bg-white/15 focus:ring-4 focus:ring-indigo-500/30 outline-none transition-all duration-300 font-medium"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-white/90 font-bold text-sm mb-3 tracking-wide uppercase">Price (₹)</label>
+                    <label className="block text-gray-700 font-bold text-sm mb-2">Price (₹)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -1235,17 +1564,17 @@ const Admin: React.FC = () => {
                       value={productForm.price}
                       onChange={(e) => setProductForm({ ...productForm, price: parseFloat(e.target.value) })}
                       required
-                      className="w-full px-5 py-4 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-2xl text-white placeholder-gray-400 focus:border-indigo-400 focus:bg-white/15 focus:ring-4 focus:ring-indigo-500/30 outline-none transition-all duration-300 font-medium"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-white/90 font-bold text-sm mb-3 tracking-wide uppercase">Category</label>
+                    <label className="block text-gray-700 font-bold text-sm mb-2">Category</label>
                     <select
                       value={productForm.category}
                       onChange={(e) => setProductForm({ ...productForm, category: e.target.value as "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Animal" | "Couple" | "Anime" | "Custom" })}
                       required
-                      className="w-full px-5 py-4 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-2xl text-white focus:border-indigo-400 focus:bg-white/15 focus:ring-4 focus:ring-indigo-500/30 outline-none transition-all duration-300 font-medium cursor-pointer"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300 cursor-pointer"
                     >
                       <option value="Moody">😊 Moody</option>
                       <option value="Sports">🏆 Sports</option>
@@ -1260,45 +1589,45 @@ const Admin: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-white/90 font-bold text-sm mb-3 tracking-wide uppercase">Stock Quantity</label>
+                    <label className="block text-gray-700 font-bold text-sm mb-2">Stock Quantity</label>
                     <input
                       type="number"
                       placeholder="100"
                       value={productForm.stock}
                       onChange={(e) => setProductForm({ ...productForm, stock: parseInt(e.target.value) })}
                       required
-                      className="w-full px-5 py-4 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-2xl text-white placeholder-gray-400 focus:border-indigo-400 focus:bg-white/15 focus:ring-4 focus:ring-indigo-500/30 outline-none transition-all duration-300 font-medium"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300"
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-white/90 font-bold text-sm mb-3 tracking-wide uppercase">Image URL</label>
+                    <label className="block text-gray-700 font-bold text-sm mb-2">Image URL</label>
                     <input
                       type="text"
                       placeholder="/badge/image.png or https://example.com/image.jpg"
                       value={productForm.image}
                       onChange={(e) => setProductForm({ ...productForm, image: e.target.value })}
                       required
-                      className="w-full px-5 py-4 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-2xl text-white placeholder-gray-400 focus:border-indigo-400 focus:bg-white/15 focus:ring-4 focus:ring-indigo-500/30 outline-none transition-all duration-300 font-medium"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300"
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-white/90 font-bold text-sm mb-3 tracking-wide uppercase">Description</label>
+                    <label className="block text-gray-700 font-bold text-sm mb-2">Description</label>
                     <textarea
                       placeholder="Describe the product..."
                       value={productForm.description}
                       onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
                       required
                       rows={4}
-                      className="w-full px-5 py-4 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-2xl text-white placeholder-gray-400 focus:border-indigo-400 focus:bg-white/15 focus:ring-4 focus:ring-indigo-500/30 outline-none transition-all duration-300 resize-none font-medium"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300 resize-none"
                     />
                   </div>
 
                   <div className="md:col-span-2 flex gap-4 mt-4">
                     <button
                       type="submit"
-                      className="flex-1 group relative py-4 px-6 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 rounded-2xl text-white font-black text-base tracking-wide uppercase transition-all duration-300 shadow-[0_10px_40px_rgba(79,70,229,0.4)] hover:shadow-[0_15px_50px_rgba(79,70,229,0.6)] hover:scale-[1.02] active:scale-[0.98]"
+                      className="flex-1 group py-3 px-6 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white font-bold transition-all duration-300 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
                     >
                       <span className="flex items-center justify-center gap-2">
                         <Plus className="w-5 h-5" />
@@ -1311,7 +1640,7 @@ const Admin: React.FC = () => {
                         setShowProductForm(false);
                         setProductForm({ name: "", description: "", price: 0, category: "Moody", image: "", stock: 0 });
                       }}
-                      className="px-8 py-4 bg-white/10 backdrop-blur-sm hover:bg-white/20 border-2 border-white/20 hover:border-white/40 rounded-2xl text-white font-bold uppercase tracking-wide transition-all duration-300 hover:scale-105 active:scale-95"
+                      className="px-8 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-gray-700 font-bold transition-all duration-300 hover:scale-105 active:scale-95"
                     >
                       Cancel
                     </button>
@@ -1332,7 +1661,7 @@ const Admin: React.FC = () => {
                   return (
                     <div key={category} className="animate-fadeIn">
                       <div className="flex items-center gap-4 mb-6">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 backdrop-blur-sm border-2 border-white/20 flex items-center justify-center text-3xl">
+                        <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-2xl">
                           {category === "Moody" && "😊"}
                           {category === "Sports" && "🏆"}
                           {category === "Religious" && "🕉️"}
@@ -1344,40 +1673,40 @@ const Admin: React.FC = () => {
                           {category === "Custom" && "✨"}
                         </div>
                         <div className="flex-1">
-                          <h3 className="text-3xl font-black text-white tracking-tight">
+                          <h3 className="text-2xl font-bold text-gray-900">
                             {category}
                           </h3>
-                          <p className="text-indigo-300/60 font-semibold">
+                          <p className="text-gray-600 font-medium text-sm">
                             {categoryProducts.length} {categoryProducts.length === 1 ? 'product' : 'products'}
                           </p>
                         </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {categoryProducts.map((product) => (
-                          <div key={product._id} className="group relative bg-gradient-to-br from-white/5 via-white/10 to-transparent backdrop-blur-sm border-2 border-white/10 hover:border-indigo-400/50 rounded-3xl overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_20px_60px_rgba(99,102,241,0.3)]">
+                          <div key={product._id} className="group bg-white border border-gray-200 rounded-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
                             {/* Image */}
-                            <div className="relative h-56 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 overflow-hidden">
+                            <div className="relative h-56 bg-gray-100 overflow-hidden">
                               <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                               {/* Stock badge overlay */}
                               <div className="absolute top-3 right-3">
-                                <span className={`px-3 py-1.5 rounded-full text-xs font-black uppercase backdrop-blur-md border-2 ${
+                                <span className={`px-3 py-1.5 rounded-full text-xs font-bold ${
                                   product.stock > 0 
-                                    ? "bg-green-500/30 border-green-400/50 text-green-100 shadow-[0_0_20px_rgba(34,197,94,0.4)]" 
-                                    : "bg-red-500/30 border-red-400/50 text-red-100 shadow-[0_0_20px_rgba(239,68,68,0.4)]"
+                                    ? "bg-green-100 text-green-700 border border-green-200" 
+                                    : "bg-red-100 text-red-700 border border-red-200"
                                 }`}>
-                                  {product.isPlaceholder ? "Sample" : `${product.stock} stock`}
+                                  {product.isPlaceholder ? "Sample" : `${product.stock} in stock`}
                                 </span>
                               </div>
                             </div>
 
                             {/* Content */}
-                            <div className="p-5 space-y-4">
-                              <h4 className="text-white font-black text-lg line-clamp-2 leading-tight">{product.name}</h4>
-                              <p className="text-gray-300/80 text-sm line-clamp-2 leading-relaxed">{product.description}</p>
+                            <div className="p-5 space-y-3">
+                              <h4 className="text-gray-900 font-bold text-lg line-clamp-2 leading-tight">{product.name}</h4>
+                              <p className="text-gray-600 text-sm line-clamp-2 leading-relaxed">{product.description}</p>
 
                               {/* Price */}
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                              <div className="flex items-baseline gap-2 pt-2">
+                                <span className="text-3xl font-bold text-indigo-600">
                                   ₹{product.price}
                                 </span>
                               </div>
@@ -1385,7 +1714,7 @@ const Admin: React.FC = () => {
                               {/* Actions */}
                               {product.isPlaceholder ? (
                                 <div className="flex gap-2 pt-2">
-                                  <div className="flex-1 py-2.5 bg-white/5 border-2 border-white/10 rounded-xl text-gray-300 font-bold text-sm text-center">
+                                  <div className="flex-1 py-2.5 bg-gray-100 border border-gray-200 rounded-lg text-gray-500 font-bold text-sm text-center">
                                     Sample Badge
                                   </div>
                                 </div>
@@ -1404,16 +1733,16 @@ const Admin: React.FC = () => {
                                       });
                                       setShowProductForm(false);
                                     }}
-                                    className="flex-1 group/btn py-2.5 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30 border-2 border-blue-400/30 hover:border-blue-400/60 rounded-xl text-blue-300 hover:text-blue-200 font-bold transition-all text-sm hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                                    className="flex-1 py-2.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-blue-700 font-bold transition-all text-sm hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
                                   >
-                                    <span className="text-lg">✏️</span>
+                                    <span className="text-base">✏️</span>
                                     <span>Edit</span>
                                   </button>
                                   <button
                                     onClick={() => setConfirmingDeleteProduct(product)}
-                                    className="flex-1 group/btn py-2.5 bg-gradient-to-r from-red-500/20 to-pink-500/20 hover:from-red-500/30 hover:to-pink-500/30 border-2 border-red-400/30 hover:border-red-400/60 rounded-xl text-red-300 hover:text-red-200 font-bold transition-all text-sm hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                                    className="flex-1 py-2.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg text-red-700 font-bold transition-all text-sm hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
                                   >
-                                    <span className="text-lg">🗑️</span>
+                                    <span className="text-base">🗑️</span>
                                     <span>Delete</span>
                                   </button>
                                 </div>
@@ -1427,8 +1756,8 @@ const Admin: React.FC = () => {
                 })}
               </div>
             ) : (
-              <div className="bg-white/5 border border-dashed border-white/20 rounded-2xl p-12 text-center">
-                <p className="text-gray-400 text-lg">📦 No products yet. Add your first product to get started!</p>
+              <div className="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-12 text-center">
+                <p className="text-gray-500 text-lg">📦 No products yet. Add your first product to get started!</p>
               </div>
             )}
           </div>
@@ -1535,69 +1864,69 @@ const Admin: React.FC = () => {
         {currentView === "all-influencers" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">All Influencers ({allInfluencers.length})</h2>
+              <h2 className="text-2xl font-bold text-gray-900">All Influencers ({allInfluencers.length})</h2>
               {allInfluencers.length > 0 && (
-                <div className="text-sm text-gray-400 space-x-4">
+                <div className="text-sm text-gray-600 space-x-4 font-semibold">
                   <span>✅ Approved: {allInfluencers.filter(i => i.influencerProfile?.isApproved).length}</span>
                   <span>⏳ Pending: {allInfluencers.filter(i => !i.influencerProfile?.isApproved).length}</span>
                 </div>
               )}
             </div>
             {allInfluencers.length === 0 ? (
-              <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-indigo-500/20 rounded-2xl p-8 text-center">
-                <p className="text-gray-400">No influencers found</p>
+              <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
+                <p className="text-gray-500">No influencers found</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 {allInfluencers.map((inf) => (
-                  <div key={inf._id} className="bg-gradient-to-br from-white/5 to-white/10 backdrop-blur-xl border border-indigo-500/20 hover:border-indigo-500/40 rounded-xl p-5 transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/10">
+                  <div key={inf._id} className="bg-white border border-gray-200 hover:border-gray-400 rounded-xl p-5 transition-all duration-300 hover:shadow-lg">
                     {/* Header */}
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-white font-bold text-base mb-0.5 truncate">{inf.name}</h3>
-                        <p className="text-gray-400 text-xs truncate">{inf.email}</p>
+                        <h3 className="text-gray-900 font-bold text-base mb-0.5 truncate">{inf.name}</h3>
+                        <p className="text-gray-600 text-sm truncate">{inf.email}</p>
                       </div>
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ml-2 border flex-shrink-0 ${inf.influencerProfile?.isApproved ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'}`}>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ml-2 border flex-shrink-0 ${inf.influencerProfile?.isApproved ? 'bg-green-100 text-green-700 border-green-300' : 'bg-yellow-100 text-yellow-700 border-yellow-300'}`}>
                         {inf.influencerProfile?.isApproved ? '✓ Approved' : '⏳ Pending'}
                       </span>
                     </div>
                     
                     {/* Contact Info */}
                     {(inf.influencerProfile?.phone || inf.influencerProfile?.instagram || inf.influencerProfile?.youtube) && (
-                      <div className="space-y-1 mb-3 pb-3 border-b border-white/10 text-xs">
-                        {inf.influencerProfile?.phone && <p className="text-gray-300">📱 <span className="font-medium">{inf.influencerProfile.phone}</span></p>}
-                        {inf.influencerProfile?.instagram && <p className="text-purple-300">📷 <span className="font-medium">@{inf.influencerProfile.instagram}</span></p>}
-                        {inf.influencerProfile?.youtube && <p className="text-red-300">🎥 <span className="font-medium">{inf.influencerProfile.youtube}</span></p>}
+                      <div className="space-y-1 mb-3 pb-3 border-b border-gray-200 text-sm">
+                        {inf.influencerProfile?.phone && <p className="text-gray-700">📱 <span className="font-semibold">{inf.influencerProfile.phone}</span></p>}
+                        {inf.influencerProfile?.instagram && <p className="text-purple-600">📷 <span className="font-semibold">@{inf.influencerProfile.instagram}</span></p>}
+                        {inf.influencerProfile?.youtube && <p className="text-red-600">🎥 <span className="font-semibold">{inf.influencerProfile.youtube}</span></p>}
                       </div>
                     )}
                     
                     {/* Bio */}
                     {inf.influencerProfile?.bio && (
-                      <p className="text-gray-400 text-xs italic mb-3 line-clamp-2 pb-3 border-b border-white/10">"{inf.influencerProfile.bio}"</p>
+                      <p className="text-gray-700 text-sm italic mb-3 line-clamp-2 pb-3 border-b border-gray-200 bg-gray-50 p-2 rounded">"{inf.influencerProfile.bio}"</p>
                     )}
                     
                     {/* Stats Grid */}
-                    <div className="grid grid-cols-2 gap-2.5 mb-3 p-3 bg-black/30 rounded-lg border border-white/5">
+                    <div className="grid grid-cols-2 gap-2.5 mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
                       <div className="text-center">
-                        <p className="text-gray-500 text-xs font-medium">Total</p>
-                        <p className="text-emerald-400 font-bold text-sm">₹{inf.influencerProfile?.totalEarnings || 0}</p>
+                        <p className="text-gray-600 text-xs font-bold uppercase mb-1">Total</p>
+                        <p className="text-green-600 font-bold text-base">₹{inf.influencerProfile?.totalEarnings || 0}</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-gray-500 text-xs font-medium">Pending</p>
-                        <p className="text-amber-400 font-bold text-sm">₹{inf.influencerProfile?.pendingEarnings || 0}</p>
+                        <p className="text-gray-600 text-xs font-bold uppercase mb-1">Pending</p>
+                        <p className="text-yellow-600 font-bold text-base">₹{inf.influencerProfile?.pendingEarnings || 0}</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-gray-500 text-xs font-medium">Withdrawn</p>
-                        <p className="text-blue-400 font-bold text-sm">₹{inf.influencerProfile?.withdrawnAmount || 0}</p>
+                        <p className="text-gray-600 text-xs font-bold uppercase mb-1">Withdrawn</p>
+                        <p className="text-blue-600 font-bold text-base">₹{inf.influencerProfile?.withdrawnAmount || 0}</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-gray-500 text-xs font-medium">Min Withdrawal</p>
-                        <p className="text-indigo-400 font-bold text-sm">₹{inf.influencerProfile?.minWithdrawalAmount || 100}</p>
+                        <p className="text-gray-600 text-xs font-bold uppercase mb-1">Min Withdrawal</p>
+                        <p className="text-indigo-600 font-bold text-base">₹{inf.influencerProfile?.minWithdrawalAmount || 100}</p>
                       </div>
                     </div>
                     
                     {/* Footer */}
-                    <p className="text-gray-600 text-xs">📅 Joined: {new Date(inf.createdAt).toLocaleDateString()}</p>
+                    <p className="text-gray-500 text-sm font-medium">📅 Joined: {new Date(inf.createdAt).toLocaleDateString()}</p>
                   </div>
                 ))}
               </div>
@@ -1799,7 +2128,6 @@ const Admin: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
 
       {/* Order Details Modal */}
       {viewingOrder && (
@@ -2272,7 +2600,9 @@ const Admin: React.FC = () => {
           </div>
         </div>
       )}
-
+        </div>
+      </div>
+      
       {/* Toast Notifications Container */}
       <div className="fixed top-6 right-6 z-[9999] space-y-3 max-w-md">
         {toasts.map((toast) => {
