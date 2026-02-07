@@ -54,7 +54,7 @@ export default function Login() {
         name: displayName,
         email: data.user.email,
         role: data.user.role,
-        avatar: displayName.charAt(0).toUpperCase(),
+        avatar: data.user.avatar || displayName.charAt(0).toUpperCase(),
       })
     );
 

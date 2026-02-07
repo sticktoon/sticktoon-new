@@ -10,6 +10,7 @@ export interface Badge {
   imageMagnetic?: string;  // magnetic image (optional)
 
   details: string;
+  tagline?: string;         // New subtitle/tagline field
   color: string;
   isFeatured?: boolean;
 }

@@ -2344,53 +2344,39 @@ const Admin: React.FC = () => {
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  const invoiceId = typeof viewingOrder.invoiceId === 'string' ? viewingOrder.invoiceId : viewingOrder.invoiceId?._id;
-                  if (!invoiceId) {
-                    showToast('warning', '⚠️ Invoice not available yet');
-                    return;
-                  }
-                  window.open(`/admin/invoice/${invoiceId}`, '_blank');
-                }}
-                className="flex-1 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 rounded-lg text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-indigo-500/30"
-              >
-                🧾 View Invoice
-              </button>
-              <button
-                onClick={async () => {
-                  const invoiceId = typeof viewingOrder.invoiceId === 'string' ? viewingOrder.invoiceId : viewingOrder.invoiceId?._id;
-                  if (!invoiceId) {
-                    showToast('warning', '⚠️ Invoice not available yet');
-                    return;
-                  }
-                  try {
-                    const token = localStorage.getItem('adminToken');
-                    const res = await fetch(`${API_BASE_URL}/api/invoice/${invoiceId}/download`, {
-                      headers: { Authorization: `Bearer ${token}` }
-                    });
-                    if (!res.ok) throw new Error('Failed to download');
-                    const blob = await res.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `invoice-${invoiceId}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    showToast('success', '✅ Invoice downloaded!');
-                  } catch (error) {
-                    showToast('error', '❌ Download failed');
-                  }
-                }}
-                className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 rounded-lg text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-purple-500/30"
-              >
-                📥 Download PDF
-              </button>
-            </div>
+            {/* Action Button */}
+            <button
+              onClick={async () => {
+                const invoiceId = typeof viewingOrder.invoiceId === 'string' ? viewingOrder.invoiceId : viewingOrder.invoiceId?._id;
+                if (!invoiceId) {
+                  showToast('warning', '⚠️ Invoice not available yet');
+                  return;
+                }
+                try {
+                  const token = localStorage.getItem('adminToken');
+                  const res = await fetch(`${API_BASE_URL}/api/invoice/${invoiceId}/download`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                  });
+                  if (!res.ok) throw new Error('Failed to download');
+                  const blob = await res.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `invoice-${invoiceId}.pdf`;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                  showToast('success', '✅ Invoice downloaded!');
+                } catch (error) {
+                  showToast('error', '❌ Download failed');
+                }
+              }}
+              className="w-full py-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 rounded-xl text-white font-bold text-lg transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-purple-500/40 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              <span className="text-2xl">📥</span>
+              <span>Download Invoice</span>
+            </button>
           </div>
         </div>
       )}

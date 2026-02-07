@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { BADGES } from '../constants';
 import { Badge } from '../types';
 import { getBadgeDescription } from '../geminiService';
-import { ShoppingCart, Zap, Shield, RotateCcw, ArrowLeft, Star, Truck } from 'lucide-react';
+import { ShoppingCart, Zap, Shield, RotateCcw, ArrowLeft, Star, Truck, Share2, Check } from 'lucide-react';
 import { API_BASE_URL } from '../config/api';
 
 interface BadgeDetailProps {
@@ -21,6 +21,7 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
   const [activeTab, setActiveTab] = useState<'description' | 'info'>('description');
   const [badge, setBadge] = useState<Badge | null>(null);
   const [loading, setLoading] = useState(true);
+  const [shareCopied, setShareCopied] = useState(false);
   const magneticFallback = '/badge/magnectbadge.png';
 
   const normalizeImagePath = (path?: string) => {
@@ -117,7 +118,25 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
     addToCart(badge);
     navigate('/checkout');
   };
-const magneticImage = badge.imageMagnetic || magneticFallback;
+
+  const handleShareLink = () => {
+    // Generate the share link with badge details
+    const shareUrl = `${window.location.origin}/badge/${id}`;
+    
+    // Create a descriptive share text with website name and badge info
+    const shareText = `Check out *${badge.name}* from StickToon - ${badge.tagline || badge.details}\n\nStickToon - We Create for Soul\n\n${shareUrl}`;
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(shareText).then(() => {
+      setShareCopied(true);
+      // Reset the copied state after 2 seconds
+      setTimeout(() => setShareCopied(false), 2000);
+    }).catch(() => {
+      alert('Failed to copy link');
+    });
+  };
+
+const magneticImage = badge?.imageMagnetic || magneticFallback;
 const images =
   badgeType === 'magnetic'
     ? [badge.image, magneticImage]
@@ -125,6 +144,14 @@ const images =
 
  return (
   <div className="min-h-screen bg-white relative overflow-hidden">
+    {/* Share Toast Notification */}
+    {shareCopied && (
+      <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-in">
+        <Check className="w-4 h-4" />
+        <span className="text-sm font-semibold">Link copied to clipboard!</span>
+      </div>
+    )}
+
     {/* Premium background glow - Hot Drops Theme */}
     <div className="pointer-events-none absolute inset-0">
       <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px]" />
@@ -154,9 +181,22 @@ const images =
                 <Zap className="w-3 h-3" />
                 Hot Drop
               </span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-                {badgeType === 'pin' ? 'Pin Badge' : 'Magnetic Badge'}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                  {badgeType === 'pin' ? 'Pin Badge' : 'Magnetic Badge'}
+                </span>
+                <button
+                  onClick={handleShareLink}
+                  className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 hover:bg-blue-100 transition"
+                  title="Share this product"
+                >
+                  {shareCopied ? (
+                    <Check className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <Share2 className="w-4 h-4 text-blue-600" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="w-full h-[210px] md:h-[280px] flex items-center justify-center">
@@ -262,9 +302,16 @@ const images =
 
           {/* Title */}
           <div className="flex items-start justify-between gap-4">
-            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
-              {badge.name}
-            </h1>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
+                {badge.name}
+              </h1>
+              {badge.tagline && (
+                <p className="text-sm md:text-base text-slate-600 mt-2 italic">
+                  {badge.tagline}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Rating */}

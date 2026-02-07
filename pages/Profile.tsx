@@ -209,15 +209,15 @@ const Profile: React.FC = () => {
           {/* Avatar Section */}
           <div className="flex flex-col items-center mb-8">
             <div className="relative group">
-              {profile.avatar ? (
+              {profile.avatar && (profile.avatar.startsWith('http') || profile.avatar.startsWith('data:')) ? (
                 <img
                   src={profile.avatar}
                   alt={profile.name}
-                  className="w-28 h-28 rounded-full object-cover border-4 border-purple-500"
+                  className="w-28 h-28 rounded-full object-cover border-4 border-purple-500 shadow-lg"
                 />
               ) : (
-                <div className="w-28 h-28 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-4xl font-bold border-4 border-purple-500">
-                  {getInitial(profile.name)}
+                <div className="w-28 h-28 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-4xl font-bold border-4 border-purple-500 shadow-lg">
+                  {profile.avatar || getInitial(profile.name)}
                 </div>
               )}
               
@@ -302,7 +302,7 @@ const Profile: React.FC = () => {
             {/* Avatar Edit */}
             <div className="flex flex-col items-center mb-6">
               <div className="relative">
-                {editAvatar ? (
+                {editAvatar && (editAvatar.startsWith('http') || editAvatar.startsWith('data:')) ? (
                   <img
                     src={editAvatar}
                     alt="Profile"
@@ -310,14 +310,14 @@ const Profile: React.FC = () => {
                   />
                 ) : (
                   <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-3xl font-bold border-4 border-purple-500">
-                    {getInitial(editName)}
+                    {editAvatar || getInitial(editName)}
                   </div>
                 )}
               </div>
 
               {/* Avatar Buttons */}
               <div className="flex gap-3 mt-4">
-                {editAvatar && (
+                {editAvatar && (editAvatar.startsWith('http') || editAvatar.startsWith('data:')) && (
                   <button
                     onClick={handleRemoveAvatar}
                     className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors"

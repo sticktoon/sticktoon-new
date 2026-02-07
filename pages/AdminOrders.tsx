@@ -141,65 +141,45 @@ export default function AdminOrders() {
             </div>
           </div>
 
-          <div className="flex gap-3 mt-6">
-            <button
-              onClick={async () => {
-                const invoiceId =
-                  typeof activeOrder.invoiceId === "string"
-                    ? activeOrder.invoiceId
-                    : activeOrder.invoiceId?._id;
+          <button
+            onClick={async () => {
+              const invoiceId =
+                typeof activeOrder.invoiceId === "string"
+                  ? activeOrder.invoiceId
+                  : activeOrder.invoiceId?._id;
 
-                if (!invoiceId) {
-                  showToast("warning", "⚠️ Invoice not available yet. Please try again later.");
-                  return;
-                }
+              if (!invoiceId) {
+                showToast("warning", "⚠️ Invoice not available yet. Please try again later.");
+                return;
+              }
 
-                navigate(`/admin/invoice/${invoiceId}`);
-              }}
-              className="flex-1 bg-black text-white py-4 rounded-xl font-black hover:bg-gray-800 transition-colors"
-            >
-              🧾 View Invoice
-            </button>
-            
-            <button
-              onClick={async () => {
-                const invoiceId =
-                  typeof activeOrder.invoiceId === "string"
-                    ? activeOrder.invoiceId
-                    : activeOrder.invoiceId?._id;
+              try {
+                const res = await fetch(
+                  `${API_BASE_URL}/api/invoice/${invoiceId}/download`,
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
 
-                if (!invoiceId) {
-                  showToast("warning", "⚠️ Invoice not available yet. Please try again later.");
-                  return;
-                }
+                if (!res.ok) throw new Error("Failed to download invoice");
 
-                try {
-                  const res = await fetch(
-                    `${API_BASE_URL}/api/invoice/${invoiceId}/download`,
-                    { headers: { Authorization: `Bearer ${token}` } }
-                  );
-
-                  if (!res.ok) throw new Error("Failed to download invoice");
-
-                  const blob = await res.blob();
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `invoice-${invoiceId}.pdf`;
-                  document.body.appendChild(a);
-                  a.click();
-                  window.URL.revokeObjectURL(url);
-                  document.body.removeChild(a);
-                  showToast("warning", "✅ Invoice downloaded successfully!");
-                } catch (error) {
-                  showToast("error", "❌ Failed to download invoice");
-                }
-              }}
-              className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-black hover:bg-indigo-700 transition-colors"
-            >
-              📥 Download PDF
-            </button>
-          </div>
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `invoice-${invoiceId}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                showToast("success", "✅ Invoice downloaded successfully!");
+              } catch (error) {
+                showToast("error", "❌ Failed to download invoice");
+              }
+            }}
+            className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 text-white py-4 rounded-xl font-black transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-purple-500/30 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 mt-6"
+          >
+            <span className="text-xl">📥</span>
+            <span>Download Invoice</span>
+          </button>
         </Modal>
       )}
 

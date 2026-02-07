@@ -115,7 +115,8 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
 
   const navLinks = [
     { name: "HOME", path: "/" },
-    { name: "CATEGORIES", path: "/categories" },
+    { name: "BADGES", path: "/categories" },
+    { name: "STICKER", path: "/sticker" },
     { name: "CUSTOMIZE", path: "/custom-order" },
     { name: "CONTACT", path: "/contact" },
   ];
@@ -176,7 +177,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
           >
             {link.name}
 
-            {link.name === "CATEGORIES" && (
+            {(link.name === "BADGES" || link.name === "STICKER") && (
               <ChevronDown
                 className="
                   w-5 h-5
@@ -198,8 +199,8 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
             />
           </Link>
 
-          {/* 🔽 CATEGORIES DROPDOWN */}
-          {link.name === "CATEGORIES" && (
+          {/* 🔽 BADGES & STICKER DROPDOWNS */}
+          {link.name === "BADGES" && (
             <div
               className="
                 absolute top-full left-0 pt-6
@@ -234,6 +235,43 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
               </div>
             </div>
           )}
+          
+          {link.name === "STICKER" && (
+            <div
+              className="
+                absolute top-full left-0 pt-6
+                opacity-0 translate-y-4 pointer-events-none
+                group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto
+                transition-all duration-300 ease-out z-50
+              "
+            >
+              <div className="
+                bg-white rounded-3xl
+                shadow-[0_40px_80px_-15px_rgba(67,56,202,0.15)]
+                border border-indigo-50
+                w-64 py-4
+              ">
+                {CATEGORIES.map((cat) => (
+                  <Link
+                    key={cat.id}
+                    to={`/sticker?cat=${cat.id}`}
+                    className="
+                      flex items-center justify-between
+                      px-8 py-4
+                      text-sm font-black uppercase tracking-widest
+                      text-slate-500 hover:text-indigo-600
+                      hover:bg-indigo-50/50
+                      border-l-4 border-transparent hover:border-indigo-600
+                      transition-all
+                    "
+                  >
+                    {cat.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>
       ))}
     </div>
@@ -269,15 +307,15 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
   {user ? (
     <div className="hidden lg:block relative group">
       <div className="cursor-pointer">
-        {user.avatar ? (
+        {user.avatar && (user.avatar.startsWith('http') || user.avatar.startsWith('data:')) ? (
           <img
             src={user.avatar}
             alt={user.name || user.email}
-            className="w-10 h-10 rounded-full object-cover"
+            className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md"
           />
         ) : (
-          <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black uppercase">
-            {(user.email?.charAt(0) || "U").toUpperCase()}
+          <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black uppercase shadow-md">
+            {user.avatar || (user.name?.charAt(0) || user.email?.charAt(0) || "U").toUpperCase()}
           </div>
         )}
       </div>
@@ -865,10 +903,62 @@ export default function App() {
       setConfirmedOrderId(orderId);
       setShowOrderConfirmation(true);
       
+      // Trigger confetti celebration
+      triggerConfetti();
+      
       // Clean up URL without reloading
       window.location.hash = '#/';
     }
   }, []);
+
+  // Confetti celebration function
+  const triggerConfetti = () => {
+    const duration = 1000; // 1 second
+    const end = Date.now() + duration;
+
+    const interval = setInterval(() => {
+      if (Date.now() > end) {
+        clearInterval(interval);
+        return;
+      }
+
+      // Create confetti burst
+      const colors = ['#FFD700', '#FFA500', '#FF6347', '#FF69B4', '#8A2BE2', '#00CED1'];
+      
+      for (let i = 0; i < 5; i++) {
+        const confetti = document.createElement('div');
+        confetti.style.position = 'fixed';
+        confetti.style.width = '10px';
+        confetti.style.height = '10px';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.left = Math.random() * window.innerWidth + 'px';
+        confetti.style.top = '-10px';
+        confetti.style.borderRadius = '50%';
+        confetti.style.zIndex = '9999';
+        confetti.style.pointerEvents = 'none';
+        confetti.style.animation = `confetti-fall ${1 + Math.random()}s linear`;
+        
+        document.body.appendChild(confetti);
+        
+        setTimeout(() => confetti.remove(), 2000);
+      }
+    }, 50);
+
+    // Add CSS animation
+    if (!document.getElementById('confetti-style')) {
+      const style = document.createElement('style');
+      style.id = 'confetti-style';
+      style.textContent = `
+        @keyframes confetti-fall {
+          to {
+            transform: translateY(${window.innerHeight + 20}px) rotate(${Math.random() * 360}deg);
+            opacity: 0;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  };
 
   return (
     <BrowserRouter>
@@ -902,49 +992,56 @@ export default function App() {
 
       {/* Order Confirmation Modal */}
       {showOrderConfirmation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center animate-fade-in">
-            {/* Success Icon */}
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
-              <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-gradient-to-br from-white via-green-50/30 to-emerald-50/30 rounded-3xl shadow-2xl p-8 md:p-10 max-w-lg w-full text-center transform animate-scaleIn border-4 border-green-500/20">
+            {/* Success Icon with Glow */}
+            <div className="relative mx-auto mb-6">
+              <div className="absolute inset-0 bg-green-500/30 rounded-full blur-2xl animate-pulse"></div>
+              <div className="relative w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-xl transform hover:scale-110 transition-transform duration-300">
+                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
             </div>
 
-            {/* Title */}
-            <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-3">
-              Order Confirmed! 🎉
+            {/* Title with Animation */}
+            <h2 className="text-3xl md:text-4xl font-black bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent mb-2 animate-slideDown">
+              Order Confirmed!
             </h2>
+            <div className="text-4xl mb-4 animate-bounce">🎉</div>
 
-            <p className="text-slate-600 mb-6">
+            <p className="text-slate-700 font-medium mb-6 text-lg">
               Thank you for your order! We've sent a confirmation email with your order details.
             </p>
 
             {/* Order ID */}
             {confirmedOrderId && (
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4 mb-6">
-                <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider">Order ID</p>
-                <p className="text-lg font-mono font-bold text-slate-900">
+              <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl p-5 mb-6 shadow-xl transform hover:scale-105 transition-transform">
+                <p className="text-xs text-white/80 mb-2 uppercase tracking-widest font-bold">Order ID</p>
+                <p className="text-2xl font-black font-mono text-white">
                   #{confirmedOrderId.slice(-8).toUpperCase()}
                 </p>
               </div>
             )}
 
             {/* What's Next */}
-            <div className="bg-slate-50 rounded-xl p-5 mb-6 text-left">
-              <h3 className="font-bold text-slate-900 mb-3 text-sm">📦 What happens next?</h3>
-              <ul className="space-y-2 text-xs text-slate-600">
-                <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs flex-shrink-0">1</span>
-                  <span>We'll start preparing your order</span>
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 mb-6 text-left shadow-lg border-2 border-green-200/50">
+              <h3 className="font-black text-slate-900 mb-4 text-base flex items-center gap-2">
+                <span className="text-2xl">📦</span>
+                What happens next?
+              </h3>
+              <ul className="space-y-3 text-sm text-slate-700">
+                <li className="flex items-start gap-3 group">
+                  <span className="w-7 h-7 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-md group-hover:scale-110 transition-transform">1</span>
+                  <span className="font-medium">We'll start preparing your order</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs flex-shrink-0">2</span>
-                  <span>You'll receive tracking info via email</span>
+                <li className="flex items-start gap-3 group">
+                  <span className="w-7 h-7 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-md group-hover:scale-110 transition-transform">2</span>
+                  <span className="font-medium">You'll receive tracking info via email</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs flex-shrink-0">3</span>
-                  <span>Your items will arrive in 5-7 business days</span>
+                <li className="flex items-start gap-3 group">
+                  <span className="w-7 h-7 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-md group-hover:scale-110 transition-transform">3</span>
+                  <span className="font-medium">Your items will arrive in 5-7 business days</span>
                 </li>
               </ul>
             </div>
@@ -953,13 +1050,13 @@ export default function App() {
             <div className="flex flex-col gap-3">
               <button
                 onClick={() => setShowOrderConfirmation(false)}
-                className="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl"
+                className="w-full px-6 py-4 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white rounded-xl font-black text-lg uppercase tracking-wide hover:from-green-500 hover:via-emerald-500 hover:to-teal-500 transition-all shadow-xl hover:shadow-2xl transform hover:scale-105 hover:-translate-y-1"
               >
                 Continue Shopping
               </button>
               <Link
                 to="/profile"
-                className="w-full px-6 py-3 border-2 border-slate-300 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-all text-center"
+                className="w-full px-6 py-4 border-3 border-green-600 text-green-600 rounded-xl font-bold uppercase tracking-wide hover:bg-green-600 hover:text-white transition-all text-center shadow-md hover:shadow-lg transform hover:scale-105"
                 onClick={() => setShowOrderConfirmation(false)}
               >
                 View My Orders
@@ -973,6 +1070,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home addToCart={addToCart} />} />
           <Route path="/categories" element={<Categories addToCart={addToCart} />} />
+          <Route path="/sticker" element={<Categories addToCart={addToCart} />} />
           <Route path="/badge/:id" element={<BadgeDetail addToCart={addToCart} />} />
           <Route
             path="/checkout"

@@ -298,62 +298,88 @@ const HowItWorksSection: React.FC = () => (
 
 const CustomisedProductsSection: React.FC = () => {
   const products = [
-    { name: "Pin-back Badge", image: "badge/pin-back badge.png" },
-    { name: "Fridge Magnet Badge", image: "badge/fridge-badge2.png" },
-    { name: "Shirt Magnet Badge", image: "badge/shirt-magnet badge.png" },
-    // { name: "Keychain Badge", image: "/custom/keychain.png" },
-    // { name: "Dot Socket – Mobile Holder", image: "/custom/socket.png" },
+    { 
+      name: "Pin-back Badge", 
+      image: "/badge/pin%20badge.png",
+      // icon: "📌"
+    },
+    { 
+      name: "Fridge Magnet Badge", 
+      image: "/badge/fridge%20magnetic.png",
+      // icon: "🧲"
+    },
+    { 
+      name: "Stickers", 
+      image: "/badge/mergesticker.jpeg",
+      // icon: "👕"
+    },
   ];
 
   return (
-    <section className="relative bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 py-16 overflow-hidden">
-      {/* Canva-style Background Elements */}
+    <section className="relative bg-white py-20 overflow-hidden">
+      {/* Background Elements - Matching CategoryGrid */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-[-150px] right-[-100px] w-[500px] h-[500px] bg-purple-300/20 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-100px] left-[-100px] w-[400px] h-[400px] bg-blue-300/20 rounded-full blur-[100px]" />
-        <div className="absolute top-1/2 right-1/3 w-[300px] h-[300px] bg-pink-300/15 rounded-full blur-[90px]" />
+        <div className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-yellow-500/8 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-100px] right-[-200px] w-[500px] h-[500px] bg-orange-400/8 rounded-full blur-[100px]" />
+        <div className="absolute top-1/3 left-[-150px] w-[400px] h-[400px] bg-red-400/6 rounded-full blur-[90px]" />
         
-        {/* Floating Shapes */}
-        <div className="absolute top-20 right-20 w-16 h-16 rounded-lg bg-purple-400/10 rotate-12 animate-pulse" style={{ animationDuration: '4s' }} />
-        <div className="absolute bottom-40 left-16 w-20 h-20 rounded-full bg-blue-400/10 animate-bounce" style={{ animationDuration: '5s' }} />
+        {/* Floating Circles */}
+        <div className="absolute top-20 -left-8 w-24 h-24 rounded-full border-[8px] border-yellow-400/25 animate-bounce" style={{ animationDuration: '5s' }} />
+        <div className="absolute top-40 -right-10 w-28 h-28 rounded-full border-[8px] border-orange-400/20 animate-pulse" style={{ animationDuration: '4s' }} />
+        <div className="absolute bottom-32 -left-12 w-32 h-32 rounded-full border-[8px] border-red-400/15 animate-bounce" style={{ animationDuration: '6s', animationDelay: '1s' }} />
       </div>
       
-      <div className="relative z-10 max-w-7xl mx-auto px-6">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
 
         {/* HEADER */}
-        <div className="text-center mb-14">
-          <span className="inline-block mb-3 px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg">
-            CUSTOMISED PRODUCTS
-          </span>
-          <h2 className="text-3xl md:text-4xl font-black bg-gradient-to-r from-purple-600 via-blue-600 to-pink-600 bg-clip-text text-transparent tracking-tight">
-            Choose Your Style
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-6 py-3 rounded-full mb-4 border-2 border-yellow-500/30">
+            <Sparkles className="w-5 h-5 text-yellow-600 animate-pulse" />
+            <span className="text-[11px] font-black text-yellow-700 uppercase tracking-widest">Products</span>
+            <Star className="w-5 h-5 text-orange-600 animate-pulse" />
+          </div>
+          <h2 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent tracking-tight mb-3 uppercase">
+            Product Categories
           </h2>
+          <p className="text-lg text-slate-600 font-semibold">
+            Premium badge designs available in multiple formats
+          </p>
         </div>
 
         {/* GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {products.map((item, idx) => (
-            <div
+            <Link
               key={idx}
-              className="relative group bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 text-center border-2 border-yellow-500/20 shadow-lg hover:shadow-2xl hover:shadow-yellow-500/20 transition-all duration-300 hover:-translate-y-2 hover:border-yellow-500/60"
+              to="/categories"
+              className="relative h-[280px] rounded-2xl overflow-hidden group border-[3px] border-black hover:border-slate-800 transition-all duration-300 hover:-translate-y-2 cursor-pointer"
             >
-              {/* Gradient Accent */}
-              <div className="absolute -top-2 -right-2 w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-full border-2 border-yellow-500/20 shadow-lg opacity-90" />
+              {/* Icon Badge */}
+              {/* <div className="absolute -top-3 -right-3 w-14 h-14 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-full shadow-lg flex items-center justify-center text-2xl border-2 border-yellow-500/30 transform group-hover:scale-110 group-hover:rotate-12 transition-all duration-300 z-20">
+                {item.icon}
+              </div> */}
               
-              {/* IMAGE */}
-              <div className="bg-gradient-to-br from-white to-yellow-50/50 rounded-2xl p-4 mb-4">
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-28 h-28 object-contain mx-auto transform group-hover:scale-110 transition-transform duration-300"
-                />
-              </div>
+              {/* Background Image - Full Cover */}
+              <div
+                className="absolute inset-0 transition-transform duration-500 group-hover:scale-105"
+                style={{ 
+                  backgroundImage: `url(${item.image})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat'
+                }}
+              />
+              
+              {/* Shine Effect */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/0 to-yellow-300/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-              {/* TEXT */}
-              <p className="text-sm font-black text-white leading-snug uppercase tracking-wide">
-                {item.name}
-              </p>
-            </div>
+              {/* Title */}
+              <div className="relative z-10 h-full flex flex-col justify-end p-4 pb-3">
+                <span className="absolute bottom-3 left-4 bg-black text-white text-[11px] font-black tracking-widest uppercase px-4 py-2 rounded-full border-2 border-black/30">
+                  {item.name}
+                </span>
+              </div>
+            </Link>
           ))}
         </div>
       </div>
@@ -489,27 +515,7 @@ const CategoryGrid: React.FC = () => (
 
 const FeaturedSection: React.FC<{ addToCart: (badge: Badge) => void }> = ({ addToCart }) => {
   const featuredBadges = BADGES.filter(b => b.isFeatured).slice(0, 8);
-  const [flippedId, setFlippedId] = useState<string | null>(null);
-
-const navigate = useNavigate();
-const [quantities, setQuantities] = useState<Record<string, number>>({});
-
-const getQty = (id: string) => quantities[id] ?? 10;
-
-const increaseQty = (id: string) => {
-  setQuantities(prev => ({
-    ...prev,
-    [id]: getQty(id) + 1,
-  }));
-};
-
-const decreaseQty = (id: string) => {
-  setQuantities(prev => ({
-    ...prev,
-    [id]: Math.max(1, getQty(id) - 1),
-  }));
-};
-
+  const navigate = useNavigate();
 
   return (
 <section className="relative pt-12 pb-24 overflow-hidden bg-white">
@@ -560,103 +566,61 @@ gap-4 sm:gap-6 md:gap-8
 
 
 
-         {featuredBadges.map((badge) => {
-  const qty = getQty(badge.id);
-  const total = badge.price * qty;
+         {featuredBadges.map((badge) => (
+              <div
+                key={badge.id}
+                className="group bg-[#0b1320] rounded-[28px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-4 md:p-5 flex flex-col"
+              >
+                <Link to={`/badge/${badge.id}`} className="w-full">
+                  <div className="relative w-full aspect-square rounded-2xl bg-white flex items-center justify-center mb-4 overflow-hidden border-[6px] border-slate-900/70 shadow-inner">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.06),transparent_65%)]" />
+                    <img
+                      src={badge.image}
+                      alt={badge.name}
+                      className="relative w-[125%] h-[125%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-transform duration-500 group-hover:scale-[1.06]"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (!target.src.startsWith('http') && !target.dataset.retried) {
+                          target.dataset.retried = 'true';
+                          const cleanPath = badge.image.startsWith('/') ? badge.image.substring(1) : badge.image;
+                          target.src = `/${cleanPath}`;
+                        } else {
+                          target.style.display = 'none';
+                        }
+                      }}
+                    />
+                  </div>
+                </Link>
 
-  return (
+                <div className="flex items-center justify-between mb-2 gap-2">
+                  <span className="text-[10px] md:text-[11px] font-semibold tracking-[0.3em] text-yellow-400 uppercase truncate">
+                    {badge.category}
+                  </span>
+                  <span className="text-xl md:text-2xl font-black text-white whitespace-nowrap">
+                    ₹{badge.price}
+                  </span>
+                </div>
 
+                <h3 className="text-[14px] md:text-[15px] font-extrabold text-white uppercase leading-snug mb-2">
+                  {badge.name}
+                </h3>
 
-   <div
-  key={badge.id}
-  className="
-  bg-gradient-to-br from-slate-900 to-slate-800
-  rounded-2xl sm:rounded-3xl
-  p-2 sm:p-4 md:p-6
-  border-2 border-yellow-500/20
-  flex flex-col
-  transition-all duration-300
-  hover:shadow-2xl hover:shadow-yellow-500/20 hover:-translate-y-2 hover:border-yellow-500/60
-  hover:scale-105
-  group
-"
+                {badge.tagline && (
+                  <p className="text-[11px] text-yellow-200/80 italic mb-3 line-clamp-2">
+                    {badge.tagline}
+                  </p>
+                )}
 
->
-  {/* IMAGE BOX */}
-  <div
-    onClick={() => navigate(`/badge/${badge.id}`)}
-    className="bg-white rounded-xl sm:rounded-2xl flex items-center justify-center h-32 sm:h-56 md:h-64 lg:h-72
- cursor-pointer mb-2 sm:mb-4 md:mb-5 overflow-hidden shadow-lg ring-2 sm:ring-4 ring-yellow-500/10 group-hover:ring-yellow-500/30 transition-all"
+                <div className="my-2 h-px w-full bg-yellow-500/25" />
 
-  >
-   <img
-  src={badge.image}
-  alt={badge.name}
-  className="h-28 sm:h-48 md:h-56 lg:h-64 w-28 sm:w-48 md:w-56 lg:w-64 object-contain group-hover:scale-110 transition-transform duration-300"
-/>
-
-  </div>
-
-  {/* CATEGORY + PRICE */}
-<div className="flex justify-between items-center mb-1 sm:mb-2">
-  <span className="text-[9px] sm:text-[11px] md:text-[12px] font-black text-yellow-400 uppercase tracking-wider sm:tracking-widest">
-    {badge.category}
-  </span>
-  <span className="text-sm sm:text-xl md:text-2xl font-black text-white">
-    ₹{total}
-  </span>
-</div>
-
-{/* NAME + QUANTITY */}
-<div className="flex items-center justify-between gap-1 sm:gap-2 md:gap-3 mb-2 sm:mb-3 md:mb-4">
-  <h3 className="text-[10px] sm:text-[12px] md:text-[14px] font-black text-white uppercase tracking-tight sm:tracking-wide leading-tight flex-1 truncate">
-    {badge.name}
-  </h3>
-
-  <div className="flex items-center gap-1 bg-slate-700/50 border border-yellow-500/30 sm:border-2 rounded px-1 py-0.5 sm:px-2 sm:py-1 shrink-0">
-    <button
-      onClick={() => decreaseQty(badge.id)}
-      className="w-4 h-4 sm:w-6 sm:h-6 flex items-center justify-center bg-yellow-500 hover:bg-yellow-400 rounded text-slate-900 text-xs sm:text-sm font-black transition-colors"
-    >
-      -
-    </button>
-
-    <span className="w-4 sm:w-6 text-center text-[10px] sm:text-[13px] font-black text-white">
-      {qty}
-    </span>
-
-    <button
-      onClick={() => increaseQty(badge.id)}
-      className="w-4 h-4 sm:w-6 sm:h-6 flex items-center justify-center bg-yellow-500 hover:bg-yellow-400 rounded text-slate-900 text-xs sm:text-sm font-black transition-colors"
-    >
-      +
-    </button>
-  </div>
-</div>
-
-{/* BUTTONS */}
-<div className="flex gap-1.5 sm:gap-2 md:gap-3 mt-auto">
-  <button
-    onClick={() =>
-      addToCart({ ...badge, quantity: getQty(badge.id) })
-    }
-    className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 py-1.5 sm:py-2 md:py-3 rounded-lg sm:rounded-xl text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-wide sm:tracking-wider hover:from-yellow-400 hover:to-orange-400 transition-all shadow-lg hover:shadow-xl"
-  >
-    Buy Now
-  </button>
-
-  <button
-    onClick={() =>
-      addToCart({ ...badge, quantity: getQty(badge.id) })
-    }
-    className="w-8 sm:w-10 md:w-14 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 rounded-lg sm:rounded-xl flex items-center justify-center hover:from-yellow-400 hover:to-orange-400 transition-all shadow-lg hover:shadow-xl"
-  >
-    <Plus className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 font-black" />
-  </button>
-</div>
-
-</div>
-)})}
+                <button
+                  onClick={() => addToCart(badge)}
+                  className="mt-auto w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 text-[12px] font-black tracking-[0.22em] uppercase hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95"
+                >
+                  Buy Now
+                </button>
+              </div>
+            ))}
 
         </div>
       </div>

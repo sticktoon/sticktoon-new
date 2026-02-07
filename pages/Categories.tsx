@@ -329,9 +329,15 @@ export default function Categories({ addToCart }: CategoriesProps) {
                           </span>
                         </div>
 
-                        <h3 className="text-[14px] md:text-[15px] font-extrabold text-white uppercase leading-snug mb-4">
+                        <h3 className="text-[14px] md:text-[15px] font-extrabold text-white uppercase leading-snug mb-2">
                           {badge.name}
                         </h3>
+
+                        {badge.tagline && (
+                          <p className="text-[11px] text-yellow-200/80 italic mb-3 line-clamp-2">
+                            {badge.tagline}
+                          </p>
+                        )}
 
                         <div className="my-2 h-px w-full bg-yellow-500/25" />
 
@@ -407,9 +413,15 @@ export default function Categories({ addToCart }: CategoriesProps) {
                     </span>
                   </div>
 
-                  <h3 className="text-[14px] md:text-[15px] font-extrabold text-white uppercase leading-snug mb-4">
+                  <h3 className="text-[14px] md:text-[15px] font-extrabold text-white uppercase leading-snug mb-2">
                     {badge.name}
                   </h3>
+
+                  {badge.tagline && (
+                    <p className="text-[11px] text-yellow-200/80 italic mb-3 line-clamp-2">
+                      {badge.tagline}
+                    </p>
+                  )}
 
                   {/* DIVIDER */}
                   <div className="my-2 h-px w-full bg-yellow-500/25" />
