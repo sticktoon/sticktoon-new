@@ -134,8 +134,9 @@ export default function Categories({ addToCart }: CategoriesProps) {
 
   const handleAddProduct = (category?: string) => {
     // Map frontend category to backend product category
-    const categoryMap: Record<string, 'Moody' | 'Sports' | 'Religious' | 'Entertainment' | 'Events' | 'Animal' | 'Couple' | 'Anime' | 'Custom'> = {
+    const categoryMap: Record<string, 'Moody' | 'Sports' | 'Religious' | 'Entertainment' | 'Events' | 'Animal' | 'Couple' | 'Anime' | 'Positive Vibes' | 'Custom'> = {
       'moody': 'Moody',
+      'positive-vibes': 'Positive Vibes',
       'sports': 'Sports',
       'religious': 'Religious',
       'entertainment': 'Entertainment',
@@ -172,91 +173,116 @@ export default function Categories({ addToCart }: CategoriesProps) {
         <div className="absolute bottom-64 -right-8 w-20 h-20 rounded-full border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
       </div>
 
-      <div className="relative z-10 max-w-full mx-auto px-4 sm:px-6 lg:px-12 pt-24">
-       <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center md:gap-6 mb-8 md:mb-10">
+      <div className="relative z-10 flex">
+        {/* STICKY SIDEBAR */}
+        <aside className="hidden lg:flex flex-col w-64 fixed left-0 top-24 h-[calc(100vh-6rem)] pt-4 px-4 border-r border-slate-200/60 overflow-y-auto">
+          <div className="flex flex-col h-full">
+            <button
+              onClick={() => handleCategorySelect('all')}
+              className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-extrabold uppercase tracking-wide transition-all text-sm ${
+                activeCategory === 'all' 
+                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 shadow-lg' 
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              All Badges
+              {activeCategory === 'all' && <Check className="w-5 h-5" />}
+            </button>
+            
+            <div className="h-px bg-slate-200 my-2.5"></div>
 
-       <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900">
-  Explore the Collection
-</h1>
+            <div className="flex flex-col flex-1 justify-between gap-2 pb-2">
+              {CATEGORIES.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => handleCategorySelect(cat.id)}
+                  className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-extrabold uppercase tracking-wide transition-all text-sm ${
+                    activeCategory === cat.id 
+                      ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 shadow-lg' 
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="text-base flex-shrink-0">{cat.icon}</span>
+                    <span className="truncate">{cat.name}</span>
+                  </span>
+                  {activeCategory === cat.id && <Check className="w-5 h-5 flex-shrink-0" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </aside>
 
-{/* <p className="mt-2 text-lg text-slate-500 max-w-xl">
-  Hand-picked badge designs crafted to match every mood and moment.
-</p> */}
-
-
-          
-          <div className="flex items-center gap-3 md:gap-6 w-full md:w-auto">
-            {/* Admin Add Product Button */}
-            {isAdmin && activeCategory !== 'all' && (
-              <button
-                onClick={() => handleAddProduct()}
-                className="flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-[1.5rem] font-black text-xs md:text-sm tracking-widest uppercase transition-all shadow-lg"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Add to {currentCategoryName}</span>
-                <span className="sm:hidden">Add</span>
-              </button>
-            )}
-
-            <div className="relative" ref={filterPanelRef}>
-              <button 
-                onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className={`flex items-center gap-2 md:gap-4 font-black px-4 md:px-8 py-3 md:py-4 rounded-[1.5rem] border transition-all text-xs md:text-sm ${
-                  isFilterOpen 
-                  ? 'bg-slate-50 border-slate-200 text-blue-600' 
-                  : 'bg-white border-slate-100 text-slate-700 hover:border-slate-200'
-                }`}
-              >
-                <SlidersHorizontal className="w-4 h-4" />
-                <span className="uppercase tracking-widest text-[9px] md:text-[10px]">Filter: <span className="text-blue-600 truncate">{currentCategoryName}</span></span>
-              </button>
-
-              {isFilterOpen && (
-                <div className="absolute left-0 md:left-auto md:right-0 mt-3 md:mt-4 w-full sm:w-72 bg-white rounded-[2rem] shadow-[0_30px_70px_rgba(0,0,0,0.12)] border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="p-3 space-y-1">
-                    <button 
-                      onClick={() => handleCategorySelect('all')}
-                      className={`w-full flex items-center justify-between px-6 py-4 rounded-xl text-sm font-black uppercase tracking-widest transition-all ${
-                        activeCategory === 'all' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      All Badges
-                      {activeCategory === 'all' && <Check className="w-4 h-4" />}
-                    </button>
-                    <div className="h-px bg-slate-100 mx-6 my-2"></div>
-                    {CATEGORIES.map(cat => (
-                      <button 
-                        key={cat.id}
-                        onClick={() => handleCategorySelect(cat.id)}
-                        className={`w-full flex items-center justify-between px-6 py-4 rounded-xl text-sm font-black uppercase tracking-widest transition-all ${
-                          activeCategory === cat.id ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'
-                        }`}
-                      >
-                        {cat.name}
-                        {activeCategory === cat.id && <Check className="w-4 h-4" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+        {/* MAIN CONTENT */}
+        <main className="w-full lg:ml-64 px-4 sm:px-6 lg:pl-4 lg:pr-6 pt-16 lg:pt-20">
+          <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center md:gap-6 mb-8 md:mb-10">
+            <div>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900">
+                Explore the Collection
+              </h1>
+              <p className="text-slate-600 text-sm md:text-base font-semibold mt-2">
+                ✨ Discover unique badges that speak your style
+              </p>
             </div>
 
-            {/* <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
-              <button 
-                onClick={() => setViewType('grid')}
-                className={`p-3 rounded-xl transition-all ${viewType === 'grid' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                <Grid2X2 className="w-5 h-5" />
-              </button>
-              <button 
-                onClick={() => setViewType('list')}
-                className={`p-3 rounded-xl transition-all ${viewType === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                <List className="w-5 h-5" />
-              </button>
-            </div> */}
+            <div className="flex items-center gap-3 md:gap-6 w-full md:w-auto">
+              {/* Admin Add Product Button */}
+              {isAdmin && activeCategory !== 'all' && (
+                <button
+                  onClick={() => handleAddProduct()}
+                  className="flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-[1.5rem] font-black text-xs md:text-sm tracking-widest uppercase transition-all shadow-lg"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Add to {currentCategoryName}</span>
+                  <span className="sm:hidden">Add</span>
+                </button>
+              )}
+
+              {/* Mobile Filter Dropdown */}
+              <div className="lg:hidden relative" ref={filterPanelRef}>
+                <button 
+                  onClick={() => setIsFilterOpen(!isFilterOpen)}
+                  className={`flex items-center gap-2 md:gap-4 font-black px-4 md:px-8 py-3 md:py-4 rounded-[1.5rem] border transition-all text-xs md:text-sm ${
+                    isFilterOpen 
+                    ? 'bg-slate-50 border-slate-200 text-blue-600' 
+                    : 'bg-white border-slate-100 text-slate-700 hover:border-slate-200'
+                  }`}
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  <span className="uppercase tracking-wide text-[9px] md:text-[10px]">Filter: <span className="text-blue-600 truncate">{currentCategoryName}</span></span>
+                </button>
+
+                {isFilterOpen && (
+                  <div className="absolute left-0 md:left-auto md:right-0 mt-3 md:mt-4 w-full sm:w-72 bg-white rounded-[2rem] shadow-[0_30px_70px_rgba(0,0,0,0.12)] border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="p-3 space-y-1">
+                      <button 
+                        onClick={() => handleCategorySelect('all')}
+                        className={`w-full flex items-center justify-between px-5 py-3.5 rounded-xl text-sm font-extrabold uppercase tracking-wide transition-all ${
+                          activeCategory === 'all' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        All Badges
+                        {activeCategory === 'all' && <Check className="w-4 h-4" />}
+                      </button>
+                      <div className="h-px bg-slate-100 mx-5 my-2"></div>
+                      {CATEGORIES.map(cat => (
+                        <button 
+                          key={cat.id}
+                          onClick={() => handleCategorySelect(cat.id)}
+                          className={`w-full flex items-center justify-between px-5 py-3.5 rounded-xl text-sm font-extrabold uppercase tracking-wide transition-all ${
+                            activeCategory === cat.id ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="truncate">{cat.name}</span>
+                          {activeCategory === cat.id && <Check className="w-5 h-5" />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
 
         {loading ? (
           // Loading skeleton
@@ -274,20 +300,38 @@ export default function Categories({ addToCart }: CategoriesProps) {
               return (
                 <div key={category.id} className="space-y-6">
                   {/* Category Header with Add Button */}
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 uppercase tracking-tight">
-                      {category.icon} {category.name}
-                    </h2>
-                    {isAdmin && (
-                      <button
-                        onClick={() => handleAddProduct(category.id)}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-xl font-bold text-xs transition-all shadow-lg"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span className="hidden md:inline">Add Product</span>
-                        <span className="md:hidden">Add</span>
-                      </button>
-                    )}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <span className="text-5xl">{category.icon}</span>
+                        <div>
+                          <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 uppercase tracking-tight">
+                            {category.name}
+                          </h2>
+                          <p className="text-sm md:text-base text-slate-600 font-semibold mt-1">
+                            {category.id === 'moody' && '😊 Express Your Mood, Wear Your Vibe'}
+                            {category.id === 'positive-vibes' && '✨ Spark Joy, Spread Positivity'}
+                            {category.id === 'sports' && '🏆 Fuel Your Passion, Show Your Game'}
+                            {category.id === 'religious' && '🙏 Faith & Devotion in Every Design'}
+                            {category.id === 'entertainment' && '🎬 Pop Culture & Entertainment Icons'}
+                            {category.id === 'events' && '🎉 Celebrate Every Moment in Style'}
+                            {category.id === 'animal' && '🐾 Wild, Cute & Everything Nature'}
+                            {category.id === 'couple' && '💕 Love Stories, Eternal Memories'}
+                            {category.id === 'anime' && '⚡ Unleash Your Inner Otaku Power'}
+                          </p>
+                        </div>
+                      </div>
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleAddProduct(category.id)}
+                          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-xl font-bold text-xs transition-all shadow-lg"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span className="hidden md:inline">Add Product</span>
+                          <span className="md:hidden">Add</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Category Products Grid */}
@@ -349,6 +393,18 @@ export default function Categories({ addToCart }: CategoriesProps) {
                         </button>
                       </div>
                     ))}
+                    {isAdmin && category.id === 'positive-vibes' && (
+                      <button
+                        onClick={() => handleAddProduct('positive-vibes')}
+                        className="group rounded-[28px] border-2 border-dashed border-yellow-400/50 bg-white/80 hover:bg-white transition-all duration-300 p-5 flex flex-col items-center justify-center min-h-[320px]"
+                      >
+                        <div className="w-16 h-16 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center text-3xl font-black mb-4">
+                          +
+                        </div>
+                        <p className="text-slate-800 font-extrabold uppercase tracking-wide text-sm">Add Positive Vibes</p>
+                        <p className="text-slate-500 text-xs mt-2">Create a new badge</p>
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -357,20 +413,38 @@ export default function Categories({ addToCart }: CategoriesProps) {
         ) : (
           // Show single category with Add button
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 uppercase tracking-tight">
-                {CATEGORIES.find(c => c.id === activeCategory)?.icon} {currentCategoryName}
-              </h2>
-              {isAdmin && (
-                <button
-                  onClick={() => handleAddProduct()}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-xl font-bold text-xs transition-all shadow-lg"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden md:inline">Add Product</span>
-                  <span className="md:hidden">Add</span>
-                </button>
-              )}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="text-5xl">{CATEGORIES.find(c => c.id === activeCategory)?.icon}</span>
+                  <div>
+                    <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 uppercase tracking-tight">
+                      {currentCategoryName}
+                    </h2>
+                    <p className="text-sm md:text-base text-slate-600 font-semibold mt-1">
+                      {activeCategory === 'moody' && '😊 Express Your Mood, Wear Your Vibe'}
+                      {activeCategory === 'positive-vibes' && '✨ Spark Joy, Spread Positivity'}
+                      {activeCategory === 'sports' && '🏆 Fuel Your Passion, Show Your Game'}
+                      {activeCategory === 'religious' && '🙏 Faith & Devotion in Every Design'}
+                      {activeCategory === 'entertainment' && '🎬 Pop Culture & Entertainment Icons'}
+                      {activeCategory === 'events' && '🎉 Celebrate Every Moment in Style'}
+                      {activeCategory === 'animal' && '🐾 Wild, Cute & Everything Nature'}
+                      {activeCategory === 'couple' && '💕 Love Stories, Eternal Memories'}
+                      {activeCategory === 'anime' && '⚡ Unleash Your Inner Otaku Power'}
+                    </p>
+                  </div>
+                </div>
+                {isAdmin && (
+                  <button
+                    onClick={() => handleAddProduct()}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-xl font-bold text-xs transition-all shadow-lg"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden md:inline">Add Product</span>
+                    <span className="md:hidden">Add</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
@@ -454,6 +528,7 @@ export default function Categories({ addToCart }: CategoriesProps) {
             <p className="text-slate-400 mt-4 text-xl max-w-sm mx-auto font-medium">Try selecting a different category from the filter menu.</p>
           </div>
         )}
+        </main>
       </div>
     </div>
   );

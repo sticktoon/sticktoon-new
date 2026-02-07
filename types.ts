@@ -36,6 +36,7 @@ export enum Category {
   ANIMAL = 'Animal',
   COUPLE = 'Couple',
   ANIME = 'Anime',
+  POSITIVE_VIBES = 'Positive Vibes',
   CUSTOM = 'Custom'
 }
 

@@ -24,7 +24,7 @@ const EXISTING_BADGES = [
   
   // ENTERTAINMENT
   { id: 'ent-1', name: 'CINEMA VIBE', price: 49, category: 'Entertainment', image: '/badge/entert1.png', stock: 100 },
-  { id: 'ent-2', name: 'STAGE VIBE', price: 49, category: 'Entertainment', image: '/badge/entert3.png', stock: 100 },
+  { id: 'ent-2', name: 'STAGE VIBE', price: 49, category: 'Entertainment', image: '/badge/enter3.png', stock: 100 },
   { id: 'ent-3', name: 'DISCO VIBE', price: 49, category: 'Entertainment', image: '/badge/entert4.png', stock: 100 },
   { id: 'ent-4', name: 'STREAM VIBE', price: 49, category: 'Entertainment', image: '/badge/entert5.png', stock: 100 },
   

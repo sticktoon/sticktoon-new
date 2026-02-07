@@ -28,6 +28,8 @@ import Login from "./pages/Login";
 import CustomOrder from "./pages/CustomOrder";
 import Contact from "./pages/Contact";
 import About from "./pages/About";
+import Stickers from "./pages/Stickers";
+import StickerDetail from "./pages/StickerDetail";
 import ResetPassword from "./pages/ResetPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
@@ -116,7 +118,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
   const navLinks = [
     { name: "HOME", path: "/" },
     { name: "BADGES", path: "/categories" },
-    { name: "STICKER", path: "/sticker" },
+    { name: "STICKERS", path: "/stickers" },
     { name: "CUSTOMIZE", path: "/custom-order" },
     { name: "CONTACT", path: "/contact" },
   ];
@@ -1070,7 +1072,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home addToCart={addToCart} />} />
           <Route path="/categories" element={<Categories addToCart={addToCart} />} />
-          <Route path="/sticker" element={<Categories addToCart={addToCart} />} />
+          <Route path="/stickers" element={<Stickers />} />
+          <Route path="/stickers/:id" element={<StickerDetail addToCart={addToCart} />} />
           <Route path="/badge/:id" element={<BadgeDetail addToCart={addToCart} />} />
           <Route
             path="/checkout"

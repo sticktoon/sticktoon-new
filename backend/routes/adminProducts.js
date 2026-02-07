@@ -11,6 +11,43 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
+const ALLOWED_CATEGORIES = [
+  "Positive Vibes",
+  "Moody",
+  "Sports",
+  "Religious",
+  "Entertainment",
+  "Events",
+  "Animal",
+  "Couple",
+  "Anime",
+  "Custom",
+];
+
+const normalizeCategory = (value) => {
+  if (!value) return null;
+  const trimmed = String(value).trim();
+  const exact = ALLOWED_CATEGORIES.find((c) => c === trimmed);
+  if (exact) return exact;
+
+  const lower = trimmed.toLowerCase();
+  const lookup = {
+    "positive vibe": "Positive Vibes",
+    "positive vibes": "Positive Vibes",
+    "moody": "Moody",
+    "sports": "Sports",
+    "religious": "Religious",
+    "entertainment": "Entertainment",
+    "events": "Events",
+    "animal": "Animal",
+    "couple": "Couple",
+    "anime": "Anime",
+    "custom": "Custom",
+  };
+
+  return lookup[lower] || null;
+};
+
 /* ========================
    GET ALL PRODUCTS (WITH PAGINATION)
 ======================== */
@@ -100,13 +137,14 @@ router.get("/:id", async (req, res) => {
 router.post("/", auth, adminOnly, async (req, res) => {
   try {
     const { name, price, description, category, image, stock } = req.body;
+    const normalizedCategory = normalizeCategory(category);
 
     // Validation
     if (!name || !price || !description || !category || !image) {
       return res.status(400).json({ error: "All fields are required" });
     }
 
-    if (!["Moody", "Sports", "Religious", "Entertainment", "Events", "Animal", "Couple", "Anime", "Custom"].includes(category)) {
+    if (!normalizedCategory) {
       return res.status(400).json({ error: "Invalid category" });
     }
 
@@ -114,7 +152,7 @@ router.post("/", auth, adminOnly, async (req, res) => {
       name,
       price: parseFloat(price),
       description,
-      category,
+      category: normalizedCategory,
       image,
       stock: parseInt(stock) || 0,
     });
@@ -144,10 +182,11 @@ router.patch("/:id", auth, adminOnly, async (req, res) => {
     if (price !== undefined) product.price = parseFloat(price);
     if (description) product.description = description;
     if (category) {
-      if (!["Moody", "Sports", "Religious", "Entertainment", "Events", "Animal", "Couple", "Anime", "Custom"].includes(category)) {
+      const normalizedCategory = normalizeCategory(category);
+      if (!normalizedCategory) {
         return res.status(400).json({ error: "Invalid category" });
       }
-      product.category = category;
+      product.category = normalizedCategory;
     }
     if (image) product.image = image;
     if (stock !== undefined) product.stock = parseInt(stock);

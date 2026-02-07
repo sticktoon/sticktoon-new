@@ -8,6 +8,29 @@ import { useGoogleLogin } from "@react-oauth/google";
 // Super Admin Email - Only this email can edit/remove other admins
 const SUPER_ADMIN_EMAIL = "sticktoon.xyz@gmail.com";
 
+const normalizeCategory = (value?: string) => {
+  if (!value) return value;
+  const trimmed = value.trim();
+  const lower = trimmed.toLowerCase();
+  const map: Record<string, string> = {
+    "positive vibe": "Positive Vibes",
+    "positive vibes": "Positive Vibes",
+    "positive-vibes": "Positive Vibes",
+    "positive_vibes": "Positive Vibes",
+    "moody": "Moody",
+    "sports": "Sports",
+    "religious": "Religious",
+    "entertainment": "Entertainment",
+    "events": "Events",
+    "animal": "Animal",
+    "couple": "Couple",
+    "anime": "Anime",
+    "custom": "Custom",
+  };
+
+  return map[lower] || trimmed;
+};
+
 // Add CSS for animations
 const style = document.createElement('style');
 style.textContent = `
@@ -340,14 +363,14 @@ interface Product {
   name: string;
   description: string;
   price: number;
-  category: "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Animal" | "Couple" | "Anime" | "Custom";
+  category: "Positive Vibes" | "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Animal" | "Couple" | "Anime" | "Custom";
   image: string;
   stock: number;
   createdAt: string;
   isPlaceholder?: boolean;
 }
 
-const ADMIN_PRODUCT_CATEGORIES = ["Moody", "Sports", "Religious", "Entertainment", "Events", "Animal", "Couple", "Anime", "Custom"] as const;
+const ADMIN_PRODUCT_CATEGORIES = ["Positive Vibes", "Moody", "Sports", "Religious", "Entertainment", "Events", "Animal", "Couple", "Anime", "Custom"] as const;
 type AdminProductCategory = (typeof ADMIN_PRODUCT_CATEGORIES)[number];
 
 const ensureMinimumProductsPerCategory = (items: Product[], minCount = 4): Product[] => {
@@ -483,7 +506,7 @@ const Admin: React.FC = () => {
     name: "",
     description: "",
     price: 0,
-    category: "Moody" as "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Animal" | "Couple" | "Anime" | "Custom",
+    category: "Moody" as "Positive Vibes" | "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Animal" | "Couple" | "Anime" | "Custom",
     image: "",
     stock: 0,
   });
@@ -538,7 +561,7 @@ const Admin: React.FC = () => {
       if (category) {
         setProductForm({
           ...productForm,
-          category: category as 'Moody' | 'Sports' | 'Religious' | 'Entertainment' | 'Events' | 'Animal' | 'Couple' | 'Anime' | 'Custom'
+          category: normalizeCategory(category) as 'Positive Vibes' | 'Moody' | 'Sports' | 'Religious' | 'Entertainment' | 'Events' | 'Animal' | 'Couple' | 'Anime' | 'Custom'
         });
       }
     }
@@ -1135,6 +1158,11 @@ const Admin: React.FC = () => {
     const token = localStorage.getItem("adminToken");
     if (!token) return;
 
+    const payload = {
+      ...productForm,
+      category: normalizeCategory(productForm.category),
+    };
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/products`, {
         method: "POST",
@@ -1142,7 +1170,7 @@ const Admin: React.FC = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(productForm),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -1167,6 +1195,11 @@ const Admin: React.FC = () => {
     const token = localStorage.getItem("adminToken");
     if (!token) return;
 
+    const payload = {
+      ...productForm,
+      category: normalizeCategory(productForm.category),
+    };
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/products/${productId}`, {
         method: "PATCH",
@@ -1174,7 +1207,7 @@ const Admin: React.FC = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(productForm),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -1709,10 +1742,11 @@ const Admin: React.FC = () => {
                     <label className="block text-gray-700 font-bold text-sm mb-2">Category</label>
                     <select
                       value={productForm.category}
-                      onChange={(e) => setProductForm({ ...productForm, category: e.target.value as "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Animal" | "Couple" | "Anime" | "Custom" })}
+                      onChange={(e) => setProductForm({ ...productForm, category: e.target.value as "Positive Vibes" | "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Animal" | "Couple" | "Anime" | "Custom" })}
                       required
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300 cursor-pointer"
                     >
+                      <option value="Positive Vibes">✨ Positive Vibes</option>
                       <option value="Moody">😊 Moody</option>
                       <option value="Sports">🏆 Sports</option>
                       <option value="Religious">🕉️ Religious</option>
@@ -1804,6 +1838,7 @@ const Admin: React.FC = () => {
                     <div key={category} className="animate-fadeIn">
                       <div className="flex items-center gap-4 mb-6">
                         <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-2xl">
+                          {category === "Positive Vibes" && "✨"}
                           {category === "Moody" && "😊"}
                           {category === "Sports" && "🏆"}
                           {category === "Religious" && "🕉️"}
@@ -2669,10 +2704,11 @@ const Admin: React.FC = () => {
                 <label className="block text-white font-semibold mb-2">Category</label>
                 <select
                   value={productForm.category}
-                  onChange={(e) => setProductForm({ ...productForm, category: e.target.value as "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Animal" | "Couple" | "Anime" | "Custom" })}
+                  onChange={(e) => setProductForm({ ...productForm, category: e.target.value as "Positive Vibes" | "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Animal" | "Couple" | "Anime" | "Custom" })}
                   required
                   className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white focus:border-indigo-500 focus:outline-none transition-all"
                 >
+                  <option value="Positive Vibes">✨ Positive Vibes</option>
                   <option value="Moody">😊 Moody</option>
                   <option value="Sports">🏆 Sports</option>
                   <option value="Religious">🕉️ Religious</option>

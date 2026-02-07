@@ -20,7 +20,8 @@ import {
   Wand2,
   Plus,
   Star,
-  Zap
+  Zap,
+  ShoppingCart
 } from 'lucide-react';
 
 import { Link, useNavigate } from "react-router-dom";
@@ -300,12 +301,12 @@ const CustomisedProductsSection: React.FC = () => {
   const products = [
     { 
       name: "Pin-back Badge", 
-      image: "/badge/pin%20badge.png",
+      image: "/badge/chat1.png",
       // icon: "📌"
     },
     { 
       name: "Fridge Magnet Badge", 
-      image: "/badge/fridge%20magnetic.png",
+      image: "/badge/fridge.png",
       // icon: "🧲"
     },
     { 
@@ -316,7 +317,7 @@ const CustomisedProductsSection: React.FC = () => {
   ];
 
   return (
-    <section className="relative bg-white py-20 overflow-hidden">
+    <section className="relative bg-white py-12 overflow-hidden">
       {/* Background Elements - Matching CategoryGrid */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-yellow-500/8 rounded-full blur-[120px]" />
@@ -332,13 +333,13 @@ const CustomisedProductsSection: React.FC = () => {
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
 
         {/* HEADER */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-6 py-3 rounded-full mb-4 border-2 border-yellow-500/30">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-6 py-3 rounded-full mb-3 border-2 border-yellow-500/30">
             <Sparkles className="w-5 h-5 text-yellow-600 animate-pulse" />
             <span className="text-[11px] font-black text-yellow-700 uppercase tracking-widest">Products</span>
             <Star className="w-5 h-5 text-orange-600 animate-pulse" />
           </div>
-          <h2 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent tracking-tight mb-3 uppercase">
+          <h2 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent tracking-tight mb-2 uppercase">
             Product Categories
           </h2>
           <p className="text-lg text-slate-600 font-semibold">
@@ -351,7 +352,7 @@ const CustomisedProductsSection: React.FC = () => {
           {products.map((item, idx) => (
             <Link
               key={idx}
-              to="/categories"
+              to={idx === 2 ? "/stickers" : "/categories"}
               className="relative h-[280px] rounded-2xl overflow-hidden group border-[3px] border-black hover:border-slate-800 transition-all duration-300 hover:-translate-y-2 cursor-pointer"
             >
               {/* Icon Badge */}
@@ -361,7 +362,7 @@ const CustomisedProductsSection: React.FC = () => {
               
               {/* Background Image - Full Cover */}
               <div
-                className="absolute inset-0 transition-transform duration-500 group-hover:scale-105"
+                className="absolute inset-0 transition-transform duration-500 group-hover:scale-110"
                 style={{ 
                   backgroundImage: `url(${item.image})`,
                   backgroundSize: 'cover',
@@ -613,12 +614,23 @@ gap-4 sm:gap-6 md:gap-8
 
                 <div className="my-2 h-px w-full bg-yellow-500/25" />
 
-                <button
-                  onClick={() => addToCart(badge)}
-                  className="mt-auto w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 text-[12px] font-black tracking-[0.22em] uppercase hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95"
-                >
-                  Buy Now
-                </button>
+                <div className="mt-auto grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => addToCart({ ...badge, quantity: 1 })}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 text-[11px] font-black tracking-[0.18em] uppercase hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95 flex items-center justify-center"
+                    aria-label="Add to cart"
+                    title="Add to cart"
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                  </button>
+
+                  <Link
+                    to={`/badge/${badge.id}`}
+                    className="w-full py-3 rounded-xl border-2 border-yellow-400/50 text-yellow-200 text-[11px] font-black tracking-[0.18em] uppercase hover:bg-yellow-400/10 hover:border-yellow-300 transition-all duration-300 active:scale-95 flex items-center justify-center"
+                  >
+                    Buy Now
+                  </Link>
+                </div>
               </div>
             ))}
 
@@ -632,8 +644,8 @@ export default function Home({ addToCart }: HomeProps) {
   return (
     <div className="bg-white">
       <Hero />
-      {/* <CustomisedProductsSection /> */}
-      <CategoryGrid />
+      <CustomisedProductsSection />
+      {/* <CategoryGrid /> */}
       <FeaturedSection addToCart={addToCart} />
       <HowItWorksSection />
     </div>

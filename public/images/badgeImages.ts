@@ -22,7 +22,7 @@ export const badgeImageMap: Record<string, string> = {
   // Entertainment
   entert1: "/badge/entert1.png",
   entert2: "/badge/entert2.png",
-  entert3: "/badge/entert3.png",
+  entert3: "/badge/enter3.png",
   entert4: "/badge/entert4.png",
   entert5: "/badge/entert5.png",
 
