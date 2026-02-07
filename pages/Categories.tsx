@@ -48,7 +48,9 @@ export default function Categories({ addToCart }: CategoriesProps) {
     items.map((p: any) => ({
       id: p._id,
       name: p.name,
-      category: p.category.toLowerCase(),
+      category: p.category
+        .toLowerCase()
+        .replace(/\s+/g, '-'), // "Positive Vibes" → "positive-vibes"
       price: p.price,
       image: normalizeImagePath(p.image) || '/badge/placeholder.png',
       imageMagnetic: normalizeImagePath(p.imageMagnetic),
