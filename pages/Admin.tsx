@@ -1,4 +1,5 @@
-import React, { useState, useEffect, JSX } from "react";
+import React, { useState, useEffect, useMemo, JSX } from "react";
+
 import { useNavigate, useLocation } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
 import { BADGES } from "../constants";
@@ -467,6 +468,205 @@ const Admin: React.FC = () => {
   const [viewingOrder, setViewingOrder] = useState<any>(null);
   const productsForDisplay = ensureMinimumProductsPerCategory(products);
   
+// 🔍 CRM FILTER STATE
+const [search, setSearch] = useState("");
+
+const [showUsers, setShowUsers] = useState(true);
+const [showAdmins, setShowAdmins] = useState(true);
+const [showInfluencers, setShowInfluencers] = useState(true);
+
+const [showCredentials, setShowCredentials] = useState(true);
+const [showGoogle, setShowGoogle] = useState(true);
+
+const [fromDate, setFromDate] = useState("");
+const [toDate, setToDate] = useState("");
+
+const [order, setOrder] = useState<"asc" | "desc">("desc");
+// 🔍 INFLUENCER CRM FILTER STATE
+const [showApprovedInf, setShowApprovedInf] = useState(true);
+const [showPendingInf, setShowPendingInf] = useState(true);
+
+// 📅 date filter (same as users)
+const [infFromDate, setInfFromDate] = useState("");
+const [infToDate, setInfToDate] = useState("");
+
+
+const [infSort, setInfSort] = useState<"desc" | "asc">("desc"); // desc = newe
+
+// 🛒 ORDERS FILTER STATE
+const [orderStatusFilter, setOrderStatusFilter] = useState<string[]>([]);
+const [orderFromDate, setOrderFromDate] = useState("");
+const [orderToDate, setOrderToDate] = useState("");
+const [orderSort, setOrderSort] = useState<"desc" | "asc">("desc"); // desc = newest
+
+
+
+// ===============================
+// FILTERED USERS
+// ===============================
+const filteredUsers = useMemo(() => {
+  let list = [...allUsers];
+
+  // SEARCH
+  if (search) {
+    const q = search.toLowerCase();
+    list = list.filter(
+      (u) =>
+        u.name?.toLowerCase().includes(q) ||
+        u.email?.toLowerCase().includes(q)
+    );
+  }
+
+  // ROLE FILTER
+  list = list.filter((u) => {
+    if (u.role === "user" && !showUsers) return false;
+    if (u.role === "admin" && !showAdmins) return false;
+    if (u.role === "influencer" && !showInfluencers) return false;
+    return true;
+  });
+
+  // PROVIDER FILTER
+  list = list.filter((u) => {
+    const provider = u.provider || "credentials";
+    if (provider === "google" && !showGoogle) return false;
+    if (provider === "credentials" && !showCredentials) return false;
+    return true;
+  });
+
+  // DATE FILTER
+  list = list.filter((u) => {
+    const t = new Date(u.createdAt).getTime();
+
+    if (fromDate) {
+      const from = new Date(fromDate).setHours(0, 0, 0, 0);
+      if (t < from) return false;
+    }
+
+    if (toDate) {
+      const to = new Date(toDate).setHours(23, 59, 59, 999);
+      if (t > to) return false;
+    }
+
+    return true;
+  });
+
+  // SORT (Newest / Oldest)
+  list.sort((a, b) => {
+    const da = new Date(a.createdAt).getTime();
+    const db = new Date(b.createdAt).getTime();
+    return order === "asc" ? da - db : db - da;
+  });
+
+  return list;
+}, [
+  allUsers,
+  search,
+  showUsers,
+  showAdmins,
+  showInfluencers,
+  showCredentials,
+  showGoogle,
+  fromDate,
+  toDate,
+  order,
+]);
+
+
+// ===============================
+// FILTERED INFLUENCERS
+// ===============================
+const filteredInfluencers = useMemo(() => {
+  let list = [...allInfluencers];
+
+  // STATUS FILTER
+  list = list.filter((inf) => {
+    const approved = inf.influencerProfile?.isApproved;
+    if (!showApprovedInf && approved) return false;
+    if (!showPendingInf && !approved) return false;
+    return true;
+  });
+
+  // DATE FILTER (same logic as users)
+  list = list.filter((inf) => {
+    const t = new Date(inf.createdAt).getTime();
+
+    if (infFromDate) {
+      const from = new Date(infFromDate).setHours(0, 0, 0, 0);
+      if (t < from) return false;
+    }
+
+    if (infToDate) {
+      const to = new Date(infToDate).setHours(23, 59, 59, 999);
+      if (t > to) return false;
+    }
+
+    return true;
+  });
+
+  // SORT (Newest / Oldest)
+  list.sort((a, b) => {
+    const da = new Date(a.createdAt).getTime();
+    const db = new Date(b.createdAt).getTime();
+    return infSort === "asc" ? da - db : db - da;
+  });
+
+  return list;
+}, [
+  allInfluencers,
+  showApprovedInf,
+  showPendingInf,
+  infFromDate,
+  infToDate,
+  infSort,
+]);
+
+
+// ===============================
+// FILTERED ORDERS
+// ===============================
+const filteredOrders = useMemo(() => {
+  let list = [...orders];
+
+  // PAYMENT STATUS FILTER
+  if (orderStatusFilter.length) {
+    list = list.filter((o) =>
+      orderStatusFilter.includes(o.status)
+    );
+  }
+
+  // DATE FILTER
+  list = list.filter((o) => {
+    const t = new Date(o.createdAt).getTime();
+
+    if (orderFromDate) {
+      const from = new Date(orderFromDate).setHours(0, 0, 0, 0);
+      if (t < from) return false;
+    }
+
+    if (orderToDate) {
+      const to = new Date(orderToDate).setHours(23, 59, 59, 999);
+      if (t > to) return false;
+    }
+
+    return true;
+  });
+
+  // SORT (Newest / Oldest)
+  list.sort((a, b) => {
+    const da = new Date(a.createdAt).getTime();
+    const db = new Date(b.createdAt).getTime();
+    return orderSort === "asc" ? da - db : db - da;
+  });
+
+  return list;
+}, [orders, orderStatusFilter, orderFromDate, orderToDate, orderSort]);
+
+
+
+
+
+
+
   // Track what data has been loaded to avoid unnecessary fetches
   const [loadedData, setLoadedData] = useState({
     users: false,
@@ -1941,242 +2141,468 @@ const Admin: React.FC = () => {
         )}
 
         {/* ALL USERS VIEW */}
-        {currentView === "users" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">All Users ({allUsers.length})</h2>
-              {allUsers.length > 0 && (
-                <div className="text-sm text-gray-400 space-x-4">
-                  <span>👤 Users: {allUsers.filter(u => u.role === 'user').length}</span>
-                  <span>⭐ Influencers: {allUsers.filter(u => u.role === 'influencer').length}</span>
-                  <span>👑 Admins: {allUsers.filter(u => u.role === 'admin').length}</span>
-                </div>
-              )}
-            </div>
-            {loadingData.users ? (
-              <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-indigo-500/20 rounded-2xl p-8 text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto mb-4"></div>
-                <p className="text-gray-400">Loading users...</p>
-              </div>
-            ) : allUsers.length === 0 ? (
-              <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-indigo-500/20 rounded-2xl p-8 text-center">
-                <p className="text-gray-400">No users found</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-xl border border-indigo-500/20">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border-b border-indigo-500/20">
-                      <th className="px-4 py-3 text-left text-white font-semibold text-sm">Name</th>
-                      <th className="px-4 py-3 text-left text-white font-semibold text-sm">Email</th>
-                      <th className="px-4 py-3 text-left text-white font-semibold text-sm">Role</th>
-                      <th className="px-4 py-3 text-left text-white font-semibold text-sm">Provider</th>
-                      <th className="px-4 py-3 text-left text-white font-semibold text-sm">Joined</th>
-                      <th className="px-4 py-3 text-center text-white font-semibold text-sm">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allUsers.map((user, idx) => (
-                      <tr key={user._id} className={`border-b border-white/10 hover:bg-indigo-500/10 transition-colors ${idx % 2 === 0 ? 'bg-white/[0.02]' : ''}`}>
-                        <td className="px-4 py-3 text-white font-medium text-sm">{user.name}</td>
-                        <td className="px-4 py-3 text-gray-300 text-sm">{user.email}</td>
-                        <td className="px-4 py-3">
-                          <select
-                            value={user.role}
-                            onChange={(e) => handleUpdateRole(user._id, e.target.value)}
-                            className={`px-2 py-1.5 rounded text-xs font-semibold border transition-colors ${
-                              (user.role === 'admin' && !isSuperAdmin) ? 'bg-purple-500/20 border-purple-500/30 text-purple-300 cursor-not-allowed' :
-                              user.role === 'admin' ? 'bg-purple-500/20 border-purple-500/30 text-purple-300 hover:bg-purple-500/30' :
-                              user.role === 'influencer' ? 'bg-amber-500/20 border-amber-500/30 text-amber-300 hover:bg-amber-500/30' :
-                              'bg-blue-500/20 border-blue-500/30 text-blue-300 hover:bg-blue-500/30'
-                            }`}
-                            disabled={user.role === 'admin' && !isSuperAdmin}
-                          >
-                            <option value="user">User</option>
-                            <option value="influencer">Influencer</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                        </td>
-                        <td className="px-4 py-3 text-gray-400 text-sm capitalize">{user.provider}</td>
-                        <td className="px-4 py-3 text-gray-400 text-sm">{new Date(user.createdAt).toLocaleDateString()}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex justify-center gap-2">
-                            {(user.role !== 'admin' || isSuperAdmin) && (
-                              <>
-                                <button
-                                  onClick={() => setEditingUser(user)}
-                                  className="p-1.5 hover:bg-blue-500/20 rounded-lg text-blue-400 hover:text-blue-300 transition-colors"
-                                  title="Edit user"
-                                >
-                                  ✏️
-                                {isSuperAdmin && (
-                                  <button
-                                    onClick={() => setResettingPassword(user)}
-                                    className="p-1.5 hover:bg-yellow-500/20 rounded-lg text-yellow-400 hover:text-yellow-300 transition-colors"
-                                    title="Reset password (Super Admin only)"
-                                  >
-                                    🔑
-                                  </button>
-                                )}
-                                </button>
-                                <button
-                                  onClick={() => setConfirmingDelete(user)}
-                                  className="p-1.5 hover:bg-red-500/20 rounded-lg text-red-400 hover:text-red-300 transition-colors"
-                                  title="Delete user"
-                                >
-                                  🗑️
-                                </button>
-                              </>
-                            )}
-                            {(user.role === 'admin' && !isSuperAdmin) && (
-                              <span className="text-xs text-gray-500 italic px-2">🔒 Protected</span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+       {currentView === "users" && (
+  <div className="flex gap-6">
+    {/* ================= SIDEBAR FILTERS ================= */}
+    <aside className="w-[280px] shrink-0 bg-white rounded-xl border p-5 space-y-6">
+      <h3 className="font-black text-sm flex items-center gap-2">
+        Filters
+      </h3>
+
+      {/* SEARCH */}
+      <div>
+        <p className="text-xs font-black uppercase text-slate-600 mb-1">
+          Search
+        </p>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Name or email"
+          className="w-full px-3 py-2 rounded-lg border text-sm"
+        />
+      </div>
+
+      {/* ROLE */}
+      <div className="space-y-2 text-sm">
+        <p className="text-xs font-black uppercase text-slate-600">
+          Role
+        </p>
+        <label className="flex gap-2">
+          <input type="checkbox" checked={showUsers} onChange={e => setShowUsers(e.target.checked)} />
+          Users
+        </label>
+        <label className="flex gap-2">
+          <input type="checkbox" checked={showAdmins} onChange={e => setShowAdmins(e.target.checked)} />
+          Admins
+        </label>
+        <label className="flex gap-2">
+          <input type="checkbox" checked={showInfluencers} onChange={e => setShowInfluencers(e.target.checked)} />
+          Influencers
+        </label>
+      </div>
+
+      {/* PROVIDER */}
+      <div className="space-y-2 text-sm">
+        <p className="text-xs font-black uppercase text-slate-600">
+          Provider
+        </p>
+        <label className="flex gap-2">
+          <input type="checkbox" checked={showCredentials} onChange={e => setShowCredentials(e.target.checked)} />
+          Credentials
+        </label>
+        <label className="flex gap-2">
+          <input type="checkbox" checked={showGoogle} onChange={e => setShowGoogle(e.target.checked)} />
+          Google
+        </label>
+      </div>
+
+      {/* DATE */}
+      <div className="space-y-2">
+        <p className="text-xs font-black uppercase text-slate-600">
+          Date
+        </p>
+        <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" />
+        <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" />
+      </div>
+
+      {/* SORT */}
+      <div>
+        <p className="text-xs font-black uppercase text-slate-600 mb-1">
+          Sort
+        </p>
+        <select
+          value={order}
+          onChange={(e) => setOrder(e.target.value as any)}
+          className="w-full px-3 py-2 border rounded-lg text-sm"
+        >
+          <option value="desc">Newest first</option>
+          <option value="asc">Oldest first</option>
+        </select>
+      </div>
+    </aside>
+
+    {/* ================= USERS TABLE ================= */}
+    <section className="flex-1 bg-white rounded-xl border overflow-hidden">
+      <div className="px-6 py-4 border-b font-black">
+        Users ({filteredUsers.length})
+      </div>
+
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50">
+          <tr>
+            <th className="p-3 text-left">#</th>
+            <th className="p-3 text-left">Name</th>
+            <th className="p-3 text-left">Email</th>
+            <th className="p-3 text-left">Role</th>
+            <th className="p-3 text-left">Provider</th>
+            <th className="p-3 text-left">Created</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {filteredUsers.map((u, i) => (
+            <tr key={u._id} className="border-t hover:bg-slate-50">
+              <td className="p-3">{i + 1}</td>
+              <td className="p-3 font-medium">{u.name || "—"}</td>
+              <td className="p-3">{u.email}</td>
+              <td className="p-3 capitalize">{u.role}</td>
+              <td className="p-3 capitalize">{u.provider || "credentials"}</td>
+              <td className="p-3 text-xs text-slate-500">
+                {new Date(u.createdAt).toLocaleDateString()}
+              </td>
+            </tr>
+          ))}
+
+          {filteredUsers.length === 0 && (
+            <tr>
+              <td colSpan={6} className="p-6 text-center text-slate-400">
+                No users match filters
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </section>
+  </div>
+)}
+
 
         {/* ALL INFLUENCERS VIEW */}
-        {currentView === "all-influencers" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">All Influencers ({allInfluencers.length})</h2>
-              {allInfluencers.length > 0 && (
-                <div className="text-sm text-gray-600 space-x-4 font-semibold">
-                  <span>✅ Approved: {allInfluencers.filter(i => i.influencerProfile?.isApproved).length}</span>
-                  <span>⏳ Pending: {allInfluencers.filter(i => !i.influencerProfile?.isApproved).length}</span>
-                </div>
-              )}
-            </div>
-            {loadingData.allInfluencers ? (
-              <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                <p className="text-gray-500">Loading influencers...</p>
-              </div>
-            ) : allInfluencers.length === 0 ? (
-              <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
-                <p className="text-gray-500">No influencers found</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                {allInfluencers.map((inf) => (
-                  <div key={inf._id} className="bg-white border border-gray-200 hover:border-gray-400 rounded-xl p-5 transition-all duration-300 hover:shadow-lg">
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-gray-900 font-bold text-base mb-0.5 truncate">{inf.name}</h3>
-                        <p className="text-gray-600 text-sm truncate">{inf.email}</p>
-                      </div>
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ml-2 border flex-shrink-0 ${inf.influencerProfile?.isApproved ? 'bg-green-100 text-green-700 border-green-300' : 'bg-yellow-100 text-yellow-700 border-yellow-300'}`}>
-                        {inf.influencerProfile?.isApproved ? '✓ Approved' : '⏳ Pending'}
-                      </span>
-                    </div>
-                    
-                    {/* Contact Info */}
-                    {(inf.influencerProfile?.phone || inf.influencerProfile?.instagram || inf.influencerProfile?.youtube) && (
-                      <div className="space-y-1 mb-3 pb-3 border-b border-gray-200 text-sm">
-                        {inf.influencerProfile?.phone && <p className="text-gray-700">📱 <span className="font-semibold">{inf.influencerProfile.phone}</span></p>}
-                        {inf.influencerProfile?.instagram && <p className="text-purple-600">📷 <span className="font-semibold">@{inf.influencerProfile.instagram}</span></p>}
-                        {inf.influencerProfile?.youtube && <p className="text-red-600">🎥 <span className="font-semibold">{inf.influencerProfile.youtube}</span></p>}
-                      </div>
-                    )}
-                    
-                    {/* Bio */}
-                    {inf.influencerProfile?.bio && (
-                      <p className="text-gray-700 text-sm italic mb-3 line-clamp-2 pb-3 border-b border-gray-200 bg-gray-50 p-2 rounded">"{inf.influencerProfile.bio}"</p>
-                    )}
-                    
-                    {/* Stats Grid */}
-                    <div className="grid grid-cols-2 gap-2.5 mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="text-center">
-                        <p className="text-gray-600 text-xs font-bold uppercase mb-1">Total</p>
-                        <p className="text-green-600 font-bold text-base">₹{inf.influencerProfile?.totalEarnings || 0}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-gray-600 text-xs font-bold uppercase mb-1">Pending</p>
-                        <p className="text-yellow-600 font-bold text-base">₹{inf.influencerProfile?.pendingEarnings || 0}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-gray-600 text-xs font-bold uppercase mb-1">Withdrawn</p>
-                        <p className="text-blue-600 font-bold text-base">₹{inf.influencerProfile?.withdrawnAmount || 0}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-gray-600 text-xs font-bold uppercase mb-1">Min Withdrawal</p>
-                        <p className="text-indigo-600 font-bold text-base">₹{inf.influencerProfile?.minWithdrawalAmount || 100}</p>
-                      </div>
-                    </div>
-                    
-                    {/* Footer */}
-                    <p className="text-gray-500 text-sm font-medium">📅 Joined: {new Date(inf.createdAt).toLocaleDateString()}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+{/* ================= ALL INFLUENCERS VIEW ================= */}
+{currentView === "all-influencers" && (
+  <div className="flex gap-8">
+    {/* ================= SIDEBAR ================= */}
+    <aside className="w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
+      <h3 className="font-black text-sm">Filters</h3>
 
-        {/* ORDERS VIEW */}
-        {currentView === "orders" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">All Orders ({orders.length})</h2>
-              {orders.length > 0 && (
-                <div className="text-sm text-gray-400 space-x-3">
-                  <span>✅ Success: {orders.filter(o => o.status === 'SUCCESS').length}</span>
-                  <span>⏳ Pending: {orders.filter(o => o.status === 'PENDING').length}</span>
-                </div>
-              )}
+      {/* STATUS */}
+      <div className="space-y-2 text-sm">
+        <p className="text-xs font-black uppercase text-slate-600">
+          Status
+        </p>
+
+        <label className="flex gap-2 items-center">
+          <input
+            type="checkbox"
+            checked={showApprovedInf}
+            onChange={(e) => setShowApprovedInf(e.target.checked)}
+          />
+          Approved
+        </label>
+
+        <label className="flex gap-2 items-center">
+          <input
+            type="checkbox"
+            checked={showPendingInf}
+            onChange={(e) => setShowPendingInf(e.target.checked)}
+          />
+          Pending
+        </label>
+      </div>
+
+      {/* DATE (same as Users) */}
+      <div className="space-y-2">
+        <p className="text-xs font-black uppercase text-slate-600">
+          Date
+        </p>
+
+        <input
+          type="date"
+          value={infFromDate}
+          onChange={(e) => setInfFromDate(e.target.value)}
+          className="w-full px-3 py-2 border rounded-lg text-sm"
+        />
+
+        <input
+          type="date"
+          value={infToDate}
+          onChange={(e) => setInfToDate(e.target.value)}
+          className="w-full px-3 py-2 border rounded-lg text-sm"
+        />
+      </div>
+
+      {/* SORT */}
+<div className="space-y-2">
+  <p className="text-xs font-black uppercase text-slate-600">
+    Sort
+  </p>
+
+  <select
+    value={infSort}
+    onChange={(e) => setInfSort(e.target.value as "asc" | "desc")}
+    className="w-full px-3 py-2 border rounded-lg text-sm"
+  >
+    <option value="desc">Newest first</option>
+    <option value="asc">Oldest first</option>
+  </select>
+</div>
+
+    </aside>
+
+    {/* ================= CONTENT ================= */}
+    <section className="flex-1 flex flex-col gap-6">
+      {/* HEADER */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-black">
+          All Influencers ({filteredInfluencers.length})
+        </h2>
+
+        <div className="flex gap-6 text-sm">
+          <span className="flex items-center gap-1">
+            ✅ Approved:{" "}
+            {
+              filteredInfluencers.filter(
+                (i) => i.influencerProfile?.isApproved
+              ).length
+            }
+          </span>
+          <span className="flex items-center gap-1">
+            ⏳ Pending:{" "}
+            {
+              filteredInfluencers.filter(
+                (i) => !i.influencerProfile?.isApproved
+              ).length
+            }
+          </span>
+        </div>
+      </div>
+
+      {/* CARDS GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {filteredInfluencers.map((inf) => (
+          <div
+            key={inf._id}
+            className="bg-white border rounded-xl p-5 hover:shadow-lg transition"
+          >
+            {/* HEADER */}
+            <div className="flex justify-between mb-3">
+              <div>
+                <p className="font-bold">{inf.name}</p>
+                <p className="text-xs text-slate-500">
+                  {inf.email}
+                </p>
+              </div>
+
+              <span
+                className={`px-3 py-1 text-xs font-bold rounded-full ${
+                  inf.influencerProfile?.isApproved
+                    ? "bg-green-100 text-green-700"
+                    : "bg-yellow-100 text-yellow-700"
+                }`}
+              >
+                {inf.influencerProfile?.isApproved
+                  ? "Approved"
+                  : "Pending"}
+              </span>
             </div>
-            {loadingData.orders ? (
-              <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-indigo-500/20 rounded-2xl p-12 text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto mb-4"></div>
-                <p className="text-gray-400">Loading orders...</p>
+
+            {/* STATS */}
+            <div className="grid grid-cols-2 gap-3 bg-slate-50 rounded-lg p-3 text-sm">
+              <div>
+                <p className="text-xs text-slate-500">Total</p>
+                <p className="font-bold text-green-600">
+                  ₹{inf.influencerProfile?.totalEarnings || 0}
+                </p>
               </div>
-            ) : orders.length === 0 ? (
-              <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-indigo-500/20 rounded-2xl p-12 text-center">
-                <p className="text-gray-400">No orders found</p>
+
+              <div>
+                <p className="text-xs text-slate-500">Pending</p>
+                <p className="font-bold">
+                  ₹{inf.influencerProfile?.pendingEarnings || 0}
+                </p>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {orders.map((order) => (
-                  <div key={order._id} onClick={() => setViewingOrder(order)} className="bg-gradient-to-br from-white/5 to-white/10 backdrop-blur-xl border border-indigo-500/20 hover:border-indigo-500/40 rounded-xl p-4 transition-all hover:shadow-lg hover:shadow-indigo-500/10 cursor-pointer">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h3 className="text-white font-bold text-sm">#{order.orderId || order._id.slice(-6)}</h3>
-                        <p className="text-gray-400 text-xs mt-0.5 truncate">{order.userId?.email || 'N/A'}</p>
-                      </div>
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ml-2 border ${
-                        order.status === 'SUCCESS' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
-                        order.status === 'PENDING' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
-                        order.status === 'FAILED' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
-                        'bg-blue-500/20 text-blue-300 border-blue-500/30'
-                      }`}>
-                        {order.status === 'SUCCESS' ? '✓' : order.status === 'PENDING' ? '⏳' : order.status === 'FAILED' ? '✕' : '◉'} {order.status}
-                      </span>
-                    </div>
-                    <div className="space-y-2 mb-3 pb-3 border-b border-white/10">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-500 text-xs">Amount</span>
-                        <span className="text-emerald-400 font-bold">₹{order.amount}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-500 text-xs">Customer</span>
-                        <span className="text-gray-300 text-xs">{order.userId?.name || 'Anonymous'}</span>
-                      </div>
-                    </div>
-                    <p className="text-gray-600 text-xs">📅 {new Date(order.createdAt).toLocaleDateString()}</p>
-                  </div>
-                ))}
+
+              <div>
+                <p className="text-xs text-slate-500">Withdrawn</p>
+                <p className="font-bold text-blue-600">
+                  ₹{inf.influencerProfile?.withdrawnAmount || 0}
+                </p>
               </div>
-            )}
+
+              <div>
+                <p className="text-xs text-slate-500">
+                  Min Withdrawal
+                </p>
+                <p className="font-bold">
+                  ₹{inf.influencerProfile?.minWithdrawalAmount || 100}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-500 mt-3">
+              Joined:{" "}
+              {new Date(inf.createdAt).toLocaleDateString()}
+            </p>
+          </div>
+        ))}
+
+        {filteredInfluencers.length === 0 && (
+          <p className="col-span-full text-center text-slate-400 py-10">
+            No influencers match selected filters
+          </p>
+        )}
+      </div>
+    </section>
+  </div>
+)}
+
+
+
+       {/* ================= ORDERS VIEW ================= */}
+{currentView === "orders" && (
+  <div className="flex gap-6">
+    {/* ================= FILTER SIDEBAR ================= */}
+    <aside className="w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
+      <h3 className="font-black text-sm">Filters</h3>
+
+      {/* PAYMENT STATUS */}
+      <div className="space-y-2 text-sm">
+        <p className="text-xs font-black uppercase text-slate-600">
+          Payment Status
+        </p>
+
+        {["SUCCESS", "PENDING", "FAILED"].map((s) => (
+          <label key={s} className="flex gap-2 items-center">
+            <input
+              type="checkbox"
+              checked={orderStatusFilter.includes(s)}
+              onChange={() =>
+                setOrderStatusFilter((prev) =>
+                  prev.includes(s)
+                    ? prev.filter((x) => x !== s)
+                    : [...prev, s]
+                )
+              }
+            />
+            <span className="capitalize">{s.toLowerCase()}</span>
+          </label>
+        ))}
+      </div>
+
+      {/* DATE */}
+      <div className="space-y-2">
+        <p className="text-xs font-black uppercase text-slate-600">
+          Date
+        </p>
+        <input
+          type="date"
+          value={orderFromDate}
+          onChange={(e) => setOrderFromDate(e.target.value)}
+          className="w-full px-3 py-2 border rounded-lg text-sm"
+        />
+        <input
+          type="date"
+          value={orderToDate}
+          onChange={(e) => setOrderToDate(e.target.value)}
+          className="w-full px-3 py-2 border rounded-lg text-sm"
+        />
+      </div>
+
+      {/* SORT */}
+      <div className="space-y-2">
+        <p className="text-xs font-black uppercase text-slate-600">
+          Sort
+        </p>
+        <select
+          value={orderSort}
+          onChange={(e) => setOrderSort(e.target.value as "asc" | "desc")}
+          className="w-full px-3 py-2 border rounded-lg text-sm"
+        >
+          <option value="desc">Newest first</option>
+          <option value="asc">Oldest first</option>
+        </select>
+      </div>
+    </aside>
+
+    {/* ================= MAIN CONTENT ================= */}
+    <section className="flex-1 flex flex-col gap-6">
+      {/* HEADER */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-black">
+          All Orders ({orders.length})
+        </h2>
+
+        {orders.length > 0 && (
+          <div className="text-sm text-slate-500 flex gap-4">
+            <span>✅ Success: {orders.filter(o => o.status === "SUCCESS").length}</span>
+            <span>⏳ Pending: {orders.filter(o => o.status === "PENDING").length}</span>
+            <span>❌ Failed: {orders.filter(o => o.status === "FAILED").length}</span>
           </div>
         )}
+      </div>
+
+      {/* LOADING */}
+      {loadingData.orders ? (
+        <div className="bg-white border rounded-xl p-12 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-slate-500">Loading orders...</p>
+        </div>
+      ) : orders.length === 0 ? (
+        /* EMPTY STATE */
+        <div className="bg-white border rounded-xl p-12 text-center">
+          <p className="text-slate-500">No orders found</p>
+        </div>
+      ) : (
+        /* GRID */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {orders.map((order) => (
+            <div
+              key={order._id}
+              onClick={() => setViewingOrder(order)}
+              className="bg-white border hover:border-indigo-500 rounded-xl p-4 transition hover:shadow-lg cursor-pointer"
+            >
+              {/* HEADER */}
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <p className="font-bold text-sm">
+                    #{order.orderId || order._id.slice(-6)}
+                  </p>
+                  <p className="text-xs text-slate-500 truncate">
+                    {order.userId?.email || "N/A"}
+                  </p>
+                </div>
+
+                <span
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                    order.status === "SUCCESS"
+                      ? "bg-green-100 text-green-700 border-green-200"
+                      : order.status === "PENDING"
+                      ? "bg-yellow-100 text-yellow-700 border-yellow-200"
+                      : "bg-red-100 text-red-700 border-red-200"
+                  }`}
+                >
+                  {order.status}
+                </span>
+              </div>
+
+              {/* BODY */}
+              <div className="space-y-2 mb-3 pb-3 border-b">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Amount</span>
+                  <span className="font-bold text-green-600">
+                    ₹{order.amount}
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Customer</span>
+                  <span className="text-slate-700">
+                    {order.userId?.name || "Anonymous"}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-400">
+                📅 {new Date(order.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  </div>
+)}
+
 
         {/* PROFILE VIEW */}
         {currentView === "profile" && (
