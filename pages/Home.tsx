@@ -98,122 +98,120 @@ const PinButton: React.FC<{
   );
 };
 
-// 
 const Hero: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-<section
-  className="relative w-full min-h-screen overflow-hidden flex items-center bg-white"
->
-  {/* Premium background glow - Hot Drops Theme */}
-  <div className="pointer-events-none absolute inset-0">
-    <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px]" />
-    <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-orange-400/10 rounded-full blur-[120px]" />
-    <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
-  </div>
-
-  {/* Funny Floating Circles - Outer Edges Only */}
-  <div className="absolute top-24 -left-8 w-24 h-24 rounded-full border-[8px] border-yellow-400/30 animate-bounce" style={{ animationDuration: '4s' }} />
-  <div className="absolute top-48 -right-10 w-28 h-28 rounded-full border-[10px] border-orange-400/25 animate-pulse" style={{ animationDuration: '3s' }} />
-  <div className="absolute bottom-36 -left-12 w-28 h-28 rounded-full border-[8px] border-red-400/20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }} />
-  <div className="absolute bottom-64 -right-8 w-20 h-20 rounded-full border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
-
-  {/* ✅ CONTENT */}
-  <div className="relative z-10 w-full max-w-7xl mx-auto 
-  
-  md:px-6 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center">
-    
-    
-    {/* LEFT CONTENT */}
-    <div>
-      <div className="absolute -top-4 left-[450px] w-36 h-36 rounded-full border-[8px] border-yellow-300 opacity-30 pointer-events-none" />
-
- <div className="absolute -top-2 left-56 text-2xl opacity-50 text-yellow-300">★</div>
- <div className="absolute -top-2 left-56 text-2xl opacity-50 text-yellow-300">★</div>
-  {/* RING FOR SOULS */}
-  <div className="absolute top-24 left-44 w-34 h-34 rounded-full border-[8px] border-yellow-300 opacity-25 pointer-events-none" />
-
-      <h1 className="
-  text-3xl sm:text-4xl md:text-5xl lg:text-6xl
-  font-black tracking-[0.17em] leading-[1.15]
-  bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700
-  bg-clip-text text-transparent
-  drop-shadow-[0_2px_12px_rgba(245,158,11,0.25)]
-">
-  WE CREATE <br /> FOR SOULS
-</h1>
- 
-
-  {/* Small red dot touching C */}
-  <div className="absolute top-6 left-96 w-6 h-6 bg-red-500 rounded-full border-2 border-yellow-400/30 opacity-70 animate-bounce"
-       style={{ animationDelay: '0.5s', animationDuration: '5s' }} />
-<div className="absolute top-10 left-60 w-20 h-20 rounded-full border-[6px] border-yellow-300 opacity-30 animate-bounce"
-       style={{ animationDuration: '6s' }} />
-
-  {/* Tiny star above CREATE */}
-  <div className="absolute -top-2 left-56 text-2xl opacity-50 text-yellow-300">★</div>
-
-
-      <p className="mt-4 md:mt-6 mb-6 md:mb-10 max-w-xl text-base md:text-lg text-slate-600 font-medium leading-relaxed">
-
-        Premium custom badges designed for creators, communities, and brands who wear their vibe.
-      </p>
-
-      <div className="flex flex-col sm:flex-row gap-4 md:gap-6">
-        <button
-          onClick={() => navigate("/categories")}
-          className="px-6 md:px-10 py-3 md:py-4 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-bold tracking-widest uppercase shadow-lg hover:shadow-xl hover:shadow-yellow-500/20 text-sm md:text-base hover:from-yellow-400 hover:to-orange-400 transition-all w-full sm:w-auto"
-        >
-          View Collection
-        </button>
-
-        <button
-          onClick={() => navigate("/custom-order")}
-          className="px-6 md:px-10 py-3 md:py-4 rounded-xl border-2 border-yellow-500/40 text-slate-900 font-bold tracking-widest uppercase text-sm md:text-base bg-white/70 hover:bg-yellow-500 hover:text-slate-900 hover:border-yellow-500 transition-all w-full sm:w-auto shadow-sm hover:shadow-lg hover:shadow-yellow-500/20"
-        >
-          Custom Order
-        </button>
+    <section
+      className="relative w-full min-h-screen overflow-hidden flex items-center bg-white"
+    >
+      {/* Premium background glow - Hot Drops Theme */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px]" />
+        <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-orange-400/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
       </div>
-    </div>
 
-    {/* RIGHT BADGES */}
-    <div className="relative brightness-[1.08] contrast-[1.12] saturate-[1.05]
-      drop-shadow-[0_18px_30px_rgba(15,23,42,0.25)]
-      hover:brightness-[1.12] hover:contrast-[1.18] transition-all duration-500
+      {/* Funny Floating Circles - Outer Edges Only */}
+      <div className="absolute top-24 -left-8 w-24 h-24 rounded-full border-[8px] border-yellow-400/30 animate-bounce" style={{ animationDuration: '4s' }} />
+      <div className="absolute top-48 -right-10 w-28 h-28 rounded-full border-[10px] border-orange-400/25 animate-pulse" style={{ animationDuration: '3s' }} />
+      <div className="absolute bottom-36 -left-12 w-28 h-28 rounded-full border-[8px] border-red-400/20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }} />
+      <div className="absolute bottom-64 -right-8 w-20 h-20 rounded-full border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
+
+      {/* ✅ CONTENT */}
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4
+      md:px-6 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center">
+        
+        
+        {/* LEFT CONTENT */}
+        <div>
+          <div className="absolute -top-4 left-[450px] w-36 h-36 rounded-full border-[8px] border-yellow-300 opacity-30 pointer-events-none" />
+
+          <div className="absolute -top-2 left-56 text-2xl opacity-50 text-yellow-300">★</div>
+          <div className="absolute -top-2 left-56 text-2xl opacity-50 text-yellow-300">★</div>
+          {/* RING FOR SOULS */}
+          <div className="absolute top-24 left-44 w-34 h-34 rounded-full border-[8px] border-yellow-300 opacity-25 pointer-events-none" />
+
+          <h1 className="
+      text-3xl sm:text-4xl md:text-5xl lg:text-6xl
+      font-black tracking-[0.17em] leading-[1.15]
+      bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700
+      bg-clip-text text-transparent
+      drop-shadow-[0_2px_12px_rgba(245,158,11,0.25)]
     ">
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 place-items-center">
-       {[
-  { img: "/images/a.png", cat: "animal" },
-  { img: "/images/h.png", cat: "religious" },
-  { img: "/images/b.png", cat: "moody" },
-  { img: "/images/flag2.png", cat: "events" },
-  { img: "/images/d.png", cat: "entertainment" },
-  { img: "/images/e.png", cat: "couple" },
-  { img: "/images/f.png", cat: "anime" },
-  { img: "/images/g.png", cat: "events" },
-  { img: "/images/c.png", cat: "anime" },
-].map((b, i) => (
-  <button
-    key={i}
-    onClick={() => navigate(`/categories?cat=${b.cat}`)}
-    className="hover:scale-110 active:scale-95 transition hover:drop-shadow-[0_18px_35px_rgba(245,158,11,0.35)]"
-  >
-    <img
-      src={b.img}
-      className="w-24 md:w-36 md:h-36 h-24 lg:w-40 lg:h-40 object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.25)]"
-    />
-  </button>
-))}
+            WE CREATE <br /> FOR SOULS
+          </h1>
+          
+
+          {/* Small red dot touching C */}
+          <div className="absolute top-6 left-96 w-6 h-6 bg-red-500 rounded-full border-2 border-yellow-400/30 opacity-70 animate-bounce"
+               style={{ animationDelay: '0.5s', animationDuration: '5s' }} />
+          <div className="absolute top-10 left-60 w-20 h-20 rounded-full border-[6px] border-yellow-300 opacity-30 animate-bounce"
+               style={{ animationDuration: '6s' }} />
+
+          {/* Tiny star above CREATE */}
+          <div className="absolute -top-2 left-56 text-2xl opacity-50 text-yellow-300">★</div>
+
+
+          <p className="mt-4 md:mt-6 mb-6 md:mb-10 max-w-xl text-base md:text-lg text-slate-600 font-medium leading-relaxed">
+
+            Premium custom badges designed for creators, communities, and brands who wear their vibe.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 md:gap-6">
+            <button
+              onClick={() => navigate("/categories")}
+              className="px-6 md:px-10 py-3 md:py-4 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-bold tracking-widest uppercase shadow-lg hover:shadow-xl hover:shadow-yellow-500/20 text-sm md:text-base hover:from-yellow-400 hover:to-orange-400 transition-all w-full sm:w-auto"
+            >
+              View Collection
+            </button>
+
+            <button
+              onClick={() => navigate("/custom-order")}
+              className="px-6 md:px-10 py-3 md:py-4 rounded-xl border-2 border-yellow-500/40 text-slate-900 font-bold tracking-widest uppercase text-sm md:text-base bg-white/70 hover:bg-yellow-500 hover:text-slate-900 hover:border-yellow-500 transition-all w-full sm:w-auto shadow-sm hover:shadow-lg hover:shadow-yellow-500/20"
+            >
+              Custom Order
+            </button>
+          </div>
+        </div>
+
+        {/* RIGHT BADGES */}
+        <div className="relative brightness-[1.08] contrast-[1.12] saturate-[1.05]
+          drop-shadow-[0_18px_30px_rgba(15,23,42,0.25)]
+          hover:brightness-[1.12] hover:contrast-[1.18] transition-all duration-500
+        ">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 place-items-center">
+           {[
+      { img: "/images/a.png", cat: "animal" },
+      { img: "/images/h.png", cat: "religious" },
+      { img: "/images/b.png", cat: "moody" },
+      { img: "/images/flag2.png", cat: "events" },
+      { img: "/images/d.png", cat: "entertainment" },
+      { img: "/images/e.png", cat: "couple" },
+      { img: "/images/f.png", cat: "anime" },
+      { img: "/images/g.png", cat: "events" },
+      { img: "/images/c.png", cat: "anime" },
+    ].map((b, i) => (
+      <button
+        key={i}
+        onClick={() => navigate(`/categories?cat=${b.cat}`)}
+        className="hover:scale-110 active:scale-95 transition hover:drop-shadow-[0_18px_35px_rgba(245,158,11,0.35)]"
+      >
+        <img
+          src={b.img}
+          className="w-24 md:w-36 md:h-36 h-24 lg:w-40 lg:h-40 object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.25)]"
+        />
+      </button>
+    ))}
+
+          </div>
+        </div>
 
       </div>
-    </div>
-
-  </div>
-</section>
+    </section>
 
   );
-  };
+};
 
 
 
@@ -519,7 +517,7 @@ const FeaturedSection: React.FC<{ addToCart: (badge: Badge) => void }> = ({ addT
   const navigate = useNavigate();
 
   return (
-<section className="relative pt-12 pb-24 overflow-hidden bg-white">
+<section className="relative pt-10 pb-16 sm:pt-12 sm:pb-24 overflow-hidden bg-white">
 
           {/* Premium background glow - Logo Theme */}
 <div className="pointer-events-none absolute inset-0">
@@ -543,10 +541,10 @@ const FeaturedSection: React.FC<{ addToCart: (badge: Badge) => void }> = ({ addT
             <span className="text-[11px] font-black text-yellow-700 uppercase tracking-widest">Trending Now</span>
             <Zap className="w-5 h-5 text-orange-600 animate-pulse" />
           </div>
-        <h2 className="text-5xl md:text-6xl font-black tracking-tight bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent mb-2">
+        <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent mb-2">
   HOT DROPS
 </h2>
-      <p className="mt-2 text-[11px] tracking-[0.22em] text-slate-600 uppercase font-bold">
+      <p className="mt-2 text-[10px] sm:text-[11px] tracking-[0.2em] sm:tracking-[0.22em] text-slate-600 uppercase font-bold">
         Grab them before they disappear into the vault ⚡</p>
 </div>
 
@@ -554,7 +552,6 @@ const FeaturedSection: React.FC<{ addToCart: (badge: Badge) => void }> = ({ addT
 grid
 grid-cols-2
 sm:grid-cols-2
-md:grid-cols-2
 lg:grid-cols-3
 xl:grid-cols-4
 gap-4 sm:gap-6 md:gap-8
@@ -570,15 +567,15 @@ gap-4 sm:gap-6 md:gap-8
          {featuredBadges.map((badge) => (
               <div
                 key={badge.id}
-                className="group bg-[#0b1320] rounded-[28px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-4 md:p-5 flex flex-col"
+                className="group bg-[#0b1320] rounded-[20px] sm:rounded-[24px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-3 sm:p-4 md:p-5 flex flex-col"
               >
                 <Link to={`/badge/${badge.id}`} className="w-full">
-                  <div className="relative w-full aspect-square rounded-2xl bg-white flex items-center justify-center mb-4 overflow-hidden border-[6px] border-slate-900/70 shadow-inner">
+                  <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-white flex items-center justify-center mb-3 overflow-hidden border-[3px] sm:border-[4px] border-slate-900/70 shadow-inner">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.06),transparent_65%)]" />
                     <img
                       src={badge.image}
                       alt={badge.name}
-                      className="relative w-[125%] h-[125%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-transform duration-500 group-hover:scale-[1.06]"
+                      className="relative w-[110%] h-[110%] sm:w-[120%] sm:h-[120%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-transform duration-500 group-hover:scale-[1.06]"
                       onError={(e) => {
                         const target = e.currentTarget;
                         if (!target.src.startsWith('http') && !target.dataset.retried) {
@@ -594,42 +591,56 @@ gap-4 sm:gap-6 md:gap-8
                 </Link>
 
                 <div className="flex items-center justify-between mb-2 gap-2">
-                  <span className="text-[10px] md:text-[11px] font-semibold tracking-[0.3em] text-yellow-400 uppercase truncate">
+                  <span className="text-[9px] sm:text-[10px] font-semibold tracking-[0.15em] sm:tracking-[0.2em] text-yellow-400 uppercase truncate">
                     {badge.category}
                   </span>
-                  <span className="text-xl md:text-2xl font-black text-white whitespace-nowrap">
+                  <span className="text-base sm:text-lg md:text-xl font-black text-white whitespace-nowrap">
                     ₹{badge.price}
                   </span>
                 </div>
 
-                <h3 className="text-[14px] md:text-[15px] font-extrabold text-white uppercase leading-snug mb-2">
-                  {badge.name}
-                </h3>
+                {/* Badge Name + Quantity Selector - Responsive */}
+                <div className="flex items-start justify-between gap-1.5 mb-3">
+                  <h3 className="text-[11px] sm:text-[13px] md:text-[14px] font-extrabold text-white uppercase leading-tight flex-1 line-clamp-2">
+                    {badge.name}
+                  </h3>
+                  
+                  <div className="flex items-center gap-0.5 bg-slate-800 rounded-md p-0.5 sm:p-1 flex-shrink-0">
+                    <button
+                      onClick={() => addToCart({ ...badge, quantity: -1 })}
+                      className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-yellow-400 hover:bg-slate-700 transition text-[8px] sm:text-[9px] md:text-xs font-black"
+                    >
+                      −
+                    </button>
+                    <span className="w-3 sm:w-4 text-center text-white text-[8px] sm:text-[9px] md:text-xs font-black">1</span>
+                    <button
+                      onClick={() => addToCart({ ...badge, quantity: 1 })}
+                      className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-yellow-400 hover:bg-slate-700 transition text-[8px] sm:text-[9px] md:text-xs font-black"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
 
-                {badge.tagline && (
-                  <p className="text-[11px] text-yellow-200/80 italic mb-3 line-clamp-2">
-                    {badge.tagline}
-                  </p>
-                )}
+                <div className="mt-auto">
+                  <div className="flex flex-row items-center gap-2">
+                    <button
+                      onClick={() => addToCart({ ...badge, quantity: 1 })}
+                      className="flex-1 py-2 sm:py-2.5 rounded-md bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 font-black hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95 flex items-center justify-center gap-1"
+                      title="Add to cart"
+                    >
+                      <ShoppingCart className="w-3.5 h-3.5" />
+                      <span className="text-[9px] sm:text-xs font-black">ADD</span>
+                    </button>
 
-                <div className="my-2 h-px w-full bg-yellow-500/25" />
-
-                <div className="mt-auto grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => addToCart({ ...badge, quantity: 1 })}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 text-[11px] font-black tracking-[0.18em] uppercase hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95 flex items-center justify-center"
-                    aria-label="Add to cart"
-                    title="Add to cart"
-                  >
-                    <ShoppingCart className="w-4 h-4" />
-                  </button>
-
-                  <Link
-                    to={`/badge/${badge.id}`}
-                    className="w-full py-3 rounded-xl border-2 border-yellow-400/50 text-yellow-200 text-[11px] font-black tracking-[0.18em] uppercase hover:bg-yellow-400/10 hover:border-yellow-300 transition-all duration-300 active:scale-95 flex items-center justify-center"
-                  >
-                    Buy Now
-                  </Link>
+                    {/* Buy Now Button */}
+                    <Link
+                      to={`/badge/${badge.id}`}
+                      className="flex-1 py-2 sm:py-2.5 rounded-md border-2 border-yellow-400/50 text-yellow-200 text-[9px] sm:text-xs font-black tracking-[0.12em] hover:bg-yellow-400/10 hover:border-yellow-300 transition-all duration-300 active:scale-95 flex items-center justify-center"
+                    >
+                      Buy Now
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}

@@ -166,13 +166,16 @@ export default function Categories({ addToCart }: CategoriesProps) {
     <div className="min-h-screen bg-white relative overflow-hidden">
       {/* Premium background glow - Hot Drops Theme */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px]" />
-        <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-orange-400/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
-        <div className="absolute top-28 -left-8 w-24 h-24 rounded-full border-[8px] border-yellow-400/30 animate-bounce" style={{ animationDuration: '4s' }} />
-        <div className="absolute top-52 -right-10 w-28 h-28 rounded-full border-[10px] border-orange-400/25 animate-pulse" style={{ animationDuration: '3s' }} />
-        <div className="absolute bottom-36 -left-12 w-32 h-32 rounded-full border-[8px] border-red-400/20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }} />
-        <div className="absolute bottom-64 -right-8 w-20 h-20 rounded-full border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
+        {/* Main gradient blurs - responsive sizes */}
+        <div className="absolute -top-32 sm:-top-48 md:-top-64 left-1/2 -translate-x-1/2 w-[500px] sm:w-[700px] md:w-[900px] h-[500px] sm:h-[700px] md:h-[900px] bg-yellow-500/10 rounded-full blur-[80px] sm:blur-[120px] md:blur-[140px]" />
+        <div className="absolute top-1/4 sm:top-1/3 -right-32 sm:right-[-150px] md:right-[-300px] w-[350px] sm:w-[500px] md:w-[600px] h-[350px] sm:h-[500px] md:h-[600px] bg-orange-400/10 rounded-full blur-[80px] sm:blur-[100px] md:blur-[120px]" />
+        <div className="absolute bottom-1/4 -left-24 sm:-left-32 md:left-[-200px] w-[300px] sm:w-[400px] md:w-[500px] h-[300px] sm:h-[400px] md:h-[500px] bg-red-400/10 rounded-full blur-[60px] sm:blur-[80px] md:blur-[100px]" />
+        
+        {/* Decorative circles - responsive sizes and positions */}
+        <div className="absolute top-20 sm:top-24 md:top-28 -left-4 sm:-left-6 md:-left-8 w-16 sm:w-20 md:w-24 h-16 sm:h-20 md:h-24 rounded-full border-[6px] sm:border-[7px] md:border-[8px] border-yellow-400/30 animate-bounce" style={{ animationDuration: '4s' }} />
+        <div className="absolute top-36 sm:top-44 md:top-52 -right-6 sm:-right-8 md:-right-10 w-20 sm:w-24 md:w-28 h-20 sm:h-24 md:h-28 rounded-full border-[8px] sm:border-[9px] md:border-[10px] border-orange-400/25 animate-pulse" style={{ animationDuration: '3s' }} />
+        <div className="absolute bottom-24 sm:bottom-32 md:bottom-36 -left-6 sm:-left-10 md:-left-12 w-24 sm:w-28 md:w-32 h-24 sm:h-28 md:h-32 rounded-full border-[6px] sm:border-[7px] md:border-[8px] border-red-400/20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }} />
+        <div className="absolute bottom-48 sm:bottom-56 md:bottom-64 -right-4 sm:-right-6 md:-right-8 w-14 sm:w-16 md:w-20 h-14 sm:h-16 md:h-20 rounded-full border-[5px] sm:border-[5px] md:border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
       </div>
 
       <div className="relative z-10 flex">
@@ -341,10 +344,10 @@ export default function Categories({ addToCart }: CategoriesProps) {
                     {categoryProducts.map((badge) => (
                       <div
                         key={badge.id}
-                        className="group bg-[#0b1320] rounded-[28px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-4 md:p-5 flex flex-col"
+                        className="group bg-[#0b1320] rounded-[20px] sm:rounded-[28px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-3 sm:p-4 md:p-5 flex flex-col"
                       >
                         <Link to={`/badge/${badge.id}`} className="w-full">
-                          <div className="relative w-full aspect-square rounded-2xl bg-white flex items-center justify-center mb-4 overflow-hidden border-[6px] border-slate-900/70 shadow-inner">
+                          <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-white flex items-center justify-center mb-3 sm:mb-4 overflow-hidden border-[4px] sm:border-[6px] border-slate-900/70 shadow-inner">
                             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.06),transparent_65%)]" />
                             <img
                               src={badge.image}
@@ -366,30 +369,28 @@ export default function Categories({ addToCart }: CategoriesProps) {
                           </div>
                         </Link>
 
-                        <div className="flex items-center justify-between mb-2 gap-2">
-                          <span className="text-[10px] md:text-[11px] font-semibold tracking-[0.3em] text-yellow-400 uppercase truncate">
+                        <div className="flex items-center justify-between mb-1.5 sm:mb-2 gap-2">
+                          <span className="text-[9px] sm:text-[10px] md:text-[11px] font-semibold tracking-[0.2em] sm:tracking-[0.3em] text-yellow-400 uppercase truncate">
                             {badge.category}
                           </span>
-                          <span className="text-xl md:text-2xl font-black text-white whitespace-nowrap">
+                          <span className="text-lg sm:text-xl md:text-2xl font-black text-white whitespace-nowrap">
                             {formatPrice(badge.price)}
                           </span>
                         </div>
 
-                        <h3 className="text-[14px] md:text-[15px] font-extrabold text-white uppercase leading-snug mb-2">
+                        <h3 className="text-[13px] sm:text-[14px] md:text-[15px] font-extrabold text-white uppercase leading-snug mb-1.5 sm:mb-2">
                           {badge.name}
                         </h3>
 
                         {badge.tagline && (
-                          <p className="text-[11px] text-yellow-200/80 italic mb-3 line-clamp-2">
+                          <p className="text-[10px] sm:text-[11px] text-yellow-200/80 italic mb-2 sm:mb-3 line-clamp-2">
                             {badge.tagline}
                           </p>
                         )}
 
-                        <div className="my-2 h-px w-full bg-yellow-500/25" />
-
                         <button
                           onClick={() => addToCart(badge)}
-                          className="mt-auto w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 text-[12px] font-black tracking-[0.22em] uppercase hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95"
+                          className="mt-auto w-full py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 text-[11px] sm:text-[12px] font-black tracking-[0.15em] sm:tracking-[0.22em] uppercase hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95"
                         >
                           Buy Now
                         </button>
@@ -453,11 +454,11 @@ export default function Categories({ addToCart }: CategoriesProps) {
               {filteredBadges.map((badge) => (
                 <div
                   key={badge.id}
-                  className="group bg-[#0b1320] rounded-[28px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-4 md:p-5 flex flex-col"
+                  className="group bg-[#0b1320] rounded-[20px] sm:rounded-[28px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-3 sm:p-4 md:p-5 flex flex-col"
                 >
                   {/* PREMIUM BADGE STAGE */}
                   <Link to={`/badge/${badge.id}`} className="w-full">
-                    <div className="relative w-full aspect-square rounded-2xl bg-white flex items-center justify-center mb-4 overflow-hidden border-[6px] border-slate-900/70 shadow-inner">
+                    <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-white flex items-center justify-center mb-3 sm:mb-4 overflow-hidden border-[4px] sm:border-[6px] border-slate-900/70 shadow-inner">
                       {/* soft halo */}
                       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.06),transparent_65%)]" />
                       <img
@@ -480,27 +481,24 @@ export default function Categories({ addToCart }: CategoriesProps) {
                     </div>
                   </Link>
 
-                  <div className="flex items-center justify-between mb-2 gap-2">
-                    <span className="text-[10px] md:text-[11px] font-semibold tracking-[0.3em] text-yellow-400 uppercase truncate">
+                  <div className="flex items-center justify-between mb-1.5 sm:mb-2 gap-2">
+                    <span className="text-[9px] sm:text-[10px] md:text-[11px] font-semibold tracking-[0.2em] sm:tracking-[0.3em] text-yellow-400 uppercase truncate">
                       {badge.category}
                     </span>
-                    <span className="text-xl md:text-2xl font-black text-white whitespace-nowrap">
+                    <span className="text-lg sm:text-xl md:text-2xl font-black text-white whitespace-nowrap">
                       {formatPrice(badge.price)}
                     </span>
                   </div>
 
-                  <h3 className="text-[14px] md:text-[15px] font-extrabold text-white uppercase leading-snug mb-2">
+                  <h3 className="text-[13px] sm:text-[14px] md:text-[15px] font-extrabold text-white uppercase leading-snug mb-1.5 sm:mb-2">
                     {badge.name}
                   </h3>
 
                   {badge.tagline && (
-                    <p className="text-[11px] text-yellow-200/80 italic mb-3 line-clamp-2">
+                    <p className="text-[10px] sm:text-[11px] text-yellow-200/80 italic mb-2 sm:mb-3 line-clamp-2">
                       {badge.tagline}
                     </p>
                   )}
-
-                  {/* DIVIDER */}
-                  <div className="my-2 h-px w-full bg-yellow-500/25" />
 
                   {viewType === 'list' && (
                     <p className="text-slate-300 mt-2 mb-8 text-xl leading-relaxed font-medium">
@@ -511,7 +509,7 @@ export default function Categories({ addToCart }: CategoriesProps) {
                   {/* CTA */}
                   <button
                     onClick={() => addToCart(badge)}
-                    className="mt-auto w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 text-[12px] font-black tracking-[0.22em] uppercase hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95"
+                    className="mt-auto w-full py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 text-[11px] sm:text-[12px] font-black tracking-[0.15em] sm:tracking-[0.22em] uppercase hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95"
                   >
                     Buy Now
                   </button>

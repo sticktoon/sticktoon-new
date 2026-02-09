@@ -129,7 +129,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
     bg-black
     shadow-[0_6px_20px_rgba(0,0,0,0.5)]
     transition-all duration-300
-    h-[80px] ${scrolled ? "h-[52px]" : ""}
+    h-[80px]
   `}
 >
 
@@ -1068,7 +1068,7 @@ export default function App() {
         </div>
       )}
 
-      <main className="flex-grow pt-20">
+      <main className="flex-grow pt-[80px]">
         <Routes>
           <Route path="/" element={<Home addToCart={addToCart} />} />
           <Route path="/categories" element={<Categories addToCart={addToCart} />} />
