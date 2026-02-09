@@ -163,55 +163,53 @@ export default function Categories({ addToCart }: CategoriesProps) {
   }, {} as Record<string, Badge[]>);
 
   return (
-    <div className="min-h-screen bg-white relative overflow-hidden">
-      {/* Premium background glow - Hot Drops Theme */}
+    <div className="min-h-screen bg-gradient-to-br from-white via-slate-50/30 to-white relative overflow-hidden">
+      {/* Background Effects */}
       <div className="pointer-events-none absolute inset-0">
-        {/* Main gradient blurs - responsive sizes */}
-        <div className="absolute -top-32 sm:-top-48 md:-top-64 left-1/2 -translate-x-1/2 w-[500px] sm:w-[700px] md:w-[900px] h-[500px] sm:h-[700px] md:h-[900px] bg-yellow-500/10 rounded-full blur-[80px] sm:blur-[120px] md:blur-[140px]" />
-        <div className="absolute top-1/4 sm:top-1/3 -right-32 sm:right-[-150px] md:right-[-300px] w-[350px] sm:w-[500px] md:w-[600px] h-[350px] sm:h-[500px] md:h-[600px] bg-orange-400/10 rounded-full blur-[80px] sm:blur-[100px] md:blur-[120px]" />
-        <div className="absolute bottom-1/4 -left-24 sm:-left-32 md:left-[-200px] w-[300px] sm:w-[400px] md:w-[500px] h-[300px] sm:h-[400px] md:h-[500px] bg-red-400/10 rounded-full blur-[60px] sm:blur-[80px] md:blur-[100px]" />
-        
-        {/* Decorative circles - responsive sizes and positions */}
-        <div className="absolute top-20 sm:top-24 md:top-28 -left-4 sm:-left-6 md:-left-8 w-16 sm:w-20 md:w-24 h-16 sm:h-20 md:h-24 rounded-full border-[6px] sm:border-[7px] md:border-[8px] border-yellow-400/30 animate-bounce" style={{ animationDuration: '4s' }} />
-        <div className="absolute top-36 sm:top-44 md:top-52 -right-6 sm:-right-8 md:-right-10 w-20 sm:w-24 md:w-28 h-20 sm:h-24 md:h-28 rounded-full border-[8px] sm:border-[9px] md:border-[10px] border-orange-400/25 animate-pulse" style={{ animationDuration: '3s' }} />
-        <div className="absolute bottom-24 sm:bottom-32 md:bottom-36 -left-6 sm:-left-10 md:-left-12 w-24 sm:w-28 md:w-32 h-24 sm:h-28 md:h-32 rounded-full border-[6px] sm:border-[7px] md:border-[8px] border-red-400/20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }} />
-        <div className="absolute bottom-48 sm:bottom-56 md:bottom-64 -right-4 sm:-right-6 md:-right-8 w-14 sm:w-16 md:w-20 h-14 sm:h-16 md:h-20 rounded-full border-[5px] sm:border-[5px] md:border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-yellow-500/8 rounded-full blur-[120px]" />
+        <div className="absolute top-1/3 right-[-200px] w-[600px] h-[600px] bg-orange-400/6 rounded-full blur-[100px]" />
+        <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/5 rounded-full blur-[90px]" />
       </div>
+
+      {/* Floating Badge Decorations */}
+      <div className="hidden lg:block absolute top-20 left-12 w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 border-3 border-black shadow-[4px_4px_0px_#000] animate-bounce opacity-60" style={{ animationDelay: '0s', animationDuration: '3s' }}></div>
+      <div className="hidden lg:block absolute top-40 right-20 w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-pink-500 border-3 border-black shadow-[4px_4px_0px_#000] animate-bounce opacity-60" style={{ animationDelay: '0.5s', animationDuration: '3.5s' }}></div>
+      <div className="hidden lg:block absolute bottom-32 left-24 w-14 h-14 rounded-full bg-black border-3 border-yellow-400 shadow-[4px_4px_0px_#FFD600] animate-bounce opacity-60" style={{ animationDelay: '1s', animationDuration: '4s' }}></div>
 
       <div className="relative z-10 flex">
         {/* STICKY SIDEBAR */}
-        <aside className="hidden lg:flex flex-col w-64 fixed left-0 top-24 h-[calc(100vh-6rem)] pt-4 px-4 border-r border-slate-200/60 overflow-y-auto">
+        <aside className="hidden lg:flex flex-col w-64 fixed left-0 top-24 h-[calc(100vh-6rem)] pt-4 px-4 bg-white/60 backdrop-blur-sm border-r-2 border-slate-200/80 overflow-y-auto">
           <div className="flex flex-col h-full">
             <button
               onClick={() => handleCategorySelect('all')}
-              className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-extrabold uppercase tracking-wide transition-all text-sm ${
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-black uppercase tracking-wide transition-all text-sm shadow-sm ${
                 activeCategory === 'all' 
-                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 shadow-lg' 
-                  : 'text-slate-600 hover:bg-slate-100'
+                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 shadow-[4px_4px_0px_#000] border-2 border-black' 
+                  : 'text-slate-700 hover:bg-gradient-to-r hover:from-slate-100 hover:to-slate-50 border-2 border-slate-200'
               }`}
             >
               All Badges
               {activeCategory === 'all' && <Check className="w-5 h-5" />}
             </button>
             
-            <div className="h-px bg-slate-200 my-2.5"></div>
+            <div className="h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent my-3"></div>
 
             <div className="flex flex-col flex-1 justify-between gap-2 pb-2">
               {CATEGORIES.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => handleCategorySelect(cat.id)}
-                  className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-extrabold uppercase tracking-wide transition-all text-sm ${
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-black uppercase tracking-wide transition-all text-sm shadow-sm ${
                     activeCategory === cat.id 
-                      ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 shadow-lg' 
-                      : 'text-slate-600 hover:bg-slate-100'
+                      ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 shadow-[4px_4px_0px_#000] border-2 border-black' 
+                      : 'text-slate-700 hover:bg-gradient-to-r hover:from-slate-100 hover:to-slate-50 border-2 border-slate-200'
                   }`}
                 >
                   <span className="flex items-center gap-2 min-w-0">
                     <span className="text-base flex-shrink-0">{cat.icon}</span>
-                    <span className="truncate">{cat.name}</span>
+                    <span className="truncate text-xs">{cat.name}</span>
                   </span>
-                  {activeCategory === cat.id && <Check className="w-5 h-5 flex-shrink-0" />}
+                  {activeCategory === cat.id && <Check className="w-4 h-4 flex-shrink-0" />}
                 </button>
               ))}
             </div>
@@ -219,14 +217,17 @@ export default function Categories({ addToCart }: CategoriesProps) {
         </aside>
 
         {/* MAIN CONTENT */}
-        <main className="w-full lg:ml-64 px-4 sm:px-6 lg:pl-4 lg:pr-6 pt-16 lg:pt-20">
-          <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center md:gap-6 mb-8 md:mb-10">
+        <main className="w-full lg:ml-64 px-4 sm:px-6 lg:pl-6 lg:pr-8 pt-12 lg:pt-16">
+          <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center md:gap-6 mb-6 md:mb-8">
             <div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-2 border-yellow-500/30 mb-3">
+                <span className="text-xs font-black tracking-[0.2em] uppercase text-orange-700">Browse Collection</span>
+              </div>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent">
                 Explore the Collection
               </h1>
               <p className="text-slate-600 text-sm md:text-base font-semibold mt-2">
-                ✨ Discover unique badges that speak your style
+                Discover unique badges that speak your style
               </p>
             </div>
 
@@ -247,39 +248,42 @@ export default function Categories({ addToCart }: CategoriesProps) {
               <div className="lg:hidden relative" ref={filterPanelRef}>
                 <button 
                   onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={`flex items-center gap-2 md:gap-4 font-black px-4 md:px-8 py-3 md:py-4 rounded-[1.5rem] border transition-all text-xs md:text-sm ${
+                  className={`flex items-center gap-2 font-black px-4 md:px-6 py-2.5 md:py-3 rounded-xl shadow-sm transition-all text-xs border-2 ${
                     isFilterOpen 
-                    ? 'bg-slate-50 border-slate-200 text-blue-600' 
-                    : 'bg-white border-slate-100 text-slate-700 hover:border-slate-200'
+                    ? 'bg-gradient-to-r from-yellow-500 to-orange-500 border-black text-slate-900 shadow-[4px_4px_0px_#000]' 
+                    : 'bg-white border-slate-200 text-slate-700 hover:border-yellow-500/50'
                   }`}
                 >
-                  <SlidersHorizontal className="w-4 h-4" />
-                  <span className="uppercase tracking-wide text-[9px] md:text-[10px]">Filter: <span className="text-blue-600 truncate">{currentCategoryName}</span></span>
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span className="uppercase tracking-wide">Filter: <span className="text-orange-700 truncate">{currentCategoryName}</span></span>
                 </button>
 
                 {isFilterOpen && (
-                  <div className="absolute left-0 md:left-auto md:right-0 mt-3 md:mt-4 w-full sm:w-72 bg-white rounded-[2rem] shadow-[0_30px_70px_rgba(0,0,0,0.12)] border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="p-3 space-y-1">
+                  <div className="absolute left-0 md:left-auto md:right-0 mt-3 w-full sm:w-72 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border-2 border-slate-200 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="p-3 space-y-1.5">
                       <button 
                         onClick={() => handleCategorySelect('all')}
-                        className={`w-full flex items-center justify-between px-5 py-3.5 rounded-xl text-sm font-extrabold uppercase tracking-wide transition-all ${
-                          activeCategory === 'all' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'
+                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all shadow-sm border-2 ${
+                          activeCategory === 'all' ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 border-black shadow-[3px_3px_0px_#000]' : 'text-slate-700 hover:bg-slate-50 border-slate-200'
                         }`}
                       >
                         All Badges
                         {activeCategory === 'all' && <Check className="w-4 h-4" />}
                       </button>
-                      <div className="h-px bg-slate-100 mx-5 my-2"></div>
+                      <div className="h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent my-2"></div>
                       {CATEGORIES.map(cat => (
                         <button 
                           key={cat.id}
                           onClick={() => handleCategorySelect(cat.id)}
-                          className={`w-full flex items-center justify-between px-5 py-3.5 rounded-xl text-sm font-extrabold uppercase tracking-wide transition-all ${
-                            activeCategory === cat.id ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'
+                          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all shadow-sm border-2 ${
+                            activeCategory === cat.id ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 border-black shadow-[3px_3px_0px_#000]' : 'text-slate-700 hover:bg-slate-50 border-slate-200'
                           }`}
                         >
-                          <span className="truncate">{cat.name}</span>
-                          {activeCategory === cat.id && <Check className="w-5 h-5" />}
+                          <span className="flex items-center gap-2">
+                            <span className="text-sm">{cat.icon}</span>
+                            <span className="truncate">{cat.name}</span>
+                          </span>
+                          {activeCategory === cat.id && <Check className="w-4 h-4" />}
                         </button>
                       ))}
                     </div>
@@ -292,28 +296,30 @@ export default function Categories({ addToCart }: CategoriesProps) {
         {loading ? (
           // Loading skeleton
           <div className="text-center py-20">
-            <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600"></div>
-            <p className="mt-4 text-slate-600 font-semibold">Loading products...</p>
+            <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-gradient-to-r from-yellow-500 to-orange-500"></div>
+            <p className="mt-6 text-slate-700 font-black text-lg uppercase tracking-wide">Loading products...</p>
           </div>
         ) : activeCategory === 'all' ? (
           // Show all categories with sections
-          <div className="space-y-16">
+          <div className="space-y-12">
             {CATEGORIES.map((category) => {
               const categoryProducts = productsByCategory[category.id] || [];
               if (categoryProducts.length === 0) return null;
 
               return (
-                <div key={category.id} className="space-y-6">
+                <div key={category.id} className="space-y-4">
                   {/* Category Header with Add Button */}
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <span className="text-5xl">{category.icon}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-500/30 flex items-center justify-center">
+                          <span className="text-3xl">{category.icon}</span>
+                        </div>
                         <div>
-                          <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 uppercase tracking-tight">
+                          <h2 className="text-2xl md:text-3xl font-black bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent uppercase tracking-tight">
                             {category.name}
                           </h2>
-                          <p className="text-sm md:text-base text-slate-600 font-semibold mt-1">
+                          <p className="text-xs md:text-sm text-slate-600 font-semibold mt-1">
                             {category.id === 'moody' && '😊 Express Your Mood, Wear Your Vibe'}
                             {category.id === 'positive-vibes' && '✨ Spark Joy, Spread Positivity'}
                             {category.id === 'sports' && '🏆 Fuel Your Passion, Show Your Game'}
@@ -340,7 +346,7 @@ export default function Categories({ addToCart }: CategoriesProps) {
                   </div>
 
                   {/* Category Products Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
+                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
                     {categoryProducts.map((badge) => (
                       <div
                         key={badge.id}
@@ -415,16 +421,18 @@ export default function Categories({ addToCart }: CategoriesProps) {
           </div>
         ) : (
           // Show single category with Add button
-          <div className="space-y-6">
-            <div className="space-y-3">
+          <div className="space-y-4">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className="text-5xl">{CATEGORIES.find(c => c.id === activeCategory)?.icon}</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-500/30 flex items-center justify-center">
+                    <span className="text-3xl">{CATEGORIES.find(c => c.id === activeCategory)?.icon}</span>
+                  </div>
                   <div>
-                    <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 uppercase tracking-tight">
+                    <h2 className="text-2xl md:text-3xl font-black bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent uppercase tracking-tight">
                       {currentCategoryName}
                     </h2>
-                    <p className="text-sm md:text-base text-slate-600 font-semibold mt-1">
+                    <p className="text-xs md:text-sm text-slate-600 font-semibold mt-1">
                       {activeCategory === 'moody' && '😊 Express Your Mood, Wear Your Vibe'}
                       {activeCategory === 'positive-vibes' && '✨ Spark Joy, Spread Positivity'}
                       {activeCategory === 'sports' && '🏆 Fuel Your Passion, Show Your Game'}
@@ -450,7 +458,7 @@ export default function Categories({ addToCart }: CategoriesProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
               {filteredBadges.map((badge) => (
                 <div
                   key={badge.id}
@@ -520,12 +528,12 @@ export default function Categories({ addToCart }: CategoriesProps) {
         )}
 
         {!loading && filteredBadges.length === 0 && (
-          <div className="py-40 text-center">
-            <div className="w-40 h-40 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-10 border border-slate-100">
-              <span className="text-6xl opacity-40">🔍</span>
+          <div className="py-20 text-center">
+            <div className="w-32 h-32 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-yellow-500/30">
+              <span className="text-6xl">🔍</span>
             </div>
-            <h3 className="text-4xl font-black text-[#1e1b4b] uppercase">No badges found</h3>
-            <p className="text-slate-400 mt-4 text-xl max-w-sm mx-auto font-medium">Try selecting a different category from the filter menu.</p>
+            <h3 className="text-3xl font-black bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent uppercase">No badges found</h3>
+            <p className="text-slate-600 mt-3 text-base max-w-sm mx-auto font-semibold">Try selecting a different category from the filter menu.</p>
           </div>
         )}
         </main>

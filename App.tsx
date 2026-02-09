@@ -64,6 +64,19 @@ type AuthUser = {
 
 
 /* =======================
+   SCROLL TO TOP ON ROUTE CHANGE
+======================= */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
+
+/* =======================
    LOGO
 ======================= */
 const Logo: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'md' }) => {
@@ -964,6 +977,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Navbar
         cartCount={cart.reduce((a, b) => a + b.quantity, 0)}
         user={user}
