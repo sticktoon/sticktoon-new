@@ -103,6 +103,9 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
 
+  useEffect(() => {
+  setIsOpen(false);
+}, [location.pathname]);
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -122,6 +125,19 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
     { name: "CUSTOMIZE", path: "/custom-order" },
     { name: "CONTACT", path: "/contact" },
   ];
+
+  const [profileOpen, setProfileOpen] = useState(false);
+
+useEffect(() => {
+  const close = () => setProfileOpen(false);
+  document.addEventListener("click", close);
+  return () => document.removeEventListener("click", close);
+}, []);
+
+useEffect(() => {
+  setProfileOpen(false);
+}, [location.pathname]);
+
 
   return (
 <nav
@@ -307,54 +323,87 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
 
   {/* 👤 USER */}
   {user ? (
-    <div className="hidden lg:block relative group">
-      <div className="cursor-pointer">
-        {user.avatar && (user.avatar.startsWith('http') || user.avatar.startsWith('data:')) ? (
-          <img
-            src={user.avatar}
-            alt={user.name || user.email}
-            className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md"
-          />
-        ) : (
-          <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black uppercase shadow-md">
-            {user.avatar || (user.name?.charAt(0) || user.email?.charAt(0) || "U").toUpperCase()}
-          </div>
-        )}
-      </div>
-
-      {/* DROPDOWN */}
-      <div className="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-lg border border-slate-100 opacity-0 scale-95 invisible pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:visible group-hover:pointer-events-auto transition-all duration-200 origin-top-right z-50">
-        <div className="px-4 py-3 border-b border-slate-100">
-          <p className="font-bold">{user.name || "User"}</p>
-          <p className="text-xs text-slate-500">{user.email}</p>
-        </div>
-
-        <Link to="/profile" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50">
-          My Profile
-        </Link>
-
-        {user.role === "admin" && (
-          <Link to="/admin" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50">
-            Admin Panel
-          </Link>
-        )}
-
-        <button
-          onClick={handleLogout}
-          className="w-full text-left px-4 py-3 text-red-600 hover:bg-red-50"
-        >
-          Logout
-        </button>
-      </div>
-    </div>
-  ) : (
-    <Link
-      to="/login"
-      className="hidden lg:block p-3 rounded-2xl text-slate-300 hover:bg-slate-800 hover:text-white transition"
+  <div className="hidden lg:block relative">
+    {/* AVATAR BUTTON */}
+    <div
+      className="cursor-pointer"
+      onClick={(e) => {
+        e.stopPropagation();
+        setProfileOpen((v) => !v);
+      }}
     >
-      <UserIcon className="w-6 h-6" />
-    </Link>
-  )}
+      {user.avatar &&
+      (user.avatar.startsWith("http") || user.avatar.startsWith("data:")) ? (
+        <img
+          src={user.avatar}
+          alt={user.name || user.email}
+          className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md"
+        />
+      ) : (
+        <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black uppercase shadow-md">
+          {(user.name?.charAt(0) || user.email?.charAt(0) || "U").toUpperCase()}
+        </div>
+      )}
+    </div>
+
+    {/* DROPDOWN */}
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className={`
+        absolute right-0 mt-3 w-56
+        bg-white rounded-xl shadow-xl
+        border border-slate-100
+        transition-all duration-200 origin-top-right z-50
+        ${profileOpen
+          ? "opacity-100 scale-100 visible"
+          : "opacity-0 scale-95 invisible"}
+      `}
+    >
+      {/* USER INFO */}
+      <div className="px-4 py-3 border-b border-slate-100">
+        <p className="font-bold text-slate-900">
+          {user.name || "User"}
+        </p>
+        <p className="text-xs text-slate-500 truncate">
+          {user.email}
+        </p>
+      </div>
+
+      {/* LINKS */}
+      <Link
+        to="/profile"
+        className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
+      >
+        My Profile
+      </Link>
+
+      {user.role === "admin" && (
+        <Link
+          to="/admin"
+          className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
+        >
+          Admin Panel
+        </Link>
+      )}
+
+      {/* LOGOUT */}
+      <button
+        onClick={handleLogout}
+        className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50"
+      >
+        Logout
+      </button>
+    </div>
+  </div>
+) : (
+  <Link
+    to="/login"
+    className="hidden lg:block p-3 rounded-2xl text-slate-300 hover:bg-slate-800 hover:text-white transition"
+  >
+    <UserIcon className="w-6 h-6" />
+  </Link>
+)}
+
 </div>
 
   </div>
