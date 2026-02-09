@@ -102,84 +102,58 @@ const Hero: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <section
-      className="relative w-full min-h-screen overflow-hidden flex items-center bg-white"
-    >
+    <section className="relative w-full py-16 sm:py-20 md:py-28 lg:min-h-screen lg:flex lg:items-center overflow-hidden bg-white">
       {/* Premium background glow - Hot Drops Theme */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px]" />
-        <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-orange-400/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
+        <div className="absolute -top-40 sm:-top-64 left-1/2 -translate-x-1/2 w-[600px] sm:w-[900px] h-[600px] sm:h-[900px] bg-yellow-500/10 rounded-full blur-[100px] sm:blur-[140px]" />
+        <div className="absolute top-1/3 right-[-200px] sm:right-[-300px] w-[400px] sm:w-[600px] h-[400px] sm:h-[600px] bg-orange-400/10 rounded-full blur-[80px] sm:blur-[120px]" />
+        <div className="hidden md:block absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
       </div>
 
-      {/* Funny Floating Circles - Outer Edges Only */}
-      <div className="absolute top-24 -left-8 w-24 h-24 rounded-full border-[8px] border-yellow-400/30 animate-bounce" style={{ animationDuration: '4s' }} />
-      <div className="absolute top-48 -right-10 w-28 h-28 rounded-full border-[10px] border-orange-400/25 animate-pulse" style={{ animationDuration: '3s' }} />
-      <div className="absolute bottom-36 -left-12 w-28 h-28 rounded-full border-[8px] border-red-400/20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }} />
-      <div className="absolute bottom-64 -right-8 w-20 h-20 rounded-full border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
+      {/* Floating Circles - Responsive */}
+      <div className="hidden lg:block absolute top-24 -left-8 w-24 h-24 rounded-full border-[8px] border-yellow-400/30 animate-bounce" style={{ animationDuration: '4s' }} />
+      <div className="hidden lg:block absolute top-48 -right-10 w-28 h-28 rounded-full border-[10px] border-orange-400/25 animate-pulse" style={{ animationDuration: '3s' }} />
+      <div className="hidden md:block absolute bottom-36 -left-12 w-20 h-20 sm:w-28 sm:h-28 rounded-full border-[6px] sm:border-[8px] border-red-400/20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }} />
+      <div className="hidden lg:block absolute bottom-64 -right-8 w-20 h-20 rounded-full border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
 
-      {/* ✅ CONTENT */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-4
-      md:px-6 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center">
-        
+      {/* CONTENT */}
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
         
         {/* LEFT CONTENT */}
         <div>
-          <div className="absolute -top-4 left-[450px] w-36 h-36 rounded-full border-[8px] border-yellow-300 opacity-30 pointer-events-none" />
+          {/* Decorative circles - Hidden on mobile */}
+          <div className="hidden lg:block absolute -top-4 left-[450px] w-36 h-36 rounded-full border-[8px] border-yellow-300 opacity-30 pointer-events-none" />
+          <div className="hidden lg:block absolute -top-2 left-56 text-2xl opacity-50 text-yellow-300">★</div>
+          <div className="hidden lg:block absolute -top-2 left-56 text-2xl opacity-50 text-yellow-300">★</div>
+          <div className="hidden lg:block absolute top-24 left-44 w-34 h-34 rounded-full border-[8px] border-yellow-300 opacity-25 pointer-events-none" />
 
-          <div className="absolute -top-2 left-56 text-2xl opacity-50 text-yellow-300">★</div>
-          <div className="absolute -top-2 left-56 text-2xl opacity-50 text-yellow-300">★</div>
-          {/* RING FOR SOULS */}
-          <div className="absolute top-24 left-44 w-34 h-34 rounded-full border-[8px] border-yellow-300 opacity-25 pointer-events-none" />
-
-          <h1 className="
-      text-3xl sm:text-4xl md:text-5xl lg:text-6xl
-      font-black tracking-[0.17em] leading-[1.15]
-      bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700
-      bg-clip-text text-transparent
-      drop-shadow-[0_2px_12px_rgba(245,158,11,0.25)]
-    ">
-            WE CREATE <br /> FOR SOULS
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.2] bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent mb-4 sm:mb-6">
+            WE CREATE <br className="hidden sm:block" /> FOR SOULS
           </h1>
-          
 
-          {/* Small red dot touching C */}
-          <div className="absolute top-6 left-96 w-6 h-6 bg-red-500 rounded-full border-2 border-yellow-400/30 opacity-70 animate-bounce"
-               style={{ animationDelay: '0.5s', animationDuration: '5s' }} />
-          <div className="absolute top-10 left-60 w-20 h-20 rounded-full border-[6px] border-yellow-300 opacity-30 animate-bounce"
-               style={{ animationDuration: '6s' }} />
-
-          {/* Tiny star above CREATE */}
-          <div className="absolute -top-2 left-56 text-2xl opacity-50 text-yellow-300">★</div>
-
-
-          <p className="mt-4 md:mt-6 mb-6 md:mb-10 max-w-xl text-base md:text-lg text-slate-600 font-medium leading-relaxed">
-
+          <p className="text-sm sm:text-base lg:text-lg text-slate-600 font-medium leading-relaxed mb-6 sm:mb-8 max-w-xl">
             Premium custom badges designed for creators, communities, and brands who wear their vibe.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 md:gap-6">
+          <div className="flex flex-row gap-2 sm:gap-3 lg:gap-4">
             <button
               onClick={() => navigate("/categories")}
-              className="px-6 md:px-10 py-3 md:py-4 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-bold tracking-widest uppercase shadow-lg hover:shadow-xl hover:shadow-yellow-500/20 text-sm md:text-base hover:from-yellow-400 hover:to-orange-400 transition-all w-full sm:w-auto"
+              className="flex-1 sm:flex-none px-4 sm:px-8 lg:px-10 py-2.5 sm:py-3.5 lg:py-4 rounded-lg sm:rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-bold tracking-wide sm:tracking-widest uppercase shadow-lg hover:shadow-xl hover:shadow-yellow-500/20 text-[10px] sm:text-sm lg:text-base hover:from-yellow-400 hover:to-orange-400 transition-all"
             >
               View Collection
             </button>
 
             <button
               onClick={() => navigate("/custom-order")}
-              className="px-6 md:px-10 py-3 md:py-4 rounded-xl border-2 border-yellow-500/40 text-slate-900 font-bold tracking-widest uppercase text-sm md:text-base bg-white/70 hover:bg-yellow-500 hover:text-slate-900 hover:border-yellow-500 transition-all w-full sm:w-auto shadow-sm hover:shadow-lg hover:shadow-yellow-500/20"
+              className="flex-1 sm:flex-none px-4 sm:px-8 lg:px-10 py-2.5 sm:py-3.5 lg:py-4 rounded-lg sm:rounded-xl border-2 border-yellow-500/40 text-slate-900 font-bold tracking-wide sm:tracking-widest uppercase text-[10px] sm:text-sm lg:text-base bg-white/70 hover:bg-yellow-500 hover:text-slate-900 hover:border-yellow-500 transition-all shadow-sm hover:shadow-lg hover:shadow-yellow-500/20"
             >
               Custom Order
             </button>
           </div>
         </div>
 
-        {/* RIGHT BADGES */}
-        <div className="relative brightness-[1.08] contrast-[1.12] saturate-[1.05]
-          drop-shadow-[0_18px_30px_rgba(15,23,42,0.25)]
-          hover:brightness-[1.12] hover:contrast-[1.18] transition-all duration-500
-        ">
+        {/* RIGHT BADGES - Hidden on mobile, visible on lg */}
+        <div className="hidden lg:block relative brightness-[1.08] contrast-[1.12] saturate-[1.05] drop-shadow-[0_18px_30px_rgba(15,23,42,0.25)] hover:brightness-[1.12] hover:contrast-[1.18] transition-all duration-500">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 place-items-center">
            {[
       { img: "/images/a.png", cat: "animal" },
