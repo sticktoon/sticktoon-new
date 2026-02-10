@@ -42,7 +42,7 @@ interface CustomOrderProps {
 export default function CustomOrder({ addToCart }: CustomOrderProps) {
   const [activeTool, setActiveTool] = useState('model'); 
   const [panelOpen, setPanelOpen] = useState(false);
-  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(true); // Auto-open on mobile
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
@@ -61,7 +61,7 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
   const [qrBgColor, setQrBgColor] = useState('#ffffff');
 
   // Zoom State - ENABLED (for uploaded images only)
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(1.2);
   
   const [undoStack, setUndoStack] = useState<BadgeElement[][]>([]);
 const [redoStack, setRedoStack] = useState<BadgeElement[][]>([]);
@@ -99,14 +99,15 @@ const pushToHistory = (current: BadgeElement[]) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Display size (screen viewing)
+  // Display size (screen viewing) - scaled up for better visibility
   const SCREEN_DPI = 96;
   const MM_TO_INCH = 25.4;
   const BADGE_MM = 58;
   const OUTER_BADGE_MM = 70;
+  const DISPLAY_SCALE = 1.2; // Scale factor for larger display
   
-  const DISPLAY_CANVAS_SIZE = Math.round((BADGE_MM * SCREEN_DPI) / MM_TO_INCH); // ~219px - 58mm on screen
-  const DISPLAY_OUTER_CANVAS_SIZE = Math.round((OUTER_BADGE_MM * SCREEN_DPI) / MM_TO_INCH); // ~264px - 70mm on screen
+  const DISPLAY_CANVAS_SIZE = Math.round((BADGE_MM * SCREEN_DPI) / MM_TO_INCH * DISPLAY_SCALE); // ~263px - 58mm on screen (scaled)
+  const DISPLAY_OUTER_CANVAS_SIZE = Math.round((OUTER_BADGE_MM * SCREEN_DPI) / MM_TO_INCH * DISPLAY_SCALE); // ~317px - 70mm on screen (scaled)
 
   // Export size (print quality - 300 DPI)
   const PRINT_DPI = 300;
@@ -143,6 +144,49 @@ const pushToHistory = (current: BadgeElement[]) => {
     });
   };
 
+  // Touch event handlers for mobile
+  const handleTouchStart = (e: React.TouchEvent, type: InteractionType, id: string) => {
+    e.stopPropagation();
+    const elem = elements.find(el => el.id === id);
+    if (!elem) return;
+    const touch = e.touches[0];
+
+    setSelectedId(id);
+    setInteraction({
+      type,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startElemX: elem.x,
+      startElemY: elem.y,
+      startWidth: elem.width,
+      startHeight: elem.height,
+      startRotation: elem.rotation
+    });
+  };
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (!interaction || !selectedId) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - interaction.startX;
+    const dy = touch.clientY - interaction.startY;
+    setElements(prev => prev.map(el => {
+      if (el.id !== selectedId) return el;
+      if (interaction.type === 'drag') return { ...el, x: interaction.startElemX + dx, y: interaction.startElemY + dy };
+      if (interaction.type === 'resize') return { ...el, width: Math.max(20, interaction.startWidth + dx), height: Math.max(20, interaction.startHeight + dy) };
+      if (interaction.type === 'rotate') {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return el;
+        const centerX = rect.left + el.x + el.width / 2;
+        const centerY = rect.top + el.y + el.height / 2;
+        const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX);
+        return { ...el, rotation: (angle * 180) / Math.PI + 90 };
+      }
+      return el;
+    }));
+  }, [interaction, selectedId]);
+
+  const handleTouchEnd = useCallback(() => setInteraction(null), []);
+
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!interaction || !selectedId) return;
     const dx = e.clientX - interaction.startX;
@@ -178,15 +222,21 @@ const pushToHistory = (current: BadgeElement[]) => {
     if (interaction) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
+      window.addEventListener('touchend', handleTouchEnd);
     } else {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
     }
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [interaction, handleMouseMove, handleMouseUp]);
+  }, [interaction, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -199,46 +249,63 @@ const pushToHistory = (current: BadgeElement[]) => {
   }, [handleCanvasWheel]);
 
   const captureCanvasAsDataURL = async (): Promise<string> => {
+    // Use a reasonable export size (not too large, clear enough)
+    const EXPORT_SIZE = 500; // 500px final badge image
+    const EXPORT_OUTER = Math.round(EXPORT_SIZE * (OUTER_BADGE_MM / BADGE_MM)); // ~603px for 70mm
+    
     const canvas = document.createElement('canvas');
-    canvas.width = CANVAS_SIZE;
-    canvas.height = CANVAS_SIZE;
+    canvas.width = EXPORT_SIZE;
+    canvas.height = EXPORT_SIZE;
     const ctx = canvas.getContext('2d');
     if (!ctx) return '';
 
-    ctx.beginPath();
-    ctx.arc(CANVAS_SIZE/2, CANVAS_SIZE/2, CANVAS_SIZE/2, 0, Math.PI * 2);
+    // Scale from display coordinates to export coordinates
+    const scale = EXPORT_OUTER / DISPLAY_OUTER_CANVAS_SIZE;
+    // Offset to show only the center 58mm portion (same as preview)
+    const offset = (EXPORT_OUTER - EXPORT_SIZE) / 2;
+
+    // Fill background
     ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor;
-    ctx.fill();
+    ctx.fillRect(0, 0, EXPORT_SIZE, EXPORT_SIZE);
+    
+    // Create circular clip for the 58mm badge
+    ctx.beginPath();
+    ctx.arc(EXPORT_SIZE/2, EXPORT_SIZE/2, EXPORT_SIZE/2, 0, Math.PI * 2);
     ctx.clip(); 
 
     const sorted = [...elements].sort((a, b) => a.zIndex - b.zIndex);
     for (const el of sorted) {
-      ctx.save();
-      const centerX = el.x + el.width / 2;
-      const centerY = el.y + el.height / 2;
-      ctx.translate(centerX, centerY);
-      ctx.rotate((el.rotation * Math.PI) / 180);
-      ctx.translate(-el.width / 2, -el.height / 2);
+      // Scale from display to export, then offset to show center 58mm
+      const expX = (el.x * scale) - offset;
+      const expY = (el.y * scale) - offset;
+      const expW = el.width * scale;
+      const expH = el.height * scale;
 
       if (el.type === 'text') {
+        ctx.save();
+        ctx.translate(expX + expW/2, expY + expH/2);
+        ctx.rotate((el.rotation * Math.PI) / 180);
         ctx.fillStyle = '#0f172a';
-        ctx.font = `black ${el.height * 0.7}px "Plus Jakarta Sans"`;
+        ctx.font = `900 ${expH * 0.7}px "Plus Jakarta Sans", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(el.content, el.width / 2, el.height / 2);
+        ctx.fillText(el.content, 0, 0);
+        ctx.restore();
       } else {
         const img = new Image();
-        img.crossOrigin = "anonymous";
         img.src = el.content;
-        await new Promise((res) => {
+        await new Promise<void>((resolve) => {
           img.onload = () => {
-            ctx.drawImage(img, 0, 0, el.width, el.height);
-            res(null);
+            ctx.save();
+            ctx.translate(expX + expW/2, expY + expH/2);
+            ctx.rotate((el.rotation * Math.PI) / 180);
+            ctx.drawImage(img, -expW/2, -expH/2, expW, expH);
+            ctx.restore();
+            resolve();
           };
-          img.onerror = () => res(null);
+          img.onerror = () => resolve();
         });
       }
-      ctx.restore();
     }
     return canvas.toDataURL('image/png');
   };
@@ -298,27 +365,32 @@ const pushToHistory = (current: BadgeElement[]) => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
     
-    // Size image to fit perfectly inside the 58mm circle (display size)
-  const size = DISPLAY_CANVAS_SIZE;
-const startX = 0;
-const startY = 0;
+    // Convert to data URL for proper canvas capture
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      
+      // Size image to fill the full 70mm design canvas area
+      const size = DISPLAY_OUTER_CANVAS_SIZE;
+      const startX = 0;
+      const startY = 0;
 
-    
-    const newEl: BadgeElement = {
-      id: Math.random().toString(36).substr(2, 9),
-      type: 'image',
-      content: url,
-      x: startX,
-      y: startY,
-      width: size,
-      height: size,
-      rotation: 0,
-      zIndex: elements.length + 1
+      const newEl: BadgeElement = {
+        id: Math.random().toString(36).substr(2, 9),
+        type: 'image',
+        content: dataUrl,
+        x: startX,
+        y: startY,
+        width: size,
+        height: size,
+        rotation: 0,
+        zIndex: elements.length + 1
+      };
+      setElements(prev => [...prev, newEl]);
+      setSelectedId(newEl.id);
     };
-    setElements([...elements, newEl]);
-    setSelectedId(newEl.id);
+    reader.readAsDataURL(file);
   };
 
   const handleAIUpload = async () => {
@@ -511,13 +583,30 @@ const handleReset = () => {
   );
 
   return (
-  <div className="flex h-[calc(100vh-64px)] w-full bg-white overflow-hidden select-none relative">
+  <div className="flex h-[calc(100vh-64px)] w-full bg-gradient-to-br from-yellow-200 via-yellow-300 to-amber-300 overflow-hidden select-none relative">
+      
+      {/* Textured Paper Pattern Overlay - More Visible */}
+      <div 
+        className="pointer-events-none absolute inset-0 opacity-60"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' /%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E")`,
+          mixBlendMode: 'multiply'
+        }}
+      />
+      
+      {/* Additional Paper Grain Texture */}
+      <div 
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+        }}
+      />
 
       {/* Premium background glow - Logo Theme */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px]" />
-        <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-orange-400/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
+        <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-400/12 rounded-full blur-[140px]" />
+        <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-amber-400/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-yellow-500/10 rounded-full blur-[100px]" />
       </div>
 
       {errorMessage && (
@@ -641,7 +730,7 @@ const handleReset = () => {
             </div>
           )}
         </div>
-      </div>
+        </div>
       </div>
 
       {/* Main Workspace */}
@@ -681,10 +770,10 @@ const handleReset = () => {
           <div className="text-center mb-4 md:mb-6 max-w-6xl px-2 md:px-4">
              <div className="bg-yellow-50 border-2 border-yellow-400/50 rounded-lg p-3 md:p-4 mb-2 md:mb-3">
                <p className="text-[12px] md:text-[12px] font-black text-yellow-700 uppercase tracking-widest text-center">
-                 ⭕ Badge Size: 58 MM
+                 ⭕ Final Badge Size: 58 MM • Work Area: 70 MM
                </p>
                <p className="text-[9px] md:text-[10px] font-semibold text-orange-600 uppercase tracking-widest text-center mt-2">
-                 Drag, resize and zoom your design on the left • Preview on the right
+                 Design till 70mm • Red dashed circle shows 58mm final badge area
                </p>
              </div>
           </div>
@@ -698,27 +787,26 @@ const handleReset = () => {
               <div className="relative" ref={canvasRef}>
                 <div className="absolute inset-0 bg-slate-900/10 rounded-full blur-[40px] translate-y-8 scale-110"></div>
             
-            {/* Outer 70MM Circle - Hidden when image is uploaded */}
-            {elements.length === 0 && (
+            {/* Outer 70MM Circle - Always shown as badge structure */}
               <div 
-                className="rounded-full relative shadow-2xl flex items-center justify-center transition-colors duration-300"
+                className="rounded-full relative shadow-sm flex items-center justify-center transition-colors duration-300 border-2 border-slate-200/20 overflow-hidden"
                 style={{ 
-                  width: Math.min(DISPLAY_OUTER_CANVAS_SIZE, window.innerWidth * 0.85),
-                  height: Math.min(DISPLAY_OUTER_CANVAS_SIZE, window.innerWidth * 0.85),
+                  width: DISPLAY_OUTER_CANVAS_SIZE,
+                  height: DISPLAY_OUTER_CANVAS_SIZE,
                   backgroundColor: bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor
                 }}
               >
-                {/* Inner 58MM Red Circle Indicator */}
+                {/* 58MM Guide Circle - Shows final badge area */}
                 <div 
-                  className="absolute border-[3px] border-solid border-red-500 rounded-full z-20 pointer-events-none"
-                  title="58mm badge area"
+                  className="absolute rounded-full z-20 pointer-events-none border-2 border-dashed border-red-500/40"
+                  title="58mm badge area - Final visible area"
                   style={{
-                    width: Math.min(DISPLAY_CANVAS_SIZE, window.innerWidth * 0.85 * (DISPLAY_CANVAS_SIZE / DISPLAY_OUTER_CANVAS_SIZE)),
-                    height: Math.min(DISPLAY_CANVAS_SIZE, window.innerWidth * 0.85 * (DISPLAY_CANVAS_SIZE / DISPLAY_OUTER_CANVAS_SIZE))
+                    width: DISPLAY_CANVAS_SIZE,
+                    height: DISPLAY_CANVAS_SIZE
                   }}
                 ></div>
-
-                {activeTool === 'image' && elements.length === 0 && (
+                
+                {elements.length === 0 && activeTool === 'image' && (
                   <div className="absolute inset-0 z-30 flex items-center justify-center">
                     <div
                       onClick={() => fileInputRef.current?.click()}
@@ -752,6 +840,7 @@ const handleReset = () => {
                       <div 
                         key={el.id}
                         onMouseDown={(e) => handleMouseDown(e, 'drag', el.id)}
+                        onTouchStart={(e) => handleTouchStart(e, 'drag', el.id)}
                         className={`absolute group cursor-move ${isSelected ? 'z-[999]' : ''}`}
                         style={{
                           left: el.x,
@@ -764,9 +853,9 @@ const handleReset = () => {
                       >
                         {isSelected && (
                           <div className="absolute -inset-1 border-2 border-blue-400 pointer-events-none">
-                            <div className="absolute -top-3 -right-3 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center cursor-pointer pointer-events-auto shadow-lg hover:bg-red-600 active:scale-90 transition-all z-[1001]" onMouseDown={(e) => { e.stopPropagation(); removeElement(el.id); }}><X className="w-3.5 h-3.5" /></div>
-                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 bg-white rounded-full border border-blue-400 flex items-center justify-center cursor-alias pointer-events-auto shadow-md" onMouseDown={(e) => handleMouseDown(e, 'rotate', el.id)}><RotateCw className="w-3.5 h-3.5 text-blue-400" /></div>
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-400 rounded-sm cursor-nwse-resize pointer-events-auto" onMouseDown={(e) => handleMouseDown(e, 'resize', el.id)}></div>
+                            <div className="absolute -top-3 -right-3 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center cursor-pointer pointer-events-auto shadow-lg hover:bg-red-600 active:scale-90 transition-all z-[1001]" onMouseDown={(e) => { e.stopPropagation(); removeElement(el.id); }} onTouchStart={(e) => { e.stopPropagation(); removeElement(el.id); }}><X className="w-3.5 h-3.5" /></div>
+                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 bg-white rounded-full border border-blue-400 flex items-center justify-center cursor-alias pointer-events-auto shadow-md" onMouseDown={(e) => handleMouseDown(e, 'rotate', el.id)} onTouchStart={(e) => handleTouchStart(e, 'rotate', el.id)}><RotateCw className="w-3.5 h-3.5 text-blue-400" /></div>
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-400 rounded-sm cursor-nwse-resize pointer-events-auto" onMouseDown={(e) => handleMouseDown(e, 'resize', el.id)} onTouchStart={(e) => handleTouchStart(e, 'resize', el.id)}></div>
                           </div>
                         )}
                         <div className="w-full h-full flex items-center justify-center overflow-hidden">
@@ -781,124 +870,91 @@ const handleReset = () => {
                   })}
                 </div>
 
-                <div className="pin-button-dome opacity-30 z-30 pointer-events-none"></div>
               </div>
-            )}
-
-            {/* Only 58MM Circle when image is uploaded */}
-            {elements.length > 0 && (
-              <div 
-                className="rounded-full relative shadow-2xl overflow-hidden flex items-center justify-center transition-colors duration-300"
-                style={{ 
-                  width: Math.min(DISPLAY_CANVAS_SIZE, window.innerWidth * 0.85),
-                  height: Math.min(DISPLAY_CANVAS_SIZE, window.innerWidth * 0.85),
-                  backgroundColor: bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor
-                }}
-              >
-                <div className="absolute inset-3 border-[3px] border-solid border-red-500 rounded-full z-20 pointer-events-none" />
-                <div className="w-full h-full relative z-10" style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.1s ease-out' }}>
-                  {elements.sort((a,b) => a.zIndex - b.zIndex).map((el) => {
-                    const isSelected = selectedId === el.id;
-                    return (
-                      <div 
-                        key={el.id}
-                        onMouseDown={(e) => handleMouseDown(e, 'drag', el.id)}
-                        className={`absolute group cursor-move ${isSelected ? 'z-[999]' : ''}`}
-                        style={{
-                          left: el.x,
-                          top: el.y,
-                          width: el.width,
-                          height: el.height,
-                          transform: `rotate(${el.rotation}deg)`,
-                          zIndex: el.zIndex
-                        }}
-                      >
-                        {isSelected && (
-                          <div className="absolute -inset-1 border-2 border-blue-400 pointer-events-none">
-                            <div className="absolute -top-3 -right-3 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center cursor-pointer pointer-events-auto shadow-lg hover:bg-red-600 active:scale-90 transition-all z-[1001]" onMouseDown={(e) => { e.stopPropagation(); removeElement(el.id); }}><X className="w-3.5 h-3.5" /></div>
-                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 bg-white rounded-full border border-blue-400 flex items-center justify-center cursor-alias pointer-events-auto shadow-md" onMouseDown={(e) => handleMouseDown(e, 'rotate', el.id)}><RotateCw className="w-3.5 h-3.5 text-blue-400" /></div>
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-400 rounded-sm cursor-nwse-resize pointer-events-auto" onMouseDown={(e) => handleMouseDown(e, 'resize', el.id)}></div>
-                          </div>
-                        )}
-                        <div className="w-full h-full flex items-center justify-center overflow-hidden">
-                          {el.type === 'text' ? (
-                            <div className="font-black text-slate-900 text-center leading-tight whitespace-nowrap select-none" style={{ fontSize: `${el.height * 0.7}px` }}>{el.content}</div>
-                          ) : (
-                            <img src={el.content} className="w-full h-full object-cover pointer-events-none select-none" />
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="pin-button-dome opacity-30 z-30 pointer-events-none"></div>
               </div>
-            )}
-
-            </div>
             
-              {/* Zoom Controls */}
-              <div className="flex items-center gap-3 mt-4">
-                <button 
-                  onClick={() => setZoom(prev => Math.max(0.5, prev - 0.1))} 
-                  className="px-4 py-2 bg-slate-700 text-white rounded-lg font-bold hover:bg-yellow-500 transition-colors"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <span className="text-sm font-black text-slate-700 min-w-[60px] text-center">
-                  {Math.round(zoom * 100)}%
-                </span>
-                <button 
-                  onClick={() => setZoom(prev => Math.min(3, prev + 0.1))} 
-                  className="px-4 py-2 bg-slate-700 text-white rounded-lg font-bold hover:bg-yellow-500 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-3 mt-4">
+              <button 
+                onClick={() => setZoom(prev => Math.max(0.5, prev - 0.1))} 
+                className="px-4 py-2 bg-slate-700 text-white rounded-lg font-bold hover:bg-yellow-500 transition-colors"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <span className="text-sm font-black text-slate-700 min-w-[60px] text-center">
+                {Math.round(zoom * 100)}%
+              </span>
+              <button 
+                onClick={() => setZoom(prev => Math.min(3, prev + 0.1))} 
+                className="px-4 py-2 bg-slate-700 text-white rounded-lg font-bold hover:bg-yellow-500 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
+          </div>
 
-            {/* RIGHT: Preview Circle */}
+            {/* RIGHT: Preview Circle - Only 58mm like real button badge */}
             <div className="flex flex-col items-center gap-4">
               <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Final Preview</h3>
               <div className="relative">
                 <div className="absolute inset-0 bg-yellow-500/20 rounded-full blur-[40px] translate-y-8 scale-110"></div>
+                {/* Outer container matching design canvas size for visual alignment */}
                 <div 
-                  className="rounded-full relative shadow-2xl overflow-hidden flex items-center justify-center transition-colors duration-300 border-4 border-yellow-400/30"
+                  className="rounded-full relative flex items-center justify-center"
                   style={{ 
-                    width: Math.min(DISPLAY_CANVAS_SIZE, window.innerWidth * 0.85),
-                    height: Math.min(DISPLAY_CANVAS_SIZE, window.innerWidth * 0.85),
-                    backgroundColor: bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor
+                    width: DISPLAY_OUTER_CANVAS_SIZE,
+                    height: DISPLAY_OUTER_CANVAS_SIZE
                   }}
                 >
-                  <div className="absolute inset-3 border-[3px] border-solid border-red-500 rounded-full z-20 pointer-events-none" />
-                  <div className="w-full h-full relative z-10" style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.1s ease-out' }}>
-                    {elements.sort((a,b) => a.zIndex - b.zIndex).map((el) => {
-                      return (
-                        <div 
-                          key={el.id}
-                          className="absolute"
-                          style={{
-                            left: el.x,
-                            top: el.y,
-                            width: el.width,
-                            height: el.height,
-                            transform: `rotate(${el.rotation}deg)`,
-                            zIndex: el.zIndex
-                          }}
-                        >
-                          <div className="w-full h-full flex items-center justify-center overflow-hidden">
-                            {el.type === 'text' ? (
-                              <div className="font-black text-slate-900 text-center leading-tight whitespace-nowrap select-none" style={{ fontSize: `${el.height * 0.7}px` }}>{el.content}</div>
-                            ) : (
-                              <img src={el.content} className="w-full h-full object-cover pointer-events-none select-none" />
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                  {/* 58mm clip mask - shows only the center 58mm of the 70mm design */}
+                  <div 
+                    className="rounded-full shadow-2xl overflow-hidden"
+                    style={{ 
+                      width: DISPLAY_CANVAS_SIZE,
+                      height: DISPLAY_CANVAS_SIZE
+                    }}
+                  >
+                    {/* 70mm inner container offset to show center 58mm */}
+                    <div 
+                      className="relative"
+                      style={{ 
+                        width: DISPLAY_OUTER_CANVAS_SIZE,
+                        height: DISPLAY_OUTER_CANVAS_SIZE,
+                        marginLeft: -((DISPLAY_OUTER_CANVAS_SIZE - DISPLAY_CANVAS_SIZE) / 2),
+                        marginTop: -((DISPLAY_OUTER_CANVAS_SIZE - DISPLAY_CANVAS_SIZE) / 2),
+                        backgroundColor: bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor
+                      }}
+                    >
+                      <div className="w-full h-full relative z-10" style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.1s ease-out' }}>
+                        {elements.sort((a,b) => a.zIndex - b.zIndex).map((el) => {
+                          return (
+                            <div 
+                              key={el.id}
+                              className="absolute"
+                              style={{
+                                left: el.x,
+                                top: el.y,
+                                width: el.width,
+                                height: el.height,
+                                transform: `rotate(${el.rotation}deg)`,
+                                zIndex: el.zIndex
+                              }}
+                            >
+                              <div className="w-full h-full flex items-center justify-center overflow-hidden">
+                                {el.type === 'text' ? (
+                                  <div className="font-black text-slate-900 text-center leading-tight whitespace-nowrap select-none" style={{ fontSize: `${el.height * 0.7}px` }}>{el.content}</div>
+                                ) : (
+                                  <img src={el.content} className="w-full h-full object-cover pointer-events-none select-none" />
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Button badge glossy effect */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/10 pointer-events-none z-20"></div>
+                    </div>
                   </div>
-                  <div className="pin-button-dome opacity-30 z-30 pointer-events-none"></div>
                 </div>
               </div>
               <p className="text-[10px] font-black text-yellow-600 uppercase tracking-widest mt-2">
@@ -945,7 +1001,7 @@ const handleReset = () => {
       </div>
 
       {/* Mobile Control Panel - Slide Up Sheet */}
-      <div className={`md:hidden fixed bottom-20 left-0 right-0 bg-white border-t-2 border-slate-200 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] max-h-[50vh] overflow-y-auto rounded-t-3xl transition-all duration-300 ${mobileSheetOpen ? 'block' : 'hidden'}`}>
+      <div className={`md:hidden fixed bottom-20 left-0 right-0 bg-white border-t-2 border-slate-200 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.15)] max-h-[50vh] overflow-y-auto rounded-t-3xl transition-all duration-300 ${mobileSheetOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`}>
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200">
             <span className="text-sm font-bold text-slate-900 uppercase">{activeTool}</span>
