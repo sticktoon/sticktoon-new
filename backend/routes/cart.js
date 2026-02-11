@@ -80,25 +80,30 @@ router.put("/update/:itemId", auth, async (req, res) => {
     const { quantity } = req.body;
     const userId = req.user.id;
 
-    const cart = await Cart.findOne({ userId });
+    if (quantity <= 0) {
+      const cart = await Cart.findOneAndUpdate(
+        { userId },
+        { $pull: { items: { id: itemId } } },
+        { new: true }
+      );
 
-    if (!cart) {
-      return res.status(404).json({ message: "Cart not found" });
+      if (!cart) {
+        return res.status(404).json({ message: "Cart not found" });
+      }
+
+      return res.json({ items: cart.items });
     }
 
-    const itemIndex = cart.items.findIndex((i) => i.id === itemId);
-    if (itemIndex < 0) {
+    const cart = await Cart.findOneAndUpdate(
+      { userId, "items.id": itemId },
+      { $set: { "items.$.quantity": quantity } },
+      { new: true }
+    );
+
+    if (!cart) {
       return res.status(404).json({ message: "Item not found in cart" });
     }
 
-    if (quantity <= 0) {
-      // Remove item if quantity is 0 or less
-      cart.items.splice(itemIndex, 1);
-    } else {
-      cart.items[itemIndex].quantity = quantity;
-    }
-
-    await cart.save();
     res.json({ items: cart.items });
   } catch (err) {
     console.error("Update cart error:", err);

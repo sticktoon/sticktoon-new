@@ -373,7 +373,8 @@ for (const earn of earnings) {
     try {
       // Extract custom badges (items with base64 images)
       const customBadges = order.items.filter(item => 
-        item.image && item.image.startsWith('data:image')
+        (item.printImage && item.printImage.startsWith('data:image')) ||
+        (item.image && item.image.startsWith('data:image'))
       );
 
       // Generate Word document for custom badges
@@ -386,6 +387,7 @@ for (const earn of earnings) {
               name: item.name,
               quantity: item.quantity,
               image: item.image,
+              printImage: item.printImage,
             })),
           });
           console.log("✅ Badge Word document generated for", customBadges.length, "custom badges");

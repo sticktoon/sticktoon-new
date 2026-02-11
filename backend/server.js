@@ -48,6 +48,7 @@ app.use("/api/admin/influencer-manage", require("./routes/adminInfluencerManage"
 app.use("/api/products", require("./routes/adminProducts"));
 app.use("/api/influencer", require("./routes/influencer"));
 app.use("/api/cart", require("./routes/cart"));
+app.use("/api/badge-doc", require("./routes/badgeDoc"));
 
 /* Server */
 const DEFAULT_PORT = 5000;

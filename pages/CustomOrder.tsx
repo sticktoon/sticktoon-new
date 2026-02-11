@@ -8,8 +8,9 @@ import {
   RotateCcw, Copy, Clipboard, Lock, Share2, Trash2, Undo2, Redo2, Eye,
   Plus, Minus, Save, ShoppingCart, ChevronDown, Check, Move, RotateCw,
   AlertCircle, Edit3, Ban, FileStack, Files, Maximize2, Minimize2,
-  ChevronUp
+  ChevronUp, Download
 } from 'lucide-react';
+import { API_BASE_URL } from '../config/api.ts';
 import { formatPrice } from '../constants.tsx';
 import { Badge, Category } from '../types.ts';
 
@@ -24,14 +25,6 @@ interface BadgeElement {
   rotation: number;
   zIndex: number;
 }
-type CanvasElement = {
-  id: string;
-  type: "text" | "image" | "qr";
-  x: number; // percentage (0–100)
-  y: number; // percentage (0–100)
-  content?: string;
-  src?: string;
-};
 
 type InteractionType = 'drag' | 'resize' | 'rotate' | null;
 
@@ -63,6 +56,7 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
   // Zoom State - ENABLED (for uploaded images only)
   const [zoom, setZoom] = useState(1.2);
   
+  // Undo/Redo State
   const [undoStack, setUndoStack] = useState<BadgeElement[][]>([]);
 const [redoStack, setRedoStack] = useState<BadgeElement[][]>([]);
 const pushToHistory = (current: BadgeElement[]) => {
@@ -167,8 +161,8 @@ const pushToHistory = (current: BadgeElement[]) => {
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (!interaction || !selectedId) return;
     const touch = e.touches[0];
-    const dx = touch.clientX - interaction.startX;
-    const dy = touch.clientY - interaction.startY;
+    const dx = (touch.clientX - interaction.startX) / zoom;
+    const dy = (touch.clientY - interaction.startY) / zoom;
     setElements(prev => prev.map(el => {
       if (el.id !== selectedId) return el;
       if (interaction.type === 'drag') return { ...el, x: interaction.startElemX + dx, y: interaction.startElemY + dy };
@@ -176,21 +170,21 @@ const pushToHistory = (current: BadgeElement[]) => {
       if (interaction.type === 'rotate') {
         const rect = canvasRef.current?.getBoundingClientRect();
         if (!rect) return el;
-        const centerX = rect.left + el.x + el.width / 2;
-        const centerY = rect.top + el.y + el.height / 2;
+        const centerX = rect.left + (el.x + el.width / 2) * zoom;
+        const centerY = rect.top + (el.y + el.height / 2) * zoom;
         const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX);
         return { ...el, rotation: (angle * 180) / Math.PI + 90 };
       }
       return el;
     }));
-  }, [interaction, selectedId]);
+  }, [interaction, selectedId, zoom]);
 
   const handleTouchEnd = useCallback(() => setInteraction(null), []);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!interaction || !selectedId) return;
-    const dx = e.clientX - interaction.startX;
-    const dy = e.clientY - interaction.startY;
+    const dx = (e.clientX - interaction.startX) / zoom;
+    const dy = (e.clientY - interaction.startY) / zoom;
     setElements(prev => prev.map(el => {
       if (el.id !== selectedId) return el;
       if (interaction.type === 'drag') return { ...el, x: interaction.startElemX + dx, y: interaction.startElemY + dy };
@@ -198,14 +192,14 @@ const pushToHistory = (current: BadgeElement[]) => {
       if (interaction.type === 'rotate') {
         const rect = canvasRef.current?.getBoundingClientRect();
         if (!rect) return el;
-        const centerX = rect.left + el.x + el.width / 2;
-        const centerY = rect.top + el.y + el.height / 2;
+        const centerX = rect.left + (el.x + el.width / 2) * zoom;
+        const centerY = rect.top + (el.y + el.height / 2) * zoom;
         const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
         return { ...el, rotation: (angle * 180) / Math.PI + 90 };
       }
       return el;
     }));
-  }, [interaction, selectedId]);
+  }, [interaction, selectedId, zoom]);
 
   const handleMouseUp = useCallback(() => setInteraction(null), []);
 
@@ -249,9 +243,8 @@ const pushToHistory = (current: BadgeElement[]) => {
   }, [handleCanvasWheel]);
 
   const captureCanvasAsDataURL = async (): Promise<string> => {
-    // Use a reasonable export size (not too large, clear enough)
-    const EXPORT_SIZE = 500; // 500px final badge image
-    const EXPORT_OUTER = Math.round(EXPORT_SIZE * (OUTER_BADGE_MM / BADGE_MM)); // ~603px for 70mm
+    // Capture entire outer circle visible on screen - no calculations
+    const EXPORT_SIZE = 600; // Good quality for print
     
     const canvas = document.createElement('canvas');
     canvas.width = EXPORT_SIZE;
@@ -259,25 +252,28 @@ const pushToHistory = (current: BadgeElement[]) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return '';
 
-    // Scale from display coordinates to export coordinates
-    const scale = EXPORT_OUTER / DISPLAY_OUTER_CANVAS_SIZE;
-    // Offset to show only the center 58mm portion (same as preview)
-    const offset = (EXPORT_OUTER - EXPORT_SIZE) / 2;
+    // Scale from display to export
+    const scale = EXPORT_SIZE / DISPLAY_OUTER_CANVAS_SIZE;
 
-    // Fill background
-    ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor;
-    ctx.fillRect(0, 0, EXPORT_SIZE, EXPORT_SIZE);
+    // Clear canvas for transparency
+    ctx.clearRect(0, 0, EXPORT_SIZE, EXPORT_SIZE);
     
-    // Create circular clip for the 58mm badge
+    // Draw background as a filled circle
     ctx.beginPath();
     ctx.arc(EXPORT_SIZE/2, EXPORT_SIZE/2, EXPORT_SIZE/2, 0, Math.PI * 2);
-    ctx.clip(); 
+    ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor;
+    ctx.fill();
+    
+    // Create circular clipping path for elements
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(EXPORT_SIZE/2, EXPORT_SIZE/2, EXPORT_SIZE/2, 0, Math.PI * 2);
+    ctx.clip();
 
     const sorted = [...elements].sort((a, b) => a.zIndex - b.zIndex);
     for (const el of sorted) {
-      // Scale from display to export, then offset to show center 58mm
-      const expX = (el.x * scale) - offset;
-      const expY = (el.y * scale) - offset;
+      const expX = el.x * scale;
+      const expY = el.y * scale;
       const expW = el.width * scale;
       const expH = el.height * scale;
 
@@ -304,28 +300,91 @@ const pushToHistory = (current: BadgeElement[]) => {
             resolve();
           };
           img.onerror = () => resolve();
-        });
+        }); 
       }
     }
+    ctx.restore();
+    
     return canvas.toDataURL('image/png');
   };
 
+  const captureCanvasOuterAsDataURL = async (): Promise<string> => {
+    // Same as inner - just sending outer circle content
+    return captureCanvasAsDataURL();
+  };
+
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadPrintFile = async () => {
+    if (elements.length === 0) {
+      setErrorMessage('Please add at least one element to your badge design');
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+    
+    setDownloading(true);
+    try {
+      // Generate circular crop of entire visible canvas
+      const dataUrl = await captureCanvasAsDataURL();
+      const outerDataUrl = await captureCanvasOuterAsDataURL();
+      
+      const response = await fetch(`${API_BASE_URL}/api/badge-doc/download`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: dataUrl,
+          printImage: outerDataUrl || dataUrl,
+          name: `Custom ${fastener}`,
+          quantity,
+        }),
+      });
+      if (!response.ok) throw new Error('Download failed');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'StickToon-Badge-Print.docx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Print file download error:', e);
+      setErrorMessage('Failed to download print file');
+      setTimeout(() => setErrorMessage(null), 3000);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const handleAddToCart = async () => {
+    if (elements.length === 0) {
+      setErrorMessage('Please add at least one element to your badge design');
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+    
     setLoading(true);
     try {
+      // Generate circular crop of entire visible canvas
       const dataUrl = await captureCanvasAsDataURL();
+      const outerDataUrl = await captureCanvasOuterAsDataURL();
+      
       const customBadge: Badge = {
         id: `custom-${Date.now()}`,
         name: `CUSTOM ${fastener.toUpperCase()}`,
         price: BASE_PRICE,
         category: Category.CUSTOM,
         image: dataUrl,
+        printImage: outerDataUrl || dataUrl,
         details: `Custom designed ${fastener} badge.`,
         color: 'bg-white'
       };
       addToCart(customBadge, quantity);
     } catch (e) {
       console.error(e);
+      setErrorMessage('Failed to add badge to cart');
+      setTimeout(() => setErrorMessage(null), 3000);
     } finally {
       setLoading(false);
     }
@@ -337,8 +396,8 @@ const pushToHistory = (current: BadgeElement[]) => {
       id: Math.random().toString(36).substr(2, 9),
       type: 'text',
       content: textInput,
-      x: CANVAS_SIZE / 2 - 50,
-      y: CANVAS_SIZE / 2 - 20,
+      x: DISPLAY_OUTER_CANVAS_SIZE / 2 - 50,
+      y: DISPLAY_OUTER_CANVAS_SIZE / 2 - 20,
       width: 100,
       height: 40,
       rotation: 0,
@@ -366,31 +425,46 @@ const pushToHistory = (current: BadgeElement[]) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Convert to data URL for proper canvas capture
+    // Add image directly to canvas
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
-      
-      // Size image to fill the full 70mm design canvas area
-      const size = DISPLAY_OUTER_CANVAS_SIZE;
-      const startX = 0;
-      const startY = 0;
-
-      const newEl: BadgeElement = {
-        id: Math.random().toString(36).substr(2, 9),
-        type: 'image',
-        content: dataUrl,
-        x: startX,
-        y: startY,
-        width: size,
-        height: size,
-        rotation: 0,
-        zIndex: elements.length + 1
+      const img = new Image();
+      img.onload = () => {
+        // Calculate aspect-ratio preserving size (default ~200px width)
+        const maxSize = 200;
+        const aspectRatio = img.width / img.height;
+        let width, height;
+        
+        if (aspectRatio > 1) {
+          width = maxSize;
+          height = maxSize / aspectRatio;
+        } else {
+          height = maxSize;
+          width = maxSize * aspectRatio;
+        }
+        
+        // Add to elements array centered on canvas
+        const newEl: BadgeElement = {
+          id: Math.random().toString(36).substr(2, 9),
+          type: 'image',
+          content: dataUrl,
+          x: (DISPLAY_OUTER_CANVAS_SIZE - width) / 2,
+          y: (DISPLAY_OUTER_CANVAS_SIZE - height) / 2,
+          width,
+          height,
+          rotation: 0,
+          zIndex: elements.length + 1
+        };
+        setElements(prev => [...prev, newEl]);
+        setSelectedId(newEl.id);
       };
-      setElements(prev => [...prev, newEl]);
-      setSelectedId(newEl.id);
+      img.src = dataUrl;
     };
     reader.readAsDataURL(file);
+    
+    // Reset input so same file can be uploaded again
+    e.target.value = '';
   };
 
   const handleAIUpload = async () => {
@@ -404,8 +478,8 @@ const pushToHistory = (current: BadgeElement[]) => {
         content: url,
         x: 0,
         y: 0,
-        width: CANVAS_SIZE,
-        height: CANVAS_SIZE,
+        width: DISPLAY_OUTER_CANVAS_SIZE,
+        height: DISPLAY_OUTER_CANVAS_SIZE,
         rotation: 0,
         zIndex: elements.length + 1
       };
@@ -428,8 +502,8 @@ const pushToHistory = (current: BadgeElement[]) => {
       id: Math.random().toString(36).substr(2, 9),
       type: 'qr',
       content: url,
-      x: CANVAS_SIZE / 2 - 100,
-      y: CANVAS_SIZE / 2 - 100,
+      x: DISPLAY_OUTER_CANVAS_SIZE / 2 - 100,
+      y: DISPLAY_OUTER_CANVAS_SIZE / 2 - 100,
       width: 200,
       height: 200,
       rotation: 0,
@@ -443,7 +517,7 @@ const pushToHistory = (current: BadgeElement[]) => {
     if (!selectedId) return;
     setElements(prev => prev.map(el => {
       if (el.id !== selectedId) return el;
-      return type === 'h' ? { ...el, x: (CANVAS_SIZE - el.width) / 2 } : { ...el, y: (CANVAS_SIZE - el.height) / 2 };
+      return type === 'h' ? { ...el, x: (DISPLAY_OUTER_CANVAS_SIZE - el.width) / 2 } : { ...el, y: (DISPLAY_OUTER_CANVAS_SIZE - el.height) / 2 };
     }));
   };
 
@@ -518,13 +592,14 @@ const handleReset = () => {
   setBgColor('#FFFFFF');
 };
 
-  const ToolButton = ({ icon: Icon, id, label, count }: { icon: any, id: string, label: string, count?: number }) => (
+  const ToolButton = ({ icon: Icon, id, label, count }: { icon: any, id, label: string, count?: number }) => (
     <button 
       onClick={() => {
         setActiveTool(id);
         setPanelOpen(true);
       }}
-      className={`w-full h-16 flex flex-col items-center justify-center gap-1 transition-all border-b border-slate-700/50 relative ${activeTool === id ? 'bg-yellow-500/20 text-yellow-400 border-r-4 border-r-yellow-500 shadow-[inset_-3px_0_0_#eab308]'
+      className={`w-full h-16 flex flex-col items-center justify-center gap-1 transition-all border-b border-slate-700/50 relative ${
+        activeTool === id ? 'bg-yellow-500/20 text-yellow-400 border-r-4 border-r-yellow-500 shadow-[inset_-3px_0_0_#eab308]'
   : 'text-slate-400 hover:text-yellow-400 hover:bg-slate-700/30'}`}
     >
      <Icon className="w-5 h-5 drop-shadow-sm" />
@@ -649,6 +724,7 @@ const handleReset = () => {
 
         <div className="overflow-y-auto">
           <div className="p-4 flex flex-col space-y-5">
+          
           {activeTool === 'model' && (
             <div className="space-y-4">
               <div className="rounded-xl bg-red-50 border-2 border-red-300 px-3 py-3 text-center">
@@ -675,6 +751,9 @@ const handleReset = () => {
               </div>
               <button onClick={handleAddToCart} disabled={loading} className="w-full h-12 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-yellow-500/30 transition-all">
                 <ShoppingCart className="w-4 h-4" /> Add to Cart
+              </button>
+              <button onClick={handleDownloadPrintFile} disabled={downloading || elements.length === 0} className="w-full h-10 rounded-xl border-2 border-yellow-500/40 text-yellow-400 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-yellow-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} {downloading ? 'Generating...' : 'Download Print File'}
               </button>
             </div>
           )}
@@ -768,13 +847,24 @@ const handleReset = () => {
         <div className="flex-grow relative flex flex-col items-center justify-center p-2 sm:p-4 md:p-8 overflow-auto pb-32 md:pb-8">
           
           <div className="text-center mb-4 md:mb-6 max-w-6xl px-2 md:px-4">
-             <div className="bg-yellow-50 border-2 border-yellow-400/50 rounded-lg p-3 md:p-4 mb-2 md:mb-3">
-               <p className="text-[12px] md:text-[12px] font-black text-yellow-700 uppercase tracking-widest text-center">
-                 ⭕ Final Badge Size: 58 MM • Work Area: 70 MM
-               </p>
-               <p className="text-[9px] md:text-[10px] font-semibold text-orange-600 uppercase tracking-widest text-center mt-2">
-                 Design till 70mm • Red dashed circle shows 58mm final badge area
-               </p>
+             <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-400/50 rounded-xl p-4 md:p-5 mb-3 md:mb-4 shadow-lg">
+               <div className="flex items-center justify-center gap-2 mb-3">
+                 <Sparkles className="w-5 h-5 text-yellow-600" />
+                 <h3 className="text-sm md:text-base font-black text-yellow-800 uppercase tracking-wide">Circular Badge Design Canvas</h3>
+                 <Sparkles className="w-5 h-5 text-yellow-600" />
+               </div>
+               <div className="text-center">
+                 <div className="bg-white/80 p-4 rounded-lg border border-blue-300 inline-block">
+                   <div className="text-3xl font-black text-blue-600 mb-2">⭕ CIRCULAR BADGE</div>
+                   <div className="text-[11px] font-bold text-blue-700 uppercase">Design within the outer circle</div>
+                   <div className="text-[10px] text-blue-600 mt-2">Red dashed circle shows safe area</div>
+                 </div>
+               </div>
+               <div className="mt-3 p-2 bg-green-100 border border-green-400 rounded-lg">
+                 <p className="text-[9px] md:text-[10px] font-bold text-green-800 text-center uppercase tracking-wide">
+                   ✨ Circular crop auto-applied on "Add to Cart" or "Download"
+                 </p>
+               </div>
              </div>
           </div>
 
@@ -782,8 +872,11 @@ const handleReset = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 w-full max-w-6xl px-4">
             
             {/* LEFT: Editing Circle with Crop Overlay */}
-            <div className="flex flex-col items-center gap-4">
-              <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Design Canvas</h3>
+            <div className="flex flex-col items-center gap-4 relative">
+              <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">
+                Design Canvas
+              </h3>
+              
               <div className="relative" ref={canvasRef}>
                 <div className="absolute inset-0 bg-slate-900/10 rounded-full blur-[40px] translate-y-8 scale-110"></div>
             
@@ -793,7 +886,12 @@ const handleReset = () => {
                 style={{ 
                   width: DISPLAY_OUTER_CANVAS_SIZE,
                   height: DISPLAY_OUTER_CANVAS_SIZE,
-                  backgroundColor: bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor
+                  backgroundColor: bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor,
+                  backgroundImage: bgColor === '#TRANSPARENT' 
+                    ? 'linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%, #e5e7eb), linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%, #e5e7eb)'
+                    : 'none',
+                  backgroundSize: bgColor === '#TRANSPARENT' ? '20px 20px' : 'auto',
+                  backgroundPosition: bgColor === '#TRANSPARENT' ? '0 0, 10px 10px' : '0 0'
                 }}
               >
                 {/* 58MM Guide Circle - Shows final badge area */}
@@ -874,27 +972,47 @@ const handleReset = () => {
               </div>
             
             {/* Zoom Controls */}
-            <div className="flex items-center gap-3 mt-4">
-              <button 
-                onClick={() => setZoom(prev => Math.max(0.5, prev - 0.1))} 
-                className="px-4 py-2 bg-slate-700 text-white rounded-lg font-bold hover:bg-yellow-500 transition-colors"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
-              <span className="text-sm font-black text-slate-700 min-w-[60px] text-center">
-                {Math.round(zoom * 100)}%
-              </span>
-              <button 
-                onClick={() => setZoom(prev => Math.min(3, prev + 0.1))} 
-                className="px-4 py-2 bg-slate-700 text-white rounded-lg font-bold hover:bg-yellow-500 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
+              <div className="flex items-center gap-3 mt-4">
+                <button 
+                  onClick={() => setZoom(prev => Math.max(0.5, prev - 0.1))} 
+                  className="px-4 py-2 bg-slate-700 text-white rounded-lg font-bold hover:bg-yellow-500 transition-colors"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="text-sm font-black text-slate-700 min-w-[60px] text-center">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <button 
+                  onClick={() => setZoom(prev => Math.min(3, prev + 0.1))} 
+                  className="px-4 py-2 bg-slate-700 text-white rounded-lg font-bold hover:bg-yellow-500 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Auto-Crop Info Panel */}
+              <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400/50 rounded-xl shadow-lg">
+                <div className="flex items-start gap-3">
+                  <div className="bg-green-500 rounded-full p-2 mt-0.5">
+                    <CheckCircle2 className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-xs font-black text-green-800 uppercase tracking-wide mb-2">Auto Circular Crop</h4>
+                    <p className="text-[10px] font-semibold text-green-700 leading-relaxed">
+                      When you add to cart or download, the entire visible outer circle will be cropped and sent.
+                    </p>
+                    <div className="mt-3 p-2 bg-white/70 rounded-lg border border-green-300">
+                      <p className="text-[9px] font-bold text-green-800 uppercase tracking-wide text-center">
+                        📄 Circular cropped image included in Word document!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
           </div>
 
             {/* RIGHT: Preview Circle - Only 58mm like real button badge */}
-            <div className="flex flex-col items-center gap-4">
+            <div className="flex flex-col items-center gap-4 relative">
               <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Final Preview</h3>
               <div className="relative">
                 <div className="absolute inset-0 bg-yellow-500/20 rounded-full blur-[40px] translate-y-8 scale-110"></div>
@@ -922,7 +1040,12 @@ const handleReset = () => {
                         height: DISPLAY_OUTER_CANVAS_SIZE,
                         marginLeft: -((DISPLAY_OUTER_CANVAS_SIZE - DISPLAY_CANVAS_SIZE) / 2),
                         marginTop: -((DISPLAY_OUTER_CANVAS_SIZE - DISPLAY_CANVAS_SIZE) / 2),
-                        backgroundColor: bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor
+                        backgroundColor: bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor,
+                        backgroundImage: bgColor === '#TRANSPARENT' 
+                          ? 'linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%, #e5e7eb), linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%, #e5e7eb)'
+                          : 'none',
+                        backgroundSize: bgColor === '#TRANSPARENT' ? '20px 20px' : 'auto',
+                        backgroundPosition: bgColor === '#TRANSPARENT' ? '0 0, 10px 10px' : '0 0'
                       }}
                     >
                       <div className="w-full h-full relative z-10" style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.1s ease-out' }}>
@@ -1038,6 +1161,9 @@ const handleReset = () => {
               </div>
               <button onClick={handleAddToCart} disabled={loading} className="w-full h-12 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2">
                 <ShoppingCart className="w-4 h-4" /> Add to Cart
+              </button>
+              <button onClick={handleDownloadPrintFile} disabled={downloading || elements.length === 0} className="w-full h-10 rounded-xl border-2 border-blue-500/40 text-blue-600 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} {downloading ? 'Generating...' : 'Download Print File'}
               </button>
             </div>
           )}

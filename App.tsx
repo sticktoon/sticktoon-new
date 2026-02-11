@@ -819,6 +819,7 @@ export default function App() {
             name: badge.name,
             price: badge.price,
             image: badge.image,
+            printImage: badge.printImage,
             category: badge.category,
           },
           quantity: qty,
