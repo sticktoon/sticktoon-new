@@ -240,13 +240,25 @@ async function generateBadgeDoc({ orderId, customBadges }) {
               new Paragraph({
                 children: [
                   new TextRun({
-                    text: "Badge Preview 1",
+                    text: "Manufacturing Design (70mm)",
                     size: 18,
                     color: "6B7280",
                     bold: true,
                   }),
                 ],
                 alignment: AlignmentType.CENTER,
+              }),
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "Full design for badge machine",
+                    size: 14,
+                    color: "9CA3AF",
+                    italics: true,
+                  }),
+                ],
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 50 },
               }),
             ],
             width: { size: 50, type: WidthType.PERCENTAGE },
@@ -257,13 +269,25 @@ async function generateBadgeDoc({ orderId, customBadges }) {
               new Paragraph({
                 children: [
                   new TextRun({
-                    text: "Badge Preview 2",
+                    text: "Visible Badge (58mm)",
                     size: 18,
                     color: "6B7280",
                     bold: true,
                   }),
                 ],
                 alignment: AlignmentType.CENTER,
+              }),
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "Customer-facing center part",
+                    size: 14,
+                    color: "9CA3AF",
+                    italics: true,
+                  }),
+                ],
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 50 },
               }),
             ],
             width: { size: 50, type: WidthType.PERCENTAGE },

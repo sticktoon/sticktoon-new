@@ -1,75 +1,53 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { generateBadgeMockup } from '../geminiService.ts';
 import { 
-  Upload, Wand2, Loader2, CheckCircle2, Sparkles, 
-  Image as ImageIcon, X, Box, Type, QrCode, 
-  Palette, Layers, User, Info, MousePointer, Eraser, 
-  Grid3X3, AlignCenter, AlignVerticalJustifyCenter, FlipHorizontal, FlipVertical,
-  RotateCcw, Copy, Clipboard, Lock, Share2, Trash2, Undo2, Redo2, Eye,
-  Plus, Minus, Save, ShoppingCart, ChevronDown, Check, Move, RotateCw,
-  AlertCircle, Edit3, Ban, FileStack, Files, Maximize2, Minimize2,
-  ChevronUp, Download
+  Upload, Wand2, Loader2, ShoppingCart, Download, RotateCcw, RotateCw,
+  Plus, Minus, X, Info, CheckCircle2
 } from 'lucide-react';
 import { API_BASE_URL } from '../config/api.ts';
 import { formatPrice } from '../constants.tsx';
 import { Badge, Category } from '../types.ts';
 
-interface BadgeElement {
-  id: string;
-  type: 'text' | 'image' | 'qr';
-  content: string;
+interface ImageState {
+  img: HTMLImageElement;
   x: number;
   y: number;
-  width: number;
-  height: number;
+  scale: number;
   rotation: number;
-  zIndex: number;
 }
-
-type InteractionType = 'drag' | 'resize' | 'rotate' | null;
 
 interface CustomOrderProps {
   addToCart: (badge: Badge, quantity?: number) => void;
 }
 
 export default function CustomOrder({ addToCart }: CustomOrderProps) {
-  const [activeTool, setActiveTool] = useState('model'); 
-  const [panelOpen, setPanelOpen] = useState(false);
-  const [mobileSheetOpen, setMobileSheetOpen] = useState(true); // Auto-open on mobile
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Customization State
+  // Badge Configuration
   const [fastener, setFastener] = useState('Pin-Badge');
   const [quantity, setQuantity] = useState(1);
   const [prompt, setPrompt] = useState('');
-  const [elements, setElements] = useState<BadgeElement[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [textInput, setTextInput] = useState('');
-  const [bgColor, setBgColor] = useState('#FFFFFF'); 
-
-  // QR Specific State
-  const [qrUrl, setQrUrl] = useState('https://web.whatsapp.com');
-  const [qrFgColor, setQrFgColor] = useState('#000000');
-  const [qrBgColor, setQrBgColor] = useState('#ffffff');
-
-  // Zoom State - ENABLED (for uploaded images only)
-  const [zoom, setZoom] = useState(1.2);
   
-  // Undo/Redo State
-  const [undoStack, setUndoStack] = useState<BadgeElement[][]>([]);
-const [redoStack, setRedoStack] = useState<BadgeElement[][]>([]);
-const pushToHistory = (current: BadgeElement[]) => {
-  setUndoStack(prev => [...prev, JSON.parse(JSON.stringify(current))]);
-  setRedoStack([]); // clear redo when new action happens
-};
+  // Image State
+  const [imageState, setImageState] = useState<ImageState | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0, imgX: 0, imgY: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [bgColor, setBgColor] = useState('#FFFFFF');
+  
+  // UI State
+  const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [panelOpen, setPanelOpen] = useState(true);
 
   const backgroundPresets = [
-    '#TRANSPARENT', '#000000', '#E5E7EB', '#C7D2FE', '#B11494', '#6D28D9',
+    '#FFFFFF', '#000000', '#E5E7EB', '#C7D2FE', '#B11494', '#6D28D9',
     '#1E3A8A', '#3B82F6', '#78350F', '#FDE68A', '#991B1B',
-    '#EF4444', '#FBCFE8', '#F97316', '#FACC_15', '#FEF08A',
-    '#BBF7D0', '#A3E635', '#A1A1AA', '#166534', '#2DD4BF',
-    '#0D9488', '#115E59', '#1E293B', '#FFFFFF'
+    '#EF4444', '#FBCFE8', '#F97316'
   ];
 
   const fasteners = [
@@ -77,263 +55,296 @@ const pushToHistory = (current: BadgeElement[]) => {
     { id: 'Fridge Magnetic-Badge', label: 'Fridge Magnetic-Badge' }
   ];
 
-
-  // Interaction State
-  const [interaction, setInteraction] = useState<{
-    type: InteractionType;
-    startX: number;
-    startY: number;
-    startElemX: number;
-    startElemY: number;
-    startWidth: number;
-    startHeight: number;
-    startRotation: number;
-  } | null>(null);
-
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Display size (screen viewing) - scaled up for better visibility
-  const SCREEN_DPI = 96;
-  const MM_TO_INCH = 25.4;
+  // Constants
+  const CANVAS_PX = 400; // Display size
   const BADGE_MM = 58;
   const OUTER_BADGE_MM = 70;
-  const DISPLAY_SCALE = 1.2; // Scale factor for larger display
-  
-  const DISPLAY_CANVAS_SIZE = Math.round((BADGE_MM * SCREEN_DPI) / MM_TO_INCH * DISPLAY_SCALE); // ~263px - 58mm on screen (scaled)
-  const DISPLAY_OUTER_CANVAS_SIZE = Math.round((OUTER_BADGE_MM * SCREEN_DPI) / MM_TO_INCH * DISPLAY_SCALE); // ~317px - 70mm on screen (scaled)
-
-  // Export size (print quality - 300 DPI)
   const PRINT_DPI = 300;
-  const CANVAS_SIZE = Math.round((BADGE_MM * PRINT_DPI) / MM_TO_INCH); // 685px - 58mm print
+  const MM_TO_INCH = 25.4;
+  
+  const CANVAS_SIZE = Math.round((BADGE_MM * PRINT_DPI) / MM_TO_INCH); // 68 5px - 58mm print
   const OUTER_CANVAS_SIZE = Math.round((OUTER_BADGE_MM * PRINT_DPI) / MM_TO_INCH); // 827px - 70mm print
-
   const BASE_PRICE = 69;
- const INNER_CIRCLE_DIAMETER = CANVAS_SIZE; // exact 58mm
 
-
-  const hexToRgbParams = (hex: string) => {
-    if (hex === '#TRANSPARENT') return '255-255-255';
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `${r}-${g}-${b}`;
-  };
-
-  const handleMouseDown = (e: React.MouseEvent, type: InteractionType, id: string) => {
-    e.stopPropagation();
-    const elem = elements.find(el => el.id === id);
-    if (!elem) return;
-
-    setSelectedId(id);
-    setInteraction({
-      type,
-      startX: e.clientX,
-      startY: e.clientY,
-      startElemX: elem.x,
-      startElemY: elem.y,
-      startWidth: elem.width,
-      startHeight: elem.height,
-      startRotation: elem.rotation
-    });
-  };
-
-  // Touch event handlers for mobile
-  const handleTouchStart = (e: React.TouchEvent, type: InteractionType, id: string) => {
-    e.stopPropagation();
-    const elem = elements.find(el => el.id === id);
-    if (!elem) return;
-    const touch = e.touches[0];
-
-    setSelectedId(id);
-    setInteraction({
-      type,
-      startX: touch.clientX,
-      startY: touch.clientY,
-      startElemX: elem.x,
-      startElemY: elem.y,
-      startWidth: elem.width,
-      startHeight: elem.height,
-      startRotation: elem.rotation
-    });
-  };
-
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (!interaction || !selectedId) return;
-    const touch = e.touches[0];
-    const dx = (touch.clientX - interaction.startX) / zoom;
-    const dy = (touch.clientY - interaction.startY) / zoom;
-    setElements(prev => prev.map(el => {
-      if (el.id !== selectedId) return el;
-      if (interaction.type === 'drag') return { ...el, x: interaction.startElemX + dx, y: interaction.startElemY + dy };
-      if (interaction.type === 'resize') return { ...el, width: Math.max(20, interaction.startWidth + dx), height: Math.max(20, interaction.startHeight + dy) };
-      if (interaction.type === 'rotate') {
-        const rect = canvasRef.current?.getBoundingClientRect();
-        if (!rect) return el;
-        const centerX = rect.left + (el.x + el.width / 2) * zoom;
-        const centerY = rect.top + (el.y + el.height / 2) * zoom;
-        const angle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX);
-        return { ...el, rotation: (angle * 180) / Math.PI + 90 };
-      }
-      return el;
-    }));
-  }, [interaction, selectedId, zoom]);
-
-  const handleTouchEnd = useCallback(() => setInteraction(null), []);
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!interaction || !selectedId) return;
-    const dx = (e.clientX - interaction.startX) / zoom;
-    const dy = (e.clientY - interaction.startY) / zoom;
-    setElements(prev => prev.map(el => {
-      if (el.id !== selectedId) return el;
-      if (interaction.type === 'drag') return { ...el, x: interaction.startElemX + dx, y: interaction.startElemY + dy };
-      if (interaction.type === 'resize') return { ...el, width: Math.max(20, interaction.startWidth + dx), height: Math.max(20, interaction.startHeight + dy) };
-      if (interaction.type === 'rotate') {
-        const rect = canvasRef.current?.getBoundingClientRect();
-        if (!rect) return el;
-        const centerX = rect.left + (el.x + el.width / 2) * zoom;
-        const centerY = rect.top + (el.y + el.height / 2) * zoom;
-        const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
-        return { ...el, rotation: (angle * 180) / Math.PI + 90 };
-      }
-      return el;
-    }));
-  }, [interaction, selectedId, zoom]);
-
-  const handleMouseUp = useCallback(() => setInteraction(null), []);
-
-  const handleCanvasWheel = useCallback((e: WheelEvent) => {
-    e.preventDefault();
-    setZoom(prev => {
-      const delta = e.deltaY > 0 ? 0.9 : 1.1; // Scroll down = zoom out, scroll up = zoom in
-      const newZoom = Math.max(0.5, Math.min(3, prev * delta)); // Limit zoom between 0.5x and 3x
-      return newZoom;
-    });
+  // Re-fit image when badge size changes
+  useEffect(() => {
+    if (!imageState) return;
+    const baseScale = Math.max(CANVAS_PX / imageState.img.width, CANVAS_PX / imageState.img.height);
+    setImageState(prev => prev ? { ...prev, scale: baseScale * zoom } : prev);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (interaction) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-      window.addEventListener('touchmove', handleTouchMove, { passive: false });
-      window.addEventListener('touchend', handleTouchEnd);
-    } else {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [interaction, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
-
-  useEffect(() => {
+  // Draw everything
+  const draw = useCallback(() => {
     const canvas = canvasRef.current;
-    if (canvas) {
-      canvas.addEventListener('wheel', handleCanvasWheel, { passive: false });
-      return () => {
-        canvas.removeEventListener('wheel', handleCanvasWheel);
-      };
-    }
-  }, [handleCanvasWheel]);
+    const preview = previewCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+    const cx = CANVAS_PX / 2;
+    const cy = CANVAS_PX / 2;
+    const OUTER_PX = CANVAS_PX;
+    const INNER_PX = (BADGE_MM / OUTER_BADGE_MM) * CANVAS_PX;
 
-  const captureCanvasAsDataURL = async (): Promise<string> => {
-    // Capture entire outer circle visible on screen - no calculations
-    const EXPORT_SIZE = 600; // Good quality for print
-    
-    const canvas = document.createElement('canvas');
-    canvas.width = EXPORT_SIZE;
-    canvas.height = EXPORT_SIZE;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return '';
+    ctx.clearRect(0, 0, CANVAS_PX, CANVAS_PX);
+    ctx.fillStyle = "hsl(210, 14%, 91%)";
+    ctx.fillRect(0, 0, CANVAS_PX, CANVAS_PX);
 
-    // Scale from display to export
-    const scale = EXPORT_SIZE / DISPLAY_OUTER_CANVAS_SIZE;
-
-    // Clear canvas for transparency
-    ctx.clearRect(0, 0, EXPORT_SIZE, EXPORT_SIZE);
-    
-    // Draw background as a filled circle
-    ctx.beginPath();
-    ctx.arc(EXPORT_SIZE/2, EXPORT_SIZE/2, EXPORT_SIZE/2, 0, Math.PI * 2);
-    ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor;
-    ctx.fill();
-    
-    // Create circular clipping path for elements
+    // Clip to outer circle and draw image
     ctx.save();
     ctx.beginPath();
-    ctx.arc(EXPORT_SIZE/2, EXPORT_SIZE/2, EXPORT_SIZE/2, 0, Math.PI * 2);
+    ctx.arc(cx, cy, OUTER_PX / 2, 0, Math.PI * 2);
     ctx.clip();
+    ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor;
+    ctx.fill();
 
-    const sorted = [...elements].sort((a, b) => a.zIndex - b.zIndex);
-    for (const el of sorted) {
-      const expX = el.x * scale;
-      const expY = el.y * scale;
-      const expW = el.width * scale;
-      const expH = el.height * scale;
-
-      if (el.type === 'text') {
-        ctx.save();
-        ctx.translate(expX + expW/2, expY + expH/2);
-        ctx.rotate((el.rotation * Math.PI) / 180);
-        ctx.fillStyle = '#0f172a';
-        ctx.font = `900 ${expH * 0.7}px "Plus Jakarta Sans", sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(el.content, 0, 0);
-        ctx.restore();
-      } else {
-        const img = new Image();
-        img.src = el.content;
-        await new Promise<void>((resolve) => {
-          img.onload = () => {
-            ctx.save();
-            ctx.translate(expX + expW/2, expY + expH/2);
-            ctx.rotate((el.rotation * Math.PI) / 180);
-            ctx.drawImage(img, -expW/2, -expH/2, expW, expH);
-            ctx.restore();
-            resolve();
-          };
-          img.onerror = () => resolve();
-        }); 
-      }
+    if (imageState) {
+      ctx.save();
+      ctx.translate(cx + imageState.x, cy + imageState.y);
+      ctx.rotate((imageState.rotation * Math.PI) / 180);
+      ctx.scale(imageState.scale, imageState.scale);
+      ctx.drawImage(imageState.img, -imageState.img.width / 2, -imageState.img.height / 2);
+      ctx.restore();
     }
     ctx.restore();
-    
-    return canvas.toDataURL('image/png');
+
+    // Outer circle (solid black)
+    ctx.beginPath();
+    ctx.arc(cx, cy, OUTER_PX / 2, 0, Math.PI * 2);
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Inner guide circle (dashed green)
+    ctx.beginPath();
+    ctx.arc(cx, cy, INNER_PX / 2, 0, Math.PI * 2);
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = "hsl(145, 55%, 42%)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Inner preview canvas
+    if (preview) {
+      const pCtx = preview.getContext("2d")!;
+      const pSize = preview.width;
+      pCtx.clearRect(0, 0, pSize, pSize);
+      pCtx.save();
+      pCtx.beginPath();
+      pCtx.arc(pSize / 2, pSize / 2, pSize / 2, 0, Math.PI * 2);
+      pCtx.clip();
+      pCtx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor;
+      pCtx.fill();
+
+      if (imageState) {
+        const previewScale = pSize / INNER_PX;
+        pCtx.save();
+        pCtx.translate(pSize / 2, pSize / 2);
+        pCtx.scale(previewScale, previewScale);
+        pCtx.translate(imageState.x, imageState.y);
+        pCtx.rotate((imageState.rotation * Math.PI) / 180);
+        pCtx.scale(imageState.scale, imageState.scale);
+        pCtx.drawImage(imageState.img, -imageState.img.width / 2, -imageState.img.height / 2);
+        pCtx.restore();
+      }
+      pCtx.restore();
+
+      pCtx.beginPath();
+      pCtx.arc(pSize / 2, pSize / 2, pSize / 2 - 1, 0, Math.PI * 2);
+      pCtx.strokeStyle = "hsl(145, 55%, 42%)";
+      pCtx.lineWidth = 2;
+      pCtx.stroke();
+    }
+  }, [imageState, bgColor, CANVAS_PX, BADGE_MM, OUTER_BADGE_MM]);
+
+  useEffect(() => {
+    draw();
+  }, [draw]);
+
+  // Load image from AI generation
+  const handleGenerateImage = async () => {
+    if (!prompt.trim()) return;
+    setLoading(true);
+    try {
+      const imageUrl = await generateBadgeMockup(prompt);
+      const img = new Image();
+      img.onload = () => {
+        const fitScale = Math.max(CANVAS_PX / img.width, CANVAS_PX / img.height);
+        setZoom(1);
+        setRotation(0);
+        setImageState({ img, x: 0, y: 0, scale: fitScale, rotation: 0 });
+      };
+      img.src = imageUrl;
+    } catch (error) {
+      console.error('AI generation error:', error);
+      setErrorMessage('Failed to generate badge design');
+      setTimeout(() => setErrorMessage(null), 3000);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const captureCanvasOuterAsDataURL = async (): Promise<string> => {
-    // Same as inner - just sending outer circle content
-    return captureCanvasAsDataURL();
+  // Load image from file
+  const handleFile = (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const fitScale = Math.max(CANVAS_PX / img.width, CANVAS_PX / img.height);
+        setZoom(1);
+        setRotation(0);
+        setImageState({ img, x: 0, y: 0, scale: fitScale, rotation: 0 });
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
   };
 
-  const [downloading, setDownloading] = useState(false);
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  };
+
+  // Pan handlers
+  const getCanvasCoords = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const scaleRatio = CANVAS_PX / rect.width;
+    if ("touches" in e) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleRatio,
+        y: (e.touches[0].clientY - rect.top) * scaleRatio,
+      };
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleRatio,
+      y: (e.clientY - rect.top) * scaleRatio,
+    };
+  };
+
+  const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!imageState) return;
+    const coords = getCanvasCoords(e);
+    setIsDragging(true);
+    dragStart.current = { x: coords.x, y: coords.y, imgX: imageState.x, imgY: imageState.y };
+  };
+
+  const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDragging || !imageState) return;
+    const coords = getCanvasCoords(e);
+    const dx = coords.x - dragStart.current.x;
+    const dy = coords.y - dragStart.current.y;
+    setImageState((prev) =>
+      prev ? { ...prev, x: dragStart.current.imgX + dx, y: dragStart.current.imgY + dy } : prev
+    );
+  };
+
+  const handlePointerUp = () => setIsDragging(false);
+
+  // Zoom
+  const handleZoomChange = (newZoom: number) => {
+    setZoom(newZoom);
+    setImageState((prev) => {
+      if (!prev) return prev;
+      const baseScale = Math.max(CANVAS_PX / prev.img.width, CANVAS_PX / prev.img.height);
+      return { ...prev, scale: baseScale * newZoom };
+    });
+  };
+
+  // Rotation
+  const handleRotationChange = (newRot: number) => {
+    setRotation(newRot);
+    setImageState((prev) => (prev ? { ...prev, rotation: newRot } : prev));
+  };
+
+  // Wheel zoom
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.05 : 0.05;
+    const newZoom = Math.max(0.2, Math.min(5, zoom + delta));
+    handleZoomChange(newZoom);
+  };
+
+  // Export functions
+  const getFullCircleBlob = (): Promise<string> => {
+    return new Promise((resolve) => {
+      const EXPORT_OUTER = OUTER_CANVAS_SIZE; // 827px - 70mm
+      const offCanvas = document.createElement("canvas");
+      offCanvas.width = EXPORT_OUTER;
+      offCanvas.height = EXPORT_OUTER;
+      const ctx = offCanvas.getContext("2d")!;
+      const cx = EXPORT_OUTER / 2;
+      const scale = EXPORT_OUTER / CANVAS_PX;
+
+      ctx.beginPath();
+      ctx.arc(cx, cx, EXPORT_OUTER / 2, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor;
+      ctx.fill();
+
+      if (imageState) {
+        ctx.save();
+        ctx.translate(cx + imageState.x * scale, cx + imageState.y * scale);
+        ctx.rotate((imageState.rotation * Math.PI) / 180);
+        ctx.scale(imageState.scale * scale, imageState.scale * scale);
+        ctx.drawImage(imageState.img, -imageState.img.width / 2, -imageState.img.height / 2);
+        ctx.restore();
+      }
+      resolve(offCanvas.toDataURL("image/png"));
+    });
+  };
+
+  const getInnerCircleBlob = (): Promise<string> => {
+    return new Promise((resolve) => {
+      const INNER_PX = (BADGE_MM / OUTER_BADGE_MM) * CANVAS_PX; // Inner circle size on display canvas
+      const EXPORT_SIZE = CANVAS_SIZE; // 685px - 58mm export
+      
+      const offCanvas = document.createElement("canvas");
+      offCanvas.width = EXPORT_SIZE;
+      offCanvas.height = EXPORT_SIZE;
+      const ctx = offCanvas.getContext("2d")!;
+      const cx = EXPORT_SIZE / 2;
+
+      ctx.beginPath();
+      ctx.arc(cx, cx, EXPORT_SIZE / 2, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor;
+      ctx.fill();
+
+      if (imageState) {
+        // Scale from inner display circle to inner export size
+        const previewScale = EXPORT_SIZE / INNER_PX;
+        ctx.save();
+        ctx.translate(cx, cx);
+        ctx.scale(previewScale, previewScale);
+        ctx.translate(imageState.x, imageState.y);
+        ctx.rotate((imageState.rotation * Math.PI) / 180);
+        ctx.scale(imageState.scale, imageState.scale);
+        ctx.drawImage(imageState.img, -imageState.img.width / 2, -imageState.img.height / 2);
+        ctx.restore();
+      }
+      resolve(offCanvas.toDataURL("image/png"));
+    });
+  };
 
   const handleDownloadPrintFile = async () => {
-    if (elements.length === 0) {
-      setErrorMessage('Please add at least one element to your badge design');
+    if (!imageState) {
+      setErrorMessage('Please upload or generate an image first');
       setTimeout(() => setErrorMessage(null), 3000);
       return;
     }
-    
+
     setDownloading(true);
     try {
-      // Generate circular crop of entire visible canvas
-      const dataUrl = await captureCanvasAsDataURL();
-      const outerDataUrl = await captureCanvasOuterAsDataURL();
-      
+      const [outerDataUrl, innerDataUrl] = await Promise.all([getFullCircleBlob(), getInnerCircleBlob()]);
+
       const response = await fetch(`${API_BASE_URL}/api/badge-doc/download`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image: dataUrl,
-          printImage: outerDataUrl || dataUrl,
+          image: innerDataUrl,
+          printImage: outerDataUrl,
           name: `Custom ${fastener}`,
           quantity,
         }),
@@ -358,25 +369,23 @@ const pushToHistory = (current: BadgeElement[]) => {
   };
 
   const handleAddToCart = async () => {
-    if (elements.length === 0) {
-      setErrorMessage('Please add at least one element to your badge design');
+    if (!imageState) {
+      setErrorMessage('Please upload or generate an image first');
       setTimeout(() => setErrorMessage(null), 3000);
       return;
     }
-    
+
     setLoading(true);
     try {
-      // Generate circular crop of entire visible canvas
-      const dataUrl = await captureCanvasAsDataURL();
-      const outerDataUrl = await captureCanvasOuterAsDataURL();
-      
+      const [outerDataUrl, innerDataUrl] = await Promise.all([getFullCircleBlob(), getInnerCircleBlob()]);
+
       const customBadge: Badge = {
         id: `custom-${Date.now()}`,
         name: `CUSTOM ${fastener.toUpperCase()}`,
         price: BASE_PRICE,
         category: Category.CUSTOM,
-        image: dataUrl,
-        printImage: outerDataUrl || dataUrl,
+        image: innerDataUrl,
+        printImage: outerDataUrl,
         details: `Custom designed ${fastener} badge.`,
         color: 'bg-white'
       };
@@ -390,837 +399,392 @@ const pushToHistory = (current: BadgeElement[]) => {
     }
   };
 
-  const addText = () => {
-    if (!textInput.trim()) return;
-    const newEl: BadgeElement = {
-      id: Math.random().toString(36).substr(2, 9),
-      type: 'text',
-      content: textInput,
-      x: DISPLAY_OUTER_CANVAS_SIZE / 2 - 50,
-      y: DISPLAY_OUTER_CANVAS_SIZE / 2 - 20,
-      width: 100,
-      height: 40,
-      rotation: 0,
-      zIndex: elements.length + 1
-    };
-    setElements([...elements, newEl]);
-    setTextInput('');
-    setSelectedId(newEl.id);
+  const handleReset = () => {
+    setImageState(prev => prev ? { ...prev, x: 0, y: 0 } : prev);
+    setZoom(1);
+    setRotation(0);
   };
 
-  const handleScaleElement = (id: string, delta: number) => {
-    setElements(prev => prev.map(el => {
-      if (el.id !== id) return el;
-      const aspect = el.width / el.height;
-      const newWidth = Math.max(20, el.width + delta);
-      const newHeight = newWidth / aspect;
-      // Keep centered
-      const dx = (newWidth - el.width) / 2;
-      const dy = (newHeight - el.height) / 2;
-      return { ...el, width: newWidth, height: newHeight, x: el.x - dx, y: el.y - dy };
-    }));
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    // Add image directly to canvas
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      const img = new Image();
-      img.onload = () => {
-        // Calculate aspect-ratio preserving size (default ~200px width)
-        const maxSize = 200;
-        const aspectRatio = img.width / img.height;
-        let width, height;
-        
-        if (aspectRatio > 1) {
-          width = maxSize;
-          height = maxSize / aspectRatio;
-        } else {
-          height = maxSize;
-          width = maxSize * aspectRatio;
-        }
-        
-        // Add to elements array centered on canvas
-        const newEl: BadgeElement = {
-          id: Math.random().toString(36).substr(2, 9),
-          type: 'image',
-          content: dataUrl,
-          x: (DISPLAY_OUTER_CANVAS_SIZE - width) / 2,
-          y: (DISPLAY_OUTER_CANVAS_SIZE - height) / 2,
-          width,
-          height,
-          rotation: 0,
-          zIndex: elements.length + 1
-        };
-        setElements(prev => [...prev, newEl]);
-        setSelectedId(newEl.id);
-      };
-      img.src = dataUrl;
-    };
-    reader.readAsDataURL(file);
-    
-    // Reset input so same file can be uploaded again
-    e.target.value = '';
-  };
-
-  const handleAIUpload = async () => {
-    if (!prompt) return;
-    setLoading(true);
+  const handleDownloadPreview = async () => {
+    if (!imageState) return;
     try {
-      const url = await generateBadgeMockup(prompt);
-      const newEl: BadgeElement = {
-        id: Math.random().toString(36).substr(2, 9),
-        type: 'image',
-        content: url,
-        x: 0,
-        y: 0,
-        width: DISPLAY_OUTER_CANVAS_SIZE,
-        height: DISPLAY_OUTER_CANVAS_SIZE,
-        rotation: 0,
-        zIndex: elements.length + 1
-      };
-      setElements([...elements, newEl]);
-      setSelectedId(newEl.id);
-      setPrompt('');
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
+      const dataUrl = await getInnerCircleBlob();
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `badge-preview-58mm-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error('Download preview error:', e);
     }
   };
 
-  const addQRCode = () => {
-    if (!qrUrl.trim()) return;
-    const fg = hexToRgbParams(qrFgColor);
-    const bg = hexToRgbParams(qrBgColor);
-    const url = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrUrl)}&color=${fg}&bgcolor=${bg}&margin=1`;
-    const newEl: BadgeElement = {
-      id: Math.random().toString(36).substr(2, 9),
-      type: 'qr',
-      content: url,
-      x: DISPLAY_OUTER_CANVAS_SIZE / 2 - 100,
-      y: DISPLAY_OUTER_CANVAS_SIZE / 2 - 100,
-      width: 200,
-      height: 200,
-      rotation: 0,
-      zIndex: elements.length + 1
-    };
-    setElements([...elements, newEl]);
-    setSelectedId(newEl.id);
-  };
-
-  const alignCenter = (type: 'h' | 'v') => {
-    if (!selectedId) return;
-    setElements(prev => prev.map(el => {
-      if (el.id !== selectedId) return el;
-      return type === 'h' ? { ...el, x: (DISPLAY_OUTER_CANVAS_SIZE - el.width) / 2 } : { ...el, y: (DISPLAY_OUTER_CANVAS_SIZE - el.height) / 2 };
-    }));
-  };
-
-  const changeLayer = (dir: 'up' | 'down') => {
-    if (!selectedId) return;
-    setElements(prev => {
-      const sorted = [...prev].sort((a, b) => a.zIndex - b.zIndex);
-      const idx = sorted.findIndex(el => el.id === selectedId);
-      if (idx === -1) return prev;
-      if (dir === 'up' && idx < sorted.length - 1) {
-        const next = sorted[idx + 1], current = sorted[idx];
-        const tempZ = current.zIndex; current.zIndex = next.zIndex; next.zIndex = tempZ;
-      } else if (dir === 'down' && idx > 0) {
-        const prevEl = sorted[idx - 1], current = sorted[idx];
-        const tempZ = current.zIndex; current.zIndex = prevEl.zIndex; prevEl.zIndex = tempZ;
-      }
-      return [...sorted];
-    });
-  };
-
-  const removeElement = (id: string) => {
-    setElements(elements.filter(el => el.id !== id));
-    if (selectedId === id) setSelectedId(null);
-  };
-
-  const clearCanvas = () => {
-    if (confirm('Clear entire design?')) {
-      setElements([]);
-      setSelectedId(null);
-      setBgColor('#FFFFFF');
+  const handleDownloadTemplate = async () => {
+    if (!imageState) return;
+    try {
+      const dataUrl = await getFullCircleBlob();
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `badge-template-70mm-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error('Download template error:', e);
     }
   };
-const handleUndo = () => {
-  if (!undoStack.length) return;
-
-  const previous = undoStack[undoStack.length - 1];
-  setRedoStack(r => [...r, elements]);
-  setUndoStack(u => u.slice(0, -1));
-  setElements(previous);
-};
-const handleRedo = () => {
-  if (!redoStack.length) return;
-
-  const next = redoStack[redoStack.length - 1];
-  setUndoStack(u => [...u, elements]);
-  setRedoStack(r => r.slice(0, -1));
-  setElements(next);
-};
-const handleDelete = () => {
-  if (!selectedId) return;
-
-  pushToHistory(elements);
-  removeElement(selectedId);
-};
-const handleCenter = () => {
-  if (!selectedId) return;
-
-  pushToHistory(elements);
-  alignCenter('h');
-  alignCenter('v');
-};
-const handleClear = () => {
-  if (!elements.length) return;
-
-  pushToHistory(elements);
-  clearCanvas();
-};
-const handleReset = () => {
-  pushToHistory(elements);
-  setElements([]);
-  setSelectedId(null);
-  setBgColor('#FFFFFF');
-};
-
-  const ToolButton = ({ icon: Icon, id, label, count }: { icon: any, id, label: string, count?: number }) => (
-    <button 
-      onClick={() => {
-        setActiveTool(id);
-        setPanelOpen(true);
-      }}
-      className={`w-full h-16 flex flex-col items-center justify-center gap-1 transition-all border-b border-slate-700/50 relative ${
-        activeTool === id ? 'bg-yellow-500/20 text-yellow-400 border-r-4 border-r-yellow-500 shadow-[inset_-3px_0_0_#eab308]'
-  : 'text-slate-400 hover:text-yellow-400 hover:bg-slate-700/30'}`}
-    >
-     <Icon className="w-5 h-5 drop-shadow-sm" />
-
-      <span className="text-[8px] font-black uppercase tracking-widest">{label}</span>
-      {count !== undefined && count > 0 && (
-        <span className="absolute top-2 right-2 bg-yellow-500 text-slate-900 text-[8px] font-black rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 border border-slate-800 shadow-sm">{count}</span>
-      )}
-    </button>
-  );
-
-  const TopBarIcon = ({ icon: Icon, label, onClick }: { icon: any, label: string, onClick?: () => void }) => (
-    <div className="relative group flex items-center justify-center">
-      <button 
-        onClick={onClick} 
-        className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-all hover:text-blue-600 active:scale-95 flex items-center justify-center"
-      >
-        <Icon className="w-4 h-4" />
-      </button>
-      <div className="absolute top-full mt-2.5 left-1/2 -translate-x-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-200 -translate-y-2 group-hover:translate-y-0 z-[100]">
-        <div className="bg-[#000000] text-white text-[9px] font-black px-2.5 py-1.5 rounded uppercase tracking-widest whitespace-nowrap shadow-xl flex flex-col items-center relative">
-          <div className="w-2.5 h-2.5 bg-[#000000] rotate-45 absolute -top-1 left-1/2 -translate-x-1/2 shadow-sm border-t border-l border-white/5"></div>
-          {label}
-        </div>
-      </div>
-    </div>
-  );
-
-  // StepperControl updated to use arrows as in SS
-  const StepperControl = ({ label, value, onIncrease, onDecrease, unit = "" }: { label: string, value: string|number, onIncrease: () => void, onDecrease: () => void, unit?: string }) => (
-    <div className="flex items-center justify-between border border-slate-200 rounded-xl overflow-hidden bg-white h-11 hover:shadow-sm transition
-">
-      <div className="px-4 border-r border-slate-200 flex items-center h-full bg-white flex-shrink-0">
-        <span className="text-[11px] font-bold uppercase text-black">{label}</span>
-      </div>
-      <div className="flex-grow text-center text-sm font-bold text-black bg-white h-full flex items-center justify-center px-2">
-        {value}{unit}
-      </div>
-      <div className="flex flex-col border-l border-slate-200 h-full w-12">
-        <button 
-          onClick={onIncrease}
-          className="flex-1 flex items-center justify-center hover:bg-slate-50 text-slate-800 font-bold hover:text-blue-600 border-b border-slate-100 transition-colors"
-          title="Increase"
-        >
-          <ChevronUp className="w-3.5 h-3.5" strokeWidth={3} />
-        </button>
-        <button 
-          onClick={onDecrease} 
-          className="flex-1 flex items-center justify-center hover:bg-slate-50 text-slate-600 font-bold hover:text-blue-600 transition-colors"
-          title="Decrease"
-        >
-          <ChevronDown className="w-3.5 h-3.5" strokeWidth={3} />
-        </button>
-      </div>
-    </div>
-  );
 
   return (
-  <div className="flex h-[calc(100vh-64px)] w-full bg-gradient-to-br from-yellow-200 via-yellow-300 to-amber-300 overflow-hidden select-none relative">
-      
-      {/* Textured Paper Pattern Overlay - More Visible */}
-      <div 
-        className="pointer-events-none absolute inset-0 opacity-60"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' /%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E")`,
-          mixBlendMode: 'multiply'
-        }}
-      />
-      
-      {/* Additional Paper Grain Texture */}
-      <div 
-        className="pointer-events-none absolute inset-0 opacity-40"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-        }}
-      />
-
-      {/* Premium background glow - Logo Theme */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-400/12 rounded-full blur-[140px]" />
-        <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-amber-400/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-yellow-500/10 rounded-full blur-[100px]" />
-      </div>
-
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Error Message */}
       {errorMessage && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-4 duration-300">
-          <div className="bg-red-500 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border-2 border-red-400">
-            <AlertCircle className="w-5 h-5" />
-            <span className="text-sm font-black uppercase tracking-widest">{errorMessage}</span>
-          </div>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-slide-down">
+          <X className="w-5 h-5" />
+          <span className="font-semibold">{errorMessage}</span>
         </div>
       )}
 
-      {/* Sidebar Tool Rail - Desktop Only */}
-  <div className="hidden md:flex w-16 bg-gradient-to-b from-slate-900 to-slate-800 border-r border-yellow-500/20 flex-col z-30 shadow-[6px_0_30px_rgba(234,179,8,0.15)]">
-        <ToolButton icon={Box} id="model" label="MODEL" />
-        <ToolButton icon={Type} id="text" label="TEXT" />
-        <ToolButton icon={ImageIcon} id="image" label="IMAGE" />
-        <ToolButton icon={QrCode} id="qr" label="QR" />
-        <ToolButton icon={Palette} id="pattern" label="DESIGN" />
-        <ToolButton icon={Layers} id="layers" label="LAYERS" count={elements.length} />
-        <div className="mt-auto border-t border-yellow-500/20">
-          {/* <ToolButton icon={User} id="user" label="USER" />
-           */}
-        </div>
-      </div>
-
-      {/* Desktop Control Panel */}
-      <div className={`w-[320px] bg-gradient-to-b from-slate-900 to-slate-800 border-r border-yellow-500/20 flex-col z-20 shadow-[6px_0_25px_rgba(234,179,8,0.15)] max-h-full overflow-y-auto transition-all duration-300 ${panelOpen ? 'hidden md:flex' : 'hidden'}`}>
-
-        <div className="p-4 border-b border-yellow-500/20 flex items-center justify-between bg-slate-800/60">
-          <h2 className="text-[11px] font-bold tracking-wide uppercase text-yellow-400">
-            {activeTool.toUpperCase()}
-          </h2>
-          <button
-            onClick={() => setPanelOpen(false)}
-            className="p-1 hover:bg-slate-700 rounded transition-colors"
-          >
-            <X className="w-4 h-4 text-slate-400" />
-          </button>
-        </div>
-
-        <div className="overflow-y-auto">
-          <div className="p-4 flex flex-col space-y-5">
-          
-          {activeTool === 'model' && (
-            <div className="space-y-4">
-              <div className="rounded-xl bg-red-50 border-2 border-red-300 px-3 py-3 text-center">
-                <div className="text-xl font-black text-red-600">⭕ 58 MM</div>
-                <div className="text-[8px] font-bold text-red-600 uppercase mt-1">Fixed Badge Size</div>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-yellow-400">Fastener:</label>
-                <select value={fastener} onChange={(e) => setFastener(e.target.value)} className="w-full mt-1 h-10 px-3 bg-slate-700 border border-yellow-500/30 rounded-xl text-sm font-semibold text-white">
-                  {fasteners.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-yellow-400">Quantity:</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-lg bg-slate-700 hover:bg-yellow-500/20 font-black text-lg text-white">-</button>
-                  <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="flex-1 h-10 px-3 bg-slate-700 border border-yellow-500/30 rounded-xl text-center font-bold text-white" />
-                  <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 rounded-lg bg-slate-700 hover:bg-yellow-500/20 font-black text-lg text-white">+</button>
-                </div>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-slate-700/50 border border-yellow-500/20 rounded-xl">
-                <span className="text-xs font-bold text-yellow-400 uppercase">Total Price:</span>
-                <span className="text-lg font-black text-white">{formatPrice(BASE_PRICE * quantity)}</span>
-              </div>
-              <button onClick={handleAddToCart} disabled={loading} className="w-full h-12 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-yellow-500/30 transition-all">
-                <ShoppingCart className="w-4 h-4" /> Add to Cart
-              </button>
-              <button onClick={handleDownloadPrintFile} disabled={downloading || elements.length === 0} className="w-full h-10 rounded-xl border-2 border-yellow-500/40 text-yellow-400 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-yellow-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} {downloading ? 'Generating...' : 'Download Print File'}
-              </button>
-            </div>
-          )}
-          {activeTool === 'text' && (
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <input type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)} placeholder="Enter text..." className="flex-1 h-10 px-3 bg-slate-700 border border-yellow-500/30 rounded-xl text-sm text-white placeholder-slate-400" />
-                <button onClick={addText} className="px-4 h-10 bg-yellow-500 text-slate-900 rounded-xl font-bold text-sm hover:bg-yellow-400 transition-colors">Add</button>
-              </div>
-            </div>
-          )}
-          {activeTool === 'image' && (
-            <div className="space-y-3">
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-              <button onClick={() => fileInputRef.current?.click()} className="w-full h-12 rounded-xl border-2 border-dashed border-yellow-500/30 text-slate-300 font-bold text-sm flex items-center justify-center gap-2 hover:border-yellow-500/60 hover:text-yellow-400 transition-all">
-                <Upload className="w-4 h-4" /> Upload Image
-              </button>
-            </div>
-          )}
-          {activeTool === 'qr' && (
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <input type="text" value={qrUrl} onChange={(e) => setQrUrl(e.target.value)} placeholder="Enter URL..." className="flex-1 h-10 px-3 bg-slate-700 border border-yellow-500/30 rounded-xl text-sm text-white placeholder-slate-400" />
-                <button onClick={addQRCode} className="px-4 h-10 bg-yellow-500 text-slate-900 rounded-xl font-bold text-sm hover:bg-yellow-400 transition-colors">Add QR</button>
-              </div>
-            </div>
-          )}
-          {activeTool === 'pattern' && (
-            <div className="space-y-3">
-              <label className="text-xs font-semibold text-yellow-400">Background Color:</label>
-              <div className="grid grid-cols-6 gap-2">
-                {backgroundPresets.slice(0, 12).map(color => (
-                  <button key={color} onClick={() => setBgColor(color)} className={`w-full aspect-square rounded-lg border-2 ${bgColor === color ? 'border-yellow-500' : 'border-slate-600'}`} style={{ backgroundColor: color === '#TRANSPARENT' ? '#fff' : color }}></button>
-                ))}
-              </div>
-            </div>
-          )}
-          {activeTool === 'layers' && (
-            <div className="space-y-3">
-              <p className="text-xs font-bold text-yellow-400">Manage Layers</p>
-              {elements.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-4">No layers added</p>
-              ) : (
-                <div className="space-y-2">
-                  {elements.sort((a,b) => b.zIndex - a.zIndex).map((el) => (
-                    <div key={el.id} onClick={() => setSelectedId(el.id)} className={`flex items-center justify-between p-2 rounded-lg border-2 ${selectedId === el.id ? 'border-yellow-500 bg-yellow-500/10' : 'border-slate-600 bg-slate-700/50'}`}>
-                      <span className="text-sm font-semibold truncate text-white">{el.type === 'text' ? el.content : el.type.toUpperCase()}</span>
-                      <button onClick={(e) => { e.stopPropagation(); removeElement(el.id); }} className="text-red-400 hover:text-red-300">✕</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        </div>
-      </div>
-
-      {/* Main Workspace */}
-  <div
-  className="flex-grow flex flex-col relative bg-transparent overflow-auto md:overflow-hidden w-full md:w-auto"
-  onMouseDown={() => setSelectedId(null)}
->
-
-
-        {/* Top Toolbar */}
-        {/* <div className="h-12 bg-white border-b border-slate-200 flex items-center px-4 gap-1 justify-center z-40 shadow-sm overflow-visible">
-          <TopBarIcon icon={Info} label="Info" />
-          <TopBarIcon icon={MousePointer} label="Select" />
-          <TopBarIcon icon={Eraser} label="Clear Design" onClick={clearCanvas} />
-          <TopBarIcon icon={Grid3X3} label="Toggle Grid" />
-          <div className="w-px h-5 bg-slate-200 mx-1"></div>
-          <TopBarIcon icon={AlignCenter} label="Align Horizontal" onClick={() => alignCenter('h')} />
-          <TopBarIcon icon={AlignVerticalJustifyCenter} label="Align Vertical" onClick={() => alignCenter('v')} />
-          <TopBarIcon icon={FlipHorizontal} label="Flip Horizontal" />
-          <TopBarIcon icon={FlipVertical} label="Flip Vertical" />
-          <TopBarIcon icon={RotateCcw} label="Rotate Reset" />
-          <div className="w-px h-5 bg-slate-200 mx-1"></div>
-          <TopBarIcon icon={Files} label="Bring to Front" onClick={() => changeLayer('up')} />
-          <TopBarIcon icon={FileStack} label="Send to Back" onClick={() => changeLayer('down')} />
-          <TopBarIcon icon={Lock} label="Lock Layer" />
-          <TopBarIcon icon={Share2} label="Share Design" />
-          <TopBarIcon icon={Copy} label="Duplicate Object" />
-          <TopBarIcon icon={Trash2} label="Delete Object" onClick={() => selectedId && removeElement(selectedId)} />
-          <div className="w-px h-5 bg-slate-200 mx-1"></div>
-          <TopBarIcon icon={Undo2} label="Undo Change" />
-          <TopBarIcon icon={Redo2} label="Redo Change" />
-          <TopBarIcon icon={Eye} label="Preview" />
-        </div> */}
-
-        <div className="flex-grow relative flex flex-col items-center justify-center p-2 sm:p-4 md:p-8 overflow-auto pb-32 md:pb-8">
-          
-          <div className="text-center mb-4 md:mb-6 max-w-6xl px-2 md:px-4">
-             <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-400/50 rounded-xl p-4 md:p-5 mb-3 md:mb-4 shadow-lg">
-               <div className="flex items-center justify-center gap-2 mb-3">
-                 <Sparkles className="w-5 h-5 text-yellow-600" />
-                 <h3 className="text-sm md:text-base font-black text-yellow-800 uppercase tracking-wide">Circular Badge Design Canvas</h3>
-                 <Sparkles className="w-5 h-5 text-yellow-600" />
-               </div>
-               <div className="text-center">
-                 <div className="bg-white/80 p-4 rounded-lg border border-blue-300 inline-block">
-                   <div className="text-3xl font-black text-blue-600 mb-2">⭕ CIRCULAR BADGE</div>
-                   <div className="text-[11px] font-bold text-blue-700 uppercase">Design within the outer circle</div>
-                   <div className="text-[10px] text-blue-600 mt-2">Red dashed circle shows safe area</div>
-                 </div>
-               </div>
-               <div className="mt-3 p-2 bg-green-100 border border-green-400 rounded-lg">
-                 <p className="text-[9px] md:text-[10px] font-bold text-green-800 text-center uppercase tracking-wide">
-                   ✨ Circular crop auto-applied on "Add to Cart" or "Download"
-                 </p>
-               </div>
-             </div>
+      {/* Header */}
+      <header className="border-b border-slate-200 bg-white px-6 py-4 shadow-sm">
+        <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-2xl font-black text-slate-900">
+              Custom Badge Designer
+            </h1>
+            <p className="text-sm text-slate-600 font-medium mt-1">
+              Button Badge Template: <span className="font-mono text-yellow-600">{OUTER_BADGE_MM}mm / {BADGE_MM}mm</span>
+            </p>
           </div>
+        </div>
+      </header>
 
-          {/* Dual Circle Layout - Editor + Preview */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 w-full max-w-6xl px-4">
-            
-            {/* LEFT: Editing Circle with Crop Overlay */}
-            <div className="flex flex-col items-center gap-4 relative">
-              <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">
-                Design Canvas
-              </h3>
-              
-              <div className="relative" ref={canvasRef}>
-                <div className="absolute inset-0 bg-slate-900/10 rounded-full blur-[40px] translate-y-8 scale-110"></div>
-            
-            {/* Outer 70MM Circle - Always shown as badge structure */}
-              <div 
-                className="rounded-full relative shadow-sm flex items-center justify-center transition-colors duration-300 border-2 border-slate-200/20 overflow-hidden"
-                style={{ 
-                  width: DISPLAY_OUTER_CANVAS_SIZE,
-                  height: DISPLAY_OUTER_CANVAS_SIZE,
-                  backgroundColor: bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor,
-                  backgroundImage: bgColor === '#TRANSPARENT' 
-                    ? 'linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%, #e5e7eb), linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%, #e5e7eb)'
-                    : 'none',
-                  backgroundSize: bgColor === '#TRANSPARENT' ? '20px 20px' : 'auto',
-                  backgroundPosition: bgColor === '#TRANSPARENT' ? '0 0, 10px 10px' : '0 0'
-                }}
-              >
-                {/* 58MM Guide Circle - Shows final badge area */}
-                <div 
-                  className="absolute rounded-full z-20 pointer-events-none border-2 border-dashed border-red-500/40"
-                  title="58mm badge area - Final visible area"
-                  style={{
-                    width: DISPLAY_CANVAS_SIZE,
-                    height: DISPLAY_CANVAS_SIZE
-                  }}
-                ></div>
-                
-                {elements.length === 0 && activeTool === 'image' && (
-                  <div className="absolute inset-0 z-30 flex items-center justify-center">
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      className="
-                        w-[70%] h-[70%]
-                        border-2 border-dashed border-slate-300
-                        rounded-full
-                        flex flex-col items-center justify-center
-                        gap-4
-                        text-slate-400
-                        cursor-pointer
-                        hover:border-blue-400
-                        hover:text-blue-500
-                        transition-all
-                        bg-white/40
-                        backdrop-blur-sm
-                      "
+      <main className="mx-auto max-w-7xl px-4 py-8">
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
+          {/* Left: Control Panel */}
+          <div className={`w-full lg:w-80 bg-gradient-to-b from-slate-900 to-slate-800 rounded-2xl shadow-2xl transition-all duration-300 ${panelOpen ? '' : 'hidden lg:block'}`}>
+            <div className="p-6 space-y-6">
+              {/* Badge Configuration */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">Badge Configuration</h3>
+                <div>
+                  <label className="text-xs font-semibold text-slate-300">Fastener Type:</label>
+                  <select 
+                    value={fastener} 
+                    onChange={(e) => setFastener(e.target.value)} 
+                    className="w-full mt-1 h-10 px-3 bg-slate-700 border border-yellow-500/30 rounded-xl text-sm font-semibold text-white"
+                  >
+                    {fasteners.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-300">Quantity:</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <button 
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))} 
+                      className="w-10 h-10 rounded-lg bg-slate-700 hover:bg-yellow-500/20 font-black text-lg text-white transition-colors"
                     >
-                      <Upload className="w-12 h-12" />
-                      <p className="text-sm font-bold uppercase tracking-widest">
-                        Upload Custom Art
-                      </p>
-                    </div>
+                      -
+                    </button>
+                    <input 
+                      type="number" 
+                      value={quantity} 
+                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} 
+                      className="flex-1 h-10 px-3 bg-slate-700 border border-yellow-500/30 rounded-xl text-center font-bold text-white" 
+                    />
+                    <button 
+                      onClick={() => setQuantity(quantity + 1)} 
+                      className="w-10 h-10 rounded-lg bg-slate-700 hover:bg-yellow-500/20 font-black text-lg text-white transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="h-px bg-slate-700"></div>
+
+              {/* Image Upload */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">Image Upload</h3>
+                <input 
+                  ref={fileInputRef} 
+                  type="file" 
+                  accept="image/jpeg,image/png,image/gif" 
+                  className="hidden" 
+                  onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} 
+                />
+                <button 
+                  onClick={() => fileInputRef.current?.click()} 
+                  className="w-full h-24 rounded-xl border-2 border-dashed border-yellow-500/30 text-slate-300 font-bold text-sm flex flex-col items-center justify-center gap-2 hover:border-yellow-500/60 hover:text-yellow-400 hover:bg-slate-700/30 transition-all"
+                >
+                  <Upload className="w-8 h-8" />
+                  <span>Upload Image</span>
+                  <span className="text-[10px] font-normal text-slate-500">or drag and drop</span>
+                </button>
+                {imageState && (
+                  <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                    <p className="text-xs font-semibold text-green-400 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Image loaded successfully
+                    </p>
                   </div>
                 )}
-
-                <div className="w-full h-full relative z-10" style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.1s ease-out' }}>
-                  {elements.sort((a,b) => a.zIndex - b.zIndex).map((el) => {
-                    const isSelected = selectedId === el.id;
-                    return (
-                      <div 
-                        key={el.id}
-                        onMouseDown={(e) => handleMouseDown(e, 'drag', el.id)}
-                        onTouchStart={(e) => handleTouchStart(e, 'drag', el.id)}
-                        className={`absolute group cursor-move ${isSelected ? 'z-[999]' : ''}`}
-                        style={{
-                          left: el.x,
-                          top: el.y,
-                          width: el.width,
-                          height: el.height,
-                          transform: `rotate(${el.rotation}deg)`,
-                          zIndex: el.zIndex
-                        }}
-                      >
-                        {isSelected && (
-                          <div className="absolute -inset-1 border-2 border-blue-400 pointer-events-none">
-                            <div className="absolute -top-3 -right-3 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center cursor-pointer pointer-events-auto shadow-lg hover:bg-red-600 active:scale-90 transition-all z-[1001]" onMouseDown={(e) => { e.stopPropagation(); removeElement(el.id); }} onTouchStart={(e) => { e.stopPropagation(); removeElement(el.id); }}><X className="w-3.5 h-3.5" /></div>
-                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 bg-white rounded-full border border-blue-400 flex items-center justify-center cursor-alias pointer-events-auto shadow-md" onMouseDown={(e) => handleMouseDown(e, 'rotate', el.id)} onTouchStart={(e) => handleTouchStart(e, 'rotate', el.id)}><RotateCw className="w-3.5 h-3.5 text-blue-400" /></div>
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-400 rounded-sm cursor-nwse-resize pointer-events-auto" onMouseDown={(e) => handleMouseDown(e, 'resize', el.id)} onTouchStart={(e) => handleTouchStart(e, 'resize', el.id)}></div>
-                          </div>
-                        )}
-                        <div className="w-full h-full flex items-center justify-center overflow-hidden">
-                          {el.type === 'text' ? (
-                            <div className="font-black text-slate-900 text-center leading-tight whitespace-nowrap select-none" style={{ fontSize: `${el.height * 0.7}px` }}>{el.content}</div>
-                          ) : (
-                            <img src={el.content} className="w-full h-full object-cover pointer-events-none select-none" />
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-              </div>
-              </div>
-            
-            {/* Zoom Controls */}
-              <div className="flex items-center gap-3 mt-4">
-                <button 
-                  onClick={() => setZoom(prev => Math.max(0.5, prev - 0.1))} 
-                  className="px-4 py-2 bg-slate-700 text-white rounded-lg font-bold hover:bg-yellow-500 transition-colors"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <span className="text-sm font-black text-slate-700 min-w-[60px] text-center">
-                  {Math.round(zoom * 100)}%
-                </span>
-                <button 
-                  onClick={() => setZoom(prev => Math.min(3, prev + 0.1))} 
-                  className="px-4 py-2 bg-slate-700 text-white rounded-lg font-bold hover:bg-yellow-500 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
               </div>
 
-              {/* Auto-Crop Info Panel */}
-              <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400/50 rounded-xl shadow-lg">
-                <div className="flex items-start gap-3">
-                  <div className="bg-green-500 rounded-full p-2 mt-0.5">
-                    <CheckCircle2 className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-xs font-black text-green-800 uppercase tracking-wide mb-2">Auto Circular Crop</h4>
-                    <p className="text-[10px] font-semibold text-green-700 leading-relaxed">
-                      When you add to cart or download, the entire visible outer circle will be cropped and sent.
-                    </p>
-                    <div className="mt-3 p-2 bg-white/70 rounded-lg border border-green-300">
-                      <p className="text-[9px] font-bold text-green-800 uppercase tracking-wide text-center">
-                        📄 Circular cropped image included in Word document!
-                      </p>
+              {/* Divider */}
+              <div className="h-px bg-slate-700"></div>
+
+              {/* Canvas Controls */}
+              {imageState && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">Canvas Controls</h3>
+                  
+                  {/* Zoom Slider */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-semibold text-slate-300">Zoom</label>
+                      <span className="text-xs font-mono text-yellow-400">{Math.round(zoom * 100)}%</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="0.2" 
+                      max="5" 
+                      step="0.01" 
+                      value={zoom} 
+                      onChange={(e) => handleZoomChange(parseFloat(e.target.value))} 
+                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+                    />
+                    <div className="flex justify-between mt-1">
+                      <span className="text-[10px] text-slate-500">20%</span>
+                      <span className="text-[10px] text-slate-500">500%</span>
                     </div>
                   </div>
-                </div>
-              </div>
-          </div>
 
-            {/* RIGHT: Preview Circle - Only 58mm like real button badge */}
-            <div className="flex flex-col items-center gap-4 relative">
-              <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Final Preview</h3>
-              <div className="relative">
-                <div className="absolute inset-0 bg-yellow-500/20 rounded-full blur-[40px] translate-y-8 scale-110"></div>
-                {/* Outer container matching design canvas size for visual alignment */}
-                <div 
-                  className="rounded-full relative flex items-center justify-center"
-                  style={{ 
-                    width: DISPLAY_OUTER_CANVAS_SIZE,
-                    height: DISPLAY_OUTER_CANVAS_SIZE
-                  }}
-                >
-                  {/* 58mm clip mask - shows only the center 58mm of the 70mm design */}
-                  <div 
-                    className="rounded-full shadow-2xl overflow-hidden"
-                    style={{ 
-                      width: DISPLAY_CANVAS_SIZE,
-                      height: DISPLAY_CANVAS_SIZE
-                    }}
-                  >
-                    {/* 70mm inner container offset to show center 58mm */}
-                    <div 
-                      className="relative"
-                      style={{ 
-                        width: DISPLAY_OUTER_CANVAS_SIZE,
-                        height: DISPLAY_OUTER_CANVAS_SIZE,
-                        marginLeft: -((DISPLAY_OUTER_CANVAS_SIZE - DISPLAY_CANVAS_SIZE) / 2),
-                        marginTop: -((DISPLAY_OUTER_CANVAS_SIZE - DISPLAY_CANVAS_SIZE) / 2),
-                        backgroundColor: bgColor === '#TRANSPARENT' ? '#FFFFFF' : bgColor,
-                        backgroundImage: bgColor === '#TRANSPARENT' 
-                          ? 'linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%, #e5e7eb), linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%, #e5e7eb)'
-                          : 'none',
-                        backgroundSize: bgColor === '#TRANSPARENT' ? '20px 20px' : 'auto',
-                        backgroundPosition: bgColor === '#TRANSPARENT' ? '0 0, 10px 10px' : '0 0'
-                      }}
+                  {/* Rotation Slider */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-semibold text-slate-300">Rotate</label>
+                      <span className="text-xs font-mono text-yellow-400">{rotation}°</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="-180" 
+                      max="180" 
+                      step="1" 
+                      value={rotation} 
+                      onChange={(e) => handleRotationChange(parseInt(e.target.value))} 
+                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+                    />
+                    <div className="flex justify-between mt-1">
+                      <span className="text-[10px] text-slate-500">-180°</span>
+                      <span className="text-[10px] text-slate-500">180°</span>
+                    </div>
+                  </div>
+
+                  {/* Background Color */}
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300 block mb-2">Background:</label>
+                    <div className="grid grid-cols-7 gap-2">
+                      {backgroundPresets.map(color => (
+                        <button 
+                          key={color} 
+                          onClick={() => setBgColor(color)} 
+                          className={`w-full aspect-square rounded-lg border-2 transition-all ${bgColor === color ? 'border-yellow-500 scale-110' : 'border-slate-600 hover:border-slate-500'}`} 
+                          style={{ backgroundColor: color }}
+                          title={color}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button 
+                      onClick={handleReset}
+                      className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-600 transition-colors flex items-center justify-center gap-1"
                     >
-                      <div className="w-full h-full relative z-10" style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.1s ease-out' }}>
-                        {elements.sort((a,b) => a.zIndex - b.zIndex).map((el) => {
-                          return (
-                            <div 
-                              key={el.id}
-                              className="absolute"
-                              style={{
-                                left: el.x,
-                                top: el.y,
-                                width: el.width,
-                                height: el.height,
-                                transform: `rotate(${el.rotation}deg)`,
-                                zIndex: el.zIndex
-                              }}
-                            >
-                              <div className="w-full h-full flex items-center justify-center overflow-hidden">
-                                {el.type === 'text' ? (
-                                  <div className="font-black text-slate-900 text-center leading-tight whitespace-nowrap select-none" style={{ fontSize: `${el.height * 0.7}px` }}>{el.content}</div>
-                                ) : (
-                                  <img src={el.content} className="w-full h-full object-cover pointer-events-none select-none" />
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {/* Button badge glossy effect */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/10 pointer-events-none z-20"></div>
-                    </div>
+                      <RotateCcw className="w-3 h-3" />
+                      Reset
+                    </button>
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-600 transition-colors flex items-center justify-center gap-1"
+                    >
+                      <Upload className="w-3 h-3" />
+                      Replace
+                    </button>
                   </div>
                 </div>
-              </div>
-              <p className="text-[10px] font-black text-yellow-600 uppercase tracking-widest mt-2">
-                ⭕ 58MM Final Badge
-              </p>
-            </div>
-          </div>
+              )}
 
-          <div className="mt-8 text-center">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">Scroll with mouse wheel on canvas to zoom</p>
-          </div>
-        </div>
-      </div>
+              {/* Divider */}
+              <div className="h-px bg-slate-700"></div>
 
-      {/* Mobile Bottom Toolbar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-slate-200 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
-        <div className="flex items-center justify-around px-2 py-3">
-          <button onClick={() => { setActiveTool('model'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'model' ? 'bg-yellow-50 text-yellow-600' : 'text-slate-600'}`}>
-            <Box className="w-5 h-5" />
-            <span className="text-[9px] font-bold uppercase">Model</span>
-          </button>
-          <button onClick={() => { setActiveTool('text'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'text' ? 'bg-yellow-50 text-yellow-600' : 'text-slate-600'}`}>
-            <Type className="w-5 h-5" />
-            <span className="text-[9px] font-bold uppercase">Text</span>
-          </button>
-          <button onClick={() => { setActiveTool('image'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'image' ? 'bg-yellow-50 text-yellow-600' : 'text-slate-600'}`}>
-            <ImageIcon className="w-5 h-5" />
-            <span className="text-[9px] font-bold uppercase">Image</span>
-          </button>
-          <button onClick={() => { setActiveTool('qr'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'qr' ? 'bg-yellow-50 text-yellow-600' : 'text-slate-600'}`}>
-            <QrCode className="w-5 h-5" />
-            <span className="text-[9px] font-bold uppercase">QR</span>
-          </button>
-          <button onClick={() => { setActiveTool('pattern'); setMobileSheetOpen(true); }} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'pattern' ? 'bg-yellow-50 text-yellow-600' : 'text-slate-600'}`}>
-            <Palette className="w-5 h-5" />
-            <span className="text-[9px] font-bold uppercase">Design</span>
-          </button>
-          <button onClick={() => { setActiveTool('layers'); setMobileSheetOpen(true); }} className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${activeTool === 'layers' ? 'bg-yellow-50 text-yellow-600' : 'text-slate-600'}`}>
-            <Layers className="w-5 h-5" />
-            <span className="text-[9px] font-bold uppercase">Layers</span>
-            {elements.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center">{elements.length}</span>}
-          </button>
-        </div>
-      </div>
+              {/* AI Generator */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">AI Generator</h3>
+                <textarea 
+                  value={prompt} 
+                  onChange={(e) => setPrompt(e.target.value)} 
+                  placeholder="Describe your badge design..." 
+                  className="w-full h-20 px-3 py-2 bg-slate-700 border border-yellow-500/30 rounded-xl text-sm text-white placeholder-slate-400 resize-none focus:border-yellow-500 focus:outline-none" 
+                />
+                <button 
+                  onClick={handleGenerateImage} 
+                  disabled={loading || !prompt.trim()} 
+                  className="w-full h-10 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-purple-500/30 disabled:opacity-50 transition-all"
+                >
+                  {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</> : <><Wand2 className="w-4 h-4" /> Generate</>}
+                </button>
+              </div>
 
-      {/* Mobile Control Panel - Slide Up Sheet */}
-      <div className={`md:hidden fixed bottom-20 left-0 right-0 bg-white border-t-2 border-slate-200 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.15)] max-h-[50vh] overflow-y-auto rounded-t-3xl transition-all duration-300 ${mobileSheetOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`}>
-        <div className="p-4 space-y-4">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200">
-            <span className="text-sm font-bold text-slate-900 uppercase">{activeTool}</span>
-            <button 
-              onClick={() => setMobileSheetOpen(false)}
-              className="p-1 hover:bg-slate-200 rounded transition-colors"
-            >
-              <X className="w-4 h-4 text-slate-600" />
-            </button>
-          </div>
-          {activeTool === 'model' && (
-            <div className="space-y-4">
-              <div className="rounded-xl bg-red-50 border-2 border-red-300 px-3 py-3 text-center">
-                <div className="text-xl font-black text-red-600">⭕ 58 MM</div>
-                <div className="text-[8px] font-bold text-red-600 uppercase mt-1">Fixed Badge Size</div>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-900">Fastener:</label>
-                <select value={fastener} onChange={(e) => setFastener(e.target.value)} className="w-full mt-1 h-10 px-3 bg-white border border-slate-900 rounded-xl text-sm font-semibold">
-                  {fasteners.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-900">Quantity:</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-lg bg-slate-100 font-black text-lg">-</button>
-                  <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="flex-1 h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-center font-bold" />
-                  <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 rounded-lg bg-slate-100 font-black text-lg">+</button>
+              {/* Divider */}
+              <div className="h-px bg-slate-700"></div>
+
+              {/* Order Actions */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-slate-700/50 border border-yellow-500/20 rounded-xl">
+                  <span className="text-xs font-bold text-yellow-400 uppercase">Total Price:</span>
+                  <span className="text-lg font-black text-white">{formatPrice(BASE_PRICE * quantity)}</span>
                 </div>
+                <button 
+                  onClick={handleAddToCart} 
+                  disabled={loading || !imageState} 
+                  className="w-full h-12 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-yellow-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ShoppingCart className="w-4 h-4" /> Add to Cart
+                </button>
+                <button 
+                  onClick={handleDownloadPrintFile} 
+                  disabled={downloading || !imageState} 
+                  className="w-full h-10 rounded-xl border-2 border-yellow-500/40 text-yellow-400 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-yellow-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} {downloading ? 'Generating...' : 'Download Word File'}
+                </button>
               </div>
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                <span className="text-xs font-bold text-slate-600 uppercase">Total Price:</span>
-                <span className="text-lg font-black text-slate-900">{formatPrice(BASE_PRICE * quantity)}</span>
-              </div>
-              <button onClick={handleAddToCart} disabled={loading} className="w-full h-12 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2">
-                <ShoppingCart className="w-4 h-4" /> Add to Cart
-              </button>
-              <button onClick={handleDownloadPrintFile} disabled={downloading || elements.length === 0} className="w-full h-10 rounded-xl border-2 border-blue-500/40 text-blue-600 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} {downloading ? 'Generating...' : 'Download Print File'}
-              </button>
-            </div>
-          )}
-          {activeTool === 'text' && (
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <input type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)} placeholder="Enter text..." className="flex-1 h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
-                <button onClick={addText} className="px-4 h-10 bg-blue-600 text-white rounded-xl font-bold text-sm">Add</button>
-              </div>
-            </div>
-          )}
-          {activeTool === 'image' && (
-            <div className="space-y-3">
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-              <button onClick={() => fileInputRef.current?.click()} className="w-full h-12 rounded-xl border-2 border-dashed border-slate-300 text-slate-600 font-bold text-sm flex items-center justify-center gap-2">
-                <Upload className="w-4 h-4" /> Upload Image
-              </button>
-            </div>
-          )}
-          {activeTool === 'qr' && (
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <input type="text" value={qrUrl} onChange={(e) => setQrUrl(e.target.value)} placeholder="Enter URL..." className="flex-1 h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
-                <button onClick={addQRCode} className="px-4 h-10 bg-blue-600 text-white rounded-xl font-bold text-sm">Add QR</button>
-              </div>
-            </div>
-          )}
-          {activeTool === 'pattern' && (
-            <div className="space-y-3">
-              <label className="text-xs font-semibold text-slate-900">Background Color:</label>
-              <div className="grid grid-cols-6 gap-2">
-                {backgroundPresets.slice(0, 12).map(color => (
-                  <button key={color} onClick={() => setBgColor(color)} className={`w-full aspect-square rounded-lg border-2 ${bgColor === color ? 'border-blue-500' : 'border-slate-200'}`} style={{ backgroundColor: color === '#TRANSPARENT' ? '#fff' : color }}></button>
-                ))}
-              </div>
-            </div>
-          )}
-          {activeTool === 'layers' && (
-            <div className="space-y-3">
-              <p className="text-xs font-bold text-slate-900">Manage Layers</p>
-              {elements.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center py-4">No layers added</p>
-              ) : (
-                <div className="space-y-2">
-                  {elements.sort((a,b) => b.zIndex - a.zIndex).map((el) => (
-                    <div key={el.id} onClick={() => setSelectedId(el.id)} className={`flex items-center justify-between p-2 rounded-lg border-2 ${selectedId === el.id ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
-                      <span className="text-sm font-semibold truncate">{el.type === 'text' ? el.content : el.type.toUpperCase()}</span>
-                      <button onClick={(e) => { e.stopPropagation(); removeElement(el.id); }} className="text-red-600">✕</button>
-                    </div>
-                  ))}
+
+              {/* Divider */}
+              <div className="h-px bg-slate-700"></div>
+
+              {/* Individual Downloads */}
+              {imageState && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">Download Images</h3>
+                  <button 
+                    onClick={handleDownloadPreview}
+                    className="w-full h-10 rounded-xl bg-green-600 text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-green-500 transition-all"
+                  >
+                    <Download className="w-4 h-4" /> Preview (58mm)
+                  </button>
+                  <button 
+                    onClick={handleDownloadTemplate}
+                    className="w-full h-10 rounded-xl bg-blue-600 text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-500 transition-all"
+                  >
+                    <Download className="w-4 h-4" /> Template (70mm)
+                  </button>
                 </div>
               )}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
+          {/* Center: Main Canvas */}
+          <div className="flex-1 space-y-6">
+            {!imageState && (
+              <div
+                className="mb-6 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-white p-16 cursor-pointer transition-all hover:border-yellow-500 hover:bg-yellow-50/50"
+                onDrop={handleDrop}
+                onDragOver={(e) => e.preventDefault()}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="mb-4 h-16 w-16 text-slate-400" />
+                <p className="text-lg font-bold text-slate-700">Drop an image here or click to upload</p>
+                <p className="mt-2 text-sm text-slate-500">JPG, PNG, GIF supported</p>
+              </div>
+            )}
+
+            {/* Canvas */}
+            <div className="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                  <Info className="w-4 h-4 text-blue-500" />
+                  {OUTER_BADGE_MM}mm Artwork Canvas
+                </p>
+                <p className="text-xs text-slate-500">Drag image to position • Scroll to zoom</p>
+              </div>
+              <canvas
+                ref={canvasRef}
+                width={CANVAS_PX}
+                height={CANVAS_PX}
+                className="max-w-full rounded-lg cursor-grab active:cursor-grabbing touch-none mx-auto shadow-lg"
+                style={{ aspectRatio: "1/1", width: "100%", maxWidth: CANVAS_PX }}
+                onMouseDown={handlePointerDown}
+                onMouseMove={handlePointerMove}
+                onMouseUp={handlePointerUp}
+                onMouseLeave={handlePointerUp}
+                onTouchStart={handlePointerDown}
+                onTouchMove={handlePointerMove}
+                onTouchEnd={handlePointerUp}
+                onWheel={handleWheel}
+                onDrop={handleDrop}
+                onDragOver={(e) => e.preventDefault()}
+              />
+            </div>
+
+            {/* Guide Legend */}
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Guide</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-0.5 w-8 bg-black" />
+                  <span className="text-sm text-slate-700 font-medium">{OUTER_BADGE_MM}mm – Cut boundary</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="h-0.5 w-8 border-t-2 border-dashed border-green-600" />
+                  <span className="text-sm text-slate-700 font-medium">{BADGE_MM}mm – Visible area</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Preview */}
+          <div className="w-full lg:w-80 space-y-6">
+            <div className="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-xl">
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 text-center">
+                Final Badge Preview ({BADGE_MM}mm)
+              </h3>
+              <div className="flex justify-center">
+                <canvas 
+                  ref={previewCanvasRef} 
+                  width={250} 
+                  height={250} 
+                  className="rounded-full shadow-2xl" 
+                  style={{ width: 250, height: 250 }} 
+                />
+              </div>
+              <p className="text-xs text-slate-500 text-center mt-4">
+                This is what your customer will see on the finished badge
+              </p>
+            </div>
+
+            {/* Info Panel */}
+            <div className="rounded-xl border-2 border-green-200 bg-green-50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="bg-green-500 rounded-full p-2">
+                  <CheckCircle2 className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-xs font-black text-green-800 uppercase tracking-wide mb-2">Manufacturing Info</h4>
+                  <p className="text-[11px] font-semibold text-green-700 leading-relaxed">
+                    The {OUTER_BADGE_MM}mm design wraps around the badge. Only the center {BADGE_MM}mm is visible to customers.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
