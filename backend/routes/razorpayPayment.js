@@ -12,6 +12,7 @@ const auth = require("../middleware/auth");
 const sendEmail = require("../utils/sendEmail");
 const promoUsedEmailTemplate = require("../utils/promoUsedEmail");
 const generateInvoicePDF = require("../utils/generateInvoicePDF");
+const generateBadgeDoc = require("../utils/generateBadgeDoc");
 
 /* =========================
    CREATE RAZORPAY ORDER
@@ -370,6 +371,31 @@ for (const earn of earnings) {
     const ownerEmail = process.env.ADMIN_EMAIL || "sticktoon.xyz@gmail.com";
     const frontendUrl = process.env.FRONTEND_URL ;
     try {
+      // Extract custom badges (items with base64 images)
+      const customBadges = order.items.filter(item => 
+        (item.printImage && item.printImage.startsWith('data:image')) ||
+        (item.image && item.image.startsWith('data:image'))
+      );
+
+      // Generate Word document for custom badges
+      let badgeDocBuffer = null;
+      if (customBadges.length > 0) {
+        try {
+          badgeDocBuffer = await generateBadgeDoc({
+            orderId: order._id.toString().slice(-8).toUpperCase(),
+            customBadges: customBadges.map(item => ({
+              name: item.name,
+              quantity: item.quantity,
+              image: item.image,
+              printImage: item.printImage,
+            })),
+          });
+          console.log("✅ Badge Word document generated for", customBadges.length, "custom badges");
+        } catch (docErr) {
+          console.error("Badge doc generation error:", docErr.message);
+        }
+      }
+
       const itemsList = order.items.map(item => {
         // Build image URL - handle different image path formats
         let imageUrl = '';
@@ -378,16 +404,22 @@ for (const earn of earnings) {
             imageUrl = item.image;
           } else if (item.image.startsWith('/')) {
             imageUrl = `${frontendUrl}${item.image}`;
+          } else if (item.image.startsWith('data:image')) {
+            // For custom badges, show a placeholder text instead of embedding base64
+            imageUrl = ''; // Don't embed base64 in email, it's in the Word doc
           } else {
             imageUrl = `${frontendUrl}/${item.image}`;
           }
         }
         
+        // Mark custom badges in the list
+        const isCustom = item.image && item.image.startsWith('data:image');
+        
         return `<tr>
           <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              ${imageUrl ? `<img src="${imageUrl}" alt="${item.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb;">` : ''}
-              <span style="font-weight: 500;">${item.name}</span>
+              ${imageUrl ? `<img src="${imageUrl}" alt="${item.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb;">` : (isCustom ? '<span style="display: inline-block; width: 60px; height: 60px; background: #fef3c7; border-radius: 8px; text-align: center; line-height: 60px; font-size: 24px;">🎨</span>' : '')}
+              <span style="font-weight: 500;">${item.name}${isCustom ? ' <span style="color: #f59e0b; font-size: 11px;">(CUSTOM - See Word Doc)</span>' : ''}</span>
             </div>
           </td>
           <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center; font-weight: bold;">${item.quantity}</td>
@@ -443,20 +475,32 @@ for (const earn of earnings) {
             <p><strong>Invoice:</strong> ${invoice.invoiceNumber}</p>
 
             <p style="margin-top: 15px;">📎 Invoice PDF is attached below.</p>
+            ${badgeDocBuffer ? `<p style="color: #f59e0b; font-weight: bold;">📄 Custom Badge Print File (Word) is attached - Open for 70mm print-ready images!</p>` : ''}
 
             <div style="margin-top: 20px; padding: 15px; background: #eff6ff; border-radius: 8px; text-align: center;">
               <a href="${process.env.FRONTEND_URL}/#/admin/orders" style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">View in Admin Panel</a>
             </div>
           </div>
         `,
-        attachments: invoicePdfBuffer ? [
-          {
-            name: `Invoice-${invoice.invoiceNumber}.pdf`,
-            content: invoicePdfBuffer.toString("base64"),
-          },
-        ] : [],
+        attachments: (() => {
+          const attachments = [];
+          if (invoicePdfBuffer) {
+            attachments.push({
+              name: `Invoice-${invoice.invoiceNumber}.pdf`,
+              content: invoicePdfBuffer.toString("base64"),
+            });
+          }
+          if (badgeDocBuffer) {
+            attachments.push({
+              name: `CustomBadges-Order-${order._id.toString().slice(-8).toUpperCase()}.docx`,
+              content: badgeDocBuffer.toString("base64"),
+            });
+          }
+          return attachments;
+        })(),
       });
       console.log("✅ Owner notification email with invoice sent to:", ownerEmail);
+      if (badgeDocBuffer) console.log("✅ Custom badge Word doc attached");
     } catch (ownerEmailErr) {
       console.error("Owner email error:", ownerEmailErr.message);
     }

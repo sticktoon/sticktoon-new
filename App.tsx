@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
 import { 
   ShoppingCart, 
@@ -113,14 +113,27 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
   user,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     window.location.href = "/login";
   };
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -320,8 +333,11 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
 
   {/* 👤 USER */}
   {user ? (
-    <div className="hidden lg:block relative group">
-      <div className="cursor-pointer">
+    <div className="hidden lg:block relative" ref={userMenuRef}>
+      <div 
+        className="cursor-pointer"
+        onClick={() => setUserMenuOpen(!userMenuOpen)}
+      >
         {user.avatar && (user.avatar.startsWith('http') || user.avatar.startsWith('data:')) ? (
           <img
             src={user.avatar}
@@ -336,24 +352,24 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
       </div>
 
       {/* DROPDOWN */}
-      <div className="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-lg border border-slate-100 opacity-0 scale-95 invisible pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:visible group-hover:pointer-events-auto transition-all duration-200 origin-top-right z-50">
+      <div className={`absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-lg border border-slate-100 transition-all duration-200 origin-top-right z-50 ${userMenuOpen ? 'opacity-100 scale-100 visible pointer-events-auto' : 'opacity-0 scale-95 invisible pointer-events-none'}`}>
         <div className="px-4 py-3 border-b border-slate-100">
           <p className="font-bold">{user.name || "User"}</p>
           <p className="text-xs text-slate-500">{user.email}</p>
         </div>
 
-        <Link to="/profile" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50">
+        <Link to="/profile" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50" onClick={() => setUserMenuOpen(false)}>
           My Profile
         </Link>
 
         {user.role === "admin" && (
-          <Link to="/admin" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50">
+          <Link to="/admin" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50" onClick={() => setUserMenuOpen(false)}>
             Admin Panel
           </Link>
         )}
 
         <button
-          onClick={handleLogout}
+          onClick={() => { setUserMenuOpen(false); handleLogout(); }}
           className="w-full text-left px-4 py-3 text-red-600 hover:bg-red-50"
         >
           Logout
@@ -803,6 +819,7 @@ export default function App() {
             name: badge.name,
             price: badge.price,
             image: badge.image,
+            printImage: badge.printImage,
             category: badge.category,
           },
           quantity: qty,

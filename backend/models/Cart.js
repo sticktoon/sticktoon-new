@@ -23,6 +23,10 @@ const cartItemSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    printImage: {
+      type: String,
+      default: null,
+    },
     category: {
       type: String,
       default: null,

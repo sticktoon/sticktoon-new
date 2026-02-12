@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Trash2, ShoppingCart, Tag, X, CheckCircle } from "lucide-react";
 import { CartItem } from "../types";
@@ -69,6 +69,43 @@ export default function Checkout({
   });
 
   const [paymentError, setPaymentError] = useState("");
+  const [quantityInputs, setQuantityInputs] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    cart.forEach((item) => {
+      next[item.id] = String(item.quantity);
+    });
+    setQuantityInputs(next);
+  }, [cart]);
+
+  const handleQuantityInputChange = (id: string, value: string) => {
+    if (!/^[0-9]*$/.test(value)) return;
+    setQuantityInputs((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const commitQuantity = (id: string, currentQuantity: number) => {
+    const raw = quantityInputs[id];
+    const parsed = parseInt(raw || "", 10);
+    const nextQuantity = Number.isNaN(parsed) ? currentQuantity : Math.max(1, parsed);
+
+    setQuantityInputs((prev) => ({ ...prev, [id]: String(nextQuantity) }));
+    if (nextQuantity !== currentQuantity) {
+      updateQuantity(id, nextQuantity);
+    }
+  };
+
+  const handleIncrement = (item: CartItem) => {
+    const nextQuantity = item.quantity + 1;
+    setQuantityInputs((prev) => ({ ...prev, [item.id]: String(nextQuantity) }));
+    updateQuantity(item.id, nextQuantity);
+  };
+
+  const handleDecrement = (item: CartItem) => {
+    const nextQuantity = Math.max(1, item.quantity - 1);
+    setQuantityInputs((prev) => ({ ...prev, [item.id]: String(nextQuantity) }));
+    updateQuantity(item.id, nextQuantity);
+  };
 
   // Apply promo code
   const handleApplyPromo = async () => {
@@ -179,6 +216,7 @@ export default function Checkout({
               price: item.price,
               quantity: item.quantity,
               image: item.image,
+              printImage: item.printImage,
             })),
           }),
         }
@@ -446,22 +484,31 @@ export default function Checkout({
 
       <div className="flex items-center gap-4">
         <button
-          onClick={() =>
-            updateQuantity(item.id, Math.max(1, item.quantity - 1))
-          }
+          onClick={() => handleDecrement(item)}
           className="w-8 h-8 rounded-full border"
         >
           −
         </button>
 
-        <span className="font-bold w-6 text-center">
-          {item.quantity}
-        </span>
+        <input
+          type="number"
+          min={1}
+          step={1}
+          value={quantityInputs[item.id] ?? String(item.quantity)}
+          onChange={(e) => handleQuantityInputChange(item.id, e.target.value)}
+          onBlur={() => commitQuantity(item.id, item.quantity)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          className="w-16 h-8 rounded-md border text-center font-bold"
+          inputMode="numeric"
+          aria-label="Item quantity"
+        />
 
         <button
-          onClick={() =>
-            updateQuantity(item.id, item.quantity + 1)
-          }
+          onClick={() => handleIncrement(item)}
           className="w-8 h-8 rounded-full border"
         >
           +

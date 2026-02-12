@@ -27,6 +27,10 @@ const orderItemSchema = new mongoose.Schema(
       type: String,
       default: null, // ✅ STORE IMAGE PATH
     },
+    printImage: {
+      type: String,
+      default: null,
+    },
   },
   { _id: false }
 );
