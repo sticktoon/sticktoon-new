@@ -33,7 +33,7 @@ export default function About() {
           </h1>
           
           <p className="text-sm sm:text-base lg:text-lg text-slate-600 font-semibold max-w-3xl mx-auto leading-relaxed">
-            Affordable, high‑quality badges and custom merch for every mood, moment, and vibe.
+            Affordable, high‑quality Sticktoon badges and stickers, designed for every mood , moment, and vibe.
           </p>
         </div>
 
@@ -52,11 +52,11 @@ export default function About() {
               </h2>
               
               <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-medium">
-                StickToon creates pin badges and custom merch that feel premium without the premium price tag. Express yourself proudly, wear your personality every day—no compromises.
+               Sticktoon creates pin badges and stickers that feel premium without the premium price tag. We believe self-expression should be easy, affordable, and accessible to everyone. Express yourself proudly and wear your personality every day — with no compromises.
               </p>
               
               <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-medium">
-                From sports and anime to moods and spirituality, we design collections that speak to every vibe, every passion, and every moment that matters to you.
+               From sports and anime to moods and spirituality, Sticktoon designs collections that speak to every vibe, every passion, and every moment that truly matters to you.
               </p>
 
               {/* Stats Grid */}

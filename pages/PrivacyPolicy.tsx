@@ -16,14 +16,14 @@ const PrivacyPolicy = () => {
 
       <div className="relative z-10 max-w-4xl mx-auto px-6 pt-8 pb-8">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-4 py-1.5 rounded-full mb-3 border-2 border-yellow-500/30">
+          {/* <div className="inline-flex items-center gap-2 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-4 py-1.5 rounded-full mb-3 border-2 border-yellow-500/30">
             <span className="text-[10px] font-black text-yellow-700 uppercase tracking-widest">Legal</span>
-          </div>
+          </div> */}
           <h1 className="text-2xl md:text-3xl font-black tracking-tight bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent mb-2">
-            Privacy Policy
+            Privacy Policy - Sticktoon 
           </h1>
           <p className="text-slate-600 text-xs md:text-sm max-w-2xl mx-auto">
-            At StickToon, we value your privacy and are committed to protecting your personal information.
+            “This Privacy Policy explains how Sticktoon (“we”, “us”) collects and uses your data…”
           </p>
         </div>
 
