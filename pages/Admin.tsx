@@ -448,7 +448,9 @@ const Admin: React.FC = () => {
   // Auth state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<AdminUser | null>(null);
-  const [currentView, setCurrentView] = useState<"login" | "dashboard" | "users" | "all-influencers" | "influencers" | "withdrawals" | "products" | "orders" | "profile">("login");
+const [currentView, setCurrentView] = useState<
+  "login" | "dashboard" | "leads" | "users" | "all-influencers" | "influencers" | "withdrawals" | "products" | "orders" | "profile"
+>("login");
 
   // Login state
   const [loginEmail, setLoginEmail] = useState("");
@@ -498,6 +500,116 @@ const [orderStatusFilter, setOrderStatusFilter] = useState<string[]>([]);
 const [orderFromDate, setOrderFromDate] = useState("");
 const [orderToDate, setOrderToDate] = useState("");
 const [orderSort, setOrderSort] = useState<"desc" | "asc">("desc"); // desc = newest
+
+
+type Lead = {
+  _id?: string;
+  firstName: string;
+  lastName: string;
+  company: string;
+  email: string;
+  phone: string;
+  mobile?: string;
+  title?: string;
+  industry?: string;
+  leadSource?: string;
+  status?: string;
+  createdAt?: string;
+};
+
+const [leads, setLeads] = useState<Lead[]>([]);
+const [showCreateLead, setShowCreateLead] = useState(false);
+const [showDeleteModal, setShowDeleteModal] = useState(false);
+const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+const deleteLead = async () => {
+  if (!leadToDelete?._id) return;
+
+  const token = localStorage.getItem("adminToken");
+  if (!token) return;
+
+  try {
+    await fetch(`${API_BASE_URL}/api/admin/leads/${leadToDelete._id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    setLeads((prev) =>
+      prev.filter((l) => l._id !== leadToDelete._id)
+    );
+
+    setShowDeleteModal(false);
+    setLeadToDelete(null);
+
+  } catch (err) {
+    console.error("Delete lead error:", err);
+  }
+};
+
+const [newLead, setNewLead] = useState<Lead>({
+  firstName: "",
+  lastName: "",
+  company: "",
+  email: "",
+  phone: "",
+  mobile: "",
+  title: "",
+  industry: "",
+  leadSource: "",
+  status: "New"
+});
+
+
+const createLead = async () => {
+  if (isSubmittingLead) return;   // 🚀 prevent double click
+  setIsSubmittingLead(true);
+
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    const res = await fetch(`${API_BASE_URL}/api/admin/leads`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(newLead),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || "Failed to create lead");
+    }
+
+    const savedLead = await res.json();
+
+    // update UI from DB response
+    setLeads((prev) => [savedLead, ...prev]);
+
+    setShowCreateLead(false);
+
+    // reset form
+  setNewLead({
+  firstName: "",
+  lastName: "",
+  company: "",
+  email: "",
+  phone: "",
+  status: "New"
+});
+
+
+  } catch (error) {
+    console.error("Create lead error:", error);
+  } finally {
+    setIsSubmittingLead(false);  // 🔥 always unlock button
+  }
+};
+
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
 
 
@@ -663,8 +775,45 @@ const filteredOrders = useMemo(() => {
 
 
 
+// 🔍 LEADS FILTER STATE
+const [leadSearch, setLeadSearch] = useState("");
+const [leadStatusFilter, setLeadStatusFilter] = useState<string[]>([]);
+const [leadSort, setLeadSort] = useState<"asc" | "desc">("desc");
 
 
+// ===============================
+// FILTERED LEADS
+// ===============================
+const filteredLeads = useMemo(() => {
+  let list = [...leads];
+
+  // SEARCH
+  if (leadSearch) {
+    const q = leadSearch.toLowerCase();
+    list = list.filter(
+      (l) =>
+        l.firstName?.toLowerCase().includes(q) ||
+        l.lastName?.toLowerCase().includes(q) ||
+        l.email?.toLowerCase().includes(q)
+    );
+  }
+
+  // STATUS FILTER
+  if (leadStatusFilter.length) {
+    list = list.filter((l) =>
+      leadStatusFilter.includes(l.status || "New")
+    );
+  }
+
+  // SORT
+  list.sort((a, b) => {
+    const da = new Date(a.createdAt || "").getTime();
+    const db = new Date(b.createdAt || "").getTime();
+    return leadSort === "asc" ? da - db : db - da;
+  });
+
+  return list;
+}, [leads, leadSearch, leadStatusFilter, leadSort]);
 
 
   // Track what data has been loaded to avoid unnecessary fetches
@@ -710,6 +859,10 @@ const filteredOrders = useMemo(() => {
     image: "",
     stock: 0,
   });
+
+
+  const [isSubmittingLead, setIsSubmittingLead] = useState(false);
+
 
   // Toast notification state
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -787,6 +940,10 @@ const filteredOrders = useMemo(() => {
       case 'products':
         fetchProductsData();
         break;
+      case 'leads':
+        fetchLeadsData();
+        break;
+
     }
   }, [currentView, isAuthenticated]);
 
@@ -973,6 +1130,8 @@ const filteredOrders = useMemo(() => {
       setLoadingData(prev => ({ ...prev, products: false }));
     }
   };
+
+  
 
   /* ===========================
      AUTH HANDLERS
@@ -1180,6 +1339,18 @@ const filteredOrders = useMemo(() => {
     }
   };
 
+  const openGmail = (email: string, name: string) => {
+  const subject = encodeURIComponent("Regarding Your StickToon Account");
+  const body = encodeURIComponent(
+    `Hi ${name},\n\nWe wanted to connect with you regarding your StickToon account.\n\nRegards,\nStickToon Team`
+  );
+
+  const gmailURL = `https://mail.google.com/mail/?view=cm&fs=1&to=${email}&su=${subject}&body=${body}`;
+
+  window.open(gmailURL, "_blank");
+};
+
+
   /* ===========================
      WITHDRAWAL APPROVAL
   =========================== */
@@ -1320,6 +1491,27 @@ const filteredOrders = useMemo(() => {
     }
   };
 
+  const fetchLeadsData = async () => {
+  const token = localStorage.getItem("adminToken");
+  if (!token) return;
+
+  try {
+    console.log("API URL:", API_BASE_URL);
+
+    const res = await fetch(`${API_BASE_URL}/api/admin/leads`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      setLeads(data);
+    }
+  } catch (err) {
+    console.error("Fetch leads error:", err);
+  }
+};
+
+
   const handleUpdateRole = async (userId: string, role: string) => {
     const token = localStorage.getItem("adminToken");
     if (!token) return;
@@ -1349,6 +1541,8 @@ const filteredOrders = useMemo(() => {
       console.error("Error updating role:", err);
     }
   };
+
+  
 
   /* ===========================
      PRODUCT HANDLERS
@@ -1577,6 +1771,8 @@ const filteredOrders = useMemo(() => {
           <nav className="space-y-2">
             {[
               { id: "dashboard", label: "Dashboard", icon: "📊" },
+              { id: "leads", label: "Leads", icon: "📋" },
+
               { id: "users", label: "All Users", icon: "👥" },
               { id: "all-influencers", label: "All Influencers", icon: "🌟" },
               { id: "influencers", label: "Pending Approvals", icon: "⭐" },
@@ -1626,6 +1822,7 @@ const filteredOrders = useMemo(() => {
             <div>
               <h2 className="text-2xl font-black text-slate-900">
                 {currentView === "dashboard" && "Dashboard"}
+                {currentView === "leads" && "Leads"}
                 {currentView === "users" && "All Users"}
                 {currentView === "all-influencers" && "All Influencers"}
                 {currentView === "influencers" && "Pending Approvals"}
@@ -1647,6 +1844,10 @@ const filteredOrders = useMemo(() => {
           {currentView === "dashboard" && (
           <div className="space-y-6">{/* Key Metrics Overview */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+              {/* LEADS VIEW */}
+
+
               {/* Total Users */}
               <button 
                 onClick={() => setCurrentView("users")}
@@ -1790,6 +1991,321 @@ const filteredOrders = useMemo(() => {
             </div>
           </div>
         )}
+
+{/* ================= LEADS VIEW ================= */}
+{currentView === "leads" && (
+  <div className="flex gap-6">
+
+    {/* ================= SIDEBAR ================= */}
+    <aside className="w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
+      <h3 className="font-black text-sm">Filters</h3>
+
+      {/* Search */}
+      <div>
+        <p className="text-xs font-black uppercase text-slate-600 mb-1">
+          Search
+        </p>
+     <input
+  value={leadSearch}
+  onChange={(e) => setLeadSearch(e.target.value)}
+  placeholder="Name or email"
+  className="w-full px-3 py-2 border rounded-lg text-sm"
+/>
+
+      </div>
+
+      {/* Status Filter */}
+     {["New", "Contacted", "Interested", "Lost"].map((s) => (
+  <label key={s} className="flex gap-2 items-center">
+    <input
+      type="checkbox"
+      checked={leadStatusFilter.includes(s)}
+      onChange={() =>
+        setLeadStatusFilter((prev) =>
+          prev.includes(s)
+            ? prev.filter((x) => x !== s)
+            : [...prev, s]
+        )
+      }
+    />
+    {s}
+  </label>
+)
+
+)}
+
+<input
+  type="date"
+  value={startDate}
+  onChange={(e) => setStartDate(e.target.value)}
+  className="border rounded-lg px-3 py-2"
+/>
+
+<input
+  type="date"
+  value={endDate}
+  onChange={(e) => setEndDate(e.target.value)}
+  className="border rounded-lg px-3 py-2"
+/>
+
+
+      {/* Sort */}
+      <div>
+        <p className="text-xs font-black uppercase text-slate-600 mb-1">
+          Sort
+        </p>
+        <select
+  value={leadSort}
+  onChange={(e) => setLeadSort(e.target.value as "asc" | "desc")}
+  className="w-full px-3 py-2 border rounded-lg text-sm"
+>
+  <option value="desc">Newest first</option>
+  <option value="asc">Oldest first</option>
+</select>
+
+      </div>
+    </aside>
+
+    {/* ================= MAIN CONTENT ================= */}
+    <div className="flex-1 flex flex-col gap-6">
+
+    {/* HEADER */}
+    <div className="flex justify-between items-center">
+      <h2 className="text-2xl font-black">
+        Leads ({filteredLeads.length})
+
+      </h2>
+
+      <button
+        onClick={() => setShowCreateLead(true)}
+       className="bg-indigo-600 hover:bg-indigo-700 admin-zoho-keep-white px-4 py-2 rounded-lg text-sm font-semibold"
+      >
+        + Create Lead
+      </button>
+    </div>
+
+    {/* TABLE */}
+    <div className="bg-white border rounded-xl overflow-hidden">
+      <div className="grid grid-cols-8 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left">
+
+
+        <span>Name</span>
+        <span>Company</span>
+        <span>Email</span>
+        <span>Phone</span>
+        <span>Status</span>
+        <span>Date</span>
+        <span>Mail</span>
+        <span>Delete</span>
+
+      </div>
+
+      {leads.length === 0 ? (
+        <div className="p-10 text-center text-slate-400">
+          No leads found
+        </div>
+      ) : (
+        filteredLeads.map((lead) => (
+
+          <div
+  key={lead._id}
+  className="grid grid-cols-8 px-6 py-4 text-sm border-b hover:bg-slate-50 text-left"
+
+>
+
+            <span className="font-semibold">
+              {lead.firstName} {lead.lastName}
+            </span>
+            <span>{lead.company}</span>
+            <span>{lead.email}</span>
+            <span>{lead.phone}</span>
+            <span className="capitalize">{lead.status}</span>
+            <span className="text-xs text-slate-500">
+              {lead.createdAt
+                ? new Date(lead.createdAt).toLocaleDateString()
+                : "-"}
+            </span>
+
+            <span>
+  <button
+    onClick={() => {
+      const subject = encodeURIComponent("Regarding Your Inquiry - StickToon");
+
+      const body = encodeURIComponent(
+        `Hi ${lead.firstName || "there"},\n\nThank you for your interest in StickToon.\n\nBest regards,\nStickToon Team`
+      );
+
+      window.open(
+        `https://mail.google.com/mail/?view=cm&fs=1&to=${lead.email}&su=${subject}&body=${body}`,
+        "_blank"
+      );
+    }}
+    className="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs px-3 py-1.5 rounded-lg transition shadow-sm"
+  >
+    <img
+      src="https://www.gstatic.com/images/branding/product/1x/gmail_48dp.png"
+      alt="gmail"
+      className="w-4 h-4"
+    />
+    Mail
+  </button>
+</span>
+
+<span>
+  <button
+    onClick={() => {
+      setLeadToDelete(lead);
+      setShowDeleteModal(true);
+    }}
+    className="px-4 py-2 bg-red-100 text-red-600 
+hover:bg-red-200 rounded-lg text-xs font-semibold transition"
+
+
+  >
+    Delete
+  </button>
+</span>
+
+
+          </div>
+        ))
+      )}
+    </div>
+
+    {/* CREATE LEAD MODAL */}
+    {showCreateLead && (
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <div className="bg-white w-[700px] rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-bold">Create Lead</h3>
+            <button
+              onClick={() => setShowCreateLead(false)}
+              className="text-red-500 font-semibold"
+            >
+              Cancel
+            </button>
+          </div>
+
+          {/* FORM GRID */}
+          <div className="grid grid-cols-2 gap-4">
+
+            <input
+              placeholder="First Name"
+              value={newLead.firstName}
+              onChange={(e) =>
+                setNewLead({ ...newLead, firstName: e.target.value })
+              }
+              className="border rounded-lg px-3 py-2"
+            />
+
+            <input
+              placeholder="Last Name"
+              value={newLead.lastName}
+              onChange={(e) =>
+                setNewLead({ ...newLead, lastName: e.target.value })
+              }
+              className="border rounded-lg px-3 py-2"
+            />
+
+            <input
+              placeholder="Company"
+              value={newLead.company}
+              onChange={(e) =>
+                setNewLead({ ...newLead, company: e.target.value })
+              }
+              className="border rounded-lg px-3 py-2 col-span-2"
+            />
+
+            <input
+              placeholder="Email"
+              value={newLead.email}
+              onChange={(e) =>
+                setNewLead({ ...newLead, email: e.target.value })
+              }
+              className="border rounded-lg px-3 py-2"
+            />
+
+            <input
+              placeholder="Phone"
+              value={newLead.phone}
+              onChange={(e) =>
+                setNewLead({ ...newLead, phone: e.target.value })
+              }
+              className="border rounded-lg px-3 py-2"
+            />
+
+            <select
+              value={newLead.status}
+              onChange={(e) =>
+                setNewLead({ ...newLead, status: e.target.value })
+              }
+              className="border rounded-lg px-3 py-2 col-span-2"
+            >
+              <option value="New">New</option>
+              <option value="Contacted">Contacted</option>
+              <option value="Interested">Interested</option>
+              <option value="Lost">Lost</option>
+            </select>
+          </div>
+
+         <button
+  onClick={createLead}
+  disabled={isSubmittingLead}
+  className="w-full bg-indigo-600 hover:bg-indigo-700 admin-zoho-keep-white py-2 rounded-lg font-semibold disabled:opacity-50"
+>
+  {isSubmittingLead ? "Saving..." : "Save Lead"}
+</button>
+
+
+
+        </div>
+      </div>
+    )}
+
+{showDeleteModal && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="bg-white border-2 border-red-500 w-[420px] rounded-xl p-6 space-y-5 shadow-xl">
+
+      <h3 className="text-lg font-bold text-red-600">
+        Delete Lead
+      </h3>
+
+      <p className="text-sm text-gray-600">
+        Are you sure you want to delete this lead?
+        <br />
+        <span className="font-semibold text-gray-800">
+          {leadToDelete?.firstName} {leadToDelete?.lastName}
+        </span>
+      </p>
+
+      <div className="flex justify-end gap-3 pt-3 border-t border-red-100">
+        <button
+          onClick={() => setShowDeleteModal(false)}
+          className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={deleteLead}
+         className="px-4 py-2 bg-red-100 text-red-600 
+hover:bg-red-200 rounded-lg text-xs font-semibold transition"
+        >
+          Delete
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
+
+
+  </div></div>
+
+  
+)}
+
 
         {/* INFLUENCERS VIEW */}
         {currentView === "influencers" && (
@@ -2236,6 +2752,8 @@ const filteredOrders = useMemo(() => {
             <th className="p-3 text-left">Role</th>
             <th className="p-3 text-left">Provider</th>
             <th className="p-3 text-left">Created</th>
+            <th className="px-4 py-3 text-left">Mail</th>
+
           </tr>
         </thead>
 
@@ -2250,6 +2768,32 @@ const filteredOrders = useMemo(() => {
               <td className="p-3 text-xs text-slate-500">
                 {new Date(u.createdAt).toLocaleDateString()}
               </td>
+              <td className="px-4 py-3">
+  <button
+  onClick={() => {
+    const subject = encodeURIComponent("Regarding Your StickToon Account");
+
+    const body = encodeURIComponent(
+      `Hi ${u.name || "there"},\n\nWe’d love to connect with you regarding your StickToon account.\n\nBest regards,\nStickToon Team`
+    );
+
+    window.open(
+      `https://mail.google.com/mail/?view=cm&fs=1&to=${u.email}&su=${subject}&body=${body}`,
+      "_blank"
+    );
+  }}
+  className="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs px-3 py-1.5 rounded-lg transition shadow-sm"
+>
+  <img
+    src="https://www.gstatic.com/images/branding/product/1x/gmail_48dp.png"
+    alt="gmail"
+    className="w-4 h-4"
+  />
+  Mail
+</button>
+
+</td>
+
             </tr>
           ))}
 

@@ -48,11 +48,16 @@ app.use("/api/admin/influencer-manage", require("./routes/adminInfluencerManage"
 app.use("/api/products", require("./routes/adminProducts"));
 app.use("/api/influencer", require("./routes/influencer"));
 app.use("/api/cart", require("./routes/cart"));
+app.use("/api/admin/leads", require("./routes/adminLeads"));
+
 
 /* Server */
-const DEFAULT_PORT = 5000;
-const FALLBACK_PORTS = [5001, 5002, 5003, 5004, 5005];
-const PORT = process.env.PORT || DEFAULT_PORT;
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`🚀 Backend running on port ${PORT}`);
+});
+
 
 const startServer = (port) => {
   const server = app.listen(port, "0.0.0.0", () => {
