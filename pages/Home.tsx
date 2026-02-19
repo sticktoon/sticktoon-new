@@ -83,6 +83,7 @@ const PinButton: React.FC<{
    <img
   src={image}
   alt="badge"
+  loading="lazy"
   className="w-full h-full object-contain relative z-10"
 />
 
@@ -173,6 +174,9 @@ const Hero: React.FC = () => {
       >
         <img
           src={b.img}
+          loading="lazy"
+          width={200}
+          height={200}
           className="w-24 md:w-36 md:h-36 h-24 lg:w-40 lg:h-40 object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.25)]"
         />
       </button>
@@ -333,14 +337,11 @@ const CustomisedProductsSection: React.FC = () => {
               </div> */}
               
               {/* Background Image - Full Cover */}
-              <div
-                className="absolute inset-0 transition-transform duration-500 group-hover:scale-110"
-                style={{ 
-                  backgroundImage: `url(${item.image})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  backgroundRepeat: 'no-repeat'
-                }}
+              <img
+                src={item.image}
+                alt={item.name}
+                loading="lazy"
+                className="absolute inset-0 transition-transform duration-500 group-hover:scale-110 w-full h-full object-cover"
               />
               
               {/* Shine Effect */}
@@ -549,6 +550,9 @@ gap-4 sm:gap-6 md:gap-8
                     <img
                       src={badge.image}
                       alt={badge.name}
+                      loading="lazy"
+                      width={400}
+                      height={400}
                       className="relative w-[110%] h-[110%] sm:w-[120%] sm:h-[120%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-transform duration-500 group-hover:scale-[1.06]"
                       onError={(e) => {
                         const target = e.currentTarget;

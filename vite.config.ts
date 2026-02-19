@@ -20,6 +20,21 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        assetsInlineLimit: 4096,
+        rollupOptions: {
+          output: {
+            assetFileNames: (assetInfo) => {
+              const info = assetInfo.name.split('.')
+              const ext = info[info.length - 1]
+              if (/png|jpe?g|gif|svg|webp/i.test(ext)) {
+                return `images/[name]-[hash][extname]`
+              }
+              return `assets/[name]-[hash][extname]`
+            }
+          }
+        }
       }
     };
 });
