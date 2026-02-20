@@ -34,7 +34,7 @@ export enum Category {
   RELIGIOUS = 'Religious',
   ENTERTAINMENT = 'Entertainment',
   EVENTS = 'Events',
-  ANIMAL = 'Animal',
+  PET = 'Pet',
   COUPLE = 'Couple',
   ANIME = 'Anime',
   POSITIVE_VIBES = 'Positive Vibes',

@@ -19,7 +19,7 @@ const ProductSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ["Positive Vibes", "Moody", "Sports", "Religious", "Entertainment", "Events", "Animal", "Couple", "Anime", "Custom"],
+      enum: ["Positive Vibes", "Moody", "Sports", "Religious", "Entertainment", "Events", "Pet", "Couple", "Anime", "Custom"],
       required: true,
     },
     image: {

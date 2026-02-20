@@ -59,8 +59,8 @@ export const CATEGORIES = [
     image: '/badge/mergeevent.png',
   },
   {
-    id: 'animal',
-    name: 'ANIMAL',
+    id: 'pet',
+    name: 'PET',
     count: 5,
     icon: '🐾',
     image: '/badge/mergeanimal.png',
@@ -92,7 +92,7 @@ export const BADGES: Badge[] = [
     image: '/badge/moody2.png', 
     details: 'Serious face only. Let them know you mean business.', 
     color: 'bg-transparent', 
-    isFeatured: true 
+    // isFeatured: true 
   },
   //   { 
   //   id: 'moody-6', 
@@ -121,7 +121,7 @@ export const BADGES: Badge[] = [
   // --- SPORTS ---
   { id: 'sports-1', name: 'Victory Kick', price: 49, category: Category.SPORTS, image: '/badge/sports4.png', details: 'The cricket spirit.', tagline: 'Champion energy for winners', color: 'bg-transparent' },
  { id: 'sports-2', name: 'Slam Point', price: 49, category: Category.SPORTS, image: '/badge/sports3.png', details: 'For the football fanatics.', tagline: 'Show your game spirit', color: 'bg-transparent' },
-{ id: 'sports-3', name: 'Strike Force', price: 49, category: Category.SPORTS, image: '/badge/sports1.png', details: 'Nothing but net.', tagline: 'Victory is our passion', color: 'bg-transparent', isFeatured: true},
+{ id: 'sports-3', name: 'Strike Force', price: 49, category: Category.SPORTS, image: '/badge/sports1.png', details: 'Nothing but net.', tagline: 'Victory is our passion', color: 'bg-transparent',},
 { id: 'sports-4', name: 'Power Play', price: 49, category: Category.SPORTS, image: '/badge/sports2.png', details: 'Game, set, match.', tagline: 'Celebrate the thrill', color: 'bg-transparent' },
 
   // { id: 'sports-5', name: 'ACTIVE VIBE', price: 49, category: Category.SPORTS, image: '/badge/sports4.png', details: 'Keep moving.', color: 'bg-transparent' },
@@ -148,19 +148,93 @@ export const BADGES: Badge[] = [
   { id: 'event-1', name: 'flag VIBE', price: 49, category: Category.EVENTS, image: '/badge/flag.png', details: 'Celebrate big.', tagline: 'Make every moment count', color: 'bg-transparent' , isFeatured: true },
 
 
-  { id: 'event-2', name: 'UNION VIBE', price: 49, category: Category.EVENTS, image: '/badge/event2.png', details: 'Wedding season.', tagline: 'Love brings people together', color: 'bg-transparent' , isFeatured: true},
-    { id: 'event-6', name: 'flag VIBE', price: 49, category: Category.EVENTS, image: '/badge/flagbadge.png', details: 'Celebrate big.', tagline: 'Events that remind us to celebrate', color: 'bg-transparent' , isFeatured: true },
+  { id: 'event-2', name: 'UNION VIBE', price: 49, category: Category.EVENTS, image: '/badge/event2.png', details: 'Wedding season.', tagline: 'Love brings people together', color: 'bg-transparent' , },
+    { id: 'event-6', name: 'flag VIBE', price: 49, category: Category.EVENTS, image: '/badge/flagbadge.png', details: 'Celebrate big.', tagline: 'Events that remind us to celebrate', color: 'bg-transparent' , },
   { id: 'event-3', name: 'FEST VIBE', price: 49, category: Category.EVENTS, image: '/badge/event3.png', details: 'Festival feelings.', tagline: 'Festival spirit unites us', color: 'bg-transparent' },
   { id: 'event-4', name: 'STAGE VIBE', price: 49, category: Category.EVENTS, image:'/badge/event4.png', details:'Concert ready.', tagline: 'Your moment to shine', color:'bg-transparent' },
   { id: 'event-5', name: 'Party VIBE', price: 49, category: Category.EVENTS, image: '/badge/event1.png', details: 'Birthday joy.', tagline: 'Celebrate your special day', color: 'bg-transparent' },
 
 
-  // --- ANIMAL ---
+  // --- PET ---
   { 
-  id: 'animal-1',
+  id: 'pet-1',
   name: 'Bunny Bliss',
   price: 49,
-  category: Category.ANIMAL,
+  category: Category.PET,
+
+  image: '/badge/Cute_Dog.png',          // pin image
+  imageMagnetic: '/badge/magnectbadge.png', // magnetic image
+
+  details: 'Cat lovers only.',
+  tagline: 'Furry friends forever',
+  color: 'bg-transparent',
+  isFeatured: true
+},
+
+{ 
+  id: 'pet-2',
+  name: 'Bunny Bliss',
+  price: 49,
+  category: Category.PET,
+
+  image: '/badge/Brownclassic_Dog.png',          // pin image
+  imageMagnetic: '/badge/magnectbadge.png', // magnetic image
+
+  details: 'Cat lovers only.',
+  tagline: 'Furry friends forever',
+  color: 'bg-transparent',
+  isFeatured: true
+},
+
+{ 
+  id: 'pet-3',
+  name: 'Puppy Cheer',
+  price: 49,
+  category: Category.PET,
+
+  image: '/badge/Dogs.png',          // pin image
+  imageMagnetic: '/badge/magnectbadge.png', // magnetic image
+
+  details: 'Cat lovers only.',
+  tagline: 'Furry friends forever',
+  color: 'bg-transparent',
+  // isFeatured: true
+},
+
+{ 
+  id: 'pet-5',
+  name: 'Kitten Joy',
+  price: 49,
+  category: Category.PET,
+
+  image: '/badge/bunny.png',          // pin image
+  imageMagnetic: '/badge/magnectbadge.png', // magnetic image
+
+  details: 'Cat lovers only.',
+  tagline: 'Furry friends forever',
+  color: 'bg-transparent',
+  // isFeatured: true
+},
+
+{ 
+  id: 'pet-6',
+  name: 'Kitten Joy',
+  price: 49,
+  category: Category.PET,
+
+  image: '/badge/bunny.png',          // pin image
+  imageMagnetic: '/badge/magnectbadge.png', // magnetic image
+
+  details: 'Cat lovers only.',
+  tagline: 'Furry friends forever',
+  color: 'bg-transparent',
+  // isFeatured: true
+},
+  { 
+  id: 'pet-7',
+  name: 'Bunny Bliss',
+  price: 49,
+  category: Category.PET,
 
   image: '/badge/bunny.png',          // pin image
   imageMagnetic: '/badge/magnectbadge.png', // magnetic image
@@ -171,10 +245,10 @@ export const BADGES: Badge[] = [
   isFeatured: true
 },
 
-  { id: 'animal-2', name: 'Puppy Cheer', price: 49, category: Category.ANIMAL, image: '/badge/animal2.png', details: 'Best friend vibes.', tagline: 'Love for our loyal companions', color: 'bg-transparent' },
-  { id: 'animal-3', name: 'Bunny Bliss', price: 49, category: Category.ANIMAL, image: '/badge/animal3.png', details: 'Chill panda energy.', tagline: "Nature's gentle souls", color: 'bg-transparent' },
-  { id: 'animal-4', name: 'Little Champion', price: 49, category: Category.ANIMAL, image: '/badge/animal4.png', details: 'Roaring strength.', tagline: 'Wild and free spirit', color: 'bg-transparent' },
-  // { id: 'animal-5', name: 'WILD VIBE', price: 49, category: Category.ANIMAL, image: '/badge/animal5.png', details: 'Adventure awaits.', color: 'bg-transparent' },
+  { id: 'pet-8', name: 'Puppy Cheer', price: 49, category: Category.PET, image: '/badge/animal2.png', details: 'Best friend vibes.', tagline: 'Love for our loyal companions', color: 'bg-transparent' },
+  { id: 'pet-9', name: 'Bunny Bliss', price: 49, category: Category.PET, image: '/badge/animal3.png', details: 'Chill panda energy.', tagline: "Nature's gentle souls", color: 'bg-transparent' },
+  { id: 'pet-10', name: 'Little Champion', price: 49, category: Category.PET, image: '/badge/animal4.png', details: 'Roaring strength.', tagline: 'Wild and free spirit', color: 'bg-transparent' },
+  // { id: 'pet-5', name: 'WILD VIBE', price: 49, category: Category.PET, image: '/badge/animal5.png', details: 'Adventure awaits.', color: 'bg-transparent' },
 
   // --- COUPLE ---
   { id: 'couple-1', name: 'SOUL VIBE', price: 49, category: Category.COUPLE, image: '/badge/c1.png', details: 'Soulmate status.', tagline: 'Two souls, one heart', color: 'bg-transparent'},

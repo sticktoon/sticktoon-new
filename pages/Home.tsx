@@ -156,7 +156,7 @@ const Hero: React.FC = () => {
         <div className="hidden lg:block relative brightness-[1.08] contrast-[1.12] saturate-[1.05] drop-shadow-[0_18px_30px_rgba(15,23,42,0.25)] hover:brightness-[1.12] hover:contrast-[1.18] transition-all duration-500">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 place-items-center">
            {[
-      { img: "/images/a.png", cat: "animal" },
+      { img: "/images/a.png", cat: "pet" },
       { img: "/images/h.png", cat: "religious" },
       { img: "/images/b.png", cat: "moody" },
       { img: "/images/flag2.png", cat: "events" },

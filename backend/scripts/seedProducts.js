@@ -35,11 +35,11 @@ const EXISTING_BADGES = [
   { id: 'event-4', name: 'WEDDING VIBE', price: 49, category: 'Events', image: '/badge/event4.png', stock: 100 },
   { id: 'event-5', name: 'Party VIBE', price: 49, category: 'Events', image: '/badge/event1.png', stock: 100 },
   
-  // ANIMAL
-  { id: 'animal-1', name: 'Bunny Bliss', price: 49, category: 'Animal', image: '/badge/bunny.png', stock: 100 },
-  { id: 'animal-2', name: 'Puppy Cheer', price: 49, category: 'Animal', image: '/badge/animal2.png', stock: 100 },
-  { id: 'animal-3', name: 'Bunny Bliss', price: 49, category: 'Animal', image: '/badge/animal3.png', stock: 100 },
-  { id: 'animal-4', name: 'Little Champion', price: 49, category: 'Animal', image: '/badge/animal4.png', stock: 100 },
+  // PET
+  { id: 'pet-1', name: 'Bunny Bliss', price: 49, category: 'Pet', image: '/badge/bunny.png', stock: 100 },
+  { id: 'pet-2', name: 'Puppy Cheer', price: 49, category: 'Pet', image: '/badge/animal2.png', stock: 100 },
+  { id: 'pet-3', name: 'Bunny Bliss', price: 49, category: 'Pet', image: '/badge/animal3.png', stock: 100 },
+  { id: 'pet-4', name: 'Little Champion', price: 49, category: 'Pet', image: '/badge/animal4.png', stock: 100 },
   
   // COUPLE
   { id: 'couple-1', name: 'SOUL VIBE', price: 49, category: 'Couple', image: '/badge/c1.png', stock: 100 },

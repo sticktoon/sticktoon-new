@@ -22,7 +22,7 @@ const normalizeCategory = (value?: string) => {
     "religious": "Religious",
     "entertainment": "Entertainment",
     "events": "Events",
-    "animal": "Animal",
+    "pet": "Pet",
     "couple": "Couple",
     "anime": "Anime",
     "custom": "Custom",
@@ -363,14 +363,14 @@ interface Product {
   name: string;
   description: string;
   price: number;
-  category: "Positive Vibes" | "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Animal" | "Couple" | "Anime" | "Custom";
+  category: "Positive Vibes" | "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Pet" | "Couple" | "Anime" | "Custom";
   image: string;
   stock: number;
   createdAt: string;
   isPlaceholder?: boolean;
 }
 
-const ADMIN_PRODUCT_CATEGORIES = ["Positive Vibes", "Moody", "Sports", "Religious", "Entertainment", "Events", "Animal", "Couple", "Anime", "Custom"] as const;
+const ADMIN_PRODUCT_CATEGORIES = ["Positive Vibes", "Moody", "Sports", "Religious", "Entertainment", "Events", "Pet", "Couple", "Anime", "Custom"] as const;
 type AdminProductCategory = (typeof ADMIN_PRODUCT_CATEGORIES)[number];
 
 const ensureMinimumProductsPerCategory = (items: Product[], minCount = 4): Product[] => {
@@ -506,7 +506,7 @@ const Admin: React.FC = () => {
     name: "",
     description: "",
     price: 0,
-    category: "Moody" as "Positive Vibes" | "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Animal" | "Couple" | "Anime" | "Custom",
+    category: "Moody" as "Positive Vibes" | "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Pet" | "Couple" | "Anime" | "Custom",
     image: "",
     stock: 0,
   });
@@ -561,7 +561,7 @@ const Admin: React.FC = () => {
       if (category) {
         setProductForm({
           ...productForm,
-          category: normalizeCategory(category) as 'Positive Vibes' | 'Moody' | 'Sports' | 'Religious' | 'Entertainment' | 'Events' | 'Animal' | 'Couple' | 'Anime' | 'Custom'
+          category: normalizeCategory(category) as 'Positive Vibes' | 'Moody' | 'Sports' | 'Religious' | 'Entertainment' | 'Events' | 'Pet' | 'Couple' | 'Anime' | 'Custom'
         });
       }
     }
@@ -1742,7 +1742,7 @@ const Admin: React.FC = () => {
                     <label className="block text-gray-700 font-bold text-sm mb-2">Category</label>
                     <select
                       value={productForm.category}
-                      onChange={(e) => setProductForm({ ...productForm, category: e.target.value as "Positive Vibes" | "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Animal" | "Couple" | "Anime" | "Custom" })}
+                      onChange={(e) => setProductForm({ ...productForm, category: e.target.value as "Positive Vibes" | "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Pet" | "Couple" | "Anime" | "Custom" })}
                       required
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300 cursor-pointer"
                     >
@@ -1752,7 +1752,7 @@ const Admin: React.FC = () => {
                       <option value="Religious">🕉️ Religious</option>
                       <option value="Entertainment">🎭 Entertainment</option>
                       <option value="Events">🎉 Events</option>
-                      <option value="Animal">🐾 Animal</option>
+                      <option value="Pet">🐾 Pet</option>
                       <option value="Couple">💑 Couple</option>
                       <option value="Anime">🎌 Anime</option>
                       <option value="Custom">✨ Custom</option>
@@ -1844,7 +1844,7 @@ const Admin: React.FC = () => {
                           {category === "Religious" && "🕉️"}
                           {category === "Entertainment" && "🎭"}
                           {category === "Events" && "🎉"}
-                          {category === "Animal" && "🐾"}
+                          {category === "Pet" && "🐾"}
                           {category === "Couple" && "💑"}
                           {category === "Anime" && "🎌"}
                           {category === "Custom" && "✨"}
@@ -2704,7 +2704,7 @@ const Admin: React.FC = () => {
                 <label className="block text-white font-semibold mb-2">Category</label>
                 <select
                   value={productForm.category}
-                  onChange={(e) => setProductForm({ ...productForm, category: e.target.value as "Positive Vibes" | "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Animal" | "Couple" | "Anime" | "Custom" })}
+                  onChange={(e) => setProductForm({ ...productForm, category: e.target.value as "Positive Vibes" | "Moody" | "Sports" | "Religious" | "Entertainment" | "Events" | "Pet" | "Couple" | "Anime" | "Custom" })}
                   required
                   className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white focus:border-indigo-500 focus:outline-none transition-all"
                 >
@@ -2714,7 +2714,7 @@ const Admin: React.FC = () => {
                   <option value="Religious">🕉️ Religious</option>
                   <option value="Entertainment">🎭 Entertainment</option>
                   <option value="Events">🎉 Events</option>
-                  <option value="Animal">🐾 Animal</option>
+                  <option value="Pet">🐾 Pet</option>
                   <option value="Couple">💑 Couple</option>
                   <option value="Anime">🎌 Anime</option>
                   <option value="Custom">✨ Custom</option>
