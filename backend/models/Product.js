@@ -26,6 +26,10 @@ const ProductSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    imageMagnetic: {
+      type: String,
+      required: false,
+    },
     stock: {
       type: Number,
       required: true,

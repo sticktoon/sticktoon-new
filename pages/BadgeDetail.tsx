@@ -22,6 +22,7 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
   const [badge, setBadge] = useState<Badge | null>(null);
   const [loading, setLoading] = useState(true);
   const [shareCopied, setShareCopied] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const magneticFallback = '/badge/magnectbadge.png';
 
   const normalizeImagePath = (path?: string) => {
@@ -199,11 +200,20 @@ const images =
               </div>
             </div>
 
-            <div className="w-full h-[210px] md:h-[280px] flex items-center justify-center">
+            <div className="w-full h-[210px] md:h-[280px] flex items-center justify-center relative">
+              {!imageLoaded && (
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 animate-pulse rounded-xl" />
+              )}
               <img
                 src={images[currentImage]}
                 alt={badge.name}
-                className="max-w-full max-h-full object-contain transition-all duration-300"
+                loading="lazy"
+                decoding="async"
+                className={`max-w-full max-h-full object-contain transition-all duration-300 ${
+                  imageLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
+                onLoad={() => setImageLoaded(true)}
+                onError={() => setImageLoaded(true)}
               />
             </div>
 
@@ -219,7 +229,13 @@ const images =
                         : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}
                   >
-                    <img src={img} alt={`${badge.name} view ${idx + 1}`} className="h-16 object-contain" />
+                    <img 
+                      src={img} 
+                      alt={`${badge.name} view ${idx + 1}`} 
+                      className="h-16 object-contain"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   </button>
                 ))}
               </div>

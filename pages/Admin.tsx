@@ -761,7 +761,7 @@ const Admin: React.FC = () => {
 
     setLoadingData(prev => ({ ...prev, products: true }));
     try {
-      const productsRes = await fetch(`${API_BASE_URL}/api/products`);
+      const productsRes = await fetch(`${API_BASE_URL}/api/products?limit=100&all=true`);
       if (productsRes.ok) {
         const data = await productsRes.json();
         setProducts(data.products);

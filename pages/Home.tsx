@@ -83,7 +83,6 @@ const PinButton: React.FC<{
    <img
   src={image}
   alt="badge"
-  loading="lazy"
   className="w-full h-full object-contain relative z-10"
 />
 
@@ -174,10 +173,10 @@ const Hero: React.FC = () => {
       >
         <img
           src={b.img}
+          alt={b.cat}
           loading="lazy"
-          width={200}
-          height={200}
-          className="w-24 md:w-36 md:h-36 h-24 lg:w-40 lg:h-40 object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.25)]"
+          decoding="async"
+          className="w-24 md:w-36 md:h-36 h-24 lg:w-40 lg:h-40 object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.25)] transition-opacity duration-300"
         />
       </button>
     ))}
@@ -337,11 +336,14 @@ const CustomisedProductsSection: React.FC = () => {
               </div> */}
               
               {/* Background Image - Full Cover */}
-              <img
-                src={item.image}
-                alt={item.name}
-                loading="lazy"
-                className="absolute inset-0 transition-transform duration-500 group-hover:scale-110 w-full h-full object-cover"
+              <div
+                className="absolute inset-0 transition-transform duration-500 group-hover:scale-110"
+                style={{ 
+                  backgroundImage: `url(${item.image})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat'
+                }}
               />
               
               {/* Shine Effect */}
@@ -490,6 +492,22 @@ const CategoryGrid: React.FC = () => (
 const FeaturedSection: React.FC<{ addToCart: (badge: Badge) => void }> = ({ addToCart }) => {
   const featuredBadges = BADGES.filter(b => b.isFeatured).slice(0, 8);
   const navigate = useNavigate();
+  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+
+  const handleImageLoad = (badgeId: string) => {
+    setLoadedImages(prev => new Set(prev).add(badgeId));
+  };
+
+  // Preload first 2 images for better perceived performance
+  React.useEffect(() => {
+    if (featuredBadges.length > 0) {
+      featuredBadges.slice(0, 2).forEach(badge => {
+        const img = new Image();
+        img.src = badge.image;
+        img.onload = () => handleImageLoad(badge.id);
+      });
+    }
+  }, []);
 
   return (
 <section className="relative pt-10 pb-16 sm:pt-12 sm:pb-24 overflow-hidden bg-white">
@@ -547,13 +565,21 @@ gap-4 sm:gap-6 md:gap-8
                 <Link to={`/badge/${badge.id}`} className="w-full">
                   <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-white flex items-center justify-center mb-3 overflow-hidden border-[3px] sm:border-[4px] border-slate-900/70 shadow-inner">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.06),transparent_65%)]" />
+                    
+                    {/* Loading Skeleton */}
+                    {!loadedImages.has(badge.id) && (
+                      <div className="absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 animate-pulse" />
+                    )}
+                    
                     <img
                       src={badge.image}
                       alt={badge.name}
                       loading="lazy"
-                      width={400}
-                      height={400}
-                      className="relative w-[110%] h-[110%] sm:w-[120%] sm:h-[120%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-transform duration-500 group-hover:scale-[1.06]"
+                      decoding="async"
+                      className={`relative w-[110%] h-[110%] sm:w-[120%] sm:h-[120%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-all duration-500 group-hover:scale-[1.06] ${
+                        loadedImages.has(badge.id) ? 'opacity-100' : 'opacity-0'
+                      }`}
+                      onLoad={() => handleImageLoad(badge.id)}
                       onError={(e) => {
                         const target = e.currentTarget;
                         if (!target.src.startsWith('http') && !target.dataset.retried) {
@@ -562,6 +588,7 @@ gap-4 sm:gap-6 md:gap-8
                           target.src = `/${cleanPath}`;
                         } else {
                           target.style.display = 'none';
+                          handleImageLoad(badge.id);
                         }
                       }}
                     />

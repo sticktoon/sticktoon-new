@@ -54,16 +54,27 @@ const normalizeCategory = (value) => {
 router.get("/", async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = parseInt(req.query.limit) || 100; // Increased default limit
     const skip = (page - 1) * limit;
+    const all = req.query.all === 'true';
 
-    const products = await Product.find({})
+    // Set cache headers for better performance
+    res.set('Cache-Control', 'public, max-age=300'); // 5 minutes cache
+
+    // Only select necessary fields for list view
+    const selectFields = 'name price category image imageMagnetic description isActive stock';
+
+    let query = Product.find({ isActive: true })
+      .select(selectFields)
       .sort("-createdAt")
-      .skip(skip)
-      .limit(limit)
       .lean(); // Use lean() for faster reads
 
-    const total = await Product.countDocuments({});
+    if (!all) {
+      query = query.skip(skip).limit(limit);
+    }
+
+    const products = await query;
+    const total = await Product.countDocuments({ isActive: true });
 
     res.json({
       products,
@@ -85,13 +96,19 @@ router.get("/", async (req, res) => {
 router.get("/category/:category", async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = parseInt(req.query.limit) || 50; // Increased limit
     const skip = (page - 1) * limit;
+
+    // Set cache headers
+    res.set('Cache-Control', 'public, max-age=300');
+
+    const selectFields = 'name price category image imageMagnetic description isActive stock';
 
     const products = await Product.find({
       category: req.params.category,
       isActive: true,
     })
+      .select(selectFields)
       .sort("-createdAt")
       .skip(skip)
       .limit(limit)

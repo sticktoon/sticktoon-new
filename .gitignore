@@ -41,5 +41,13 @@ backend/.env
 *.sln
 *.sw?
 
+# Environment files
 .env
-backend\.env
+.env.local
+.env.*.local
+backend/.env
+backend/.env.local
+
+# But keep example files
+!.env.example
+!backend/.env.example

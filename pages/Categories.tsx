@@ -22,6 +22,11 @@ export default function Categories({ addToCart }: CategoriesProps) {
   // Products from database
   const [products, setProducts] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+
+  const handleImageLoad = (badgeId: string) => {
+    setLoadedImages(prev => new Set(prev).add(badgeId));
+  };
   
   // Check if user is admin
   const isAdmin = !!localStorage.getItem('adminToken');
@@ -84,7 +89,8 @@ export default function Categories({ addToCart }: CategoriesProps) {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${API_BASE_URL}/api/products`);
+        // Request all products with limit=100 for better performance
+        const res = await fetch(`${API_BASE_URL}/api/products?limit=100&all=true`);
         if (res.ok) {
           const data = await res.json();
           const apiItems = Array.isArray(data) ? data : data.products || [];
@@ -355,10 +361,21 @@ export default function Categories({ addToCart }: CategoriesProps) {
                         <Link to={`/badge/${badge.id}`} className="w-full">
                           <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-white flex items-center justify-center mb-3 sm:mb-4 overflow-hidden border-[4px] sm:border-[6px] border-slate-900/70 shadow-inner">
                             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.06),transparent_65%)]" />
+                            
+                            {/* Loading Skeleton */}
+                            {!loadedImages.has(badge.id) && (
+                              <div className="absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 animate-pulse" />
+                            )}
+                            
                             <img
                               src={badge.image}
                               alt={badge.name}
-                              className="relative w-[125%] h-[125%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-transform duration-500 group-hover:scale-[1.06]"
+                              loading="lazy"
+                              decoding="async"
+                              className={`relative w-[125%] h-[125%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-all duration-500 group-hover:scale-[1.06] ${
+                                loadedImages.has(badge.id) ? 'opacity-100' : 'opacity-0'
+                              }`}
+                              onLoad={() => handleImageLoad(badge.id)}
                               onError={(e) => {
                                 console.log('Image failed to load:', badge.image);
                                 const target = e.currentTarget;
@@ -369,6 +386,7 @@ export default function Categories({ addToCart }: CategoriesProps) {
                                   target.src = `/${cleanPath}`;
                                 } else {
                                   target.style.display = 'none';
+                                  handleImageLoad(badge.id);
                                 }
                               }}
                             />
@@ -469,10 +487,21 @@ export default function Categories({ addToCart }: CategoriesProps) {
                     <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-white flex items-center justify-center mb-3 sm:mb-4 overflow-hidden border-[4px] sm:border-[6px] border-slate-900/70 shadow-inner">
                       {/* soft halo */}
                       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.06),transparent_65%)]" />
+                      
+                      {/* Loading Skeleton */}
+                      {!loadedImages.has(badge.id) && (
+                        <div className="absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 animate-pulse" />
+                      )}
+                      
                       <img
                         src={badge.image}
                         alt={badge.name}
-                        className="relative w-[125%] h-[125%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-transform duration-500 group-hover:scale-[1.06]"
+                        loading="lazy"
+                        decoding="async"
+                        className={`relative w-[125%] h-[125%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-all duration-500 group-hover:scale-[1.06] ${
+                          loadedImages.has(badge.id) ? 'opacity-100' : 'opacity-0'
+                        }`}
+                        onLoad={() => handleImageLoad(badge.id)}
                         onError={(e) => {
                           console.log('Image failed to load:', badge.image);
                             const target = e.currentTarget;
@@ -483,6 +512,7 @@ export default function Categories({ addToCart }: CategoriesProps) {
                               target.src = `/${cleanPath}`;
                             } else {
                               target.style.display = 'none';
+                              handleImageLoad(badge.id);
                             }
                         }}
                       />
