@@ -268,3 +268,117 @@ export const BADGES: Badge[] = [
 //   { id: 'anime-5', name: 'KAWAII VIBE', price: 49
 // , category: Category.ANIME, image: '/badge/badge6.png', details: 'Super cute style.', color: '' },
 ];
+
+// Sticker Categories
+export const STICKER_CATEGORIES = [
+  {
+    id: 'marvel',
+    name: 'MARVEL',
+    icon: '🦸',
+    image: '/badge/mergesticker.jpeg',
+  },
+  {
+    id: 'dc-universe',
+    name: 'DC UNIVERSE',
+    icon: '🦇',
+    image: '/badge/mergesticker.jpeg',
+  },
+  {
+    id: 'dog',
+    name: 'DOG',
+    icon: '🐕',
+    image: '/badge/mergesticker.jpeg',
+  },
+  {
+    id: 'love',
+    name: 'LOVE',
+    icon: '💕',
+    image: '/badge/mergesticker.jpeg',
+  },
+  {
+    id: 'anime',
+    name: 'ANIME',
+    icon: '🎌',
+    image: '/badge/mergesticker.jpeg',
+  },
+  {
+    id: 'cartoon',
+    name: 'CARTOON',
+    icon: '🎨',
+    image: '/badge/mergesticker.jpeg',
+  },
+  {
+    id: 'sports',
+    name: 'SPORTS',
+    icon: '🏆',
+    image: '/badge/mergesticker.jpeg',
+  },
+  {
+    id: 'random',
+    name: 'RANDOM',
+    icon: '🎲',
+    image: '/badge/mergesticker.jpeg',
+  },
+];
+
+// Sticker Products
+export type Sticker = {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  image: string;
+  details: string;
+  tagline?: string;
+  isFeatured?: boolean;
+};
+
+export const STICKERS: Sticker[] = [
+  // Marvel
+  { id: 'sticker-marvel-1', name: 'Spiderman', price: 29, category: 'marvel', image: '/badge/mergesticker.jpeg', details: 'Friendly neighborhood Spiderman sticker.', tagline: 'Your friendly neighborhood hero', isFeatured: true },
+  { id: 'sticker-marvel-2', name: 'Iron Man', price: 29, category: 'marvel', image: '/badge/mergesticker.jpeg', details: 'Genius billionaire sticker.', tagline: 'Tech genius energy' },
+  { id: 'sticker-marvel-3', name: 'Captain America', price: 29, category: 'marvel', image: '/badge/mergesticker.jpeg', details: 'Star-spangled hero sticker.', tagline: 'First Avenger pride' },
+  { id: 'sticker-marvel-4', name: 'Thor', price: 29, category: 'marvel', image: '/badge/mergesticker.jpeg', details: 'God of Thunder sticker.', tagline: 'Worthy of the hammer' },
+
+  // DC Universe
+  { id: 'sticker-dc-1', name: 'Batman', price: 29, category: 'dc-universe', image: '/badge/mergesticker.jpeg', details: 'Dark Knight sticker.', tagline: 'Gotham\'s protector', isFeatured: true },
+  { id: 'sticker-dc-2', name: 'Superman', price: 29, category: 'dc-universe', image: '/badge/mergesticker.jpeg', details: 'Man of Steel sticker.', tagline: 'Kryptonian strength' },
+  { id: 'sticker-dc-3', name: 'Wonder Woman', price: 29, category: 'dc-universe', image: '/badge/mergesticker.jpeg', details: 'Amazon warrior sticker.', tagline: 'Divine protector' },
+  { id: 'sticker-dc-4', name: 'The Flash', price: 29, category: 'dc-universe', image: '/badge/mergesticker.jpeg', details: 'Speedster sticker.', tagline: 'Lightning fast' },
+
+  // Dog
+  { id: 'sticker-dog-1', name: 'Puppy Love', price: 29, category: 'dog', image: '/badge/mergesticker.jpeg', details: 'Cute puppy sticker.', tagline: 'Dogs are love', isFeatured: true },
+  { id: 'sticker-dog-2', name: 'Loyal Pals', price: 29, category: 'dog', image: '/badge/mergesticker.jpeg', details: 'Friendship forever sticker.', tagline: 'Best friend vibes' },
+  { id: 'sticker-dog-3', name: 'Happy Woof', price: 29, category: 'dog', image: '/badge/mergesticker.jpeg', details: 'Joyful dog sticker.', tagline: 'Wag that tail' },
+  { id: 'sticker-dog-4', name: 'Pawsitivity', price: 29, category: 'dog', image: '/badge/mergesticker.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
+
+  // Love
+  { id: 'sticker-love-1', name: 'Heartbeat', price: 29, category: 'love', image: '/badge/mergesticker.jpeg', details: 'Love heartbeat sticker.', tagline: 'Love conquers all', isFeatured: true },
+  { id: 'sticker-love-2', name: 'Forever Love', price: 29, category: 'love', image: '/badge/mergesticker.jpeg', details: 'Eternal love sticker.', tagline: 'Love without limits' },
+  { id: 'sticker-love-3', name: 'Soulmates', price: 29, category: 'love', image: '/badge/mergesticker.jpeg', details: 'Perfect match sticker.', tagline: 'Two hearts, one soul' },
+  { id: 'sticker-love-4', name: 'Cupid\'s Arrow', price: 29, category: 'love', image: '/badge/mergesticker.jpeg', details: 'Love strike sticker.', tagline: 'Hit by love' },
+
+  // Anime
+  { id: 'sticker-anime-1', name: 'Anime Hero', price: 29, category: 'anime', image: '/badge/mergesticker.jpeg', details: 'Main character sticker.', tagline: 'Anime spirit within', isFeatured: true },
+  { id: 'sticker-anime-2', name: 'Dragon Power', price: 29, category: 'anime', image: '/badge/mergesticker.jpeg', details: 'Dragon energy sticker.', tagline: 'Over 9000!' },
+  { id: 'sticker-anime-3', name: 'Kawaii Cutie', price: 29, category: 'anime', image: '/badge/mergesticker.jpeg', details: 'Adorable anime sticker.', tagline: 'Super cute' },
+  { id: 'sticker-anime-4', name: 'Ninja Master', price: 29, category: 'anime', image: '/badge/mergesticker.jpeg', details: 'Ninja warrior sticker.', tagline: 'Hidden in shadows' },
+
+  // Cartoon
+  { id: 'sticker-cartoon-1', name: 'Silly Face', price: 29, category: 'cartoon', image: '/badge/mergesticker.jpeg', details: 'Funny cartoon sticker.', tagline: 'Make them laugh', isFeatured: true },
+  { id: 'sticker-cartoon-2', name: 'Rainbow Dream', price: 29, category: 'cartoon', image: '/badge/mergesticker.jpeg', details: 'Colorful sticker.', tagline: 'All the colors' },
+  { id: 'sticker-cartoon-3', name: 'Star Character', price: 29, category: 'cartoon', image: '/badge/mergesticker.jpeg', details: 'Shining star sticker.', tagline: 'You\'re a star' },
+  { id: 'sticker-cartoon-4', name: 'Party Time', price: 29, category: 'cartoon', image: '/badge/mergesticker.jpeg', details: 'Celebration sticker.', tagline: 'Let\'s celebrate' },
+
+  // Sports
+  { id: 'sticker-sports-1', name: 'Victory Goal', price: 29, category: 'sports', image: '/badge/mergesticker.jpeg', details: 'Championship sticker.', tagline: 'Win the game', isFeatured: true },
+  { id: 'sticker-sports-2', name: 'Basketball Slam', price: 29, category: 'sports', image: '/badge/mergesticker.jpeg', details: 'Slam dunk sticker.', tagline: 'Nothing but net' },
+  { id: 'sticker-sports-3', name: 'Soccer Star', price: 29, category: 'sports', image: '/badge/mergesticker.jpeg', details: 'Goal scorer sticker.', tagline: 'Game on' },
+  { id: 'sticker-sports-4', name: 'Tennis Ace', price: 29, category: 'sports', image: '/badge/mergesticker.jpeg', details: 'Ace player sticker.', tagline: 'Serve and volley' },
+
+  // Random
+  { id: 'sticker-random-1', name: 'Mystery Box', price: 29, category: 'random', image: '/badge/mergesticker.jpeg', details: 'Surprise sticker.', tagline: 'What will it be?', isFeatured: true },
+  { id: 'sticker-random-2', name: 'Lucky Number', price: 29, category: 'random', image: '/badge/mergesticker.jpeg', details: 'Fortune sticker.', tagline: 'Roll the dice' },
+  { id: 'sticker-random-3', name: 'Cosmic Vibes', price: 29, category: 'random', image: '/badge/mergesticker.jpeg', details: 'Universe sticker.', tagline: 'Explore the cosmos' },
+  { id: 'sticker-random-4', name: 'Wildcard', price: 29, category: 'random', image: '/badge/mergesticker.jpeg', details: 'Unpredictable sticker.', tagline: 'Expect the unexpected' },
+];

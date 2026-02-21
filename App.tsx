@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 import { Badge, CartItem, User as UserType } from './types.ts';
-import { CATEGORIES } from "./constants";
+import { CATEGORIES, STICKER_CATEGORIES } from "./constants";
 import Home from "./pages/Home";
 import Categories from "./pages/Categories";
 import BadgeDetail from "./pages/BadgeDetail";
@@ -205,7 +205,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
           >
             {link.name}
 
-            {(link.name === "BADGES" || link.name === "STICKER") && (
+            {(link.name === "BADGES" || link.name === "STICKERS") && (
               <ChevronDown
                 className="
                   w-5 h-5
@@ -279,10 +279,10 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
                 border border-indigo-50
                 w-64 py-4
               ">
-                {CATEGORIES.map((cat) => (
+                {STICKER_CATEGORIES.map((cat) => (
                   <Link
                     key={cat.id}
-                    to={`/sticker?cat=${cat.id}`}
+                    to={`/stickers?cat=${cat.id}`}
                     className="
                       flex items-center justify-between
                       px-8 py-4
@@ -293,7 +293,10 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
                       transition-all
                     "
                   >
-                    {cat.name}
+                    <span className="flex items-center gap-2">
+                      <span>{cat.icon}</span>
+                      <span>{cat.name}</span>
+                    </span>
                   </Link>
                 ))}
               </div>
@@ -1103,7 +1106,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home addToCart={addToCart} />} />
           <Route path="/categories" element={<Categories addToCart={addToCart} />} />
-          <Route path="/stickers" element={<Stickers />} />
+          <Route path="/stickers" element={<Stickers addToCart={addToCart} />} />
           <Route path="/stickers/:id" element={<StickerDetail addToCart={addToCart} />} />
           <Route path="/badge/:id" element={<BadgeDetail addToCart={addToCart} />} />
           <Route
