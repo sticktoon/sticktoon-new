@@ -1,9 +1,25 @@
 const express = require("express");
 const router = express.Router();
-const Lead = require("../models/Lead");
-const auth = require("../middleware/auth");
+const Order = require("../models/Order");
 
-// Admin only middleware (if you already use role check)
+/* =========================
+   MIDDLEWARE (from admin.js pattern)
+========================= */
+const jwt = require("jsonwebtoken");
+
+const auth = (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ message: "No token" });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch {
+    return res.status(401).json({ message: "Invalid token" });
+  }
+};
+
 const adminOnly = (req, res, next) => {
   if (req.user.role !== "admin") {
     return res.status(403).json({ message: "Admin only" });
@@ -11,29 +27,69 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
-/* ===============================
-   CREATE LEAD
-================================= */
-router.post("/", auth, adminOnly, async (req, res) => {
+/* =========================
+   GET ALL ORDERS (ADMIN)
+========================= */
+router.get("/", auth, adminOnly, async (req, res) => {
   try {
-    const lead = new Lead(req.body);
-    await lead.save();
-    res.status(201).json(lead);
+    const { status } = req.query;
+    const query = status ? { status } : {};
+    
+    const orders = await Order.find(query)
+      .populate("userId", "email name")
+      .sort({ createdAt: -1 });
+
+    res.json(orders);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to create lead" });
+    console.error("Admin orders error:", err);
+    res.status(500).json({ message: "Failed to fetch orders" });
   }
 });
 
-/* ===============================
-   GET ALL LEADS
-================================= */
-router.get("/", auth, adminOnly, async (req, res) => {
+/* =========================
+   UPDATE ORDER STATUS
+========================= */
+router.patch("/:id/status", auth, adminOnly, async (req, res) => {
   try {
-    const leads = await Lead.find().sort({ createdAt: -1 });
-    res.json(leads);
+    const { status } = req.body;
+    
+    const validStatuses = ["PENDING", "PROCESSING", "SUCCESS", "FAILED", "REFUNDED"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    ).populate("userId", "email name");
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.json({ message: "Order status updated", order });
   } catch (err) {
-    res.status(500).json({ message: "Failed to fetch leads" });
+    console.error("Update order error:", err);
+    res.status(500).json({ message: "Failed to update order" });
+  }
+});
+
+/* =========================
+   DELETE ORDER
+========================= */
+router.delete("/:id", auth, adminOnly, async (req, res) => {
+  try {
+    const order = await Order.findByIdAndDelete(req.params.id);
+    
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.json({ message: "Order deleted successfully" });
+  } catch (err) {
+    console.error("Delete order error:", err);
+    res.status(500).json({ message: "Failed to delete order" });
   }
 });
 

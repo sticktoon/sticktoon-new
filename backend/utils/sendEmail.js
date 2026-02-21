@@ -21,7 +21,7 @@ if (!process.env.FROM_EMAIL) {
 const sendEmail = async ({ to, subject, html, attachment, attachments }) => {
   if (!to) {
     console.error("❌ sendEmail aborted: recipient email is missing");
-    return;
+    return { ok: false, error: "Recipient email is missing" };
   }
 
   const payload = {
@@ -67,6 +67,7 @@ const sendEmail = async ({ to, subject, html, attachment, attachments }) => {
 
     console.log("✅ Email sent successfully");
     console.log("📩 Brevo Message ID:", response.data?.messageId);
+    return { ok: true, messageId: response.data?.messageId };
   } catch (error) {
     console.error("❌ Brevo email error");
 
@@ -75,6 +76,7 @@ const sendEmail = async ({ to, subject, html, attachment, attachments }) => {
     } else {
       console.error(error.message);
     }
+    return { ok: false, error: error.response?.data || error.message };
   }
 };
 
