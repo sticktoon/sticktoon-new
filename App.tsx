@@ -264,7 +264,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
             </div>
           )}
           
-          {link.name === "STICKER" && (
+          {link.name === "STICKERS" && (
             <div
               className="
                 absolute top-full left-0 pt-6

@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { BADGES, CATEGORIES, formatPrice } from '../constants';
 import { Badge } from '../types';
-import { Plus, SlidersHorizontal, Grid2X2, List, Check } from 'lucide-react';
+import { Plus, SlidersHorizontal, Grid2X2, List, Check, ShoppingCart } from 'lucide-react';
 import { API_BASE_URL } from '../config/api';
 
 interface CategoriesProps {
@@ -356,13 +356,12 @@ export default function Categories({ addToCart }: CategoriesProps) {
                     {categoryProducts.map((badge) => (
                       <div
                         key={badge.id}
-                        className="group bg-[#0b1320] rounded-[20px] sm:rounded-[28px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-3 sm:p-4 md:p-5 flex flex-col"
+                        className="group bg-[#0b1320] rounded-[20px] sm:rounded-[24px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-3 sm:p-4 md:p-5 flex flex-col"
                       >
                         <Link to={`/badge/${badge.id}`} className="w-full">
-                          <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-white flex items-center justify-center mb-3 sm:mb-4 overflow-hidden border-[4px] sm:border-[6px] border-slate-900/70 shadow-inner">
+                          <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-white flex items-center justify-center mb-3 overflow-hidden border-[3px] sm:border-[4px] border-slate-900/70 shadow-inner">
                             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.06),transparent_65%)]" />
                             
-                            {/* Loading Skeleton */}
                             {!loadedImages.has(badge.id) && (
                               <div className="absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 animate-pulse" />
                             )}
@@ -372,14 +371,12 @@ export default function Categories({ addToCart }: CategoriesProps) {
                               alt={badge.name}
                               loading="lazy"
                               decoding="async"
-                              className={`relative w-[125%] h-[125%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-all duration-500 group-hover:scale-[1.06] ${
+                              className={`relative w-[110%] h-[110%] sm:w-[120%] sm:h-[120%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-all duration-500 group-hover:scale-[1.06] ${
                                 loadedImages.has(badge.id) ? 'opacity-100' : 'opacity-0'
                               }`}
                               onLoad={() => handleImageLoad(badge.id)}
                               onError={(e) => {
-                                console.log('Image failed to load:', badge.image);
                                 const target = e.currentTarget;
-                                // Try with absolute path if relative failed
                                 if (!target.src.startsWith('http') && !target.dataset.retried) {
                                   target.dataset.retried = 'true';
                                   const cleanPath = badge.image.startsWith('/') ? badge.image.substring(1) : badge.image;
@@ -393,31 +390,56 @@ export default function Categories({ addToCart }: CategoriesProps) {
                           </div>
                         </Link>
 
-                        <div className="flex items-center justify-between mb-1.5 sm:mb-2 gap-2">
-                          <span className="text-[9px] sm:text-[10px] md:text-[11px] font-semibold tracking-[0.2em] sm:tracking-[0.3em] text-yellow-400 uppercase truncate">
+                        <div className="flex items-center justify-between mb-2 gap-2">
+                          <span className="text-[9px] sm:text-[10px] font-semibold tracking-[0.15em] sm:tracking-[0.2em] text-yellow-400 uppercase truncate">
                             {badge.category}
                           </span>
-                          <span className="text-lg sm:text-xl md:text-2xl font-black text-white whitespace-nowrap">
+                          <span className="text-base sm:text-lg md:text-xl font-black text-white whitespace-nowrap">
                             {formatPrice(badge.price)}
                           </span>
                         </div>
 
-                        <h3 className="text-[13px] sm:text-[14px] md:text-[15px] font-extrabold text-white uppercase leading-snug mb-1.5 sm:mb-2">
-                          {badge.name}
-                        </h3>
+                        <div className="flex items-start justify-between gap-1.5 mb-3">
+                          <h3 className="text-[11px] sm:text-[13px] md:text-[14px] font-extrabold text-white uppercase leading-tight flex-1 line-clamp-2">
+                            {badge.name}
+                          </h3>
+                          
+                          <div className="flex items-center gap-0.5 bg-slate-800 rounded-md p-0.5 sm:p-1 flex-shrink-0">
+                            <button
+                              onClick={() => addToCart({ ...badge, quantity: -1 })}
+                              className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-yellow-400 hover:bg-slate-700 transition text-[8px] sm:text-[9px] md:text-xs font-black"
+                            >
+                              −
+                            </button>
+                            <span className="w-3 sm:w-4 text-center text-white text-[8px] sm:text-[9px] md:text-xs font-black">1</span>
+                            <button
+                              onClick={() => addToCart({ ...badge, quantity: 1 })}
+                              className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-yellow-400 hover:bg-slate-700 transition text-[8px] sm:text-[9px] md:text-xs font-black"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
 
-                        {badge.tagline && (
-                          <p className="text-[10px] sm:text-[11px] text-yellow-200/80 italic mb-2 sm:mb-3 line-clamp-2">
-                            {badge.tagline}
-                          </p>
-                        )}
+                        <div className="mt-auto">
+                          <div className="flex flex-row items-center gap-2">
+                            <button
+                              onClick={() => addToCart({ ...badge, quantity: 1 })}
+                              className="flex-1 py-2 sm:py-2.5 rounded-md bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 font-black hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95 flex items-center justify-center gap-1"
+                              title="Add to cart"
+                            >
+                              <ShoppingCart className="w-3.5 h-3.5" />
+                              <span className="text-[9px] sm:text-xs font-black">ADD</span>
+                            </button>
 
-                        <button
-                          onClick={() => addToCart(badge)}
-                          className="mt-auto w-full py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 text-[11px] sm:text-[12px] font-black tracking-[0.15em] sm:tracking-[0.22em] uppercase hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95"
-                        >
-                          Buy Now
-                        </button>
+                            <Link
+                              to={`/badge/${badge.id}`}
+                              className="flex-1 py-2 sm:py-2.5 rounded-md border-2 border-yellow-400/50 text-yellow-200 text-[9px] sm:text-xs font-black tracking-[0.12em] hover:bg-yellow-400/10 hover:border-yellow-300 transition-all duration-300 active:scale-95 flex items-center justify-center"
+                            >
+                              Buy Now
+                            </Link>
+                          </div>
+                        </div>
                       </div>
                     ))}
                     {isAdmin && category.id === 'positive-vibes' && (
@@ -480,15 +502,12 @@ export default function Categories({ addToCart }: CategoriesProps) {
               {filteredBadges.map((badge) => (
                 <div
                   key={badge.id}
-                  className="group bg-[#0b1320] rounded-[20px] sm:rounded-[28px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-3 sm:p-4 md:p-5 flex flex-col"
+                  className="group bg-[#0b1320] rounded-[20px] sm:rounded-[24px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-3 sm:p-4 md:p-5 flex flex-col"
                 >
-                  {/* PREMIUM BADGE STAGE */}
                   <Link to={`/badge/${badge.id}`} className="w-full">
-                    <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-white flex items-center justify-center mb-3 sm:mb-4 overflow-hidden border-[4px] sm:border-[6px] border-slate-900/70 shadow-inner">
-                      {/* soft halo */}
+                    <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-white flex items-center justify-center mb-3 overflow-hidden border-[3px] sm:border-[4px] border-slate-900/70 shadow-inner">
                       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.06),transparent_65%)]" />
                       
-                      {/* Loading Skeleton */}
                       {!loadedImages.has(badge.id) && (
                         <div className="absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 animate-pulse" />
                       )}
@@ -498,59 +517,75 @@ export default function Categories({ addToCart }: CategoriesProps) {
                         alt={badge.name}
                         loading="lazy"
                         decoding="async"
-                        className={`relative w-[125%] h-[125%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-all duration-500 group-hover:scale-[1.06] ${
+                        className={`relative w-[110%] h-[110%] sm:w-[120%] sm:h-[120%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-all duration-500 group-hover:scale-[1.06] ${
                           loadedImages.has(badge.id) ? 'opacity-100' : 'opacity-0'
                         }`}
                         onLoad={() => handleImageLoad(badge.id)}
                         onError={(e) => {
-                          console.log('Image failed to load:', badge.image);
-                            const target = e.currentTarget;
-                            // Try with absolute path if relative failed
-                            if (!target.src.startsWith('http') && !target.dataset.retried) {
-                              target.dataset.retried = 'true';
-                              const cleanPath = badge.image.startsWith('/') ? badge.image.substring(1) : badge.image;
-                              target.src = `/${cleanPath}`;
-                            } else {
-                              target.style.display = 'none';
-                              handleImageLoad(badge.id);
-                            }
+                          const target = e.currentTarget;
+                          if (!target.src.startsWith('http') && !target.dataset.retried) {
+                            target.dataset.retried = 'true';
+                            const cleanPath = badge.image.startsWith('/') ? badge.image.substring(1) : badge.image;
+                            target.src = `/${cleanPath}`;
+                          } else {
+                            target.style.display = 'none';
+                            handleImageLoad(badge.id);
+                          }
                         }}
                       />
                     </div>
                   </Link>
 
-                  <div className="flex items-center justify-between mb-1.5 sm:mb-2 gap-2">
-                    <span className="text-[9px] sm:text-[10px] md:text-[11px] font-semibold tracking-[0.2em] sm:tracking-[0.3em] text-yellow-400 uppercase truncate">
+                  <div className="flex items-center justify-between mb-2 gap-2">
+                    <span className="text-[9px] sm:text-[10px] font-semibold tracking-[0.15em] sm:tracking-[0.2em] text-yellow-400 uppercase truncate">
                       {badge.category}
                     </span>
-                    <span className="text-lg sm:text-xl md:text-2xl font-black text-white whitespace-nowrap">
+                    <span className="text-base sm:text-lg md:text-xl font-black text-white whitespace-nowrap">
                       {formatPrice(badge.price)}
                     </span>
                   </div>
 
-                  <h3 className="text-[13px] sm:text-[14px] md:text-[15px] font-extrabold text-white uppercase leading-snug mb-1.5 sm:mb-2">
-                    {badge.name}
-                  </h3>
+                  <div className="flex items-start justify-between gap-1.5 mb-3">
+                    <h3 className="text-[11px] sm:text-[13px] md:text-[14px] font-extrabold text-white uppercase leading-tight flex-1 line-clamp-2">
+                      {badge.name}
+                    </h3>
+                    
+                    <div className="flex items-center gap-0.5 bg-slate-800 rounded-md p-0.5 sm:p-1 flex-shrink-0">
+                      <button
+                        onClick={() => addToCart({ ...badge, quantity: -1 })}
+                        className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-yellow-400 hover:bg-slate-700 transition text-[8px] sm:text-[9px] md:text-xs font-black"
+                      >
+                        −
+                      </button>
+                      <span className="w-3 sm:w-4 text-center text-white text-[8px] sm:text-[9px] md:text-xs font-black">1</span>
+                      <button
+                        onClick={() => addToCart({ ...badge, quantity: 1 })}
+                        className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-yellow-400 hover:bg-slate-700 transition text-[8px] sm:text-[9px] md:text-xs font-black"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
 
-                  {badge.tagline && (
-                    <p className="text-[10px] sm:text-[11px] text-yellow-200/80 italic mb-2 sm:mb-3 line-clamp-2">
-                      {badge.tagline}
-                    </p>
-                  )}
+                  <div className="mt-auto">
+                    <div className="flex flex-row items-center gap-2">
+                      <button
+                        onClick={() => addToCart({ ...badge, quantity: 1 })}
+                        className="flex-1 py-2 sm:py-2.5 rounded-md bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 font-black hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95 flex items-center justify-center gap-1"
+                        title="Add to cart"
+                      >
+                        <ShoppingCart className="w-3.5 h-3.5" />
+                        <span className="text-[9px] sm:text-xs font-black">ADD</span>
+                      </button>
 
-                  {viewType === 'list' && (
-                    <p className="text-slate-300 mt-2 mb-8 text-xl leading-relaxed font-medium">
-                      {badge.details}
-                    </p>
-                  )}
-
-                  {/* CTA */}
-                  <button
-                    onClick={() => addToCart(badge)}
-                    className="mt-auto w-full py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 text-[11px] sm:text-[12px] font-black tracking-[0.15em] sm:tracking-[0.22em] uppercase hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95"
-                  >
-                    Buy Now
-                  </button>
+                      <Link
+                        to={`/badge/${badge.id}`}
+                        className="flex-1 py-2 sm:py-2.5 rounded-md border-2 border-yellow-400/50 text-yellow-200 text-[9px] sm:text-xs font-black tracking-[0.12em] hover:bg-yellow-400/10 hover:border-yellow-300 transition-all duration-300 active:scale-95 flex items-center justify-center"
+                      >
+                        Buy Now
+                      </Link>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
