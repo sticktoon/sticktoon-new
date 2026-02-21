@@ -360,13 +360,13 @@ const images =
           </div>
 
           {/* Delivery */}
-          <div className="flex items-center gap-3 bg-white/90 border border-slate-200 rounded-2xl px-4 py-3">
+          {/* <div className="flex items-center gap-3 bg-white/90 border border-slate-200 rounded-2xl px-4 py-3">
             <Truck className="w-5 h-5 text-blue-500" />
             <div className="text-sm">
               <p className="font-bold text-slate-800">Free delivery by Feb 7</p>
               <p className="text-slate-500 text-xs">Ships in 24 hours · Easy returns</p>
             </div>
-          </div>
+          </div> */}
 
           {/* Badge Type */}
           <div className="space-y-2">

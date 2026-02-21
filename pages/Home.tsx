@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 import { BADGES, CATEGORIES, formatPrice } from '../constants.tsx';
 import { Badge } from '../types.ts';
@@ -364,8 +364,34 @@ const CustomisedProductsSection: React.FC = () => {
 };
 
 
-const CategoryGrid: React.FC = () => (
-  <section className="relative pt-12 pb-20 overflow-hidden bg-white">
+const CategoryGrid: React.FC = () => {
+  const [isVisible, setIsVisible] = useState(false);
+  const [animKey, setAnimKey] = useState(0);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(false);
+          requestAnimationFrame(() => {
+            setAnimKey(prev => prev + 1);
+            setIsVisible(true);
+          });
+        } else {
+          setIsVisible(false);
+        }
+      },
+      { threshold: 0.12 }
+    );
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+  <section ref={sectionRef} className="relative pt-12 pb-20 overflow-hidden bg-white">
     
     {/* Premium background glow - Hot Drops Style */}
     <div className="pointer-events-none absolute inset-0">
@@ -386,16 +412,16 @@ const CategoryGrid: React.FC = () => (
       <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
 
         <div className="max-w-4xl">
-          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-6 py-3 rounded-full mb-4 border-2 border-yellow-500/30">
+          <div className={`inline-flex items-center gap-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-6 py-3 rounded-full mb-4 border-2 border-yellow-500/30 hot-drop-tag ${isVisible ? 'animate-in' : ''}`}>
             <Zap className="w-5 h-5 text-yellow-600 animate-pulse" />
             <span className="text-[11px] font-black text-yellow-700 uppercase tracking-widest">All Drops</span>
             <Zap className="w-5 h-5 text-orange-600 animate-pulse" />
           </div>
-          <h2 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent tracking-tight mb-3 uppercase leading-tight">
+          <h2 className={`text-4xl md:text-5xl font-black bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent tracking-tight mb-3 uppercase leading-tight hot-drop-header ${isVisible ? 'animate-in' : ''}`}>
             Browse Category
           </h2>
 
-          <p className="text-lg text-slate-600 font-semibold">
+          <p className={`text-lg text-slate-600 font-semibold hot-drop-subtitle ${isVisible ? 'animate-in' : ''}`}>
             Ready-to-ship collections for every subculture.
           </p>
         </div>
@@ -411,11 +437,11 @@ const CategoryGrid: React.FC = () => (
       {/* GRID */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
 
-        {CATEGORIES.map((cat) => (
+        {CATEGORIES.map((cat, index) => (
         <Link
-  key={cat.id}
+  key={`${cat.id}-${animKey}`}
   to={`/categories?cat=${cat.id}`}
-  className="
+  className={`
     relative
     h-[220px]
     rounded-2xl
@@ -426,7 +452,9 @@ const CategoryGrid: React.FC = () => (
     shadow-[0_12px_35px_rgba(15,23,42,0.25)]
     transition-all duration-300
     hover:shadow-2xl hover:shadow-yellow-500/20 hover:-translate-y-2 hover:border-yellow-500/60
-  "
+    ${index % 2 === 0 ? 'slide-in-left' : 'slide-in-right'} ${isVisible ? 'animate-in' : ''}
+  `}
+  style={{ animationDelay: `${index * 0.12}s` }}
 >
   {/* BACKGROUND IMAGE */}
   <div
@@ -486,13 +514,39 @@ const CategoryGrid: React.FC = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 
 const FeaturedSection: React.FC<{ addToCart: (badge: Badge) => void }> = ({ addToCart }) => {
   const featuredBadges = BADGES.filter(b => b.isFeatured).slice(0, 8);
   const navigate = useNavigate();
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+  const [isVisible, setIsVisible] = useState(false);
+  const [animKey, setAnimKey] = useState(0);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(false);
+          // Force a re-render cycle: first remove animate-in, then re-add
+          requestAnimationFrame(() => {
+            setAnimKey(prev => prev + 1);
+            setIsVisible(true);
+          });
+        } else {
+          setIsVisible(false);
+        }
+      },
+      { threshold: 0.12 }
+    );
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+    return () => observer.disconnect();
+  }, []);
 
   const handleImageLoad = (badgeId: string) => {
     setLoadedImages(prev => new Set(prev).add(badgeId));
@@ -510,7 +564,7 @@ const FeaturedSection: React.FC<{ addToCart: (badge: Badge) => void }> = ({ addT
   }, []);
 
   return (
-<section className="relative pt-10 pb-16 sm:pt-12 sm:pb-24 overflow-hidden bg-white">
+<section ref={sectionRef} className="relative pt-10 pb-16 sm:pt-12 sm:pb-24 overflow-hidden bg-white">
 
           {/* Premium background glow - Logo Theme */}
 <div className="pointer-events-none absolute inset-0">
@@ -529,15 +583,15 @@ const FeaturedSection: React.FC<{ addToCart: (badge: Badge) => void }> = ({ addT
       <div className="max-w-7xl mx-auto px-6 lg:px-12">
 
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-6 py-3 rounded-full mb-4 border-2 border-yellow-500/30">
+          <div className={`inline-flex items-center gap-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-6 py-3 rounded-full mb-4 border-2 border-yellow-500/30 hot-drop-tag ${isVisible ? 'animate-in' : ''}`}>
             <Zap className="w-5 h-5 text-yellow-600 animate-pulse" />
             <span className="text-[11px] font-black text-yellow-700 uppercase tracking-widest">Trending Now</span>
             <Zap className="w-5 h-5 text-orange-600 animate-pulse" />
           </div>
-        <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent mb-2">
+        <h2 className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent mb-2 hot-drop-header ${isVisible ? 'animate-in' : ''}`}>
   HOT DROPS
 </h2>
-      <p className="mt-2 text-[10px] sm:text-[11px] tracking-[0.2em] sm:tracking-[0.22em] text-slate-600 uppercase font-bold">
+      <p className={`mt-2 text-[10px] sm:text-[11px] tracking-[0.2em] sm:tracking-[0.22em] text-slate-600 uppercase font-bold hot-drop-subtitle ${isVisible ? 'animate-in' : ''}`}>
         Grab them before they disappear into the vault ⚡</p>
 </div>
 
@@ -557,10 +611,11 @@ gap-4 sm:gap-6 md:gap-8
 
 
 
-         {featuredBadges.map((badge) => (
+         {featuredBadges.map((badge, index) => (
               <div
-                key={badge.id}
-                className="group bg-[#0b1320] rounded-[20px] sm:rounded-[24px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-3 sm:p-4 md:p-5 flex flex-col"
+                key={`${badge.id}-${animKey}`}
+                className={`group relative hot-drop-card bg-[#0b1320] rounded-[20px] sm:rounded-[24px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] p-3 sm:p-4 md:p-5 flex flex-col ${index % 2 === 0 ? 'slide-in-left' : 'slide-in-right'} ${isVisible ? 'animate-in' : ''}`}
+                style={{ animationDelay: `${index * 0.15}s` }}
               >
                 <Link to={`/badge/${badge.id}`} className="w-full">
                   <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-white flex items-center justify-center mb-3 overflow-hidden border-[3px] sm:border-[4px] border-slate-900/70 shadow-inner">
