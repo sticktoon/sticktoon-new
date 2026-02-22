@@ -294,7 +294,7 @@ const CustomisedProductsSection: React.FC = () => {
     },
     { 
       name: "Stickers", 
-      image: "/badge/mergesticker.jpeg",
+      image: "/sticker/mergesticker.jpeg",
       // icon: "👕"
     },
   ];
