@@ -536,92 +536,6 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
               {/* Divider */}
               <div className="h-px bg-slate-700"></div>
 
-              {/* Canvas Controls */}
-              {imageState && (
-                <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">Canvas Controls</h3>
-                  
-                  {/* Zoom Slider */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-semibold text-slate-300">Zoom</label>
-                      <span className="text-xs font-mono text-yellow-400">{Math.round(zoom * 100)}%</span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="0.2" 
-                      max="5" 
-                      step="0.01" 
-                      value={zoom} 
-                      onChange={(e) => handleZoomChange(parseFloat(e.target.value))} 
-                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
-                    />
-                    <div className="flex justify-between mt-1">
-                      <span className="text-[10px] text-slate-500">20%</span>
-                      <span className="text-[10px] text-slate-500">500%</span>
-                    </div>
-                  </div>
-
-                  {/* Rotation Slider */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-semibold text-slate-300">Rotate</label>
-                      <span className="text-xs font-mono text-yellow-400">{rotation}°</span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="-180" 
-                      max="180" 
-                      step="1" 
-                      value={rotation} 
-                      onChange={(e) => handleRotationChange(parseInt(e.target.value))} 
-                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
-                    />
-                    <div className="flex justify-between mt-1">
-                      <span className="text-[10px] text-slate-500">-180°</span>
-                      <span className="text-[10px] text-slate-500">180°</span>
-                    </div>
-                  </div>
-
-                  {/* Background Color */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-2">Background:</label>
-                    <div className="grid grid-cols-7 gap-2">
-                      {backgroundPresets.map(color => (
-                        <button 
-                          key={color} 
-                          onClick={() => setBgColor(color)} 
-                          className={`w-full aspect-square rounded-lg border-2 transition-all ${bgColor === color ? 'border-yellow-500 scale-110' : 'border-slate-600 hover:border-slate-500'}`} 
-                          style={{ backgroundColor: color }}
-                          title={color}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Quick Actions */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <button 
-                      onClick={handleReset}
-                      className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-600 transition-colors flex items-center justify-center gap-1"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      Reset
-                    </button>
-                    <button 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-600 transition-colors flex items-center justify-center gap-1"
-                    >
-                      <Upload className="w-3 h-3" />
-                      Replace
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Divider */}
-              <div className="h-px bg-slate-700"></div>
-
               {/* AI Generator */}
               <div className="space-y-3">
                 <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">AI Generator</h3>
@@ -640,52 +554,7 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
                 </button>
               </div>
 
-              {/* Divider */}
-              <div className="h-px bg-slate-700"></div>
 
-              {/* Order Actions */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-slate-700/50 border border-yellow-500/20 rounded-xl">
-                  <span className="text-xs font-bold text-yellow-400 uppercase">Total Price:</span>
-                  <span className="text-lg font-black text-white">{formatPrice(BASE_PRICE * quantity)}</span>
-                </div>
-                <button 
-                  onClick={handleAddToCart} 
-                  disabled={loading || !imageState} 
-                  className="w-full h-12 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-yellow-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ShoppingCart className="w-4 h-4" /> Add to Cart
-                </button>
-                <button 
-                  onClick={handleDownloadPrintFile} 
-                  disabled={downloading || !imageState} 
-                  className="w-full h-10 rounded-xl border-2 border-yellow-500/40 text-yellow-400 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-yellow-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} {downloading ? 'Generating...' : 'Download Word File'}
-                </button>
-              </div>
-
-              {/* Divider */}
-              <div className="h-px bg-slate-700"></div>
-
-              {/* Individual Downloads */}
-              {imageState && (
-                <div className="space-y-3">
-                  <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">Download Images</h3>
-                  <button 
-                    onClick={handleDownloadPreview}
-                    className="w-full h-10 rounded-xl bg-green-600 text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-green-500 transition-all"
-                  >
-                    <Download className="w-4 h-4" /> Preview (58mm)
-                  </button>
-                  <button 
-                    onClick={handleDownloadTemplate}
-                    className="w-full h-10 rounded-xl bg-blue-600 text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-500 transition-all"
-                  >
-                    <Download className="w-4 h-4" /> Template (70mm)
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
@@ -746,9 +615,83 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
                 </div>
               </div>
             </div>
+
+            {/* Order Actions & Downloads */}
+            <div className="rounded-2xl bg-gradient-to-b from-slate-900 to-slate-800 p-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row gap-4">
+                {/* Price & Cart */}
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-slate-700/50 border border-yellow-500/20 rounded-xl">
+                    <span className="text-xs font-bold text-yellow-400 uppercase">Total Price:</span>
+                    <span className="text-lg font-black text-white">{formatPrice(BASE_PRICE * quantity)}</span>
+                  </div>
+                  <button 
+                    onClick={handleAddToCart} 
+                    disabled={loading || !imageState} 
+                    className="w-full h-12 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-yellow-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ShoppingCart className="w-4 h-4" /> Add to Cart
+                  </button>
+                  <button 
+                    onClick={handleDownloadPrintFile} 
+                    disabled={downloading || !imageState} 
+                    className="w-full h-10 rounded-xl border-2 border-yellow-500/40 text-yellow-400 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-yellow-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} {downloading ? 'Generating...' : 'Download Word File'}
+                  </button>
+                </div>
+
+                {/* Download Images */}
+                {imageState && (
+                  <div className="flex-1 space-y-3">
+                    <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">Download Images</h3>
+                    <button 
+                      onClick={handleDownloadPreview}
+                      className="w-full h-10 rounded-xl bg-green-600 text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-green-500 transition-all"
+                    >
+                      <Download className="w-4 h-4" /> Preview (58mm)
+                    </button>
+                    <button 
+                      onClick={handleDownloadTemplate}
+                      className="w-full h-10 rounded-xl bg-blue-600 text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-500 transition-all"
+                    >
+                      <Download className="w-4 h-4" /> Template (70mm)
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        if (!imageState) return;
+                        try {
+                          const [outerDataUrl, innerDataUrl] = await Promise.all([getFullCircleBlob(), getInnerCircleBlob()]);
+                          const response = await fetch(`${API_BASE_URL}/api/badge-doc/download`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ image: innerDataUrl, printImage: outerDataUrl, name: `Custom ${fastener}`, quantity }),
+                          });
+                          if (!response.ok) throw new Error('Save failed');
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `StickToon-Badge-${Date.now()}.docx`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          window.URL.revokeObjectURL(url);
+                        } catch (e) {
+                          console.error('Save error:', e);
+                        }
+                      }}
+                      className="w-full h-10 rounded-xl bg-yellow-500 text-slate-900 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-yellow-400 transition-all"
+                    >
+                      <Download className="w-4 h-4" /> Save
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Right: Preview */}
+          {/* Right: Preview & Controls */}
           <div className="w-full lg:w-80 space-y-6">
             <div className="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-xl">
               <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 text-center">
@@ -767,6 +710,89 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
                 This is what your customer will see on the finished badge
               </p>
             </div>
+
+            {/* Canvas Controls - shown when image is loaded */}
+            {imageState && (
+              <div className="rounded-2xl bg-gradient-to-b from-slate-900 to-slate-800 p-5 shadow-xl space-y-4">
+                <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">Canvas Controls</h3>
+                  
+                {/* Zoom Slider */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-slate-300">Zoom</label>
+                    <span className="text-xs font-mono text-yellow-400">{Math.round(zoom * 100)}%</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="0.2" 
+                    max="5" 
+                    step="0.01" 
+                    value={zoom} 
+                    onChange={(e) => handleZoomChange(parseFloat(e.target.value))} 
+                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+                  />
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[10px] text-slate-500">20%</span>
+                    <span className="text-[10px] text-slate-500">500%</span>
+                  </div>
+                </div>
+
+                {/* Rotation Slider */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-slate-300">Rotate</label>
+                    <span className="text-xs font-mono text-yellow-400">{rotation}°</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="-180" 
+                    max="180" 
+                    step="1" 
+                    value={rotation} 
+                    onChange={(e) => handleRotationChange(parseInt(e.target.value))} 
+                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+                  />
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[10px] text-slate-500">-180°</span>
+                    <span className="text-[10px] text-slate-500">180°</span>
+                  </div>
+                </div>
+
+                {/* Background Color */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 block mb-2">Background:</label>
+                  <div className="grid grid-cols-7 gap-2">
+                    {backgroundPresets.map(color => (
+                      <button 
+                        key={color} 
+                        onClick={() => setBgColor(color)} 
+                        className={`w-full aspect-square rounded-lg border-2 transition-all ${bgColor === color ? 'border-yellow-500 scale-110' : 'border-slate-600 hover:border-slate-500'}`} 
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button 
+                    onClick={handleReset}
+                    className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-600 transition-colors flex items-center justify-center gap-1"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Reset
+                  </button>
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-600 transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Upload className="w-3 h-3" />
+                    Replace
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Info Panel */}
             <div className="rounded-xl border-2 border-green-200 bg-green-50 p-4">
