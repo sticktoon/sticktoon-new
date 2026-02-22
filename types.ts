@@ -14,6 +14,7 @@ export interface Badge {
   tagline?: string;         // New subtitle/tagline field
   color: string;
   isFeatured?: boolean;
+  isCombo?: boolean;        // Combo pack of all badges in category
 }
 
 

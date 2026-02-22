@@ -83,6 +83,17 @@ export const CATEGORIES = [
 
 
 export const BADGES: Badge[] = [
+  // --- COMBO PACKS (All-in-One per category) ---
+  { id: 'combo-moody', name: 'Moody Combo Pack', price: 149, category: Category.MOODY, image: '/badge/mergemoody.png', details: 'Get all Moody badges in one combo pack!', tagline: 'All Moody badges in one', color: 'bg-transparent', isCombo: true },
+  { id: 'combo-positive-vibes', name: 'Positive Vibes Combo', price: 149, category: 'positive-vibes' as any, image: '/badge/mergemoody.png', details: 'Get all Positive Vibes badges in one combo pack!', tagline: 'All Positive Vibes in one', color: 'bg-transparent', isCombo: true },
+  { id: 'combo-sports', name: 'Sports Combo Pack', price: 149, category: Category.SPORTS, image: '/badge/mergesport.png', details: 'Get all Sports badges in one combo pack!', tagline: 'All Sports badges in one', color: 'bg-transparent', isCombo: true },
+  { id: 'combo-religious', name: 'Religious Combo Pack', price: 149, category: Category.RELIGIOUS, image: '/badge/mergereligious.png', details: 'Get all Religious badges in one combo pack!', tagline: 'All Religious badges in one', color: 'bg-transparent', isCombo: true },
+  { id: 'combo-entertainment', name: 'Entertainment Combo', price: 149, category: Category.ENTERTAINMENT, image: '/badge/mergeenter.png', details: 'Get all Entertainment badges in one combo pack!', tagline: 'All Entertainment in one', color: 'bg-transparent', isCombo: true },
+  { id: 'combo-events', name: 'Events Combo Pack', price: 149, category: Category.EVENTS, image: '/badge/mergeevent.png', details: 'Get all Events badges in one combo pack!', tagline: 'All Events badges in one', color: 'bg-transparent', isCombo: true },
+  { id: 'combo-pet', name: 'Pet Combo Pack', price: 149, category: Category.PET, image: '/badge/mergeanimal.png', details: 'Get all Pet badges in one combo pack!', tagline: 'All Pet badges in one', color: 'bg-transparent', isCombo: true },
+  { id: 'combo-couple', name: 'Couple Combo Pack', price: 149, category: Category.COUPLE, image: '/badge/mergecouple.png', details: 'Get all Couple badges in one combo pack!', tagline: 'All Couple badges in one', color: 'bg-transparent', isCombo: true },
+  { id: 'combo-anime', name: 'Anime Combo Pack', price: 149, category: Category.ANIME, image: '/badge/mergeanime.png', details: 'Get all Anime badges in one combo pack!', tagline: 'All Anime badges in one', color: 'bg-transparent', isCombo: true },
+
   // --- MOODY (Reordered: Angry Vibe is now FIRST) ---
   { 
     id: 'moody-5', 

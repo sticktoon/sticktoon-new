@@ -3,11 +3,246 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { BADGES, CATEGORIES, formatPrice } from '../constants';
 import { Badge } from '../types';
-import { Plus, SlidersHorizontal, Grid2X2, List, Check, ShoppingCart } from 'lucide-react';
+import { Plus, SlidersHorizontal, Check, ShoppingCart, Crown, Package, Sparkles } from 'lucide-react';
 import { API_BASE_URL } from '../config/api';
 
 interface CategoriesProps {
   addToCart: (badge: Badge) => void;
+}
+
+// Premium Badge Card Component (matching sticker card style)
+function BadgeCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: Badge) => void; index: number }) {
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [added, setAdded] = useState(false);
+
+  const handleAdd = () => {
+    addToCart({ ...badge, quantity: 1 });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1200);
+  };
+
+  return (
+    <div
+      className="group relative bg-white rounded-2xl overflow-hidden flex flex-col transition-all duration-500 hover:-translate-y-1.5
+        shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)]
+        border border-slate-200/80 hover:border-yellow-400/60"
+      style={{ animationDelay: `${index * 60}ms` }}
+    >
+      {/* Hover glow effect */}
+      <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-br from-yellow-400/0 via-orange-400/0 to-red-400/0 group-hover:from-yellow-400/20 group-hover:via-orange-400/10 group-hover:to-red-400/20 transition-all duration-500 pointer-events-none z-0" />
+
+      {/* Image Container */}
+      <Link to={`/badge/${badge.id}`} className="relative aspect-square overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100 z-10 block">
+        {/* Shimmer loader */}
+        {!imgLoaded && (
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 animate-pulse" />
+        )}
+        <img
+          src={badge.image}
+          alt={badge.name}
+          className={`w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-700 ease-out ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setImgLoaded(true)}
+          onError={(e) => {
+            const target = e.currentTarget;
+            if (!target.src.startsWith('http') && !target.dataset.retried) {
+              target.dataset.retried = 'true';
+              const cleanPath = badge.image.startsWith('/') ? badge.image.substring(1) : badge.image;
+              target.src = `/${cleanPath}`;
+            } else {
+              target.style.display = 'none';
+              setImgLoaded(true);
+            }
+          }}
+        />
+        {/* Overlay gradient on hover */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+        {/* Featured badge */}
+        {badge.isFeatured && (
+          <div className="absolute top-2.5 left-2.5 px-2.5 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full flex items-center gap-1 shadow-lg">
+            <Sparkles className="w-3 h-3 text-white" />
+            <span className="text-[10px] font-black text-white uppercase tracking-wider">Featured</span>
+          </div>
+        )}
+
+        {/* Quick add button on hover */}
+        <button
+          onClick={(e) => { e.preventDefault(); handleAdd(); }}
+          className={`absolute bottom-3 right-3 p-2.5 rounded-xl transition-all duration-300 shadow-lg
+            ${added
+              ? 'bg-green-500 scale-110'
+              : 'bg-white/90 backdrop-blur-sm opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 hover:bg-yellow-500 hover:scale-110'
+            }`}
+        >
+          {added
+            ? <Check className="w-4 h-4 text-white" />
+            : <ShoppingCart className="w-4 h-4 text-slate-700 group-hover:text-slate-900" />
+          }
+        </button>
+      </Link>
+
+      {/* Content */}
+      <div className="relative z-10 p-3.5 sm:p-4 flex flex-col flex-1 bg-white">
+        {/* Tagline / Category */}
+        {badge.tagline ? (
+          <p className="text-[10px] font-bold text-orange-600/80 uppercase tracking-widest mb-1 truncate">
+            {badge.tagline}
+          </p>
+        ) : (
+          <p className="text-[10px] font-bold text-orange-600/80 uppercase tracking-widest mb-1 truncate">
+            {badge.category}
+          </p>
+        )}
+
+        <h3 className="text-sm sm:text-base font-extrabold text-slate-900 mb-0.5 leading-tight tracking-tight line-clamp-1">
+          {badge.name}
+        </h3>
+        <p className="text-xs text-slate-500 mb-3 line-clamp-1 flex-1 font-medium">
+          {badge.details}
+        </p>
+
+        {/* Price & Actions */}
+        <div className="flex items-center justify-between pt-2.5 border-t border-slate-100">
+          <div className="flex flex-col">
+            <span className="text-base sm:text-lg font-black bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
+              {formatPrice(badge.price)}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleAdd}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-300
+                ${added
+                  ? 'bg-green-500 text-white scale-95'
+                  : 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600 hover:shadow-md active:scale-95'
+                }`}
+            >
+              {added ? '✓ Added' : 'Add'}
+            </button>
+            <Link
+              to={`/badge/${badge.id}`}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border border-slate-200 text-slate-600 hover:border-yellow-400 hover:text-yellow-700 transition-all duration-300"
+            >
+              View
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Premium Combo Card Component
+function ComboCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: Badge) => void; index: number }) {
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [added, setAdded] = useState(false);
+
+  const handleAdd = () => {
+    addToCart({ ...badge, quantity: 1 });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1200);
+  };
+
+  return (
+    <div
+      className="group relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl overflow-hidden flex flex-col transition-all duration-500 hover:-translate-y-1.5
+        shadow-[0_2px_12px_rgba(245,158,11,0.15)] hover:shadow-[0_16px_50px_rgba(245,158,11,0.25)]
+        border border-yellow-500/40 hover:border-yellow-400/70"
+      style={{ animationDelay: `${index * 60}ms` }}
+    >
+      {/* Combo label */}
+      <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-full shadow-lg">
+        <Package className="w-3 h-3 text-slate-900" />
+        <span className="text-[9px] sm:text-[10px] font-black text-slate-900 uppercase tracking-wider">Combo</span>
+      </div>
+
+      {/* Shine effect */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-yellow-400/5 via-transparent to-yellow-400/5 pointer-events-none z-0" />
+      <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-yellow-400/40 to-transparent z-0" />
+
+      {/* Image Container */}
+      <Link to={`/badge/${badge.id}`} className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 z-10 block">
+        {!imgLoaded && (
+          <div className="absolute inset-0 bg-gradient-to-br from-yellow-100 via-amber-50 to-yellow-100 animate-pulse" />
+        )}
+        <img
+          src={badge.image}
+          alt={badge.name}
+          className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out drop-shadow-[0_4px_12px_rgba(0,0,0,0.25)] ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setImgLoaded(true)}
+          onError={(e) => {
+            const target = e.currentTarget;
+            if (!target.src.startsWith('http') && !target.dataset.retried) {
+              target.dataset.retried = 'true';
+              const cleanPath = badge.image.startsWith('/') ? badge.image.substring(1) : badge.image;
+              target.src = `/${cleanPath}`;
+            } else {
+              target.style.display = 'none';
+              setImgLoaded(true);
+            }
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        {/* Bold border frame */}
+        <div className="absolute inset-0 border-[3px] border-yellow-400/30 rounded-sm pointer-events-none" />
+
+        {/* Quick add */}
+        <button
+          onClick={(e) => { e.preventDefault(); handleAdd(); }}
+          className={`absolute bottom-3 right-3 p-2.5 rounded-xl transition-all duration-300 shadow-lg
+            ${added
+              ? 'bg-green-500 scale-110'
+              : 'bg-white/90 backdrop-blur-sm opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 hover:bg-yellow-500 hover:scale-110'
+            }`}
+        >
+          {added
+            ? <Check className="w-4 h-4 text-white" />
+            : <ShoppingCart className="w-4 h-4 text-slate-700 group-hover:text-slate-900" />
+          }
+        </button>
+      </Link>
+
+      {/* Content */}
+      <div className="relative z-10 p-3.5 sm:p-4 flex flex-col flex-1 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <p className="text-[10px] font-bold text-yellow-400/80 uppercase tracking-widest mb-1 truncate flex items-center gap-1">
+          <Crown className="w-3 h-3" /> COMBO PACK
+        </p>
+
+        <h3 className="text-sm sm:text-base font-extrabold text-white mb-0.5 leading-tight tracking-tight line-clamp-1">
+          {badge.name}
+        </h3>
+        <p className="text-xs text-yellow-200/50 mb-3 line-clamp-1 flex-1 font-medium">
+          {badge.details}
+        </p>
+
+        {/* Price & Action */}
+        <div className="flex items-center justify-between pt-2.5 border-t border-yellow-500/20">
+          <div className="flex flex-col">
+            <span className="text-base sm:text-lg font-black bg-gradient-to-r from-yellow-400 to-amber-400 bg-clip-text text-transparent">
+              {formatPrice(badge.price)}
+            </span>
+            <span className="text-[9px] text-yellow-500/50 line-through font-semibold">
+              {formatPrice(49 * 4)}
+            </span>
+          </div>
+          <button
+            onClick={handleAdd}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-300
+              ${added
+                ? 'bg-green-500 text-white scale-95'
+                : 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-900 hover:from-yellow-300 hover:to-amber-400 hover:shadow-md hover:shadow-yellow-500/30 active:scale-95'
+              }`}
+          >
+            {added ? '✓ Added' : 'Add Combo'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function Categories({ addToCart }: CategoriesProps) {
@@ -15,18 +250,13 @@ export default function Categories({ addToCart }: CategoriesProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const catParam = searchParams.get('cat');
   const [activeCategory, setActiveCategory] = useState(catParam || 'all');
-  const [viewType, setViewType] = useState<'grid' | 'list'>('grid');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterPanelRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLDivElement>(null);
   
   // Products from database
   const [products, setProducts] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
-
-  const handleImageLoad = (badgeId: string) => {
-    setLoadedImages(prev => new Set(prev).add(badgeId));
-  };
   
   // Check if user is admin
   const isAdmin = !!localStorage.getItem('adminToken');
@@ -65,6 +295,13 @@ export default function Categories({ addToCart }: CategoriesProps) {
 
   const ensureMinimumPerCategory = (items: Badge[], minCount = 4): Badge[] => {
     const normalized = [...items];
+    const existingIds = new Set(normalized.map((b) => b.id));
+
+    // Always inject combo badges from static data if not already present
+    const comboBadges = BADGES.filter((b) => b.isCombo && !existingIds.has(b.id));
+    normalized.push(...comboBadges);
+    comboBadges.forEach((b) => existingIds.add(b.id));
+
     const byCategory = CATEGORIES.reduce((acc, cat) => {
       acc[cat.id] = normalized.filter((p) => p.category.toLowerCase() === cat.id.toLowerCase());
       return acc;
@@ -76,9 +313,9 @@ export default function Categories({ addToCart }: CategoriesProps) {
 
       const fallback = BADGES.filter((b) => b.category.toLowerCase() === cat.id.toLowerCase());
       const needed = minCount - current.length;
-      const existingIds = new Set(current.map((b) => b.id));
       const toAdd = fallback.filter((b) => !existingIds.has(b.id)).slice(0, needed);
       normalized.push(...toAdd);
+      toAdd.forEach((b) => existingIds.add(b.id));
     });
 
     return normalized;
@@ -114,7 +351,13 @@ export default function Categories({ addToCart }: CategoriesProps) {
 
   useEffect(() => {
     if (catParam) setActiveCategory(catParam);
+    else setActiveCategory('all');
   }, [catParam]);
+
+  // Scroll to top when category changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeCategory]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -128,7 +371,7 @@ export default function Categories({ addToCart }: CategoriesProps) {
 
   const handleCategorySelect = (id: string) => {
     setActiveCategory(id);
-    setSearchParams({ cat: id === 'all' ? '' : id });
+    setSearchParams(id === 'all' ? {} : { cat: id });
     setIsFilterOpen(false);
   };
 
@@ -141,77 +384,90 @@ export default function Categories({ addToCart }: CategoriesProps) {
     : CATEGORIES.find(c => c.id === activeCategory)?.name || 'All Badges';
 
   const handleAddProduct = (category?: string) => {
-    // Map frontend category to backend product category
-    const categoryMap: Record<string, 'Moody' | 'Sports' | 'Religious' | 'Entertainment' | 'Events' | 'Animal' | 'Couple' | 'Anime' | 'Positive Vibes' | 'Custom'> = {
-      'moody': 'Moody',
-      'positive-vibes': 'Positive Vibes',
-      'sports': 'Sports',
-      'religious': 'Religious',
-      'entertainment': 'Entertainment',
-      'events': 'Events',
-      'animal': 'Animal',
-      'couple': 'Couple',
-      'anime': 'Anime',
-      'custom': 'Custom'
+    const categoryMap: Record<string, string> = {
+      'moody': 'Moody', 'positive-vibes': 'Positive Vibes', 'sports': 'Sports',
+      'religious': 'Religious', 'entertainment': 'Entertainment', 'events': 'Events',
+      'animal': 'Animal', 'couple': 'Couple', 'anime': 'Anime', 'custom': 'Custom'
     };
-    
     const targetCategory = category || activeCategory;
     const productCategory = categoryMap[targetCategory] || 'Custom';
-    
-    // Navigate to admin products page with category pre-selected
     navigate(`/admin/dashboard?view=products&category=${productCategory}`);
   };
 
   // Group products by category for section-wise display
   const productsByCategory = CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = products.filter(p => p.category.toLowerCase() === cat.id.toLowerCase());
+    const catProducts = products.filter(p => p.category.toLowerCase() === cat.id.toLowerCase());
+    acc[cat.id] = catProducts.sort((a, b) => {
+      if (a.isCombo && !b.isCombo) return -1;
+      if (!a.isCombo && b.isCombo) return 1;
+      return 0;
+    });
     return acc;
   }, {} as Record<string, Badge[]>);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-slate-50/30 to-white relative overflow-hidden">
-      {/* Background Effects */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-yellow-500/8 rounded-full blur-[120px]" />
-        <div className="absolute top-1/3 right-[-200px] w-[600px] h-[600px] bg-orange-400/6 rounded-full blur-[100px]" />
-        <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/5 rounded-full blur-[90px]" />
-      </div>
+  // Sort filtered badges so combo appears first
+  const sortedFilteredBadges = [...(activeCategory === 'all'
+    ? products
+    : products.filter(b => b.category.toLowerCase() === activeCategory.toLowerCase())
+  )].sort((a, b) => {
+    if (a.isCombo && !b.isCombo) return -1;
+    if (!a.isCombo && b.isCombo) return 1;
+    return 0;
+  });
 
-      {/* Floating Badge Decorations */}
-      <div className="hidden lg:block absolute top-20 left-12 w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 border-3 border-black shadow-[4px_4px_0px_#000] animate-bounce opacity-60" style={{ animationDelay: '0s', animationDuration: '3s' }}></div>
-      <div className="hidden lg:block absolute top-40 right-20 w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-pink-500 border-3 border-black shadow-[4px_4px_0px_#000] animate-bounce opacity-60" style={{ animationDelay: '0.5s', animationDuration: '3.5s' }}></div>
-      <div className="hidden lg:block absolute bottom-32 left-24 w-14 h-14 rounded-full bg-black border-3 border-yellow-400 shadow-[4px_4px_0px_#FFD600] animate-bounce opacity-60" style={{ animationDelay: '1s', animationDuration: '4s' }}></div>
+  const categoryDescriptions: Record<string, string> = {
+    'moody': '😊 Express Your Mood, Wear Your Vibe',
+    'positive-vibes': '✨ Spark Joy, Spread Positivity',
+    'sports': '🏆 Fuel Your Passion, Show Your Game',
+    'religious': '🙏 Faith & Devotion in Every Design',
+    'entertainment': '🎬 Pop Culture & Entertainment Icons',
+    'events': '🎉 Celebrate Every Moment in Style',
+    'pet': '🐾 Wild, Cute & Everything Nature',
+    'couple': '💕 Love Stories, Eternal Memories',
+    'anime': '⚡ Unleash Your Inner Otaku Power',
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 relative overflow-hidden">
+      {/* Subtle Background Effects */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-400/5 rounded-full blur-[150px]" />
+        <div className="absolute top-1/3 right-[-200px] w-[600px] h-[600px] bg-orange-300/4 rounded-full blur-[120px]" />
+        <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-amber-300/4 rounded-full blur-[100px]" />
+        {/* Dot pattern */}
+        <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+      </div>
 
       <div className="relative z-10 flex">
         {/* STICKY SIDEBAR */}
-        <aside className="hidden lg:flex flex-col w-64 fixed left-0 top-24 h-[calc(100vh-6rem)] pt-4 px-4 bg-white/60 backdrop-blur-sm border-r-2 border-slate-200/80 overflow-y-auto">
+        <aside className="hidden lg:flex flex-col w-64 fixed left-0 top-24 h-[calc(100vh-6rem)] pt-4 px-4 bg-white/80 backdrop-blur-md border-r border-slate-200/60 overflow-y-auto">
           <div className="flex flex-col h-full">
             <button
               onClick={() => handleCategorySelect('all')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-black uppercase tracking-wide transition-all text-sm shadow-sm ${
-                activeCategory === 'all' 
-                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 shadow-[4px_4px_0px_#000] border-2 border-black' 
-                  : 'text-slate-700 hover:bg-gradient-to-r hover:from-slate-100 hover:to-slate-50 border-2 border-slate-200'
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold uppercase tracking-wide transition-all duration-300 text-sm ${
+                activeCategory === 'all'
+                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25 border border-yellow-400'
+                  : 'text-slate-600 hover:bg-slate-100/80 border border-transparent hover:border-slate-200'
               }`}
             >
               All Badges
-              {activeCategory === 'all' && <Check className="w-5 h-5" />}
+              {activeCategory === 'all' && <Check className="w-4 h-4" />}
             </button>
-            
-            <div className="h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent my-3"></div>
 
-            <div className="flex flex-col flex-1 justify-between gap-2 pb-2">
+            <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent my-3"></div>
+
+            <div className="flex flex-col flex-1 justify-between gap-1.5 pb-2">
               {CATEGORIES.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => handleCategorySelect(cat.id)}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-black uppercase tracking-wide transition-all text-sm shadow-sm ${
-                    activeCategory === cat.id 
-                      ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 shadow-[4px_4px_0px_#000] border-2 border-black' 
-                      : 'text-slate-700 hover:bg-gradient-to-r hover:from-slate-100 hover:to-slate-50 border-2 border-slate-200'
+                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl font-bold uppercase tracking-wide transition-all duration-300 text-sm ${
+                    activeCategory === cat.id
+                      ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25 border border-yellow-400'
+                      : 'text-slate-600 hover:bg-slate-100/80 border border-transparent hover:border-slate-200'
                   }`}
                 >
-                  <span className="flex items-center gap-2 min-w-0">
+                  <span className="flex items-center gap-2.5 min-w-0">
                     <span className="text-base flex-shrink-0">{cat.icon}</span>
                     <span className="truncate text-xs">{cat.name}</span>
                   </span>
@@ -223,26 +479,28 @@ export default function Categories({ addToCart }: CategoriesProps) {
         </aside>
 
         {/* MAIN CONTENT */}
-        <main className="w-full lg:ml-64 px-4 sm:px-6 lg:pl-6 lg:pr-8 pt-12 lg:pt-16">
-          <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center md:gap-6 mb-6 md:mb-8">
+        <main ref={mainRef} className="w-full lg:ml-64 px-4 sm:px-6 lg:pl-8 lg:pr-10 pt-10 lg:pt-14 pb-16">
+          {/* Header */}
+          <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-end md:gap-6 mb-8 md:mb-10">
             <div>
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-2 border-yellow-500/30 mb-3">
-                <span className="text-xs font-black tracking-[0.2em] uppercase text-orange-700">Browse Collection</span>
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20 mb-3">
+                <Sparkles className="w-3 h-3 text-orange-600" />
+                <span className="text-[10px] font-black tracking-[0.2em] uppercase text-orange-700">Premium Collection</span>
               </div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent">
-                Explore the Collection
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-slate-900">
+                Explore the <span className="bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">Collection</span>
               </h1>
-              <p className="text-slate-600 text-sm md:text-base font-semibold mt-2">
+              <p className="text-slate-500 text-sm md:text-base font-medium mt-2">
                 Discover unique badges that speak your style
               </p>
             </div>
 
-            <div className="flex items-center gap-3 md:gap-6 w-full md:w-auto">
+            <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto">
               {/* Admin Add Product Button */}
               {isAdmin && activeCategory !== 'all' && (
                 <button
                   onClick={() => handleAddProduct()}
-                  className="flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-[1.5rem] font-black text-xs md:text-sm tracking-widest uppercase transition-all shadow-lg"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-xl font-bold text-xs transition-all shadow-lg"
                 >
                   <Plus className="w-4 h-4" />
                   <span className="hidden sm:inline">Add to {currentCategoryName}</span>
@@ -250,39 +508,47 @@ export default function Categories({ addToCart }: CategoriesProps) {
                 </button>
               )}
 
+              {/* Sticker count */}
+              {activeCategory !== 'all' && (
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-yellow-50 border border-yellow-200/60">
+                  <span className="text-base">{CATEGORIES.find(c => c.id === activeCategory)?.icon}</span>
+                  <span className="text-sm font-bold text-slate-700">{sortedFilteredBadges.length} badges</span>
+                </div>
+              )}
+
               {/* Mobile Filter Dropdown */}
               <div className="lg:hidden relative" ref={filterPanelRef}>
-                <button 
+                <button
                   onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={`flex items-center gap-2 font-black px-4 md:px-6 py-2.5 md:py-3 rounded-xl shadow-sm transition-all text-xs border-2 ${
-                    isFilterOpen 
-                    ? 'bg-gradient-to-r from-yellow-500 to-orange-500 border-black text-slate-900 shadow-[4px_4px_0px_#000]' 
-                    : 'bg-white border-slate-200 text-slate-700 hover:border-yellow-500/50'
+                  className={`flex items-center gap-2 font-bold px-4 py-2.5 rounded-xl transition-all duration-300 text-xs ${
+                    isFilterOpen
+                    ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25 border border-yellow-400'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:border-yellow-400'
                   }`}
                 >
                   <SlidersHorizontal className="w-3.5 h-3.5" />
-                  <span className="uppercase tracking-wide">Filter: <span className="text-orange-700 truncate">{currentCategoryName}</span></span>
+                  <span className="uppercase tracking-wide">{currentCategoryName}</span>
                 </button>
 
                 {isFilterOpen && (
-                  <div className="absolute left-0 md:left-auto md:right-0 mt-3 w-full sm:w-72 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border-2 border-slate-200 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="absolute left-0 md:left-auto md:right-0 mt-3 w-full sm:w-72 bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] border border-slate-200/60 z-50 overflow-hidden">
                     <div className="p-3 space-y-1.5">
-                      <button 
+                      <button
                         onClick={() => handleCategorySelect('all')}
-                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all shadow-sm border-2 ${
-                          activeCategory === 'all' ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 border-black shadow-[3px_3px_0px_#000]' : 'text-slate-700 hover:bg-slate-50 border-slate-200'
+                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ${
+                          activeCategory === 'all' ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25' : 'text-slate-600 hover:bg-slate-50'
                         }`}
                       >
                         All Badges
                         {activeCategory === 'all' && <Check className="w-4 h-4" />}
                       </button>
-                      <div className="h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent my-2"></div>
+                      <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent my-2"></div>
                       {CATEGORIES.map(cat => (
-                        <button 
+                        <button
                           key={cat.id}
                           onClick={() => handleCategorySelect(cat.id)}
-                          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all shadow-sm border-2 ${
-                            activeCategory === cat.id ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 border-black shadow-[3px_3px_0px_#000]' : 'text-slate-700 hover:bg-slate-50 border-slate-200'
+                          className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ${
+                            activeCategory === cat.id ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25' : 'text-slate-600 hover:bg-slate-50'
                           }`}
                         >
                           <span className="flex items-center gap-2">
@@ -299,308 +565,106 @@ export default function Categories({ addToCart }: CategoriesProps) {
             </div>
           </div>
 
-        {loading ? (
-          // Loading skeleton
-          <div className="text-center py-20">
-            <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-gradient-to-r from-yellow-500 to-orange-500"></div>
-            <p className="mt-6 text-slate-700 font-black text-lg uppercase tracking-wide">Loading products...</p>
-          </div>
-        ) : activeCategory === 'all' ? (
-          // Show all categories with sections
-          <div className="space-y-12">
-            {CATEGORIES.map((category) => {
-              const categoryProducts = productsByCategory[category.id] || [];
-              if (categoryProducts.length === 0) return null;
+          {loading ? (
+            <div className="text-center py-24">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
+              <p className="mt-6 text-slate-500 font-semibold text-sm">Loading products...</p>
+            </div>
+          ) : (
+            <div key={activeCategory}>
+              {activeCategory === 'all' ? (
+                <div className="space-y-14">
+                  {CATEGORIES.map((category) => {
+                    const categoryProducts = productsByCategory[category.id] || [];
+                    if (categoryProducts.length === 0) return null;
 
-              return (
-                <div key={category.id} className="space-y-4">
-                  {/* Category Header with Add Button */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-500/30 flex items-center justify-center">
-                          <span className="text-3xl">{category.icon}</span>
+                    return (
+                      <div key={category.id} className="space-y-5">
+                        {/* Category Header */}
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-100 to-orange-100 border border-yellow-300/40 flex items-center justify-center shadow-sm">
+                            <span className="text-xl">{category.icon}</span>
+                          </div>
+                          <div>
+                            <h2 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tight leading-none">
+                              {category.name}
+                            </h2>
+                            <p className="text-xs text-slate-400 font-medium mt-0.5">{categoryDescriptions[category.id] || `${categoryProducts.length} badges`}</p>
+                          </div>
+                          <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent ml-4"></div>
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleAddProduct(category.id)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-[10px] transition-all shadow-sm"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span className="hidden md:inline">Add</span>
+                            </button>
+                          )}
                         </div>
-                        <div>
-                          <h2 className="text-2xl md:text-3xl font-black bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent uppercase tracking-tight">
-                            {category.name}
-                          </h2>
-                          <p className="text-xs md:text-sm text-slate-600 font-semibold mt-1">
-                            {category.id === 'moody' && '😊 Express Your Mood, Wear Your Vibe'}
-                            {category.id === 'positive-vibes' && '✨ Spark Joy, Spread Positivity'}
-                            {category.id === 'sports' && '🏆 Fuel Your Passion, Show Your Game'}
-                            {category.id === 'religious' && '🙏 Faith & Devotion in Every Design'}
-                            {category.id === 'entertainment' && '🎬 Pop Culture & Entertainment Icons'}
-                            {category.id === 'events' && '🎉 Celebrate Every Moment in Style'}
-                            {category.id === 'animal' && '🐾 Wild, Cute & Everything Nature'}
-                            {category.id === 'couple' && '💕 Love Stories, Eternal Memories'}
-                            {category.id === 'anime' && '⚡ Unleash Your Inner Otaku Power'}
-                          </p>
+
+                        {/* Category Products Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+                          {categoryProducts.map((badge, i) =>
+                            badge.isCombo ? (
+                              <ComboCard key={badge.id} badge={badge} addToCart={addToCart} index={i} />
+                            ) : (
+                              <BadgeCard key={badge.id} badge={badge} addToCart={addToCart} index={i} />
+                            )
+                          )}
                         </div>
                       </div>
-                      {isAdmin && (
-                        <button
-                          onClick={() => handleAddProduct(category.id)}
-                          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-xl font-bold text-xs transition-all shadow-lg"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span className="hidden md:inline">Add Product</span>
-                          <span className="md:hidden">Add</span>
-                        </button>
-                      )}
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-100 to-orange-100 border border-yellow-300/40 flex items-center justify-center shadow-sm">
+                      <span className="text-xl">{CATEGORIES.find(c => c.id === activeCategory)?.icon}</span>
                     </div>
-                  </div>
-
-                  {/* Category Products Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
-                    {categoryProducts.map((badge) => (
-                      <div
-                        key={badge.id}
-                        className="group bg-[#0b1320] rounded-[20px] sm:rounded-[24px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-3 sm:p-4 md:p-5 flex flex-col"
-                      >
-                        <Link to={`/badge/${badge.id}`} className="w-full">
-                          <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-white flex items-center justify-center mb-3 overflow-hidden border-[3px] sm:border-[4px] border-slate-900/70 shadow-inner">
-                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.06),transparent_65%)]" />
-                            
-                            {!loadedImages.has(badge.id) && (
-                              <div className="absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 animate-pulse" />
-                            )}
-                            
-                            <img
-                              src={badge.image}
-                              alt={badge.name}
-                              loading="lazy"
-                              decoding="async"
-                              className={`relative w-[110%] h-[110%] sm:w-[120%] sm:h-[120%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-all duration-500 group-hover:scale-[1.06] ${
-                                loadedImages.has(badge.id) ? 'opacity-100' : 'opacity-0'
-                              }`}
-                              onLoad={() => handleImageLoad(badge.id)}
-                              onError={(e) => {
-                                const target = e.currentTarget;
-                                if (!target.src.startsWith('http') && !target.dataset.retried) {
-                                  target.dataset.retried = 'true';
-                                  const cleanPath = badge.image.startsWith('/') ? badge.image.substring(1) : badge.image;
-                                  target.src = `/${cleanPath}`;
-                                } else {
-                                  target.style.display = 'none';
-                                  handleImageLoad(badge.id);
-                                }
-                              }}
-                            />
-                          </div>
-                        </Link>
-
-                        <div className="flex items-center justify-between mb-2 gap-2">
-                          <span className="text-[9px] sm:text-[10px] font-semibold tracking-[0.15em] sm:tracking-[0.2em] text-yellow-400 uppercase truncate">
-                            {badge.category}
-                          </span>
-                          <span className="text-base sm:text-lg md:text-xl font-black text-white whitespace-nowrap">
-                            {formatPrice(badge.price)}
-                          </span>
-                        </div>
-
-                        <div className="flex items-start justify-between gap-1.5 mb-3">
-                          <h3 className="text-[11px] sm:text-[13px] md:text-[14px] font-extrabold text-white uppercase leading-tight flex-1 line-clamp-2">
-                            {badge.name}
-                          </h3>
-                          
-                          <div className="flex items-center gap-0.5 bg-slate-800 rounded-md p-0.5 sm:p-1 flex-shrink-0">
-                            <button
-                              onClick={() => addToCart({ ...badge, quantity: -1 })}
-                              className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-yellow-400 hover:bg-slate-700 transition text-[8px] sm:text-[9px] md:text-xs font-black"
-                            >
-                              −
-                            </button>
-                            <span className="w-3 sm:w-4 text-center text-white text-[8px] sm:text-[9px] md:text-xs font-black">1</span>
-                            <button
-                              onClick={() => addToCart({ ...badge, quantity: 1 })}
-                              className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-yellow-400 hover:bg-slate-700 transition text-[8px] sm:text-[9px] md:text-xs font-black"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="mt-auto">
-                          <div className="flex flex-row items-center gap-2">
-                            <button
-                              onClick={() => addToCart({ ...badge, quantity: 1 })}
-                              className="flex-1 py-2 sm:py-2.5 rounded-md bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 font-black hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95 flex items-center justify-center gap-1"
-                              title="Add to cart"
-                            >
-                              <ShoppingCart className="w-3.5 h-3.5" />
-                              <span className="text-[9px] sm:text-xs font-black">ADD</span>
-                            </button>
-
-                            <Link
-                              to={`/badge/${badge.id}`}
-                              className="flex-1 py-2 sm:py-2.5 rounded-md border-2 border-yellow-400/50 text-yellow-200 text-[9px] sm:text-xs font-black tracking-[0.12em] hover:bg-yellow-400/10 hover:border-yellow-300 transition-all duration-300 active:scale-95 flex items-center justify-center"
-                            >
-                              Buy Now
-                            </Link>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {isAdmin && category.id === 'positive-vibes' && (
+                    <div>
+                      <h2 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tight leading-none">
+                        {currentCategoryName}
+                      </h2>
+                      <p className="text-xs text-slate-400 font-medium mt-0.5">{categoryDescriptions[activeCategory] || ''}</p>
+                    </div>
+                    <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent ml-4"></div>
+                    {isAdmin && (
                       <button
-                        onClick={() => handleAddProduct('positive-vibes')}
-                        className="group rounded-[28px] border-2 border-dashed border-yellow-400/50 bg-white/80 hover:bg-white transition-all duration-300 p-5 flex flex-col items-center justify-center min-h-[320px]"
+                        onClick={() => handleAddProduct()}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-[10px] transition-all shadow-sm"
                       >
-                        <div className="w-16 h-16 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center text-3xl font-black mb-4">
-                          +
-                        </div>
-                        <p className="text-slate-800 font-extrabold uppercase tracking-wide text-sm">Add Positive Vibes</p>
-                        <p className="text-slate-500 text-xs mt-2">Create a new badge</p>
+                        <Plus className="w-3 h-3" />
+                        <span className="hidden md:inline">Add Product</span>
+                        <span className="md:hidden">Add</span>
                       </button>
                     )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          // Show single category with Add button
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-500/30 flex items-center justify-center">
-                    <span className="text-3xl">{CATEGORIES.find(c => c.id === activeCategory)?.icon}</span>
-                  </div>
-                  <div>
-                    <h2 className="text-2xl md:text-3xl font-black bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent uppercase tracking-tight">
-                      {currentCategoryName}
-                    </h2>
-                    <p className="text-xs md:text-sm text-slate-600 font-semibold mt-1">
-                      {activeCategory === 'moody' && '😊 Express Your Mood, Wear Your Vibe'}
-                      {activeCategory === 'positive-vibes' && '✨ Spark Joy, Spread Positivity'}
-                      {activeCategory === 'sports' && '🏆 Fuel Your Passion, Show Your Game'}
-                      {activeCategory === 'religious' && '🙏 Faith & Devotion in Every Design'}
-                      {activeCategory === 'entertainment' && '🎬 Pop Culture & Entertainment Icons'}
-                      {activeCategory === 'events' && '🎉 Celebrate Every Moment in Style'}
-                      {activeCategory === 'animal' && '🐾 Wild, Cute & Everything Nature'}
-                      {activeCategory === 'couple' && '💕 Love Stories, Eternal Memories'}
-                      {activeCategory === 'anime' && '⚡ Unleash Your Inner Otaku Power'}
-                    </p>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+                    {sortedFilteredBadges.map((badge, i) =>
+                      badge.isCombo ? (
+                        <ComboCard key={badge.id} badge={badge} addToCart={addToCart} index={i} />
+                      ) : (
+                        <BadgeCard key={badge.id} badge={badge} addToCart={addToCart} index={i} />
+                      )
+                    )}
                   </div>
                 </div>
-                {isAdmin && (
-                  <button
-                    onClick={() => handleAddProduct()}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-xl font-bold text-xs transition-all shadow-lg"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span className="hidden md:inline">Add Product</span>
-                    <span className="md:hidden">Add</span>
-                  </button>
-                )}
+              )}
+            </div>
+          )}
+
+          {!loading && sortedFilteredBadges.length === 0 && activeCategory !== 'all' && (
+            <div className="py-24 text-center">
+              <div className="w-28 h-28 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-yellow-200/40 shadow-sm">
+                <span className="text-5xl">🔍</span>
               </div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase">No badges found</h3>
+              <p className="text-slate-500 mt-2 text-sm max-w-sm mx-auto font-medium">Try selecting a different category from the sidebar.</p>
             </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
-              {filteredBadges.map((badge) => (
-                <div
-                  key={badge.id}
-                  className="group bg-[#0b1320] rounded-[20px] sm:rounded-[24px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] hover:shadow-[0_26px_70px_rgba(245,158,11,0.25)] transition-all duration-300 hover:-translate-y-2 hover:border-yellow-400/60 p-3 sm:p-4 md:p-5 flex flex-col"
-                >
-                  <Link to={`/badge/${badge.id}`} className="w-full">
-                    <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-white flex items-center justify-center mb-3 overflow-hidden border-[3px] sm:border-[4px] border-slate-900/70 shadow-inner">
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.06),transparent_65%)]" />
-                      
-                      {!loadedImages.has(badge.id) && (
-                        <div className="absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 animate-pulse" />
-                      )}
-                      
-                      <img
-                        src={badge.image}
-                        alt={badge.name}
-                        loading="lazy"
-                        decoding="async"
-                        className={`relative w-[110%] h-[110%] sm:w-[120%] sm:h-[120%] object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.28)] transition-all duration-500 group-hover:scale-[1.06] ${
-                          loadedImages.has(badge.id) ? 'opacity-100' : 'opacity-0'
-                        }`}
-                        onLoad={() => handleImageLoad(badge.id)}
-                        onError={(e) => {
-                          const target = e.currentTarget;
-                          if (!target.src.startsWith('http') && !target.dataset.retried) {
-                            target.dataset.retried = 'true';
-                            const cleanPath = badge.image.startsWith('/') ? badge.image.substring(1) : badge.image;
-                            target.src = `/${cleanPath}`;
-                          } else {
-                            target.style.display = 'none';
-                            handleImageLoad(badge.id);
-                          }
-                        }}
-                      />
-                    </div>
-                  </Link>
-
-                  <div className="flex items-center justify-between mb-2 gap-2">
-                    <span className="text-[9px] sm:text-[10px] font-semibold tracking-[0.15em] sm:tracking-[0.2em] text-yellow-400 uppercase truncate">
-                      {badge.category}
-                    </span>
-                    <span className="text-base sm:text-lg md:text-xl font-black text-white whitespace-nowrap">
-                      {formatPrice(badge.price)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-1.5 mb-3">
-                    <h3 className="text-[11px] sm:text-[13px] md:text-[14px] font-extrabold text-white uppercase leading-tight flex-1 line-clamp-2">
-                      {badge.name}
-                    </h3>
-                    
-                    <div className="flex items-center gap-0.5 bg-slate-800 rounded-md p-0.5 sm:p-1 flex-shrink-0">
-                      <button
-                        onClick={() => addToCart({ ...badge, quantity: -1 })}
-                        className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-yellow-400 hover:bg-slate-700 transition text-[8px] sm:text-[9px] md:text-xs font-black"
-                      >
-                        −
-                      </button>
-                      <span className="w-3 sm:w-4 text-center text-white text-[8px] sm:text-[9px] md:text-xs font-black">1</span>
-                      <button
-                        onClick={() => addToCart({ ...badge, quantity: 1 })}
-                        className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-yellow-400 hover:bg-slate-700 transition text-[8px] sm:text-[9px] md:text-xs font-black"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-auto">
-                    <div className="flex flex-row items-center gap-2">
-                      <button
-                        onClick={() => addToCart({ ...badge, quantity: 1 })}
-                        className="flex-1 py-2 sm:py-2.5 rounded-md bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 font-black hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95 flex items-center justify-center gap-1"
-                        title="Add to cart"
-                      >
-                        <ShoppingCart className="w-3.5 h-3.5" />
-                        <span className="text-[9px] sm:text-xs font-black">ADD</span>
-                      </button>
-
-                      <Link
-                        to={`/badge/${badge.id}`}
-                        className="flex-1 py-2 sm:py-2.5 rounded-md border-2 border-yellow-400/50 text-yellow-200 text-[9px] sm:text-xs font-black tracking-[0.12em] hover:bg-yellow-400/10 hover:border-yellow-300 transition-all duration-300 active:scale-95 flex items-center justify-center"
-                      >
-                        Buy Now
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {!loading && filteredBadges.length === 0 && (
-          <div className="py-20 text-center">
-            <div className="w-32 h-32 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-yellow-500/30">
-              <span className="text-6xl">🔍</span>
-            </div>
-            <h3 className="text-3xl font-black bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent uppercase">No badges found</h3>
-            <p className="text-slate-600 mt-3 text-base max-w-sm mx-auto font-semibold">Try selecting a different category from the filter menu.</p>
-          </div>
-        )}
+          )}
         </main>
       </div>
     </div>
