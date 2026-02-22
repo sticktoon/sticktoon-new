@@ -100,6 +100,13 @@ const PinButton: React.FC<{
 
 const Hero: React.FC = () => {
   const navigate = useNavigate();
+  const [heroAnimated, setHeroAnimated] = useState(false);
+
+  useEffect(() => {
+    // Small delay so the page renders first, then badges fly in
+    const timer = setTimeout(() => setHeroAnimated(true), 150);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <section className="relative w-full py-16 sm:py-20 md:py-28 lg:min-h-screen lg:flex lg:items-center overflow-hidden bg-white">
@@ -169,7 +176,8 @@ const Hero: React.FC = () => {
       <button
         key={i}
         onClick={() => navigate(`/categories?cat=${b.cat}`)}
-        className="hover:scale-110 active:scale-95 transition hover:drop-shadow-[0_18px_35px_rgba(245,158,11,0.35)]"
+        className={`hover:scale-110 active:scale-95 transition hover:drop-shadow-[0_18px_35px_rgba(245,158,11,0.35)] hero-badge-slide ${heroAnimated ? 'animate-in' : ''}`}
+        style={{ animationDelay: `${i * 0.15}s` }}
       >
         <img
           src={b.img}

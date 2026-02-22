@@ -205,3 +205,39 @@ body {
 .hot-drop-tag.animate-in {
   animation: hotDropHeaderReveal 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
 }
+
+/* ── Hero badge slide-in from right ── */
+@keyframes heroBadgeSlideIn {
+  0% {
+    opacity: 0;
+    transform: perspective(1400px) translateX(320px) translateY(40px) rotateY(-25deg) rotateZ(6deg) scale(0.5);
+  }
+  30% {
+    opacity: 0.5;
+  }
+  60% {
+    opacity: 0.9;
+    transform: perspective(1400px) translateX(-14px) translateY(-6px) rotateY(4deg) rotateZ(-1.5deg) scale(1.06);
+  }
+  78% {
+    opacity: 0.97;
+    transform: perspective(1400px) translateX(6px) translateY(2px) rotateY(-1.5deg) rotateZ(0.5deg) scale(0.98);
+  }
+  90% {
+    transform: perspective(1400px) translateX(-2px) translateY(-1px) rotateY(0.5deg) rotateZ(-0.2deg) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1400px) translateX(0) translateY(0) rotateY(0deg) rotateZ(0deg) scale(1);
+  }
+}
+
+.hero-badge-slide {
+  opacity: 0;
+  transform: perspective(1400px) translateX(320px) translateY(40px) rotateY(-25deg) rotateZ(6deg) scale(0.5);
+  will-change: transform, opacity;
+}
+
+.hero-badge-slide.animate-in {
+  animation: heroBadgeSlideIn 1.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

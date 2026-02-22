@@ -1139,7 +1139,6 @@ export default function App() {
           {/* Admin Routes - Unified */}
           <Route path="/admin/login" element={<Admin />} />
           <Route path="/admin/dashboard" element={<Admin />} />
-          <Route path="/admin/influencers" element={<Admin />} />
           <Route path="/admin/withdrawals" element={<Admin />} />
           <Route path="/admin/products" element={<Admin />} />
           {/* Influencer Portal Routes - Unified */}

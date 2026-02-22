@@ -17,10 +17,10 @@ const EXISTING_BADGES = [
   { id: 'sports-4', name: 'BEAST MODE', price: 50, category: 'Sports', image: '/badge/sport4.png', stock: 100 },
   
   // RELIGIOUS
-  { id: 'reli-1', name: 'OM VIBE', price: 49, category: 'Religious', image: '/badge/R1.png', stock: 100 },
-  { id: 'reli-2', name: 'FAITH VIBE', price: 49, category: 'Religious', image: '/badge/R2.png', stock: 100 },
-  { id: 'reli-3', name: 'BLESS VIBE', price: 49, category: 'Religious', image: '/badge/R3.png', stock: 100 },
-  { id: 'reli-4', name: 'PRAY VIBE', price: 49, category: 'Religious', image: '/badge/R4.png', stock: 100 },
+  { id: 'reli-1', name: 'OM VIBE', price: 50, category: 'Religious', image: '/badge/R1.png', stock: 100 },
+  { id: 'reli-2', name: 'FAITH VIBE', price: 50, category: 'Religious', image: '/badge/R2.png', stock: 100 },
+  { id: 'reli-3', name: 'BLESS VIBE', price: 50, category: 'Religious', image: '/badge/R3.png', stock: 100 },
+  { id: 'reli-4', name: 'PRAY VIBE', price: 50, category: 'Religious', image: '/badge/R4.png', stock: 100 },
   
   // ENTERTAINMENT
   { id: 'ent-1', name: 'CINEMA VIBE', price: 50, category: 'Entertainment', image: '/badge/entert1.png', stock: 100 },

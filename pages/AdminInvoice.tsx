@@ -5,7 +5,7 @@ import { API_BASE_URL } from "../config/api";
 
 export default function AdminInvoice() {
   const { id } = useParams();
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
 
   const [invoice, setInvoice] = useState<any>(null);
   const [loading, setLoading] = useState(true);

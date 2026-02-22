@@ -11,8 +11,8 @@ type AdminStats = {
 };
 
 export default function AdminDashboard() {
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const token = localStorage.getItem("token");
+  const user = JSON.parse(localStorage.getItem("adminUser") || localStorage.getItem("user") || "{}");
+  const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
 
   const [stats, setStats] = useState<AdminStats>({
     users: 0,

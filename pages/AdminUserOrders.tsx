@@ -18,8 +18,8 @@ type GroupedUserOrders = {
 };
 
 export default function AdminUserOrders() {
-  const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
+  const user = JSON.parse(localStorage.getItem("adminUser") || localStorage.getItem("user") || "{}");
 
   const [groups, setGroups] = useState<GroupedUserOrders[]>([]);
   const [loading, setLoading] = useState(true);

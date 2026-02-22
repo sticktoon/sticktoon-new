@@ -498,6 +498,15 @@ const Admin: React.FC = () => {
     pendingWithdrawals: { total: 0, count: 0 } 
   });
 
+  // Dashboard-level counts fetched from API (not dependent on lazy-loaded arrays)
+  const [dashboardStats, setDashboardStats] = useState({
+    users: 0,
+    orders: 0,
+    userOrders: 0,
+    revenue: 0,
+    products: 0,
+  });
+
   // Product form
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
@@ -640,13 +649,35 @@ const Admin: React.FC = () => {
 
   const fetchDashboardData = async (token: string) => {
     try {
-      // Fetch stats (always needed for dashboard)
+      // Fetch influencer stats (always needed for dashboard)
       const statsRes = await fetch(`${API_BASE_URL}/api/admin/influencer-manage/stats/overview`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (statsRes.ok) {
         const data = await statsRes.json();
         setStats(data);
+      }
+
+      // Fetch admin dashboard stats (users, orders, revenue counts)
+      const adminStatsRes = await fetch(`${API_BASE_URL}/api/admin/stats`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (adminStatsRes.ok) {
+        const data = await adminStatsRes.json();
+        setDashboardStats(prev => ({
+          ...prev,
+          users: data.users || 0,
+          orders: data.orders || 0,
+          userOrders: data.userOrders || 0,
+          revenue: data.revenue || 0,
+        }));
+      }
+
+      // Fetch products count
+      const productsRes = await fetch(`${API_BASE_URL}/api/products?limit=1`);
+      if (productsRes.ok) {
+        const data = await productsRes.json();
+        setDashboardStats(prev => ({ ...prev, products: data.pagination?.total || 0 }));
       }
 
       // Only fetch pending influencers for initial dashboard view
@@ -1459,7 +1490,7 @@ const Admin: React.FC = () => {
                   <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">+12%</span>
                 </div>
                 <p className="text-gray-600 text-xs font-bold uppercase mb-1">Total Users</p>
-                <p className="text-3xl font-black text-gray-900">{allUsers.length}</p>
+                <p className="text-3xl font-black text-gray-900">{dashboardStats.users}</p>
                 <p className="text-xs text-gray-500 mt-1 font-medium">Active accounts</p>
               </button>
 
@@ -1491,7 +1522,7 @@ const Admin: React.FC = () => {
                   <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">+24%</span>
                 </div>
                 <p className="text-gray-600 text-xs font-bold uppercase mb-1">Total Orders</p>
-                <p className="text-3xl font-black text-gray-900">{orders.length}</p>
+                <p className="text-3xl font-black text-gray-900">{dashboardStats.orders}</p>
                 <p className="text-xs text-gray-500 mt-1 font-medium">All time orders</p>
               </button>
 
@@ -1507,7 +1538,7 @@ const Admin: React.FC = () => {
                   <span className="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded">Live</span>
                 </div>
                 <p className="text-gray-600 text-xs font-bold uppercase mb-1">Products</p>
-                <p className="text-3xl font-black text-gray-900">{products.length}</p>
+                <p className="text-3xl font-black text-gray-900">{dashboardStats.products}</p>
                 <p className="text-xs text-gray-500 mt-1 font-medium">In inventory</p>
               </button>
             </div>
@@ -1575,11 +1606,11 @@ const Admin: React.FC = () => {
                       </div>
                       <div className="text-left">
                         <p className="font-bold text-gray-900 text-sm">Recent Orders</p>
-                        <p className="text-xs text-gray-500">{orders.slice(0, 5).length} new orders today</p>
+                        <p className="text-xs text-gray-500">View all orders</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-2xl font-black text-gray-900">{orders.length}</span>
+                      <span className="text-2xl font-black text-gray-900">{dashboardStats.orders}</span>
                       <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>

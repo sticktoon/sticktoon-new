@@ -13,7 +13,7 @@ interface Toast {
 }
 
 export default function AdminOrders() {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
 
   const [orders, setOrders] = useState<any[]>([]);
   const [activeOrder, setActiveOrder] = useState<any>(null);

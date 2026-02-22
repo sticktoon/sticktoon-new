@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import AdminBackButton from "./AdminBackButton";
 import { API_BASE_URL } from "../config/api";
 export default function AdminRevenue() {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
   const [dailyRevenue, setDailyRevenue] = useState<any[]>([]);
 
   useEffect(() => {

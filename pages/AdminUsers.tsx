@@ -10,8 +10,8 @@ type User = {
 };
 
 export default function AdminUsers() {
-  const token = localStorage.getItem("token");
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
+  const currentUser = JSON.parse(localStorage.getItem("adminUser") || localStorage.getItem("user") || "{}");
 
   const [users, setUsers] = useState<User[]>([]);
 

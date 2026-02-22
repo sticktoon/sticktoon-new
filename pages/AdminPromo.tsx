@@ -61,8 +61,8 @@ const defaultFormData: PromoFormData = {
 };
 
 export default function AdminPromo() {
-  const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
+  const user = JSON.parse(localStorage.getItem("adminUser") || localStorage.getItem("user") || "{}");
 
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [loading, setLoading] = useState(true);

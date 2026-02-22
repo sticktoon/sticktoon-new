@@ -71,7 +71,7 @@ const AdminInfluencerManage: React.FC = () => {
     fetchData();
   }, [activeTab]);
 
-  const getToken = () => localStorage.getItem("token");
+  const getToken = () => localStorage.getItem("adminToken") || localStorage.getItem("token");
 
   const fetchData = async () => {
     setLoading(true);
