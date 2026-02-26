@@ -27,6 +27,29 @@ const SupportMessageSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    ticketId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+    },
+    internalNote: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    firstResponseAt: {
+      type: Date,
+      default: null,
+    },
+    resolvedAt: {
+      type: Date,
+      default: null,
+    },
+    slaDeadlineAt: {
+      type: Date,
+      default: () => new Date(Date.now() + 24 * 60 * 60 * 1000),
+    },
     status: {
       type: String,
       enum: ["New", "In Progress", "Resolved"],

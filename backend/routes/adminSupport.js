@@ -23,9 +23,46 @@ router.patch("/:id/status", auth, async (req, res) => {
       return res.status(400).json({ message: "Invalid status" });
     }
 
+    const supportMessage = await SupportMessage.findById(req.params.id);
+    if (!supportMessage) {
+      return res.status(404).json({ message: "Support message not found" });
+    }
+
+    const now = new Date();
+    supportMessage.status = status;
+
+    if (
+      !supportMessage.firstResponseAt &&
+      (status === "In Progress" || status === "Resolved")
+    ) {
+      supportMessage.firstResponseAt = now;
+    }
+
+    if (status === "Resolved") {
+      supportMessage.resolvedAt = now;
+    } else {
+      supportMessage.resolvedAt = null;
+    }
+
+    await supportMessage.save();
+    res.json(supportMessage);
+  } catch (err) {
+    console.error("Update support message status error:", err);
+    res.status(500).json({ message: "Failed to update support message status" });
+  }
+});
+
+router.patch("/:id/internal-note", auth, async (req, res) => {
+  try {
+    const { internalNote } = req.body || {};
+
+    if (typeof internalNote !== "string") {
+      return res.status(400).json({ message: "Invalid internal note" });
+    }
+
     const updated = await SupportMessage.findByIdAndUpdate(
       req.params.id,
-      { status },
+      { internalNote: internalNote.trim() },
       { new: true }
     );
 
@@ -35,8 +72,38 @@ router.patch("/:id/status", auth, async (req, res) => {
 
     res.json(updated);
   } catch (err) {
-    console.error("Update support message status error:", err);
-    res.status(500).json({ message: "Failed to update support message status" });
+    console.error("Update support internal note error:", err);
+    res.status(500).json({ message: "Failed to update internal note" });
+  }
+});
+
+router.patch("/:id/sla-deadline", auth, async (req, res) => {
+  try {
+    const { slaDeadlineAt } = req.body || {};
+
+    if (!slaDeadlineAt) {
+      return res.status(400).json({ message: "SLA deadline is required" });
+    }
+
+    const parsed = new Date(slaDeadlineAt);
+    if (Number.isNaN(parsed.getTime())) {
+      return res.status(400).json({ message: "Invalid SLA deadline format" });
+    }
+
+    const updated = await SupportMessage.findByIdAndUpdate(
+      req.params.id,
+      { slaDeadlineAt: parsed },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Support message not found" });
+    }
+
+    res.json(updated);
+  } catch (err) {
+    console.error("Update support SLA deadline error:", err);
+    res.status(500).json({ message: "Failed to update SLA deadline" });
   }
 });
 
@@ -76,24 +143,36 @@ router.post("/:id/reply", auth, async (req, res) => {
       </div>
     `;
 
+    const ticketLabel = supportMessage.ticketId
+      ? ` [${supportMessage.ticketId}]`
+      : "";
+
     const emailResult = await sendEmail({
       to: supportMessage.email,
-      subject: "Re: Your Support Request - StickToon",
-      html,
+      subject: `Re: Your Support Request${ticketLabel} - StickToon`,
+      html: `
+        <p><strong>Ticket ID:</strong> ${supportMessage.ticketId || "N/A"}</p>
+        ${html}
+      `,
     });
 
     if (!emailResult?.ok) {
       return res.status(500).json({ message: "Failed to send reply email" });
     }
 
+    if (!supportMessage.firstResponseAt) {
+      supportMessage.firstResponseAt = new Date();
+    }
+
     if (supportMessage.status !== "Resolved") {
       supportMessage.status = "In Progress";
-      await supportMessage.save();
     }
+    await supportMessage.save();
 
     return res.json({
       message: "Reply sent successfully",
       status: supportMessage.status,
+      supportMessage,
     });
   } catch (err) {
     console.error("Reply support message error:", err);

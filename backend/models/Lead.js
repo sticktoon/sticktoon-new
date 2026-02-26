@@ -28,6 +28,10 @@ const LeadSchema = new mongoose.Schema(
       type: String,
       default: "New",
     },
+    nextFollowUpAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

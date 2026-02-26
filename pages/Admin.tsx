@@ -13,6 +13,8 @@ import PendingActionsRoundedIcon from "@mui/icons-material/PendingActionsRounded
 import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
 import ShoppingCartRoundedIcon from "@mui/icons-material/ShoppingCartRounded";
 import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
+import NotificationsActiveRoundedIcon from "@mui/icons-material/NotificationsActiveRounded";
+import LocalOfferRoundedIcon from "@mui/icons-material/LocalOfferRounded";
 import {
   Eye,
   EyeOff,
@@ -488,6 +490,52 @@ interface Toast {
   message: string;
   isExiting?: boolean;
 }
+
+type PromoCode = {
+  _id: string;
+  code: string;
+  promoType: "company" | "influencer";
+  discountType: "percentage" | "fixed";
+  discountValue: number;
+  minOrderAmount: number;
+  maxDiscount: number | null;
+  usageLimit: number | null;
+  usedCount: number;
+  validFrom: string;
+  validUntil: string;
+  isActive: boolean;
+  description: string;
+  earningPerUnit: number;
+  totalEarnings: number;
+};
+
+type PromoFormData = {
+  code: string;
+  promoType: "company" | "influencer";
+  discountType: "percentage" | "fixed";
+  discountValue: number;
+  minOrderAmount: number;
+  maxDiscount: number | null;
+  usageLimit: number | null;
+  validFrom: string;
+  validUntil: string;
+  description: string;
+  earningPerUnit: number;
+};
+
+const createDefaultPromoFormData = (): PromoFormData => ({
+  code: "",
+  promoType: "company",
+  discountType: "percentage",
+  discountValue: 10,
+  minOrderAmount: 0,
+  maxDiscount: null,
+  usageLimit: null,
+  validFrom: new Date().toISOString().split("T")[0],
+  validUntil: "",
+  description: "",
+  earningPerUnit: 5,
+});
 /* ===========================
    MAIN COMPONENT
 =========================== */
@@ -501,6 +549,7 @@ const Admin: React.FC = () => {
   const [currentView, setCurrentView] = useState<
     | "login"
     | "dashboard"
+    | "notifications"
     | "leads"
     | "support"
     | "tasks"
@@ -509,6 +558,7 @@ const Admin: React.FC = () => {
     | "influencers"
     | "withdrawals"
     | "products"
+    | "promo"
     | "orders"
     | "profile"
   >("login");
@@ -529,6 +579,7 @@ const Admin: React.FC = () => {
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [promos, setPromos] = useState<PromoCode[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [viewingOrder, setViewingOrder] = useState<any>(null);
   const productsForDisplay = ensureMinimumProductsPerCategory(products);
@@ -575,16 +626,22 @@ const Admin: React.FC = () => {
     industry?: string;
     leadSource?: string;
     status?: string;
+    nextFollowUpAt?: string;
     createdAt?: string;
   };
 
   type SupportMessage = {
     _id: string;
+    ticketId?: string;
     name: string;
     email: string;
     phone: string;
     inquiryType: string;
     message: string;
+    internalNote?: string;
+    firstResponseAt?: string;
+    resolvedAt?: string;
+    slaDeadlineAt?: string;
     status: "New" | "In Progress" | "Resolved";
     createdAt?: string;
   };
@@ -592,6 +649,19 @@ const Admin: React.FC = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
   const [isLoadingSupportMessages, setIsLoadingSupportMessages] = useState(false);
+  const [slaNow, setSlaNow] = useState(() => Date.now());
+  const [supportInternalNotes, setSupportInternalNotes] = useState<
+    Record<string, string>
+  >({});
+  const [supportSlaDeadlines, setSupportSlaDeadlines] = useState<
+    Record<string, string>
+  >({});
+  const [savingSupportNoteId, setSavingSupportNoteId] = useState<string | null>(
+    null,
+  );
+  const [savingSupportSlaId, setSavingSupportSlaId] = useState<string | null>(
+    null,
+  );
   const [replyingSupportMessage, setReplyingSupportMessage] =
     useState<SupportMessage | null>(null);
   const [supportReplyText, setSupportReplyText] = useState("");
@@ -745,11 +815,55 @@ const Admin: React.FC = () => {
 
       const updatedLead = await res.json();
       setLeads((prev) =>
-        prev.map((l) => (l._id === leadId ? { ...l, status: updatedLead.status } : l)),
+        prev.map((l) =>
+          l._id === leadId
+            ? {
+                ...l,
+                status: updatedLead.status,
+                nextFollowUpAt: updatedLead.nextFollowUpAt || undefined,
+              }
+            : l,
+        ),
       );
     } catch (err) {
       console.error("Update lead status error:", err);
       showToast("error", "❌ Failed to update lead status");
+    }
+  };
+
+  const updateLeadFollowUpDate = async (leadId: string | undefined, nextDate: string) => {
+    if (!leadId) return;
+
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/leads/${leadId}/follow-up`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ nextFollowUpAt: nextDate }),
+      });
+      if (handleUnauthorized(res)) return;
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to update follow-up date");
+      }
+
+      const updatedLead = await res.json();
+      setLeads((prev) =>
+        prev.map((l) =>
+          l._id === leadId
+            ? { ...l, nextFollowUpAt: updatedLead.nextFollowUpAt || undefined }
+            : l,
+        ),
+      );
+    } catch (err) {
+      console.error("Update lead follow-up date error:", err);
+      showToast("error", "❌ Failed to update follow-up date");
     }
   };
 
@@ -1080,6 +1194,70 @@ const Admin: React.FC = () => {
     return list;
   }, [leads, leadSearch, leadStatusFilter, leadSort]);
 
+  const toDateInputValue = (value?: string) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  };
+
+  const formatDurationFromMs = (durationMs: number) => {
+    if (!Number.isFinite(durationMs) || durationMs <= 0) return "0m";
+    const totalMinutes = Math.floor(durationMs / (1000 * 60));
+    const days = Math.floor(totalMinutes / (60 * 24));
+    const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+    const minutes = totalMinutes % 60;
+
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  };
+
+  const toDateTimeLocalValue = (value?: string) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+      date.getHours(),
+    )}:${pad(date.getMinutes())}`;
+  };
+
+  const getSupportSlaText = (msg: SupportMessage) => {
+    const createdMs = msg.createdAt ? new Date(msg.createdAt).getTime() : NaN;
+    const deadlineMs = msg.slaDeadlineAt
+      ? new Date(msg.slaDeadlineAt).getTime()
+      : Number.isNaN(createdMs)
+        ? NaN
+        : createdMs + 24 * 60 * 60 * 1000;
+
+    if (Number.isNaN(deadlineMs)) return "⏳ SLA: unavailable";
+
+    if (msg.status === "Resolved" && msg.resolvedAt) {
+      const resolvedMs = new Date(msg.resolvedAt).getTime();
+      if (!Number.isNaN(resolvedMs) && resolvedMs <= deadlineMs) {
+        return "✅ SLA: met";
+      }
+      if (!Number.isNaN(resolvedMs)) {
+        return `⚠️ SLA: breached by ${formatDurationFromMs(resolvedMs - deadlineMs)}`;
+      }
+    }
+
+    const remainingMs = deadlineMs - slaNow;
+    if (remainingMs >= 0) {
+      return `⏳ SLA: ${formatDurationFromMs(remainingMs)} remaining`;
+    }
+    return `⚠️ SLA: overdue by ${formatDurationFromMs(Math.abs(remainingMs))}`;
+  };
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setSlaNow(Date.now());
+    }, 60 * 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
   // ===============================
   // FILTERED SUPPORT MESSAGES
   // ===============================
@@ -1181,6 +1359,105 @@ const Admin: React.FC = () => {
     taskSort,
   ]);
 
+  type AdminNotification = {
+    id: string;
+    category: "lead" | "support" | "task";
+    severity: "high" | "medium";
+    title: string;
+    detail: string;
+    whenText: string;
+    whenMs: number;
+  };
+
+  const notifications = useMemo<AdminNotification[]>(() => {
+    const now = Date.now();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const items: AdminNotification[] = [];
+
+    leads.forEach((lead) => {
+      if (!lead._id) return;
+      if (!["Contacted", "Interested"].includes(lead.status || "")) return;
+      if (!lead.nextFollowUpAt) return;
+
+      const followUpMs = new Date(lead.nextFollowUpAt).getTime();
+      if (Number.isNaN(followUpMs)) return;
+
+      const diff = followUpMs - now;
+      if (diff > oneDayMs) return;
+
+      const fullName = `${lead.firstName || ""} ${lead.lastName || ""}`.trim() || "Lead";
+      const isOverdue = diff < 0;
+
+      items.push({
+        id: `lead-${lead._id}`,
+        category: "lead",
+        severity: isOverdue ? "high" : "medium",
+        title: `Lead Follow-up: ${fullName}`,
+        detail: isOverdue
+          ? `Next Follow Up is overdue by ${formatDurationFromMs(Math.abs(diff))}.`
+          : `Next Follow Up is due in ${formatDurationFromMs(diff)}.`,
+        whenText: new Date(followUpMs).toLocaleString(),
+        whenMs: followUpMs,
+      });
+    });
+
+    supportMessages.forEach((msg) => {
+      const deadlineMs = msg.slaDeadlineAt ? new Date(msg.slaDeadlineAt).getTime() : NaN;
+      if (Number.isNaN(deadlineMs)) return;
+      if ((msg.status || "").toLowerCase() === "resolved") return;
+
+      const diff = deadlineMs - now;
+      if (diff > oneDayMs) return;
+
+      const isOverdue = diff < 0;
+      items.push({
+        id: `support-${msg._id}`,
+        category: "support",
+        severity: isOverdue ? "high" : "medium",
+        title: `Support SLA: ${msg.ticketId || msg.name}`,
+        detail: isOverdue
+          ? `SLA is overdue by ${formatDurationFromMs(Math.abs(diff))}.`
+          : `SLA will expire in ${formatDurationFromMs(diff)}.`,
+        whenText: new Date(deadlineMs).toLocaleString(),
+        whenMs: deadlineMs,
+      });
+    });
+
+    tasks.forEach((task, index) => {
+      const taskStatus = (task.status || "").toLowerCase();
+      if (taskStatus === "completed") return;
+
+      const dueMs = task.dueDate ? new Date(task.dueDate).getTime() : NaN;
+      if (Number.isNaN(dueMs)) return;
+
+      const diff = dueMs - now;
+      if (diff > oneDayMs) return;
+
+      const isOverdue = diff < 0;
+      const taskId = task._id || index;
+      items.push({
+        id: `task-${taskId}`,
+        category: "task",
+        severity: isOverdue ? "high" : "medium",
+        title: `Task Deadline: ${task.title || "Untitled Task"}`,
+        detail: isOverdue
+          ? `Task is overdue by ${formatDurationFromMs(Math.abs(diff))}.`
+          : `Task is due in ${formatDurationFromMs(diff)}.`,
+        whenText: new Date(dueMs).toLocaleString(),
+        whenMs: dueMs,
+      });
+    });
+
+    return items.sort((a, b) => {
+      const severityOrder = (x: AdminNotification["severity"]) =>
+        x === "high" ? 0 : 1;
+      if (severityOrder(a.severity) !== severityOrder(b.severity)) {
+        return severityOrder(a.severity) - severityOrder(b.severity);
+      }
+      return a.whenMs - b.whenMs;
+    });
+  }, [leads, supportMessages, tasks]);
+
   // Track what data has been loaded to avoid unnecessary fetches
   const [loadedData, setLoadedData] = useState({
     users: false,
@@ -1215,6 +1492,14 @@ const Admin: React.FC = () => {
   // Product form
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [isLoadingPromos, setIsLoadingPromos] = useState(false);
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
+  const [promoForm, setPromoForm] = useState<PromoFormData>(
+    createDefaultPromoFormData(),
+  );
+  const [promoFormError, setPromoFormError] = useState("");
+  const [isSavingPromo, setIsSavingPromo] = useState(false);
   const [confirmingDeleteProduct, setConfirmingDeleteProduct] =
     useState<any>(null);
   const [productForm, setProductForm] = useState({
@@ -1325,6 +1610,9 @@ const Admin: React.FC = () => {
       case "products":
         fetchProductsData();
         break;
+      case "promo":
+        fetchPromoCodes();
+        break;
       case "leads":
         fetchLeadsData();
         break;
@@ -1332,6 +1620,11 @@ const Admin: React.FC = () => {
         fetchTasks();
         break;
       case "support":
+        fetchSupportMessages();
+        break;
+      case "notifications":
+        fetchLeadsData();
+        fetchTasks();
         fetchSupportMessages();
         break;
 
@@ -2050,11 +2343,121 @@ const Admin: React.FC = () => {
 
       const updated = await res.json();
       setSupportMessages((prev) =>
-        prev.map((msg) => (msg._id === messageId ? { ...msg, status: updated.status } : msg)),
+        prev.map((msg) =>
+          msg._id === messageId
+            ? {
+                ...msg,
+                status: updated.status,
+                firstResponseAt: updated.firstResponseAt,
+                resolvedAt: updated.resolvedAt,
+              }
+            : msg,
+        ),
       );
     } catch (err) {
       console.error("Update support message status error:", err);
       showToast("error", "❌ Failed to update support message status");
+    }
+  };
+
+  const saveSupportInternalNote = async (messageId: string) => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    const draftNote = supportInternalNotes[messageId];
+    const message = supportMessages.find((msg) => msg._id === messageId);
+    const fallbackNote = message?.internalNote || "";
+    const internalNote = (draftNote ?? fallbackNote).trim();
+
+    setSavingSupportNoteId(messageId);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/admin/support/${messageId}/internal-note`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ internalNote }),
+        },
+      );
+      if (handleUnauthorized(res)) return;
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to save internal note");
+      }
+
+      const updated = await res.json();
+      setSupportMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === messageId ? { ...msg, internalNote: updated.internalNote || "" } : msg,
+        ),
+      );
+      setSupportInternalNotes((prev) => ({
+        ...prev,
+        [messageId]: updated.internalNote || "",
+      }));
+      showToast("success", "✅ Internal note saved");
+    } catch (err) {
+      console.error("Save support internal note error:", err);
+      showToast("error", "❌ Failed to save internal note");
+    } finally {
+      setSavingSupportNoteId(null);
+    }
+  };
+
+  const saveSupportSlaDeadline = async (messageId: string) => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    const draftSla = supportSlaDeadlines[messageId];
+    if (!draftSla) return;
+
+    setSavingSupportSlaId(messageId);
+    try {
+      const parsed = new Date(draftSla);
+      if (Number.isNaN(parsed.getTime())) {
+        showToast("error", "❌ Invalid SLA deadline");
+        return;
+      }
+      const slaDeadlineAt = parsed.toISOString();
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/admin/support/${messageId}/sla-deadline`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ slaDeadlineAt }),
+        },
+      );
+      if (handleUnauthorized(res)) return;
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to update SLA deadline");
+      }
+
+      const updated = await res.json();
+      setSupportMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === messageId ? { ...msg, slaDeadlineAt: updated.slaDeadlineAt } : msg,
+        ),
+      );
+      setSupportSlaDeadlines((prev) => ({
+        ...prev,
+        [messageId]: toDateTimeLocalValue(updated.slaDeadlineAt),
+      }));
+      showToast("success", "✅ SLA deadline updated");
+    } catch (err) {
+      console.error("Update support SLA deadline error:", err);
+      showToast("error", "❌ Failed to update SLA deadline");
+    } finally {
+      setSavingSupportSlaId(null);
     }
   };
 
@@ -2095,7 +2498,13 @@ const Admin: React.FC = () => {
         setSupportMessages((prev) =>
           prev.map((msg) =>
             msg._id === replyingSupportMessage._id
-              ? { ...msg, status: data.status }
+              ? {
+                  ...msg,
+                  status: data.status,
+                  firstResponseAt:
+                    data.supportMessage?.firstResponseAt ?? msg.firstResponseAt,
+                  resolvedAt: data.supportMessage?.resolvedAt ?? msg.resolvedAt,
+                }
               : msg,
           ),
         );
@@ -2180,6 +2589,165 @@ const Admin: React.FC = () => {
       }
     } catch (err) {
       console.error("Error updating role:", err);
+    }
+  };
+
+  const isPromoExpired = (date: string) => new Date(date).getTime() < Date.now();
+
+  const fetchPromoCodes = async () => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    setIsLoadingPromos(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/promo`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (handleUnauthorized(res)) return;
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to fetch promo codes");
+      }
+
+      const data = await res.json();
+      setPromos(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Fetch promo codes error:", err);
+      showToast("error", "❌ Failed to fetch promo codes");
+    } finally {
+      setIsLoadingPromos(false);
+    }
+  };
+
+  const openPromoModal = (promo?: PromoCode) => {
+    if (promo) {
+      setEditingPromoId(promo._id);
+      setPromoForm({
+        code: promo.code,
+        promoType: promo.promoType || "company",
+        discountType: promo.discountType || "percentage",
+        discountValue: promo.discountValue || 0,
+        minOrderAmount: promo.minOrderAmount || 0,
+        maxDiscount: promo.maxDiscount || null,
+        usageLimit: promo.usageLimit || null,
+        validFrom: promo.validFrom ? String(promo.validFrom).split("T")[0] : "",
+        validUntil: promo.validUntil ? String(promo.validUntil).split("T")[0] : "",
+        description: promo.description || "",
+        earningPerUnit: promo.earningPerUnit || 5,
+      });
+    } else {
+      setEditingPromoId(null);
+      setPromoForm(createDefaultPromoFormData());
+    }
+    setPromoFormError("");
+    setShowPromoModal(true);
+  };
+
+  const savePromoCode = async () => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    if (!promoForm.code.trim()) {
+      setPromoFormError("Promo code is required");
+      return;
+    }
+    if (!promoForm.discountValue || promoForm.discountValue <= 0) {
+      setPromoFormError("Discount value must be greater than 0");
+      return;
+    }
+    if (!promoForm.validUntil) {
+      setPromoFormError("Valid until date is required");
+      return;
+    }
+
+    setIsSavingPromo(true);
+    setPromoFormError("");
+    try {
+      const endpoint = editingPromoId
+        ? `${API_BASE_URL}/api/admin/promo/${editingPromoId}`
+        : `${API_BASE_URL}/api/admin/promo`;
+      const method = editingPromoId ? "PUT" : "POST";
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...promoForm,
+          code: promoForm.code.toUpperCase().trim(),
+          maxDiscount: promoForm.maxDiscount || null,
+          usageLimit: promoForm.usageLimit || null,
+        }),
+      });
+      if (handleUnauthorized(res)) return;
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to save promo code");
+      }
+
+      setShowPromoModal(false);
+      setEditingPromoId(null);
+      setPromoForm(createDefaultPromoFormData());
+      fetchPromoCodes();
+      showToast("success", editingPromoId ? "✅ Promo updated" : "✅ Promo created");
+    } catch (err: any) {
+      console.error("Save promo code error:", err);
+      setPromoFormError(err?.message || "Failed to save promo code");
+    } finally {
+      setIsSavingPromo(false);
+    }
+  };
+
+  const togglePromoStatus = async (promoId: string) => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/promo/${promoId}/toggle`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (handleUnauthorized(res)) return;
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to toggle promo");
+      }
+
+      const updated = await res.json();
+      setPromos((prev) => prev.map((p) => (p._id === promoId ? updated : p)));
+    } catch (err) {
+      console.error("Toggle promo status error:", err);
+      showToast("error", "❌ Failed to toggle promo status");
+    }
+  };
+
+  const deletePromoCode = async (promoId: string) => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+    if (!window.confirm("Delete this promo code?")) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/promo/${promoId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (handleUnauthorized(res)) return;
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to delete promo");
+      }
+
+      setPromos((prev) => prev.filter((p) => p._id !== promoId));
+      showToast("success", "✅ Promo deleted");
+    } catch (err) {
+      console.error("Delete promo code error:", err);
+      showToast("error", "❌ Failed to delete promo code");
     }
   };
 
@@ -2472,6 +3040,12 @@ const Admin: React.FC = () => {
                 icon: <DashboardRoundedIcon sx={{ fontSize: 22 }} />,
               },
               {
+                id: "notifications",
+                label: "Notifications",
+                icon: <NotificationsActiveRoundedIcon sx={{ fontSize: 22 }} />,
+                badge: notifications.length,
+              },
+              {
                 id: "leads",
                 label: "Leads",
                 icon: <DescriptionRoundedIcon sx={{ fontSize: 22 }} />,
@@ -2516,6 +3090,11 @@ const Admin: React.FC = () => {
                 label: "Products",
                 icon: <Inventory2RoundedIcon sx={{ fontSize: 22 }} />,
               },
+              {
+                id: "promo",
+                label: "Promo Codes",
+                icon: <LocalOfferRoundedIcon sx={{ fontSize: 22 }} />,
+              },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -2530,6 +3109,11 @@ const Admin: React.FC = () => {
                   {tab.icon}
                 </span>
                 <span className="text-base">{tab.label}</span>
+                {typeof tab.badge === "number" && tab.badge > 0 && (
+                  <span className="ml-auto mr-1 inline-flex min-w-6 h-6 items-center justify-center rounded-full bg-red-600 !text-white text-xs font-black px-1.5">
+                    {tab.badge}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
@@ -2561,6 +3145,7 @@ const Admin: React.FC = () => {
             <div>
               <h2 className="text-2xl font-black text-slate-900">
                 {currentView === "dashboard" && "Dashboard"}
+                {currentView === "notifications" && "Notifications"}
                 {currentView === "leads" && "Leads"}
                 {currentView === "support" && "Support"}
                 {currentView === "tasks" && "Tasks"}
@@ -2570,6 +3155,7 @@ const Admin: React.FC = () => {
                 {currentView === "withdrawals" && "Withdrawals"}
                 {currentView === "orders" && "Orders"}
                 {currentView === "products" && "Products"}
+                {currentView === "promo" && "Promo Codes"}
                 {currentView === "profile" && "Edit Profile"}
               </h2>
             </div>
@@ -2925,13 +3511,14 @@ const Admin: React.FC = () => {
 
                 {/* TABLE */}
                 <div className="bg-white border rounded-xl overflow-hidden">
-                  <div className="grid grid-cols-8 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left">
+                  <div className="grid grid-cols-9 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left">
                     <span>Name</span>
                     <span>Company</span>
                     <span>Email</span>
                     <span>Phone</span>
                     <span>Status</span>
                     <span>Date</span>
+                    <span>Next Follow Up</span>
                     <span>Mail</span>
                     <span>Delete</span>
                   </div>
@@ -2944,7 +3531,7 @@ const Admin: React.FC = () => {
                     filteredLeads.map((lead) => (
                       <div
                         key={lead._id}
-                        className="grid grid-cols-8 px-6 py-4 text-sm border-b hover:bg-slate-50 text-left"
+                        className="grid grid-cols-9 px-6 py-4 text-sm border-b hover:bg-slate-50 text-left"
                       >
                         <span className="font-semibold">
                           {lead.firstName} {lead.lastName}
@@ -2984,6 +3571,22 @@ const Admin: React.FC = () => {
                           {lead.createdAt
                             ? new Date(lead.createdAt).toLocaleDateString()
                             : "-"}
+                        </span>
+                        <span>
+                          {lead.status === "Contacted" || lead.status === "Interested" ? (
+                            <input
+                              type="date"
+                              value={
+                                lead.nextFollowUpAt
+                                  ? toDateInputValue(lead.nextFollowUpAt)
+                                  : ""
+                              }
+                              onChange={(e) => updateLeadFollowUpDate(lead._id, e.target.value)}
+                              className="border rounded-lg px-2 py-1 text-xs bg-white"
+                            />
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
                         </span>
 
                         <span>
@@ -3157,6 +3760,69 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
             </div>
           )}
 
+          {/* ================= NOTIFICATIONS VIEW ================= */}
+          {currentView === "notifications" && (
+            <div className="space-y-6">
+              <div className="bg-white border rounded-xl p-5 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">Action Alerts</h3>
+                  <p className="text-sm text-slate-600">
+                    Leads follow-up, Support SLA, and Task deadlines within 1 day.
+                  </p>
+                </div>
+                <span className="text-sm font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-700">
+                  {notifications.length} alert{notifications.length === 1 ? "" : "s"}
+                </span>
+              </div>
+
+              {notifications.length === 0 ? (
+                <div className="bg-white border rounded-xl p-10 text-center text-slate-500">
+                  No urgent notifications right now.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {notifications.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`bg-white border rounded-xl p-4 flex items-start justify-between gap-4 ${
+                        item.severity === "high" ? "border-red-200" : "border-amber-200"
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`inline-block w-2.5 h-2.5 rounded-full ${
+                              item.severity === "high" ? "bg-red-500" : "bg-amber-500"
+                            }`}
+                          />
+                          <p className="text-sm font-black text-slate-900">{item.title}</p>
+                        </div>
+                        <p className="text-sm text-slate-700">{item.detail}</p>
+                        <p className="text-xs text-slate-500">Due: {item.whenText}</p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCurrentView(
+                            item.category === "lead"
+                              ? "leads"
+                              : item.category === "support"
+                                ? "support"
+                                : "tasks",
+                          )
+                        }
+                        className="shrink-0 border rounded-lg px-3 py-1.5 text-xs font-semibold bg-white hover:bg-slate-50"
+                      >
+                        Open
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ================= SUPPORT VIEW ================= */}
           {currentView === "support" && (
             <div className="flex gap-6">
@@ -3256,6 +3922,9 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <h4 className="font-bold text-slate-900">{msg.name}</h4>
+                            <p className="text-xs font-semibold text-indigo-700">
+                              Ticket: {msg.ticketId || "N/A"}
+                            </p>
                             <p className="text-sm text-slate-600">{msg.email}</p>
                             <p className="text-sm text-slate-600">{msg.phone}</p>
                           </div>
@@ -3287,6 +3956,9 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                               <option value="In Progress">In Progress</option>
                               <option value="Resolved">Resolved</option>
                             </select>
+                            <span className="text-xs font-semibold text-amber-700">
+                              {getSupportSlaText(msg)}
+                            </span>
                             <button
                               type="button"
                               onClick={() => {
@@ -3314,6 +3986,66 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                           <p className="text-sm text-slate-800 whitespace-pre-wrap">
                             {msg.message}
                           </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                            SLA Deadline
+                          </p>
+                          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                            <input
+                              type="datetime-local"
+                              value={
+                                supportSlaDeadlines[msg._id] ??
+                                toDateTimeLocalValue(msg.slaDeadlineAt)
+                              }
+                              onChange={(e) =>
+                                setSupportSlaDeadlines((prev) => ({
+                                  ...prev,
+                                  [msg._id]: e.target.value,
+                                }))
+                              }
+                              className="w-full max-w-md border rounded-lg p-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => saveSupportSlaDeadline(msg._id)}
+                              disabled={savingSupportSlaId === msg._id}
+                              className="border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition disabled:opacity-60"
+                            >
+                              {savingSupportSlaId === msg._id ? "Saving..." : "Save SLA"}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <p className="pt-6 text-xs font-bold uppercase tracking-wide text-slate-500">
+                            Internal Notes
+                          </p>
+                          <textarea
+                            rows={2}
+                            value={supportInternalNotes[msg._id] ?? msg.internalNote ?? ""}
+                            onChange={(e) =>
+                              setSupportInternalNotes((prev) => ({
+                                ...prev,
+                                [msg._id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Add the main issue summary for internal follow-up..."
+                            className="w-full max-w-md border rounded-lg p-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                          />
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => saveSupportInternalNote(msg._id)}
+                              disabled={savingSupportNoteId === msg._id}
+                              className="border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition disabled:opacity-60"
+                            >
+                              {savingSupportNoteId === msg._id
+                                ? "Saving..."
+                                : "Save Internal Note"}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -4183,6 +4915,298 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   <p className="text-gray-500 text-lg">
                     📦 No products yet. Add your first product to get started!
                   </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ================= PROMO VIEW ================= */}
+          {currentView === "promo" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-black">Promo Codes ({promos.length})</h2>
+                <button
+                  type="button"
+                  onClick={() => openPromoModal()}
+                  className="bg-indigo-600 hover:bg-indigo-700 admin-zoho-keep-white px-4 py-2 rounded-lg text-sm font-semibold"
+                >
+                  + Create Promo
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white border rounded-xl p-4">
+                  <p className="text-xs font-black uppercase text-slate-500">Total Codes</p>
+                  <p className="text-2xl font-black">{promos.length}</p>
+                </div>
+                <div className="bg-white border rounded-xl p-4">
+                  <p className="text-xs font-black uppercase text-slate-500">Active</p>
+                  <p className="text-2xl font-black text-green-600">
+                    {promos.filter((p) => p.isActive && !isPromoExpired(p.validUntil)).length}
+                  </p>
+                </div>
+                <div className="bg-white border rounded-xl p-4">
+                  <p className="text-xs font-black uppercase text-slate-500">Expired</p>
+                  <p className="text-2xl font-black text-red-600">
+                    {promos.filter((p) => isPromoExpired(p.validUntil)).length}
+                  </p>
+                </div>
+                <div className="bg-white border rounded-xl p-4">
+                  <p className="text-xs font-black uppercase text-slate-500">Total Uses</p>
+                  <p className="text-2xl font-black text-indigo-600">
+                    {promos.reduce((sum, p) => sum + (p.usedCount || 0), 0)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-white border rounded-xl overflow-hidden">
+                <div className="grid grid-cols-8 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left">
+                  <span>Code</span>
+                  <span>Type</span>
+                  <span>Discount</span>
+                  <span>Usage</span>
+                  <span>Valid Until</span>
+                  <span>Status</span>
+                  <span>Toggle</span>
+                  <span>Actions</span>
+                </div>
+
+                {isLoadingPromos ? (
+                  <div className="p-10 text-center text-slate-400">Loading promo codes...</div>
+                ) : promos.length === 0 ? (
+                  <div className="p-10 text-center text-slate-400">No promo codes found</div>
+                ) : (
+                  promos.map((promo) => (
+                    <div
+                      key={promo._id}
+                      className="grid grid-cols-8 px-6 py-4 text-sm border-b hover:bg-slate-50 text-left items-center"
+                    >
+                      <span className="font-mono font-bold text-indigo-600">{promo.code}</span>
+                      <span className="capitalize">{promo.promoType}</span>
+                      <span>
+                        {promo.discountType === "percentage"
+                          ? `${promo.discountValue}%`
+                          : `₹${promo.discountValue}`}
+                      </span>
+                      <span>
+                        {promo.usedCount}
+                        {promo.usageLimit ? ` / ${promo.usageLimit}` : ""}
+                      </span>
+                      <span>{new Date(promo.validUntil).toLocaleDateString()}</span>
+                      <span>
+                        {isPromoExpired(promo.validUntil) ? (
+                          <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                            Expired
+                          </span>
+                        ) : promo.isActive ? (
+                          <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                            Inactive
+                          </span>
+                        )}
+                      </span>
+                      <span>
+                        <button
+                          type="button"
+                          onClick={() => togglePromoStatus(promo._id)}
+                          className="border rounded-lg px-2 py-1 text-xs hover:bg-slate-100"
+                        >
+                          {promo.isActive ? "Disable" : "Enable"}
+                        </button>
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openPromoModal(promo)}
+                          className="border rounded-lg px-2 py-1 text-xs hover:bg-slate-100"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deletePromoCode(promo._id)}
+                          className="border border-red-300 text-red-700 rounded-lg px-2 py-1 text-xs hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {showPromoModal && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white w-full max-w-2xl rounded-xl border p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xl font-bold">
+                        {editingPromoId ? "Edit Promo Code" : "Create Promo Code"}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPromoModal(false);
+                          setPromoFormError("");
+                        }}
+                        className="text-sm text-slate-500 hover:text-slate-800"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <input
+                        placeholder="Promo Code"
+                        value={promoForm.code}
+                        onChange={(e) =>
+                          setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })
+                        }
+                        className="border rounded-lg px-3 py-2"
+                      />
+                      <select
+                        value={promoForm.promoType}
+                        onChange={(e) =>
+                          setPromoForm({
+                            ...promoForm,
+                            promoType: e.target.value as "company" | "influencer",
+                          })
+                        }
+                        className="border rounded-lg px-3 py-2"
+                      >
+                        <option value="company">Company</option>
+                        <option value="influencer">Influencer</option>
+                      </select>
+                      <select
+                        value={promoForm.discountType}
+                        onChange={(e) =>
+                          setPromoForm({
+                            ...promoForm,
+                            discountType: e.target.value as "percentage" | "fixed",
+                          })
+                        }
+                        className="border rounded-lg px-3 py-2"
+                      >
+                        <option value="percentage">Percentage</option>
+                        <option value="fixed">Fixed</option>
+                      </select>
+                      <input
+                        type="number"
+                        placeholder="Discount Value"
+                        value={promoForm.discountValue}
+                        onChange={(e) =>
+                          setPromoForm({
+                            ...promoForm,
+                            discountValue: Number(e.target.value || 0),
+                          })
+                        }
+                        className="border rounded-lg px-3 py-2"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Min Order Amount"
+                        value={promoForm.minOrderAmount}
+                        onChange={(e) =>
+                          setPromoForm({
+                            ...promoForm,
+                            minOrderAmount: Number(e.target.value || 0),
+                          })
+                        }
+                        className="border rounded-lg px-3 py-2"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Usage Limit (optional)"
+                        value={promoForm.usageLimit ?? ""}
+                        onChange={(e) =>
+                          setPromoForm({
+                            ...promoForm,
+                            usageLimit: e.target.value ? Number(e.target.value) : null,
+                          })
+                        }
+                        className="border rounded-lg px-3 py-2"
+                      />
+                      {promoForm.discountType === "percentage" && (
+                        <input
+                          type="number"
+                          placeholder="Max Discount (optional)"
+                          value={promoForm.maxDiscount ?? ""}
+                          onChange={(e) =>
+                            setPromoForm({
+                              ...promoForm,
+                              maxDiscount: e.target.value ? Number(e.target.value) : null,
+                            })
+                          }
+                          className="border rounded-lg px-3 py-2"
+                        />
+                      )}
+                      {promoForm.promoType === "influencer" && (
+                        <input
+                          type="number"
+                          placeholder="Earning Per Unit"
+                          value={promoForm.earningPerUnit}
+                          onChange={(e) =>
+                            setPromoForm({
+                              ...promoForm,
+                              earningPerUnit: Number(e.target.value || 0),
+                            })
+                          }
+                          className="border rounded-lg px-3 py-2"
+                        />
+                      )}
+                      <input
+                        type="date"
+                        value={promoForm.validFrom}
+                        onChange={(e) =>
+                          setPromoForm({ ...promoForm, validFrom: e.target.value })
+                        }
+                        className="border rounded-lg px-3 py-2"
+                      />
+                      <input
+                        type="date"
+                        value={promoForm.validUntil}
+                        onChange={(e) =>
+                          setPromoForm({ ...promoForm, validUntil: e.target.value })
+                        }
+                        className="border rounded-lg px-3 py-2"
+                      />
+                      <input
+                        placeholder="Description"
+                        value={promoForm.description}
+                        onChange={(e) =>
+                          setPromoForm({ ...promoForm, description: e.target.value })
+                        }
+                        className="border rounded-lg px-3 py-2 sm:col-span-2"
+                      />
+                    </div>
+
+                    {promoFormError && (
+                      <p className="text-sm font-medium text-red-600">{promoFormError}</p>
+                    )}
+
+                    <div className="flex justify-end gap-3 pt-2 border-t">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPromoModal(false);
+                          setPromoFormError("");
+                        }}
+                        className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-slate-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={savePromoCode}
+                        disabled={isSavingPromo}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 admin-zoho-keep-white rounded-lg text-sm font-semibold disabled:opacity-60"
+                      >
+                        {isSavingPromo ? "Saving..." : editingPromoId ? "Update Promo" : "Create Promo"}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

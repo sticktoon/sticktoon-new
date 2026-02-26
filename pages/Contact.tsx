@@ -14,6 +14,7 @@ export default function Contact() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedTicketId, setSubmittedTicketId] = useState('');
   const [submitError, setSubmitError] = useState('');
 
   const inquiryOptions = [
@@ -36,12 +37,13 @@ export default function Contact() {
         },
         body: JSON.stringify(formData),
       });
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Failed to send inquiry');
+        throw new Error(data.message || 'Failed to send inquiry');
       }
 
+      setSubmittedTicketId(data.ticketId || '');
       setSubmitted(true);
       setFormData({ name: '', email: '', phone: '', inquiryType: '', message: '' });
     } catch (error: any) {
@@ -102,8 +104,16 @@ export default function Contact() {
                 </div>
                 <h3 className="text-lg font-black text-slate-900">Message Sent! ✨</h3>
                 <p className="text-slate-600 font-semibold text-sm">Our crew will get back to you within 24 hours.</p>
+                {submittedTicketId && (
+                  <p className="text-sm font-bold text-indigo-700">
+                    Ticket ID: {submittedTicketId}
+                  </p>
+                )}
                 <button 
-                  onClick={() => setSubmitted(false)}
+                  onClick={() => {
+                    setSubmitted(false);
+                    setSubmittedTicketId('');
+                  }}
                   className="px-6 py-2 bg-yellow-500 text-white font-bold rounded-lg hover:bg-yellow-600 transition-all"
                 >
                   Send Another

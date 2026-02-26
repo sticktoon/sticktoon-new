@@ -48,16 +48,54 @@ router.post("/", async (req, res) => {
 router.patch("/:id/status", auth, async (req, res) => {
   try {
     const { status } = req.body;
+    const update = { status };
+
+    if (status === "New" || status === "Lost") {
+      update.nextFollowUpAt = null;
+    }
 
     const updated = await Lead.findByIdAndUpdate(
       req.params.id,
-      { status },
+      update,
       { new: true }
     );
 
     res.json(updated);
   } catch (err) {
     res.status(500).json({ message: "Failed to update status" });
+  }
+});
+
+router.patch("/:id/follow-up", auth, async (req, res) => {
+  try {
+    const { nextFollowUpAt } = req.body || {};
+
+    if (!nextFollowUpAt) {
+      return res.status(400).json({ message: "Follow-up date is required" });
+    }
+
+    const parsed = new Date(nextFollowUpAt);
+    if (Number.isNaN(parsed.getTime())) {
+      return res.status(400).json({ message: "Invalid follow-up date" });
+    }
+
+    const lead = await Lead.findById(req.params.id);
+    if (!lead) {
+      return res.status(404).json({ message: "Lead not found" });
+    }
+
+    if (!["Contacted", "Interested"].includes(lead.status || "")) {
+      return res
+        .status(400)
+        .json({ message: "Follow-up date allowed only for Contacted/Interested leads" });
+    }
+
+    lead.nextFollowUpAt = parsed;
+    await lead.save();
+
+    res.json(lead);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to update follow-up date" });
   }
 });
 
