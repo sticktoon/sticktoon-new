@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, JSX } from "react";
+﻿import React, { useState, useEffect, useMemo, useRef, JSX } from "react";
 
 import { useNavigate, useLocation } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
@@ -32,6 +32,7 @@ import {
   CheckCircle,
   XCircle,
   Info,
+  BarChart3,
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 
@@ -536,6 +537,68 @@ const createDefaultPromoFormData = (): PromoFormData => ({
   description: "",
   earningPerUnit: 5,
 });
+
+type TaskStatus =
+  | "Pending"
+  | "In Progress"
+  | "Waiting on Customer"
+  | "Completed"
+  | "Cancelled";
+
+type TaskItem = {
+  _id?: string;
+  user?: { _id?: string; name?: string; email?: string };
+  assignedTo?: { _id?: string; name?: string; email?: string } | string;
+  title: string;
+  description?: string;
+  status: TaskStatus | string;
+  dueDate?: string;
+  reminderAt?: string;
+  relatedToType?: "Lead" | "Contact" | "Order" | "Support Ticket" | "Influencer" | "";
+  relatedToId?: string;
+  taskType?:
+    | "Call"
+    | "Email"
+    | "WhatsApp Follow-up"
+    | "Order Confirmation"
+    | "Refund Processing"
+    | "Influencer Follow-up"
+    | "Internal Task";
+  comments?: { authorName: string; text: string; createdAt: string }[];
+  activityTimeline?: { message: string; createdAt: string }[];
+  createdAt?: string;
+};
+
+type TaskFormState = {
+  title: string;
+  relatedToType: "Lead" | "Contact" | "Order" | "Support Ticket" | "Influencer" | "";
+  relatedToId: string;
+  taskType:
+    | "Call"
+    | "Email"
+    | "WhatsApp Follow-up"
+    | "Order Confirmation"
+    | "Refund Processing"
+    | "Influencer Follow-up"
+    | "Internal Task";
+  status: TaskStatus;
+  dueDate: string;
+  reminderAt: string;
+  assignedTo: string;
+  description: string;
+};
+
+const createDefaultTaskForm = (): TaskFormState => ({
+  title: "",
+  relatedToType: "Lead",
+  relatedToId: "",
+  taskType: "Call",
+  status: "Pending",
+  dueDate: "",
+  reminderAt: "",
+  assignedTo: "",
+  description: "",
+});
 /* ===========================
    MAIN COMPONENT
 =========================== */
@@ -560,6 +623,7 @@ const Admin: React.FC = () => {
     | "products"
     | "promo"
     | "orders"
+    | "reports"
     | "profile"
   >("login");
 
@@ -613,6 +677,7 @@ const Admin: React.FC = () => {
   const [orderFromDate, setOrderFromDate] = useState("");
   const [orderToDate, setOrderToDate] = useState("");
   const [orderSort, setOrderSort] = useState<"desc" | "asc">("desc"); // desc = newest
+  const [reportRangeDays, setReportRangeDays] = useState<30 | 90>(30);
 
   type Lead = {
     _id?: string;
@@ -721,20 +786,14 @@ const Admin: React.FC = () => {
   });
 
   /* ================= TASK STATES ================= */
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [showDeleteTaskModal, setShowDeleteTaskModal] = useState(false);
-  const [taskToDelete, setTaskToDelete] = useState<any>(null);
-  const [newTask, setNewTask] = useState({
-    userName: "",
-    title: "",
-    subject: "",
-    dueDate: "",
-    contact: "",
-    email: "",
-    priority: "Low",
-    status: "Pending",
-  });
+  const [taskToDelete, setTaskToDelete] = useState<TaskItem | null>(null);
+  const [newTask, setNewTask] = useState<TaskFormState>(createDefaultTaskForm());
+  const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
+  const [viewingTask, setViewingTask] = useState<TaskItem | null>(null);
+  const [taskCommentText, setTaskCommentText] = useState("");
   const [showPendingTasks, setShowPendingTasks] = useState(true);
   const [showInProgressTasks, setShowInProgressTasks] = useState(true);
   const [showCompletedTasks, setShowCompletedTasks] = useState(true);
@@ -867,28 +926,43 @@ const Admin: React.FC = () => {
     }
   };
 
+  const normalizeTaskStatus = (value?: string): TaskStatus => {
+    const v = (value || "").toLowerCase();
+    if (v === "pending") return "Pending";
+    if (v === "in-progress" || v === "in progress") return "In Progress";
+    if (v === "waiting on customer") return "Waiting on Customer";
+    if (v === "completed") return "Completed";
+    if (v === "cancelled") return "Cancelled";
+    return "Pending";
+  };
+
   const fetchTasks = async () => {
-  const token = localStorage.getItem("adminToken");
-  if (!token) return;
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
 
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/admin/tasks`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (handleUnauthorized(res)) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/tasks`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (handleUnauthorized(res)) return;
 
-    if (res.ok) {
-      const data = await res.json();
-      setTasks(data);
-    } else {
+      if (res.ok) {
+        const data = await res.json();
+        const normalized = (Array.isArray(data) ? data : []).map((task: TaskItem) => ({
+          ...task,
+          status: normalizeTaskStatus(task.status),
+        }));
+        setTasks(normalized);
+      } else {
+        showToast("error", "❌ Failed to fetch tasks");
+      }
+    } catch (err) {
+      console.error("Fetch tasks error:", err);
       showToast("error", "❌ Failed to fetch tasks");
     }
-  } catch (err) {
-    console.error("Fetch tasks error:", err);
-  }
-};
+  };
 
-  const handleUpdateTaskStatus = async (taskId: string, status: string) => {
+  const handleUpdateTaskStatus = async (taskId: string, status: TaskStatus) => {
     const token = localStorage.getItem("adminToken");
     if (!token) return;
 
@@ -904,8 +978,11 @@ const Admin: React.FC = () => {
       if (handleUnauthorized(res)) return;
 
       if (res.ok) {
+        const updated = await res.json();
         setTasks((prev) =>
-          prev.map((task) => (task._id === taskId ? { ...task, status } : task)),
+          prev.map((task) =>
+            task._id === taskId ? { ...updated, status: normalizeTaskStatus(updated.status) } : task,
+          ),
         );
       } else {
         showToast("error", "❌ Failed to update task status");
@@ -952,40 +1029,59 @@ const Admin: React.FC = () => {
       showToast("warning", "⚠️ Task title is required");
       return;
     }
-    if (!currentUserId) {
+    const assignedId = newTask.assignedTo || currentUserId;
+    if (!assignedId) {
       showToast("error", "❌ Missing user id. Please login again.");
       return;
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/tasks`, {
-        method: "POST",
+      const payload = {
+        user: assignedId,
+        assignedTo: assignedId,
+        title: newTask.title.trim(),
+        description: newTask.description?.trim() || "",
+        status: newTask.status,
+        dueDate: newTask.dueDate || undefined,
+        reminderAt: newTask.reminderAt || undefined,
+        relatedToType: newTask.relatedToType,
+        relatedToId: newTask.relatedToId?.trim() || "",
+        taskType: newTask.taskType,
+      };
+
+      const endpoint = editingTask?._id
+        ? `${API_BASE_URL}/api/admin/tasks/${editingTask._id}`
+        : `${API_BASE_URL}/api/admin/tasks`;
+      const method = editingTask?._id ? "PATCH" : "POST";
+      const res = await fetch(endpoint, {
+        method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          user: currentUserId,
-          title: newTask.title?.trim(),
-          description: newTask.subject?.trim() || undefined,
-          dueDate: newTask.dueDate || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
       if (handleUnauthorized(res)) return;
 
       if (res.ok) {
-        fetchTasks();
+        const updatedTask = await res.json();
+        if (editingTask?._id) {
+          setTasks((prev) =>
+            prev.map((t) =>
+              t._id === editingTask._id
+                ? { ...updatedTask, status: normalizeTaskStatus(updatedTask.status) }
+                : t,
+            ),
+          );
+        } else {
+          setTasks((prev) => [
+            { ...updatedTask, status: normalizeTaskStatus(updatedTask.status) },
+            ...prev,
+          ]);
+        }
         setShowCreateTask(false);
-        setNewTask({
-          userName: "",
-          title: "",
-          subject: "",
-          dueDate: "",
-          contact: "",
-          email: "",
-          priority: "Low",
-          status: "Pending",
-        });
+        setEditingTask(null);
+        setNewTask(createDefaultTaskForm());
       } else {
         const errData = await res.json().catch(() => ({}));
         showToast("error", `❌ ${errData.message || "Failed to create task"}`);
@@ -993,6 +1089,59 @@ const Admin: React.FC = () => {
     } catch (err) {
       console.error("Create task error:", err);
       showToast("error", "❌ Failed to create task");
+    }
+  };
+
+  const openEditTask = (task: TaskItem) => {
+    setEditingTask(task);
+    setNewTask({
+      title: task.title || "",
+      relatedToType: task.relatedToType || "Lead",
+      relatedToId: task.relatedToId || "",
+      taskType: task.taskType || "Internal Task",
+      status: normalizeTaskStatus(task.status),
+      dueDate: task.dueDate ? toDateTimeLocalValue(task.dueDate) : "",
+      reminderAt: task.reminderAt ? toDateTimeLocalValue(task.reminderAt) : "",
+      assignedTo:
+        typeof task.assignedTo === "string"
+          ? task.assignedTo
+          : task.assignedTo?._id || task.user?._id || "",
+      description: task.description || "",
+    });
+    setShowCreateTask(true);
+  };
+
+  const addTaskComment = async () => {
+    if (!viewingTask?._id) return;
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+    const text = taskCommentText.trim();
+    if (!text) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/tasks/${viewingTask._id}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ text }),
+      });
+      if (handleUnauthorized(res)) return;
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to add comment");
+      }
+
+      const updated = await res.json();
+      const normalized = { ...updated, status: normalizeTaskStatus(updated.status) };
+      setTasks((prev) => prev.map((t) => (t._id === viewingTask._id ? normalized : t)));
+      setViewingTask(normalized);
+      setTaskCommentText("");
+    } catch (err) {
+      console.error("Add task comment error:", err);
+      showToast("error", "❌ Failed to add comment");
     }
   };
 
@@ -1157,6 +1306,114 @@ const Admin: React.FC = () => {
     return list;
   }, [orders, orderStatusFilter, orderFromDate, orderToDate, orderSort]);
 
+  const reportsData = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(start.getDate() - (reportRangeDays - 1));
+    start.setHours(0, 0, 0, 0);
+
+    const ordersInRange = orders.filter((o) => {
+      const t = new Date(o.createdAt).getTime();
+      return !Number.isNaN(t) && t >= start.getTime();
+    });
+
+    const successfulOrders = ordersInRange.filter((o) => o.status === "SUCCESS");
+    const failedOrders = ordersInRange.filter((o) => o.status === "FAILED");
+
+    const totalOrders = ordersInRange.length;
+    const totalRevenue = successfulOrders.reduce(
+      (sum, o) => sum + Number(o.amount || 0),
+      0,
+    );
+    const aov = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    const conversionRate =
+      totalOrders > 0 ? (successfulOrders.length / totalOrders) * 100 : 0;
+    const failedRate = totalOrders > 0 ? (failedOrders.length / totalOrders) * 100 : 0;
+
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+    const currentMonthRevenue = orders
+      .filter((o) => {
+        if (o.status !== "SUCCESS") return false;
+        const t = new Date(o.createdAt).getTime();
+        return t >= thisMonthStart.getTime();
+      })
+      .reduce((sum, o) => sum + Number(o.amount || 0), 0);
+
+    const previousMonthRevenue = orders
+      .filter((o) => {
+        if (o.status !== "SUCCESS") return false;
+        const t = new Date(o.createdAt).getTime();
+        return t >= lastMonthStart.getTime() && t <= lastMonthEnd.getTime();
+      })
+      .reduce((sum, o) => sum + Number(o.amount || 0), 0);
+
+    const growthMoM =
+      previousMonthRevenue > 0
+        ? ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100
+        : currentMonthRevenue > 0
+          ? 100
+          : 0;
+
+    const trendByDate = Array.from({ length: reportRangeDays }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const key = d.toISOString().slice(0, 10);
+      return { key, label: d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }), revenue: 0 };
+    });
+
+    const trendIndex = new Map(trendByDate.map((x, idx) => [x.key, idx]));
+    successfulOrders.forEach((o) => {
+      const key = new Date(o.createdAt).toISOString().slice(0, 10);
+      const idx = trendIndex.get(key);
+      if (idx !== undefined) {
+        trendByDate[idx].revenue += Number(o.amount || 0);
+      }
+    });
+
+    const statusCounts = {
+      SUCCESS: ordersInRange.filter((o) => o.status === "SUCCESS").length,
+      PENDING: ordersInRange.filter((o) => o.status === "PENDING").length,
+      FAILED: ordersInRange.filter((o) => o.status === "FAILED").length,
+    };
+
+    const customerMap = new Map<string, { name: string; totalSpent: number }>();
+    successfulOrders.forEach((o) => {
+      const key =
+        o.userId?._id ||
+        o.userId?.email ||
+        o.address?.phone ||
+        o._id;
+      const name =
+        o.userId?.name ||
+        o.address?.name ||
+        o.userId?.email ||
+        "Guest";
+      const current = customerMap.get(key) || { name, totalSpent: 0 };
+      current.totalSpent += Number(o.amount || 0);
+      customerMap.set(key, current);
+    });
+
+    const topCustomers = Array.from(customerMap.values())
+      .sort((a, b) => b.totalSpent - a.totalSpent)
+      .slice(0, 6);
+
+    return {
+      totalRevenue,
+      totalOrders,
+      aov,
+      conversionRate,
+      failedRate,
+      growthMoM,
+      currentMonthRevenue,
+      trendByDate,
+      statusCounts,
+      topCustomers,
+    };
+  }, [orders, reportRangeDays]);
+
   // 🔍 LEADS FILTER STATE
   const [leadSearch, setLeadSearch] = useState("");
   const [leadStatusFilter, setLeadStatusFilter] = useState<string[]>([]);
@@ -1315,10 +1572,10 @@ const Admin: React.FC = () => {
     let list = [...tasks];
 
     list = list.filter((task) => {
-      const status = (task.status || "").toLowerCase();
-      if (!showPendingTasks && status === "pending") return false;
-      if (!showInProgressTasks && status === "in-progress") return false;
-      if (!showCompletedTasks && status === "completed") return false;
+      const status = normalizeTaskStatus(task.status);
+      if (!showPendingTasks && status === "Pending") return false;
+      if (!showInProgressTasks && status === "In Progress") return false;
+      if (!showCompletedTasks && status === "Completed") return false;
       return true;
     });
 
@@ -1358,6 +1615,14 @@ const Admin: React.FC = () => {
     taskToDate,
     taskSort,
   ]);
+
+  const isTaskOverdue = (task: TaskItem) => {
+    const status = normalizeTaskStatus(task.status);
+    if (status === "Completed" || status === "Cancelled") return false;
+    const dueMs = task.dueDate ? new Date(task.dueDate).getTime() : NaN;
+    if (Number.isNaN(dueMs)) return false;
+    return dueMs < Date.now();
+  };
 
   type AdminNotification = {
     id: string;
@@ -1607,6 +1872,9 @@ const Admin: React.FC = () => {
       case "orders":
         fetchOrdersData();
         break;
+      case "reports":
+        fetchOrdersData();
+        break;
       case "products":
         fetchProductsData();
         break;
@@ -1618,6 +1886,7 @@ const Admin: React.FC = () => {
         break;
       case "tasks":
         fetchTasks();
+        fetchUsersData();
         break;
       case "support":
         fetchSupportMessages();
@@ -3086,6 +3355,11 @@ const Admin: React.FC = () => {
                 icon: <ShoppingCartRoundedIcon sx={{ fontSize: 22 }} />,
               },
               {
+                id: "reports",
+                label: "Reports",
+                icon: <BarChart3 className="w-5 h-5" />,
+              },
+              {
                 id: "products",
                 label: "Products",
                 icon: <Inventory2RoundedIcon sx={{ fontSize: 22 }} />,
@@ -3154,6 +3428,7 @@ const Admin: React.FC = () => {
                 {currentView === "influencers" && "Pending Approvals"}
                 {currentView === "withdrawals" && "Withdrawals"}
                 {currentView === "orders" && "Orders"}
+                {currentView === "reports" && "Reports"}
                 {currentView === "products" && "Products"}
                 {currentView === "promo" && "Promo Codes"}
                 {currentView === "profile" && "Edit Profile"}
@@ -4149,288 +4424,424 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
           
 
           {/* ================= TASKS VIEW ================= */}
-          {/* ================= TASKS VIEW ================= */}
-{currentView === "tasks" && (
-  <div className="flex gap-6">
-    <aside className="w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
-      <h3 className="font-black text-sm">Filters</h3>
+          {currentView === "tasks" && (
+            <div className="flex gap-6">
+              <aside className="w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
+                <h3 className="font-black text-sm">Filters</h3>
 
-      <div className="space-y-2 text-sm">
-        <p className="text-xs font-black uppercase text-slate-600">Status</p>
+                <div className="space-y-2 text-sm">
+                  <p className="text-xs font-black uppercase text-slate-600">Status</p>
+                  <label className="flex gap-2 items-center">
+                    <input
+                      type="checkbox"
+                      checked={showInProgressTasks}
+                      onChange={(e) => setShowInProgressTasks(e.target.checked)}
+                    />
+                    In Progress
+                  </label>
+                  <label className="flex gap-2 items-center">
+                    <input
+                      type="checkbox"
+                      checked={showPendingTasks}
+                      onChange={(e) => setShowPendingTasks(e.target.checked)}
+                    />
+                    Pending
+                  </label>
+                  <label className="flex gap-2 items-center">
+                    <input
+                      type="checkbox"
+                      checked={showCompletedTasks}
+                      onChange={(e) => setShowCompletedTasks(e.target.checked)}
+                    />
+                    Completed
+                  </label>
+                </div>
 
-        <label className="flex gap-2 items-center">
-          <input
-            type="checkbox"
-            checked={showInProgressTasks}
-            onChange={(e) => setShowInProgressTasks(e.target.checked)}
-          />
-          In Progress
-        </label>
+                <div className="space-y-2">
+                  <p className="text-xs font-black uppercase text-slate-600">Date</p>
+                  <input
+                    type="date"
+                    value={taskFromDate}
+                    onChange={(e) => setTaskFromDate(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={taskToDate}
+                    onChange={(e) => setTaskToDate(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                  />
+                </div>
+              </aside>
 
-        <label className="flex gap-2 items-center">
-          <input
-            type="checkbox"
-            checked={showPendingTasks}
-            onChange={(e) => setShowPendingTasks(e.target.checked)}
-          />
-          Pending
-        </label>
+              <div className="flex-1 flex flex-col gap-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-black">Tasks ({filteredTasks.length})</h2>
+                  <button
+                    onClick={() => {
+                      setEditingTask(null);
+                      setNewTask(createDefaultTaskForm());
+                      setShowCreateTask(true);
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-700 admin-zoho-keep-white px-4 py-2 rounded-lg text-sm font-semibold"
+                  >
+                    + Create Task
+                  </button>
+                </div>
 
-        <label className="flex gap-2 items-center">
-          <input
-            type="checkbox"
-            checked={showCompletedTasks}
-            onChange={(e) => setShowCompletedTasks(e.target.checked)}
-          />
-          Completed
-        </label>
-      </div>
+                <div className="bg-white border rounded-xl overflow-x-auto">
+                  <div className="min-w-[1180px]">
+                    <div className="grid grid-cols-8 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left">
+                      <span>Title</span>
+                      <span>Related To</span>
+                      <span>Type</span>
+                      <span>Status</span>
+                      <span>Due Date</span>
+                      <span>Reminder</span>
+                      <span>Assigned To</span>
+                      <span>Actions</span>
+                    </div>
 
-      <div className="space-y-2">
-        <p className="text-xs font-black uppercase text-slate-600">Date</p>
-        <input
-          type="date"
-          value={taskFromDate}
-          onChange={(e) => setTaskFromDate(e.target.value)}
-          className="w-full px-3 py-2 border rounded-lg text-sm"
-        />
-        <input
-          type="date"
-          value={taskToDate}
-          onChange={(e) => setTaskToDate(e.target.value)}
-          className="w-full px-3 py-2 border rounded-lg text-sm"
-        />
-      </div>
+                    {filteredTasks.length === 0 ? (
+                      <div className="p-10 text-center text-slate-400">No tasks found</div>
+                    ) : (
+                      filteredTasks.map((task, index) => {
+                        const overdue = isTaskOverdue(task);
+                        const taskStatus = overdue ? "Overdue" : normalizeTaskStatus(task.status);
 
-      <div>
-        <p className="text-xs font-black uppercase text-slate-600 mb-1">Sort</p>
-        <select
-          value={taskSort}
-          onChange={(e) => setTaskSort(e.target.value as "asc" | "desc")}
-          className="w-full px-3 py-2 border rounded-lg text-sm"
-        >
-          <option value="desc">Newest first</option>
-          <option value="asc">Oldest first</option>
-        </select>
-      </div>
-    </aside>
-
-    <div className="flex-1 flex flex-col gap-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-black">Tasks ({filteredTasks.length})</h2>
-
-        <button
-          onClick={() => setShowCreateTask(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 admin-zoho-keep-white px-4 py-2 rounded-lg text-sm font-semibold"
-        >
-          + Create Task
-        </button>
-      </div>
-
-      <div className="bg-white border rounded-xl overflow-hidden">
-        <div className="grid grid-cols-6 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left">
-          <span>#</span>
-          <span>User Name</span>
-          <span>Title</span>
-          <span>Status</span>
-          <span>Due Date</span>
-          <span>Delete</span>
-        </div>
-
-        {tasks.length === 0 ? (
-          <div className="p-10 text-center text-slate-400">No tasks found</div>
-        ) : filteredTasks.length === 0 ? (
-          <div className="p-10 text-center text-slate-400">
-            No tasks match selected filters
-          </div>
-        ) : (
-          filteredTasks.map((task, index) => (
-            <div
-              key={task._id || index}
-              className="grid grid-cols-6 px-6 py-4 text-sm border-b hover:bg-slate-50 items-center"
-            >
-              <span>{index + 1}</span>
-
-              <span className="font-semibold">
-                {task.userName || task.user?.name || "-"}
-              </span>
-
-              <span>{task.title}</span>
-
-              <span>
-                <select
-                  value={task.status}
-                  onChange={(e) => {
-                    handleUpdateTaskStatus(task._id, e.target.value);
-                  }}
-                  className="border rounded-lg px-2 py-1 text-xs"
-                >
-                  <option value="in-progress">In Progress</option>
-                  <option value="pending">Pending</option>
-                  <option value="completed">Completed</option>
-                </select>
-              </span>
-
-              <span>
-                {task.dueDate
-                  ? new Date(task.dueDate).toLocaleDateString()
-                  : task.createdAt
-                    ? new Date(task.createdAt).toLocaleDateString()
-                    : "-"}
-              </span>
-
-              <span>
-                <button
-                  onClick={() => {
-                    setTaskToDelete(task);
-                    setShowDeleteTaskModal(true);
-                  }}
-                  className="text-red-600 border border-red-500 px-3 py-1 rounded-lg hover:bg-red-50 text-xs"
-                >
-                  Delete
-                </button>
-              </span>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-
-    {/* ================= CREATE TASK MODAL ================= */}
-    {showCreateTask && (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-        <div className="bg-white w-[700px] rounded-2xl p-8 space-y-6 shadow-xl">
-
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-bold">Create Task</h3>
-            <button
-              onClick={() => setShowCreateTask(false)}
-              className="text-pink-500 font-semibold hover:underline"
-            >
-              Cancel
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-4">
-
-            <input
-              placeholder="User Name"
-              value={newTask.userName}
-              onChange={(e) =>
-                setNewTask({ ...newTask, userName: e.target.value })
-              }
-              className="border rounded-lg px-4 py-3"
-            />
-
-            <input
-              placeholder="Task Title"
-              value={newTask.title}
-              onChange={(e) =>
-                setNewTask({ ...newTask, title: e.target.value })
-              }
-              className="border rounded-lg px-4 py-3"
-            />
-
-            <input
-              placeholder="Subject"
-              value={newTask.subject}
-              onChange={(e) =>
-                setNewTask({ ...newTask, subject: e.target.value })
-              }
-              className="border rounded-lg px-4 py-3"
-            />
-
-            <input
-              type="date"
-              value={newTask.dueDate}
-              onChange={(e) =>
-                setNewTask({ ...newTask, dueDate: e.target.value })
-              }
-              className="border rounded-lg px-4 py-3"
-            />
-
-            <input
-              placeholder="Contact"
-              value={newTask.contact}
-              onChange={(e) =>
-                setNewTask({ ...newTask, contact: e.target.value })
-              }
-              className="border rounded-lg px-4 py-3"
-            />
-
-            <input
-              placeholder="Email"
-              value={newTask.email}
-              onChange={(e) =>
-                setNewTask({ ...newTask, email: e.target.value })
-              }
-              className="border rounded-lg px-4 py-3"
-            />
-
-            <div className="flex gap-4 items-center">
-              <div className="flex-1 border rounded-lg px-4 py-3 bg-gray-50">
-                Priority
+                        return (
+                          <div
+                            key={task._id || index}
+                            className={`grid grid-cols-8 px-6 py-4 text-sm border-b items-center ${
+                              overdue ? "bg-red-50" : "hover:bg-slate-50"
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              className="text-left font-semibold hover:underline"
+                              onClick={() => setViewingTask(task)}
+                            >
+                              {task.title}
+                            </button>
+                            <span>
+                              {task.relatedToType && task.relatedToId
+                                ? `${task.relatedToType} #${task.relatedToId}`
+                                : "—"}
+                            </span>
+                            <span>{task.taskType || "Internal Task"}</span>
+                            <span>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                  taskStatus === "Overdue"
+                                    ? "bg-red-100 text-red-700"
+                                    : taskStatus === "Completed"
+                                      ? "bg-green-100 text-green-700"
+                                      : taskStatus === "In Progress"
+                                        ? "bg-blue-100 text-blue-700"
+                                        : "bg-amber-100 text-amber-700"
+                                }`}
+                              >
+                                {taskStatus}
+                              </span>
+                            </span>
+                            <span>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}</span>
+                            <span>
+                              {task.reminderAt ? new Date(task.reminderAt).toLocaleString() : "—"}
+                            </span>
+                            <span>
+                              {typeof task.assignedTo === "object"
+                                ? task.assignedTo?.name || task.assignedTo?.email || "—"
+                                : task.user?.name || task.user?.email || "—"}
+                            </span>
+                            <span className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setViewingTask(task)}
+                                className="border rounded-lg px-2 py-1 text-xs hover:bg-slate-100"
+                              >
+                                View
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openEditTask(task)}
+                                className="border rounded-lg px-2 py-1 text-xs hover:bg-slate-100"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTaskToDelete(task);
+                                  setShowDeleteTaskModal(true);
+                                }}
+                                className="text-red-600 border border-red-300 px-2 py-1 rounded-lg hover:bg-red-50 text-xs"
+                              >
+                                Delete
+                              </button>
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <select
-                value={newTask.priority}
-                onChange={(e) =>
-                  setNewTask({ ...newTask, priority: e.target.value })
-                }
-                className="w-[200px] border rounded-lg px-4 py-3"
-              >
-                <option value="Low">Low</option>
-                <option value="High">High</option>
-              </select>
+              {showCreateTask && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white w-full max-w-3xl rounded-xl p-6 space-y-5 border">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xl font-bold">
+                        {editingTask ? "Edit Task" : "Create Task"}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setShowCreateTask(false);
+                          setEditingTask(null);
+                          setNewTask(createDefaultTaskForm());
+                        }}
+                        className="text-sm text-slate-500 hover:text-slate-800"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <input
+                        placeholder="Task Title"
+                        value={newTask.title}
+                        onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                        className="border rounded-lg px-3 py-2 md:col-span-2"
+                      />
+
+                      <select
+                        value={newTask.relatedToType}
+                        onChange={(e) =>
+                          setNewTask({
+                            ...newTask,
+                            relatedToType: e.target.value as TaskFormState["relatedToType"],
+                          })
+                        }
+                        className="border rounded-lg px-3 py-2"
+                      >
+                        <option value="Lead">Lead</option>
+                        <option value="Contact">Contact</option>
+                        <option value="Order">Order</option>
+                        <option value="Support Ticket">Support Ticket</option>
+                        <option value="Influencer">Influencer</option>
+                      </select>
+                      <input
+                        placeholder="Select Entity ID"
+                        value={newTask.relatedToId}
+                        onChange={(e) => setNewTask({ ...newTask, relatedToId: e.target.value })}
+                        className="border rounded-lg px-3 py-2"
+                      />
+
+                      <select
+                        value={newTask.taskType}
+                        onChange={(e) =>
+                          setNewTask({
+                            ...newTask,
+                            taskType: e.target.value as TaskFormState["taskType"],
+                          })
+                        }
+                        className="border rounded-lg px-3 py-2"
+                      >
+                        <option value="Call">Call</option>
+                        <option value="Email">Email</option>
+                        <option value="WhatsApp Follow-up">WhatsApp Follow-up</option>
+                        <option value="Order Confirmation">Order Confirmation</option>
+                        <option value="Refund Processing">Refund Processing</option>
+                        <option value="Influencer Follow-up">Influencer Follow-up</option>
+                        <option value="Internal Task">Internal Task</option>
+                      </select>
+
+                      <select
+                        value={newTask.status}
+                        onChange={(e) =>
+                          setNewTask({ ...newTask, status: e.target.value as TaskStatus })
+                        }
+                        className="border rounded-lg px-3 py-2"
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Waiting on Customer">Waiting on Customer</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cancelled">Cancelled</option>
+                      </select>
+
+                      <input
+                        type="datetime-local"
+                        value={newTask.dueDate}
+                        onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
+                        className="border rounded-lg px-3 py-2"
+                      />
+                      <input
+                        type="datetime-local"
+                        value={newTask.reminderAt}
+                        onChange={(e) => setNewTask({ ...newTask, reminderAt: e.target.value })}
+                        className="border rounded-lg px-3 py-2"
+                      />
+
+                      <select
+                        value={newTask.assignedTo}
+                        onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
+                        className="border rounded-lg px-3 py-2"
+                      >
+                        <option value="">Select Assignee</option>
+                        {allUsers.map((u: any) => (
+                          <option key={u._id} value={u._id}>
+                            {u.name || u.email}
+                          </option>
+                        ))}
+                      </select>
+
+                      <textarea
+                        placeholder="Description"
+                        value={newTask.description}
+                        onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                        className="border rounded-lg px-3 py-2 md:col-span-2"
+                        rows={4}
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-2 border-t">
+                      <button
+                        onClick={() => {
+                          setShowCreateTask(false);
+                          setEditingTask(null);
+                          setNewTask(createDefaultTaskForm());
+                        }}
+                        className="px-4 py-2 border rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleCreateTask}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 admin-zoho-keep-white rounded-lg font-semibold"
+                      >
+                        Save Task
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {viewingTask && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white w-full max-w-3xl rounded-xl border p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="text-xl font-bold">{viewingTask.title}</h3>
+                        <p className="text-sm text-slate-600">
+                          Related To →{" "}
+                          {viewingTask.relatedToType && viewingTask.relatedToId
+                            ? `${viewingTask.relatedToType} #${viewingTask.relatedToId}`
+                            : "—"}
+                        </p>
+                        <p className="text-sm text-slate-600">
+                          Assigned To →{" "}
+                          {typeof viewingTask.assignedTo === "object"
+                            ? viewingTask.assignedTo?.name || viewingTask.assignedTo?.email || "—"
+                            : viewingTask.user?.name || viewingTask.user?.email || "—"}
+                        </p>
+                        <p className="text-sm text-slate-600">
+                          Status → {isTaskOverdue(viewingTask) ? "Overdue" : normalizeTaskStatus(viewingTask.status)}
+                        </p>
+                        <p className="text-sm text-slate-600">
+                          Due → {viewingTask.dueDate ? new Date(viewingTask.dueDate).toLocaleString() : "—"}
+                        </p>
+                        <p className="text-sm text-slate-600">
+                          Reminder →{" "}
+                          {viewingTask.reminderAt ? new Date(viewingTask.reminderAt).toLocaleString() : "—"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setViewingTask(null);
+                          setTaskCommentText("");
+                        }}
+                        className="text-sm text-slate-500 hover:text-slate-800"
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    <div className="border rounded-xl p-4 space-y-3">
+                      <h4 className="font-bold">Comments</h4>
+                      {(viewingTask.comments || []).length === 0 ? (
+                        <p className="text-sm text-slate-500">No comments yet.</p>
+                      ) : (
+                        (viewingTask.comments || []).map((c, idx) => (
+                          <div key={idx} className="border-b pb-2">
+                            <p className="text-sm font-semibold">{c.authorName}</p>
+                            <p className="text-xs text-slate-500">
+                              {new Date(c.createdAt).toLocaleString()}
+                            </p>
+                            <p className="text-sm mt-1">{c.text}</p>
+                          </div>
+                        ))
+                      )}
+                      <div className="flex gap-2 pt-2">
+                        <input
+                          value={taskCommentText}
+                          onChange={(e) => setTaskCommentText(e.target.value)}
+                          placeholder="Add comment"
+                          className="flex-1 border rounded-lg px-3 py-2 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={addTaskComment}
+                          className="px-3 py-2 border rounded-lg text-sm font-semibold hover:bg-slate-50"
+                        >
+                          Send
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="border rounded-xl p-4 space-y-3">
+                      <h4 className="font-bold">Activity Timeline</h4>
+                      {(viewingTask.activityTimeline || []).length === 0 ? (
+                        <p className="text-sm text-slate-500">No activity yet.</p>
+                      ) : (
+                        (viewingTask.activityTimeline || []).map((a, idx) => (
+                          <p key={idx} className="text-sm">
+                            {new Date(a.createdAt).toLocaleString()} - {a.message}
+                          </p>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {showDeleteTaskModal && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-xl p-6 w-[400px] space-y-4 shadow-xl">
+                    <h3 className="text-lg font-bold text-red-600">Delete Task?</h3>
+                    <p className="text-sm text-slate-600">
+                      Are you sure you want to delete this task?
+                    </p>
+                    <div className="flex justify-end gap-3">
+                      <button
+                        onClick={() => setShowDeleteTaskModal(false)}
+                        className="px-4 py-2 border rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleDeleteTask}
+                        className="text-red-600 border border-red-500 px-3 py-1 rounded-lg hover:bg-red-50 text-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-
-          <button
-            onClick={handleCreateTask}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 admin-zoho-keep-white py-3 rounded-lg font-semibold"
-          >
-            Save Task
-          </button>
-
-        </div>
-      </div>
-    )}
-
-    {/* ================= DELETE CONFIRM MODAL ================= */}
-    {showDeleteTaskModal && (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl p-6 w-[400px] space-y-4 shadow-xl">
-
-          <h3 className="text-lg font-bold text-red-600">
-            Delete Task?
-          </h3>
-
-          <p className="text-sm text-slate-600">
-            Are you sure you want to delete this task?
-          </p>
-
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => setShowDeleteTaskModal(false)}
-              className="px-4 py-2 border rounded-lg"
-            >
-              Cancel
-            </button>
-
-            <button
-  onClick={handleDeleteTask}
-  className="text-red-600 border border-red-500 px-3 py-1 rounded-lg hover:bg-red-50 text"
->
-  Delete
-</button>
-
-          </div>
-        </div>
-      </div>
-    )}
-
-  </div>
-)}
+          )}
 
 
           {/* INFLUENCERS VIEW */}
@@ -5743,6 +6154,225 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
             </div>
           )}
 
+          {currentView === "reports" && (
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-xl font-black text-slate-900">Business Reports</h3>
+                <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+                  {[30, 90].map((days) => (
+                    <button
+                      key={days}
+                      onClick={() => setReportRangeDays(days as 30 | 90)}
+                      className={`px-4 py-1.5 text-sm font-bold rounded-md transition ${
+                        reportRangeDays === days
+                          ? "bg-slate-900 text-white"
+                          : "text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      Last {days} days
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="bg-white rounded-xl border p-5">
+                  <p className="text-xs uppercase font-black text-slate-500">Total Revenue (This Month)</p>
+                  <p className="mt-2 text-3xl font-black text-slate-900">₹{Math.round(reportsData.currentMonthRevenue).toLocaleString("en-IN")}</p>
+                </div>
+                <div className="bg-white rounded-xl border p-5">
+                  <p className="text-xs uppercase font-black text-slate-500">Total Orders ({reportRangeDays} Days)</p>
+                  <p className="mt-2 text-3xl font-black text-slate-900">{reportsData.totalOrders}</p>
+                </div>
+                <div className="bg-white rounded-xl border p-5">
+                  <p className="text-xs uppercase font-black text-slate-500">Average Order Value (AOV)</p>
+                  <p className="mt-2 text-3xl font-black text-slate-900">₹{Math.round(reportsData.aov).toLocaleString("en-IN")}</p>
+                </div>
+                <div className="bg-white rounded-xl border p-5">
+                  <p className="text-xs uppercase font-black text-slate-500">Conversion Rate</p>
+                  <p className="mt-2 text-3xl font-black text-slate-900">{reportsData.conversionRate.toFixed(1)}%</p>
+                  <p className="text-xs text-slate-500 mt-1">Successful Orders / Total Orders</p>
+                </div>
+                <div className="bg-white rounded-xl border p-5">
+                  <p className="text-xs uppercase font-black text-slate-500">Refund / Failed Rate</p>
+                  <p className="mt-2 text-3xl font-black text-slate-900">{reportsData.failedRate.toFixed(1)}%</p>
+                </div>
+                <div className="bg-white rounded-xl border p-5">
+                  <p className="text-xs uppercase font-black text-slate-500">Revenue Growth % (MoM)</p>
+                  <p
+                    className={`mt-2 text-3xl font-black ${
+                      reportsData.growthMoM >= 0 ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {reportsData.growthMoM >= 0 ? "+" : ""}
+                    {reportsData.growthMoM.toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div className="bg-white rounded-xl border p-5">
+                  <h4 className="text-lg font-black text-slate-900 mb-4">Revenue Trend (Line Chart)</h4>
+                  {reportsData.trendByDate.length === 0 ? (
+                    <p className="text-sm text-slate-500">No data available.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      <svg viewBox="0 0 600 220" className="w-full h-56">
+                        {(() => {
+                          const points = reportsData.trendByDate;
+                          const maxY = Math.max(...points.map((p) => p.revenue), 1);
+                          const getX = (i: number) => (i / Math.max(points.length - 1, 1)) * 560 + 20;
+                          const getY = (v: number) => 180 - (v / maxY) * 150 + 20;
+                          const path = points
+                            .map((p, i) => `${getX(i)},${getY(p.revenue)}`)
+                            .join(" ");
+
+                          return (
+                            <>
+                              <line x1="20" y1="200" x2="580" y2="200" stroke="#cbd5e1" strokeWidth="1" />
+                              <polyline fill="none" stroke="#0f172a" strokeWidth="3" points={path} />
+                              {points.map((p, i) => (
+                                <circle key={p.key} cx={getX(i)} cy={getY(p.revenue)} r="3" fill="#334155" />
+                              ))}
+                            </>
+                          );
+                        })()}
+                      </svg>
+                      <div className="flex justify-between text-xs text-slate-500">
+                        <span>{reportsData.trendByDate[0]?.label}</span>
+                        <span>{reportsData.trendByDate[reportsData.trendByDate.length - 1]?.label}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white rounded-xl border p-5">
+                  <h4 className="text-lg font-black text-slate-900 mb-4">Orders by Status (Donut Chart)</h4>
+                  {(() => {
+                    const success = reportsData.statusCounts.SUCCESS;
+                    const pending = reportsData.statusCounts.PENDING;
+                    const failed = reportsData.statusCounts.FAILED;
+                    const total = success + pending + failed;
+                    const radius = 64;
+                    const stroke = 24;
+                    const circumference = 2 * Math.PI * radius;
+                    const successLen = total ? (success / total) * circumference : 0;
+                    const pendingLen = total ? (pending / total) * circumference : 0;
+                    const failedLen = total ? (failed / total) * circumference : 0;
+                    return (
+                      <div className="flex flex-col md:flex-row gap-6 items-center">
+                        <svg viewBox="0 0 180 180" className="w-44 h-44 -rotate-90">
+                          <circle
+                            cx="90"
+                            cy="90"
+                            r={radius}
+                            fill="none"
+                            stroke="#e2e8f0"
+                            strokeWidth={stroke}
+                          />
+                          <circle
+                            cx="90"
+                            cy="90"
+                            r={radius}
+                            fill="none"
+                            stroke="#16a34a"
+                            strokeWidth={stroke}
+                            strokeDasharray={`${successLen} ${circumference - successLen}`}
+                            strokeDashoffset="0"
+                            strokeLinecap="butt"
+                          />
+                          <circle
+                            cx="90"
+                            cy="90"
+                            r={radius}
+                            fill="none"
+                            stroke="#eab308"
+                            strokeWidth={stroke}
+                            strokeDasharray={`${pendingLen} ${circumference - pendingLen}`}
+                            strokeDashoffset={-successLen}
+                            strokeLinecap="butt"
+                          />
+                          <circle
+                            cx="90"
+                            cy="90"
+                            r={radius}
+                            fill="none"
+                            stroke="#dc2626"
+                            strokeWidth={stroke}
+                            strokeDasharray={`${failedLen} ${circumference - failedLen}`}
+                            strokeDashoffset={-(successLen + pendingLen)}
+                            strokeLinecap="butt"
+                          />
+                          <circle cx="90" cy="90" r="40" fill="white" />
+                          <text
+                            x="90"
+                            y="87"
+                            textAnchor="middle"
+                            className="fill-slate-500 text-[10px] font-bold"
+                            transform="rotate(90 90 90)"
+                          >
+                            TOTAL
+                          </text>
+                          <text
+                            x="90"
+                            y="104"
+                            textAnchor="middle"
+                            className="fill-slate-900 text-[16px] font-black"
+                            transform="rotate(90 90 90)"
+                          >
+                            {total}
+                          </text>
+                        </svg>
+                        <div className="space-y-2 text-sm w-full">
+                          <p className="font-bold text-green-700">Success: {success}</p>
+                          <p className="font-bold text-yellow-700">Pending: {pending}</p>
+                          <p className="font-bold text-red-700">Failed: {failed}</p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl border p-5">
+                <h4 className="text-lg font-black text-slate-900 mb-4">Top Customers (Bar Chart)</h4>
+                {reportsData.topCustomers.length === 0 ? (
+                  <p className="text-sm text-slate-500">No successful orders in selected range.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[680px]">
+                      <div className="h-72 border-l border-b border-slate-200 px-4 pt-4 pb-2">
+                        <div className="h-full flex items-end gap-6">
+                          {reportsData.topCustomers.map((c) => {
+                            const max = reportsData.topCustomers[0]?.totalSpent || 1;
+                            const height = Math.max((c.totalSpent / max) * 100, 6);
+                            const shortName =
+                              c.name.length > 12 ? `${c.name.slice(0, 12)}...` : c.name;
+
+                            return (
+                              <div
+                                key={`${c.name}-${c.totalSpent}`}
+                                className="flex-1 min-w-[90px] h-full flex flex-col justify-end items-center"
+                              >
+                                <p className="text-xs font-black text-slate-900 mb-2">
+                                  ?{Math.round(c.totalSpent).toLocaleString("en-IN")}
+                                </p>
+                                <div className="w-10/12 bg-slate-900 rounded-t-md" style={{ height: `${height}%` }} />
+                                <p className="text-xs font-semibold text-slate-700 mt-2 text-center leading-tight">
+                                  {shortName}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* PROFILE VIEW */}
           {currentView === "profile" && (
             <div className="max-w-2xl mx-auto space-y-6">
@@ -6614,3 +7244,4 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 };
 
 export default Admin;
+
