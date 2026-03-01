@@ -23,13 +23,13 @@ function BadgeCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: B
 
   return (
     <div
-      className="group relative bg-white rounded-2xl overflow-hidden flex flex-col transition-all duration-500 hover:-translate-y-1.5
-        shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)]
-        border border-slate-200/80 hover:border-yellow-400/60"
-      style={{ animationDelay: `${index * 60}ms` }}
+      className="group relative bg-white rounded-2xl overflow-hidden flex flex-col transition-all duration-500 hover:-translate-y-2
+        shadow-[0_1px_6px_rgba(0,0,0,0.05)] hover:shadow-[0_16px_48px_rgba(245,158,11,0.15)]
+        border border-slate-200/60 hover:border-yellow-400/50"
+      style={{ animationDelay: `${index * 50}ms` }}
     >
       {/* Hover glow effect */}
-      <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-br from-yellow-400/0 via-orange-400/0 to-red-400/0 group-hover:from-yellow-400/20 group-hover:via-orange-400/10 group-hover:to-red-400/20 transition-all duration-500 pointer-events-none z-0" />
+      <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-br from-yellow-400/0 via-orange-400/0 to-red-400/0 group-hover:from-yellow-400/15 group-hover:via-orange-400/8 group-hover:to-red-400/15 transition-all duration-500 pointer-events-none z-0" />
 
       {/* Image Container */}
       <Link to={`/badge/${badge.id}`} className="relative aspect-square overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100 z-10 block">
@@ -84,46 +84,46 @@ function BadgeCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: B
       </Link>
 
       {/* Content */}
-      <div className="relative z-10 p-3.5 sm:p-4 flex flex-col flex-1 bg-white">
+      <div className="relative z-10 p-3 sm:p-3.5 flex flex-col flex-1 bg-white">
         {/* Tagline / Category */}
         {badge.tagline ? (
-          <p className="text-[10px] font-bold text-orange-600/80 uppercase tracking-widest mb-1 truncate">
+          <p className="text-[9px] sm:text-[10px] font-bold text-orange-600/80 uppercase tracking-widest mb-0.5 truncate">
             {badge.tagline}
           </p>
         ) : (
-          <p className="text-[10px] font-bold text-orange-600/80 uppercase tracking-widest mb-1 truncate">
+          <p className="text-[9px] sm:text-[10px] font-bold text-orange-600/80 uppercase tracking-widest mb-0.5 truncate">
             {badge.category}
           </p>
         )}
 
-        <h3 className="text-sm sm:text-base font-extrabold text-slate-900 mb-0.5 leading-tight tracking-tight line-clamp-1">
+        <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mb-0.5 leading-tight tracking-tight line-clamp-1">
           {badge.name}
         </h3>
-        <p className="text-xs text-slate-500 mb-3 line-clamp-1 flex-1 font-medium">
+        <p className="text-[10px] sm:text-xs text-slate-500 mb-2 line-clamp-1 flex-1 font-medium">
           {badge.details}
         </p>
 
         {/* Price & Actions */}
-        <div className="flex items-center justify-between pt-2.5 border-t border-slate-100">
+        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
           <div className="flex flex-col">
-            <span className="text-base sm:text-lg font-black bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
+            <span className="text-sm sm:text-base font-black bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
               {formatPrice(badge.price)}
             </span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             <button
               onClick={handleAdd}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-300
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300
                 ${added
                   ? 'bg-green-500 text-white scale-95'
                   : 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600 hover:shadow-md active:scale-95'
                 }`}
             >
-              {added ? '✓ Added' : 'Add'}
+              {added ? '✓' : 'Add'}
             </button>
             <Link
               to={`/badge/${badge.id}`}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border border-slate-200 text-slate-600 hover:border-yellow-400 hover:text-yellow-700 transition-all duration-300"
+              className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider border border-slate-200 text-slate-600 hover:border-yellow-400 hover:text-yellow-700 transition-all duration-300"
             >
               View
             </Link>
@@ -147,10 +147,10 @@ function ComboCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: B
 
   return (
     <div
-      className="group relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl overflow-hidden flex flex-col transition-all duration-500 hover:-translate-y-1.5
-        shadow-[0_2px_12px_rgba(245,158,11,0.15)] hover:shadow-[0_16px_50px_rgba(245,158,11,0.25)]
-        border border-yellow-500/40 hover:border-yellow-400/70"
-      style={{ animationDelay: `${index * 60}ms` }}
+      className="group relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl overflow-hidden flex flex-col transition-all duration-500 hover:-translate-y-2
+        shadow-[0_2px_12px_rgba(245,158,11,0.15)] hover:shadow-[0_20px_60px_rgba(245,158,11,0.3)]
+        border border-yellow-500/40 hover:border-yellow-400/80"
+      style={{ animationDelay: `${index * 50}ms` }}
     >
       {/* Combo label */}
       <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-full shadow-lg">
@@ -207,37 +207,37 @@ function ComboCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: B
       </Link>
 
       {/* Content */}
-      <div className="relative z-10 p-3.5 sm:p-4 flex flex-col flex-1 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <p className="text-[10px] font-bold text-yellow-400/80 uppercase tracking-widest mb-1 truncate flex items-center gap-1">
+      <div className="relative z-10 p-3 sm:p-3.5 flex flex-col flex-1 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <p className="text-[9px] sm:text-[10px] font-bold text-yellow-400/80 uppercase tracking-widest mb-0.5 truncate flex items-center gap-1">
           <Crown className="w-3 h-3" /> COMBO PACK
         </p>
 
-        <h3 className="text-sm sm:text-base font-extrabold text-white mb-0.5 leading-tight tracking-tight line-clamp-1">
+        <h3 className="text-xs sm:text-sm font-extrabold text-white mb-0.5 leading-tight tracking-tight line-clamp-1">
           {badge.name}
         </h3>
-        <p className="text-xs text-yellow-200/50 mb-3 line-clamp-1 flex-1 font-medium">
+        <p className="text-[10px] sm:text-xs text-yellow-200/50 mb-2 line-clamp-1 flex-1 font-medium">
           {badge.details}
         </p>
 
         {/* Price & Action */}
-        <div className="flex items-center justify-between pt-2.5 border-t border-yellow-500/20">
+        <div className="flex items-center justify-between pt-2 border-t border-yellow-500/20">
           <div className="flex flex-col">
-            <span className="text-base sm:text-lg font-black bg-gradient-to-r from-yellow-400 to-amber-400 bg-clip-text text-transparent">
+            <span className="text-sm sm:text-base font-black bg-gradient-to-r from-yellow-400 to-amber-400 bg-clip-text text-transparent">
               {formatPrice(badge.price)}
             </span>
-            <span className="text-[9px] text-yellow-500/50 line-through font-semibold">
+            <span className="text-[8px] sm:text-[9px] text-yellow-500/50 line-through font-semibold">
               {formatPrice(49 * 4)}
             </span>
           </div>
           <button
             onClick={handleAdd}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-300
+            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300
               ${added
                 ? 'bg-green-500 text-white scale-95'
                 : 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-900 hover:from-yellow-300 hover:to-amber-400 hover:shadow-md hover:shadow-yellow-500/30 active:scale-95'
               }`}
           >
-            {added ? '✓ Added' : 'Add Combo'}
+            {added ? '✓' : 'Add Combo'}
           </button>
         </div>
       </div>
@@ -604,7 +604,7 @@ export default function Categories({ addToCart }: CategoriesProps) {
                         </div>
 
                         {/* Category Products Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
                           {categoryProducts.map((badge, i) =>
                             badge.isCombo ? (
                               <ComboCard key={badge.id} badge={badge} addToCart={addToCart} index={i} />
@@ -642,7 +642,7 @@ export default function Categories({ addToCart }: CategoriesProps) {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
                     {sortedFilteredBadges.map((badge, i) =>
                       badge.isCombo ? (
                         <ComboCard key={badge.id} badge={badge} addToCart={addToCart} index={i} />

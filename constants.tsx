@@ -17,13 +17,6 @@ export const formatPrice = (amount: number): string => {
 };
 export const CATEGORIES = [
   {
-    id: 'positive-vibes',
-    name: 'POSITIVE VIBES',
-    count: 4,
-    icon: '✨',
-    image: '/badge/mergemoody.png',
-  },
-  {
     id: 'moody',
     name: 'MOODY',
     count: 5,
@@ -85,7 +78,6 @@ export const CATEGORIES = [
 export const BADGES: Badge[] = [
   // --- COMBO PACKS (All-in-One per category) ---
   { id: 'combo-moody', name: 'Moody Combo Pack', price: 149, category: Category.MOODY, image: '/badge/mergemoody.png', details: 'Get all Moody badges in one combo pack!', tagline: 'All Moody badges in one', color: 'bg-transparent', isCombo: true },
-  { id: 'combo-positive-vibes', name: 'Positive Vibes Combo', price: 149, category: 'positive-vibes' as any, image: '/badge/mergemoody.png', details: 'Get all Positive Vibes badges in one combo pack!', tagline: 'All Positive Vibes in one', color: 'bg-transparent', isCombo: true },
   { id: 'combo-sports', name: 'Sports Combo Pack', price: 149, category: Category.SPORTS, image: '/badge/mergesport.png', details: 'Get all Sports badges in one combo pack!', tagline: 'All Sports badges in one', color: 'bg-transparent', isCombo: true },
   { id: 'combo-religious', name: 'Religious Combo Pack', price: 149, category: Category.RELIGIOUS, image: '/badge/mergereligious.png', details: 'Get all Religious badges in one combo pack!', tagline: 'All Religious badges in one', color: 'bg-transparent', isCombo: true },
   { id: 'combo-entertainment', name: 'Entertainment Combo', price: 149, category: Category.ENTERTAINMENT, image: '/badge/mergeenter.png', details: 'Get all Entertainment badges in one combo pack!', tagline: 'All Entertainment in one', color: 'bg-transparent', isCombo: true },
@@ -121,11 +113,7 @@ export const BADGES: Badge[] = [
   { id: 'moody-2', name: 'OMG Mood', price: 49, category: Category.MOODY, image: '/badge/moody3.png', details: 'Feel the love.', tagline: 'Wear your emotions with pride', color: 'bg-transparent' },
   { id: 'moody-3', name: "Just Vibin'", price: 49, category: Category.MOODY, image: '/badge/moody4.png', details: 'Pure comedy gold.', tagline: 'Express your true self', color: 'bg-transparent',  },
 
-  // --- POSITIVE VIBES ---
-  { id: 'positive-1', name: 'Good Vibes', price: 49, category: Category.POSITIVE_VIBES, image: '/badge/chat.png', details: 'Glow from within.', tagline: 'Good energy only', color: 'bg-transparent' },
-  { id: 'positive-2', name: 'Kind Spark', price: 49, category: Category.POSITIVE_VIBES, image: '/badge/chat1.png', details: 'Be the reason to smile.', tagline: 'Kindness is contagious', color: 'bg-transparent' },
-  { id: 'positive-3', name: 'Bright Day', price: 49, category: Category.POSITIVE_VIBES, image: '/badge/flagb1.png', details: 'Little joys, big smiles.', tagline: 'Choose happy today', color: 'bg-transparent' },
-  { id: 'positive-4', name: 'Smile Mode', price: 49, category: Category.POSITIVE_VIBES, image: '/badge/bunny.png', details: 'Keep it light.', tagline: 'Smile, sparkle, repeat', color: 'bg-transparent' },
+
 
   // { id: 'moody-4', name: 'SHOCKED VIBE', price: 49, category: Category.MOODY, image: '/badge/moody5.png', details: 'OMG moments only.', color: 'bg-transparent', isFeatured: true },
 
