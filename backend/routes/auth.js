@@ -8,6 +8,27 @@ const { resetPasswordEmail } = require("../utils/emailTemplates");
 
 const router = express.Router();
 
+const resolveFrontendBaseUrl = (req) => {
+  const bodyFrontendUrl = req.body?.frontendUrl;
+  const requestOrigin = req.get("origin");
+  const fallbackUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+  const candidates = [bodyFrontendUrl, requestOrigin, fallbackUrl];
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== "string") continue;
+    try {
+      const parsed = new URL(candidate);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        return parsed.origin;
+      }
+    } catch {
+      // Ignore malformed URLs
+    }
+  }
+
+  return "http://localhost:3000";
+};
+
 /* =========================
    SIGNUP (EMAIL + PASSWORD)
 ========================= */
@@ -195,7 +216,9 @@ router.post("/forgot-password", async (req, res) => {
     user.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
     await user.save();
 
-    const resetUrl = `${process.env.FRONTEND_URL}/#/reset-password/${resetToken}`;
+    const resetUrl = `${resolveFrontendBaseUrl(
+      req
+    )}/reset-password/${resetToken}`;
 
     const html = `
 <!DOCTYPE html>

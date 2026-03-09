@@ -12,6 +12,7 @@ import Groups2RoundedIcon from "@mui/icons-material/Groups2Rounded";
 import PendingActionsRoundedIcon from "@mui/icons-material/PendingActionsRounded";
 import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
 import ShoppingCartRoundedIcon from "@mui/icons-material/ShoppingCartRounded";
+import ContactsRoundedIcon from "@mui/icons-material/ContactsRounded";
 import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
 import NotificationsActiveRoundedIcon from "@mui/icons-material/NotificationsActiveRounded";
 import LocalOfferRoundedIcon from "@mui/icons-material/LocalOfferRounded";
@@ -620,6 +621,7 @@ const Admin: React.FC = () => {
     | "all-influencers"
     | "influencers"
     | "withdrawals"
+    | "customers"
     | "products"
     | "promo"
     | "orders"
@@ -646,6 +648,8 @@ const Admin: React.FC = () => {
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [viewingOrder, setViewingOrder] = useState<any>(null);
+  const [viewingCustomerId, setViewingCustomerId] = useState<string | null>(null);
+  const [isEditingCustomer, setIsEditingCustomer] = useState(false);
   const productsForDisplay = ensureMinimumProductsPerCategory(products);
 
   // 🔍 CRM FILTER STATE
@@ -677,6 +681,34 @@ const Admin: React.FC = () => {
   const [orderFromDate, setOrderFromDate] = useState("");
   const [orderToDate, setOrderToDate] = useState("");
   const [orderSort, setOrderSort] = useState<"desc" | "asc">("desc"); // desc = newest
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerDraft, setCustomerDraft] = useState({
+    accountName: "",
+    phone: "",
+    email: "",
+    company: "",
+    address: "",
+    contactName: "",
+    contactEmail: "",
+    contactPhone: "",
+    contactMobile: "",
+  });
+  const [customerEdits, setCustomerEdits] = useState<
+    Record<
+      string,
+      Partial<{
+        accountName: string;
+        phone: string;
+        email: string;
+        company: string;
+        address: string;
+        contactName: string;
+        contactEmail: string;
+        contactPhone: string;
+        contactMobile: string;
+      }>
+    >
+  >({});
   const [reportRangeDays, setReportRangeDays] = useState<30 | 90>(30);
 
   type Lead = {
@@ -1306,6 +1338,118 @@ const Admin: React.FC = () => {
     return list;
   }, [orders, orderStatusFilter, orderFromDate, orderToDate, orderSort]);
 
+  const allCustomers = useMemo(() => {
+    const byCustomer = new Map<
+      string,
+      {
+        id: string;
+        accountName: string;
+        phone: string;
+        email: string;
+        company: string;
+        createdAt: string;
+        address: string;
+        contactName: string;
+        contactEmail: string;
+        contactPhone: string;
+        contactMobile: string;
+        orderCount: number;
+        lastOrderAt: string;
+      }
+    >();
+
+    orders.forEach((o) => {
+      const id =
+        o.userId?._id ||
+        o.userId?.email ||
+        o.address?.phone ||
+        o.orderId ||
+        o._id;
+      if (!id) return;
+
+      const inferredCreatedAt = o.userId?.createdAt || o.createdAt || "";
+      const nextAccountName = o.userId?.name || o.address?.name || "Customer";
+      const nextEmail = o.userId?.email || "";
+      const nextPhone = o.address?.phone || o.userId?.phone || "";
+      const nextCompany = o.company || o.userId?.company || "";
+      const nextAddress = o.address?.street || o.address?.address || "";
+      const nextContactName =
+        o.contact?.name || o.address?.name || o.userId?.name || "";
+      const nextContactEmail = o.contact?.email || o.userId?.email || "";
+      const nextContactPhone = o.contact?.phone || o.address?.phone || "";
+      const nextContactMobile = o.contact?.mobile || "";
+
+      if (!byCustomer.has(id)) {
+        byCustomer.set(id, {
+          id: String(id),
+          accountName: nextAccountName,
+          phone: nextPhone,
+          email: nextEmail,
+          company: nextCompany,
+          createdAt: inferredCreatedAt,
+          address: nextAddress,
+          contactName: nextContactName,
+          contactEmail: nextContactEmail,
+          contactPhone: nextContactPhone,
+          contactMobile: nextContactMobile,
+          orderCount: 1,
+          lastOrderAt: o.createdAt || inferredCreatedAt,
+        });
+        return;
+      }
+
+      const current = byCustomer.get(id)!;
+      current.orderCount += 1;
+      current.accountName = current.accountName || nextAccountName;
+      current.phone = current.phone || nextPhone;
+      current.email = current.email || nextEmail;
+      current.company = current.company || nextCompany;
+      current.address = current.address || nextAddress;
+      current.contactName = current.contactName || nextContactName;
+      current.contactEmail = current.contactEmail || nextContactEmail;
+      current.contactPhone = current.contactPhone || nextContactPhone;
+      current.contactMobile = current.contactMobile || nextContactMobile;
+
+      const currentCreatedTime = new Date(current.createdAt || 0).getTime();
+      const nextCreatedTime = new Date(inferredCreatedAt || 0).getTime();
+      if (!current.createdAt || (nextCreatedTime && nextCreatedTime < currentCreatedTime)) {
+        current.createdAt = inferredCreatedAt || current.createdAt;
+      }
+
+      const currentLastOrderTime = new Date(current.lastOrderAt || 0).getTime();
+      const nextLastOrderTime = new Date(o.createdAt || 0).getTime();
+      if (nextLastOrderTime > currentLastOrderTime) {
+        current.lastOrderAt = o.createdAt || current.lastOrderAt;
+      }
+    });
+
+    const merged = Array.from(byCustomer.values()).map((customer) => ({
+      ...customer,
+      ...(customerEdits[customer.id] || {}),
+    }));
+
+    return merged.sort((a, b) => {
+      const at = new Date(a.createdAt || a.lastOrderAt || 0).getTime();
+      const bt = new Date(b.createdAt || b.lastOrderAt || 0).getTime();
+      return bt - at;
+    });
+  }, [orders, customerEdits]);
+
+  const customers = useMemo(() => {
+    const q = customerSearch.trim().toLowerCase();
+    if (!q) return allCustomers;
+    return allCustomers.filter((c) =>
+      [c.accountName, c.phone, c.email, c.company].some((value) =>
+        String(value || "").toLowerCase().includes(q),
+      ),
+    );
+  }, [allCustomers, customerSearch]);
+
+  const selectedCustomer =
+    viewingCustomerId
+      ? allCustomers.find((c) => c.id === viewingCustomerId) || null
+      : null;
+
   const reportsData = useMemo(() => {
     const now = new Date();
     const start = new Date(now);
@@ -1870,6 +2014,9 @@ const Admin: React.FC = () => {
         fetchWithdrawalsData();
         break;
       case "orders":
+        fetchOrdersData();
+        break;
+      case "customers":
         fetchOrdersData();
         break;
       case "reports":
@@ -3355,6 +3502,11 @@ const Admin: React.FC = () => {
                 icon: <ShoppingCartRoundedIcon sx={{ fontSize: 22 }} />,
               },
               {
+                id: "customers",
+                label: "Customers",
+                icon: <ContactsRoundedIcon sx={{ fontSize: 22 }} />,
+              },
+              {
                 id: "reports",
                 label: "Reports",
                 icon: <BarChart3 className="w-5 h-5" />,
@@ -3428,6 +3580,7 @@ const Admin: React.FC = () => {
                 {currentView === "influencers" && "Pending Approvals"}
                 {currentView === "withdrawals" && "Withdrawals"}
                 {currentView === "orders" && "Orders"}
+                {currentView === "customers" && "Customers"}
                 {currentView === "reports" && "Reports"}
                 {currentView === "products" && "Products"}
                 {currentView === "promo" && "Promo Codes"}
@@ -6154,6 +6307,95 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
             </div>
           )}
 
+          {currentView === "customers" && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-xl border p-5">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <h3 className="text-2xl font-black">Customers ({customers.length})</h3>
+                    <p className="text-sm text-slate-500">
+                      Auto-built from order records. Click a row to view and edit details.
+                    </p>
+                  </div>
+                  <input
+                    type="text"
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
+                    placeholder="Search name, phone, email, company"
+                    className="w-full md:w-[320px] px-3 py-2 border rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl border overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[900px]">
+                    <thead className="bg-slate-50 border-b">
+                      <tr className="text-left text-xs uppercase tracking-wide text-slate-600">
+                        <th className="px-4 py-3 font-black">Account Name</th>
+                        <th className="px-4 py-3 font-black">Phone</th>
+                        <th className="px-4 py-3 font-black">Email</th>
+                        <th className="px-4 py-3 font-black">Company</th>
+                        <th className="px-4 py-3 font-black">Date</th>
+                        <th className="px-4 py-3 font-black">Orders</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loadingData.orders ? (
+                        <tr>
+                          <td className="px-4 py-8 text-center text-slate-500" colSpan={6}>
+                            Loading customers...
+                          </td>
+                        </tr>
+                      ) : customers.length === 0 ? (
+                        <tr>
+                          <td className="px-4 py-8 text-center text-slate-500" colSpan={6}>
+                            No customer records found
+                          </td>
+                        </tr>
+                      ) : (
+                        customers.map((customer) => (
+                          <tr
+                            key={customer.id}
+                            onClick={() => {
+                              setViewingCustomerId(customer.id);
+                              setIsEditingCustomer(false);
+                              setCustomerDraft({
+                                accountName: customer.accountName || "",
+                                phone: customer.phone || "",
+                                email: customer.email || "",
+                                company: customer.company || "",
+                                address: customer.address || "",
+                                contactName: customer.contactName || customer.accountName || "",
+                                contactEmail: customer.contactEmail || customer.email || "",
+                                contactPhone: customer.contactPhone || customer.phone || "",
+                                contactMobile: customer.contactMobile || "",
+                              });
+                            }}
+                            className="border-b last:border-0 hover:bg-slate-50 cursor-pointer transition-colors"
+                          >
+                            <td className="px-4 py-3 font-semibold text-slate-900">
+                              {customer.accountName || "Customer"}
+                            </td>
+                            <td className="px-4 py-3 text-slate-700">{customer.phone || "-"}</td>
+                            <td className="px-4 py-3 text-slate-700">{customer.email || "-"}</td>
+                            <td className="px-4 py-3 text-slate-700">{customer.company || "-"}</td>
+                            <td className="px-4 py-3 text-slate-700">
+                              {customer.createdAt
+                                ? new Date(customer.createdAt).toLocaleDateString("en-IN")
+                                : "-"}
+                            </td>
+                            <td className="px-4 py-3 text-slate-700 font-bold">{customer.orderCount}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
           {currentView === "reports" && (
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -6650,6 +6892,65 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   </div>
                 </div>
 
+                {/* CRM Invoice Form Preview */}
+                <div className="mb-6 rounded-xl border border-indigo-500/30 bg-white p-4 text-slate-900">
+                  <div className="flex items-start justify-between border-b border-slate-200 pb-3 mb-4">
+                    <div>
+                      <h4 className="text-lg font-black">INVOICE FORM</h4>
+                      <p className="text-xs text-slate-500">CRM Preview (Static + Dynamic)</p>
+                    </div>
+                    <div className="text-right text-xs">
+                      <p><span className="text-slate-500">Invoice ID:</span> <span className="font-bold text-slate-900">{typeof viewingOrder.invoiceId === "string" ? viewingOrder.invoiceId : viewingOrder.invoiceId?._id || "Pending"}</span></p>
+                      <p><span className="text-slate-500">Order ID:</span> <span className="font-bold text-slate-900">#{viewingOrder.orderId || viewingOrder._id}</span></p>
+                      <p><span className="text-slate-500">Date:</span> <span className="font-bold text-slate-900">{new Date(viewingOrder.createdAt).toLocaleDateString("en-IN")}</span></p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                    <div className="rounded-lg border border-slate-200 p-3 bg-slate-50">
+                      <p className="text-[11px] font-black uppercase text-slate-500 mb-1">Seller (Static)</p>
+                      <p className="font-bold">StickToon</p>
+                      <p className="text-sm">TBI, Ramdeobaba College, Nagpur</p>
+                      <p className="text-sm">Maharashtra - 440013</p>
+                      <p className="text-sm">GSTIN: 27HENPP0138G1Z9</p>
+                      <p className="text-sm">Email: sticktoon.xyz@gmail.com</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 p-3 bg-slate-50">
+                      <p className="text-[11px] font-black uppercase text-slate-500 mb-1">Bill To (Dynamic)</p>
+                      <p className="font-bold">{viewingOrder.address?.name || viewingOrder.userId?.name || "Customer"}</p>
+                      <p className="text-sm">{viewingOrder.address?.street || "-"}</p>
+                      <p className="text-sm">Phone: {viewingOrder.address?.phone || "-"}</p>
+                      <p className="text-sm">Email: {viewingOrder.userId?.email || "-"}</p>
+                      <p className="text-sm">Payment: {viewingOrder.paymentMethod || "Online"}</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-slate-200 overflow-hidden mb-3">
+                    <div className="grid grid-cols-12 bg-slate-100 text-xs font-black text-slate-600">
+                      <div className="col-span-1 p-2">#</div>
+                      <div className="col-span-5 p-2">Item</div>
+                      <div className="col-span-2 p-2 text-center">Qty</div>
+                      <div className="col-span-2 p-2 text-right">Rate</div>
+                      <div className="col-span-2 p-2 text-right">Amount</div>
+                    </div>
+                    {(viewingOrder.items || []).map((item: any, idx: number) => (
+                      <div key={idx} className="grid grid-cols-12 text-sm border-t border-slate-200">
+                        <div className="col-span-1 p-2">{idx + 1}</div>
+                        <div className="col-span-5 p-2 font-semibold">{item.name}</div>
+                        <div className="col-span-2 p-2 text-center">{item.quantity}</div>
+                        <div className="col-span-2 p-2 text-right">Rs {item.price}</div>
+                        <div className="col-span-2 p-2 text-right font-bold">Rs {item.price * item.quantity}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="ml-auto w-full md:w-72 rounded-lg border border-slate-200 p-3 bg-slate-50 text-sm">
+                    <div className="flex justify-between"><span className="text-slate-600">Subtotal</span><span className="font-semibold">Rs {viewingOrder.subtotal || viewingOrder.amount - 99}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-600">Delivery</span><span className="font-semibold">Rs 99</span></div>
+                    <div className="flex justify-between border-t border-slate-300 mt-2 pt-2"><span className="font-black">Total</span><span className="font-black">Rs {viewingOrder.amount}</span></div>
+                  </div>
+                </div>
+
                 {/* Action Button */}
                 <button
                   onClick={async () => {
@@ -6689,6 +6990,215 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   <span className="text-2xl">📥</span>
                   <span>Download Invoice</span>
                 </button>
+              </div>
+            </div>
+          )}
+
+          {selectedCustomer && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 max-w-3xl w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+                <div className="mb-6 pb-4 border-b border-slate-200 flex items-start justify-between">
+                  <div>
+                    <h3 className="text-slate-900 font-black text-2xl">Customer Record</h3>
+                    <p className="text-slate-500 text-sm mt-1">
+                      {selectedCustomer.accountName || "Customer"} • {selectedCustomer.email || "No email"}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setViewingCustomerId(null);
+                      setIsEditingCustomer(false);
+                    }}
+                    className="text-slate-400 hover:text-slate-900 text-2xl leading-none"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <p className="text-xs font-black uppercase text-slate-500 mb-2">Name</p>
+                    {isEditingCustomer ? (
+                      <input
+                        type="text"
+                        value={customerDraft.accountName}
+                        onChange={(e) =>
+                          setCustomerDraft((prev) => ({ ...prev, accountName: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                      />
+                    ) : (
+                      <p className="font-bold text-slate-900">{selectedCustomer.accountName || "-"}</p>
+                    )}
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <p className="text-xs font-black uppercase text-slate-500 mb-2">Phone</p>
+                    {isEditingCustomer ? (
+                      <input
+                        type="text"
+                        value={customerDraft.phone}
+                        onChange={(e) =>
+                          setCustomerDraft((prev) => ({ ...prev, phone: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                      />
+                    ) : (
+                      <p className="font-bold text-slate-900">{selectedCustomer.phone || "-"}</p>
+                    )}
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <p className="text-xs font-black uppercase text-slate-500 mb-2">Email</p>
+                    {isEditingCustomer ? (
+                      <input
+                        type="email"
+                        value={customerDraft.email}
+                        onChange={(e) =>
+                          setCustomerDraft((prev) => ({ ...prev, email: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                      />
+                    ) : (
+                      <p className="font-bold text-slate-900">{selectedCustomer.email || "-"}</p>
+                    )}
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <p className="text-xs font-black uppercase text-slate-500 mb-2">Address</p>
+                    {isEditingCustomer ? (
+                      <input
+                        type="text"
+                        value={customerDraft.address}
+                        onChange={(e) =>
+                          setCustomerDraft((prev) => ({ ...prev, address: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                      />
+                    ) : (
+                      <p className="font-bold text-slate-900">{selectedCustomer.address || "-"}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 rounded-xl border overflow-hidden">
+                  <div className="px-4 py-3 border-b flex items-center justify-between">
+                    <h4 className="font-black text-slate-900">Contact</h4>
+                    <button
+                      onClick={() => {
+                        if (!isEditingCustomer) {
+                          setIsEditingCustomer(true);
+                          return;
+                        }
+
+                        setCustomerEdits((prev) => ({
+                          ...prev,
+                          [selectedCustomer.id]: {
+                            ...prev[selectedCustomer.id],
+                            accountName: customerDraft.accountName.trim(),
+                            phone: customerDraft.phone.trim(),
+                            email: customerDraft.email.trim(),
+                            company: customerDraft.company.trim(),
+                            address: customerDraft.address.trim(),
+                            contactName: customerDraft.contactName.trim(),
+                            contactEmail: customerDraft.contactEmail.trim(),
+                            contactPhone: customerDraft.contactPhone.trim(),
+                            contactMobile: customerDraft.contactMobile.trim(),
+                          },
+                        }));
+                        setIsEditingCustomer(false);
+                        showToast("success", "✅ Customer record updated");
+                      }}
+                      className="px-3 py-1.5 text-sm font-bold rounded-lg border border-slate-300 hover:bg-slate-100"
+                    >
+                      {isEditingCustomer ? "Save" : "Edit"}
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[680px]">
+                      <thead className="bg-white border-b">
+                        <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                          <th className="px-4 py-3 font-black">Name</th>
+                          <th className="px-4 py-3 font-black">Email</th>
+                          <th className="px-4 py-3 font-black">Phone</th>
+                          <th className="px-4 py-3 font-black">Mobile</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="px-4 py-3">
+                            {isEditingCustomer ? (
+                              <input
+                                type="text"
+                                value={customerDraft.contactName}
+                                onChange={(e) =>
+                                  setCustomerDraft((prev) => ({ ...prev, contactName: e.target.value }))
+                                }
+                                className="w-full px-3 py-2 border rounded-lg text-sm"
+                              />
+                            ) : (
+                              <span className="font-semibold text-slate-900">
+                                {selectedCustomer.contactName || selectedCustomer.accountName || "-"}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {isEditingCustomer ? (
+                              <input
+                                type="email"
+                                value={customerDraft.contactEmail}
+                                onChange={(e) =>
+                                  setCustomerDraft((prev) => ({ ...prev, contactEmail: e.target.value }))
+                                }
+                                className="w-full px-3 py-2 border rounded-lg text-sm"
+                              />
+                            ) : (
+                              <span>{selectedCustomer.contactEmail || selectedCustomer.email || "-"}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {isEditingCustomer ? (
+                              <input
+                                type="text"
+                                value={customerDraft.contactPhone}
+                                onChange={(e) =>
+                                  setCustomerDraft((prev) => ({ ...prev, contactPhone: e.target.value }))
+                                }
+                                className="w-full px-3 py-2 border rounded-lg text-sm"
+                              />
+                            ) : (
+                              <span>{selectedCustomer.contactPhone || selectedCustomer.phone || "-"}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {isEditingCustomer ? (
+                              <input
+                                type="text"
+                                value={customerDraft.contactMobile}
+                                onChange={(e) =>
+                                  setCustomerDraft((prev) => ({ ...prev, contactMobile: e.target.value }))
+                                }
+                                className="w-full px-3 py-2 border rounded-lg text-sm"
+                              />
+                            ) : (
+                              <span>{selectedCustomer.contactMobile || "-"}</span>
+                            )}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="mt-5 flex justify-end">
+                  <button
+                    onClick={() => {
+                      setViewingCustomerId(null);
+                      setIsEditingCustomer(false);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-slate-900 text-white font-bold hover:bg-slate-700"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           )}
