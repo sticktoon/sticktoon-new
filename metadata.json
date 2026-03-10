@@ -1,0 +1,7 @@
+{
+  "name": "StickToon  Main",
+  "description": "A professional, fully functional marketplace for custom and pre-designed badges, featuring AI-powered mockup generation and a sleek, responsive UI based on the design specifications.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

@@ -1,0 +1,94 @@
+const mongoose = require("mongoose");
+const Product = require("../models/Product");
+require("dotenv").config();
+
+// Existing badges from constants.tsx
+const EXISTING_BADGES = [
+  // MOODY
+  { id: 'moody-5', name: 'Joy Pop', price: 50, category: 'Moody', image: '/badge/moody2.png', stock: 100 },
+  { id: 'moody-1', name: 'Crushin', price: 50, category: 'Moody', image: '/badge/moody1.png', stock: 100 },
+  { id: 'moody-2', name: 'OMG Mood', price: 50, category: 'Moody', image: '/badge/moody3.png', stock: 100 },
+  { id: 'moody-3', name: 'Just Vibin', price: 50, category: 'Moody', image: '/badge/moody4.png', stock: 100 },
+  
+  // SPORTS
+  { id: 'sports-1', name: 'GOAL VIBE', price: 50, category: 'Sports', image: '/badge/sport1.png', stock: 100 },
+  { id: 'sports-2', name: 'WIN VIBE', price: 50, category: 'Sports', image: '/badge/sport2.png', stock: 100 },
+  { id: 'sports-3', name: 'GAME VIBE', price: 50, category: 'Sports', image: '/badge/sport3.png', stock: 100 },
+  { id: 'sports-4', name: 'BEAST MODE', price: 50, category: 'Sports', image: '/badge/sport4.png', stock: 100 },
+  
+  // RELIGIOUS
+  { id: 'reli-1', name: 'OM VIBE', price: 50, category: 'Religious', image: '/badge/R1.png', stock: 100 },
+  { id: 'reli-2', name: 'FAITH VIBE', price: 50, category: 'Religious', image: '/badge/R2.png', stock: 100 },
+  { id: 'reli-3', name: 'BLESS VIBE', price: 50, category: 'Religious', image: '/badge/R3.png', stock: 100 },
+  { id: 'reli-4', name: 'PRAY VIBE', price: 50, category: 'Religious', image: '/badge/R4.png', stock: 100 },
+  
+  // ENTERTAINMENT
+  { id: 'ent-1', name: 'CINEMA VIBE', price: 50, category: 'Entertainment', image: '/badge/entert1.png', stock: 100 },
+  { id: 'ent-2', name: 'STAGE VIBE', price: 50, category: 'Entertainment', image: '/badge/enter3.png', stock: 100 },
+  { id: 'ent-3', name: 'DISCO VIBE', price: 50, category: 'Entertainment', image: '/badge/entert4.png', stock: 100 },
+  { id: 'ent-4', name: 'STREAM VIBE', price: 50, category: 'Entertainment', image: '/badge/entert5.png', stock: 100 },
+  
+  // EVENTS
+  { id: 'event-1', name: 'flag VIBE', price: 50, category: 'Events', image: '/badge/flag.png', stock: 100 },
+  { id: 'event-2', name: 'BIRTHDAY VIBE', price: 50, category: 'Events', image: '/badge/event2.png', stock: 100 },
+  { id: 'event-3', name: 'GRAD VIBE', price: 50, category: 'Events', image: '/badge/event3.png', stock: 100 },
+  { id: 'event-4', name: 'WEDDING VIBE', price: 50, category: 'Events', image: '/badge/event4.png', stock: 100 },
+  { id: 'event-5', name: 'Party VIBE', price: 50, category: 'Events', image: '/badge/event1.png', stock: 100 },
+  
+  // PET
+  { id: 'pet-1', name: 'Cute Dog', price: 50, category: 'Pet', image: '/badge/Cute_Dog.png', stock: 100 },
+  { id: 'pet-2', name: 'Red Dog', price: 50, category: 'Pet', image: '/badge/Red_Dog.png', stock: 100 },
+  { id: 'pet-3', name: 'Brown Classic Dog', price: 50, category: 'Pet', image: '/badge/Brownclassic_Dog.png', stock: 100 },
+  { id: 'pet-4', name: 'Classic Dog', price: 50, category: 'Pet', image: '/badge/Classic_Dog.png', stock: 100 },
+  { id: 'pet-5', name: 'Bunny Bliss', price: 50, category: 'Pet', image: '/badge/bunny.png', stock: 100 },
+  { id: 'pet-6', name: 'Puppy Cheer', price: 50, category: 'Pet', image: '/badge/animal2.png', stock: 100 },
+  { id: 'pet-7', name: 'Panda Joy', price: 50, category: 'Pet', image: '/badge/animal3.png', stock: 100 },
+  { id: 'pet-8', name: 'Little Champion', price: 50, category: 'Pet', image: '/badge/animal4.png', stock: 100 },
+  { id: 'pet-9', name: 'Playful Dogs', price: 50, category: 'Pet', image: '/badge/Dogs.png', stock: 100 },
+  { id: 'pet-10', name: 'Yellow Pet', price: 50, category: 'Pet', image: '/badge/Yellowpet.png', stock: 100 },
+ 
+  
+  // COUPLE
+  { id: 'couple-1', name: 'SOUL VIBE', price: 50, category: 'Couple', image: '/badge/c1.png', stock: 100 },
+  { id: 'couple-2', name: 'LOVE VIBE', price: 50, category: 'Couple', image: '/badge/c2.png', stock: 100 },
+  { id: 'couple-3', name: 'HEART VIBE', price: 50, category: 'Couple', image: '/badge/c3.png', stock: 100 },
+  { id: 'couple-4', name: 'FOREVER VIBE', price: 50, category: 'Couple', image: '/badge/c4.png', stock: 100 },
+  
+  // ANIME
+  { id: 'anime-1', name: 'HERO VIBE', price: 50, category: 'Anime', image: '/badge/anime1.png', stock: 100 },
+  { id: 'anime-2', name: 'NINJA VIBE', price: 50, category: 'Anime', image: '/badge/anime2.png', stock: 100 },
+  { id: 'anime-3', name: 'KAWAII VIBE', price: 50, category: 'Anime', image: '/badge/anime3.png', stock: 100 },
+  { id: 'anime-4', name: 'SENPAI VIBE', price: 50, category: 'Anime', image: '/badge/anime4.png', stock: 100 },
+];
+
+const seedProducts = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log("✅ Connected to MongoDB");
+
+    // Clear existing products
+    await Product.deleteMany({});
+    console.log("🗑️  Cleared existing products");
+
+    // Insert badges as products
+    const products = EXISTING_BADGES.map((badge) => ({
+      name: badge.name,
+      price: badge.price,
+      description: `Premium ${badge.name} badge. High-quality design perfect for your collection.`,
+      category: badge.category,
+      image: badge.image,
+      stock: badge.stock,
+      isActive: true,
+    }));
+
+    await Product.insertMany(products);
+    console.log(`✅ Inserted ${products.length} products into database`);
+
+    process.exit(0);
+  } catch (err) {
+    console.error("❌ Error seeding products:", err);
+    process.exit(1);
+  }
+};
+
+seedProducts();

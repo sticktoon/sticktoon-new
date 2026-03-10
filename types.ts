@@ -1,0 +1,49 @@
+
+export interface Badge {
+  id: string;
+  name: string;
+  price: number;
+  category: Category;
+   quantity?: number; 
+
+  image: string;            // pin image (default)
+  imageMagnetic?: string;  // magnetic image (optional)
+  printImage?: string;     // 70mm print image (optional)
+
+  details: string;
+  tagline?: string;         // New subtitle/tagline field
+  color: string;
+  isFeatured?: boolean;
+  isCombo?: boolean;        // Combo pack of all badges in category
+}
+
+
+export interface CartItem extends Badge {
+  quantity: number;
+}
+
+export interface User {
+  name: string;
+  email: string;
+  address: string;
+  phone: string;
+}
+
+export enum Category {
+  MOODY = 'Moody',
+  SPORTS = 'Sports',
+  RELIGIOUS = 'Religious',
+  ENTERTAINMENT = 'Entertainment',
+  EVENTS = 'Events',
+  PET = 'Pet',
+  COUPLE = 'Couple',
+  ANIME = 'Anime',
+  POSITIVE_VIBES = 'Positive Vibes',
+  CUSTOM = 'Custom'
+}
+
+export interface AppState {
+  cart: CartItem[];
+  user: User | null;
+  selectedCategory: string | null;
+}
