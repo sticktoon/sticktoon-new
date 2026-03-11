@@ -20,7 +20,7 @@ router.get("/", auth, async (req, res) => {
 ================================ */
 router.post("/", async (req, res) => {
   try {
-    const { firstName, lastName, company, email, phone, status } = req.body;
+    const { firstName, lastName, company, email, phone, status, leadSource, expectedAmount } = req.body;
 
     const newLead = new Lead({
       firstName,
@@ -28,6 +28,8 @@ router.post("/", async (req, res) => {
       company,
       email,
       phone,
+      expectedAmount: Number(expectedAmount || 0),
+      leadSource: leadSource || "",
       status: status || "New",
     });
 
@@ -37,6 +39,43 @@ router.post("/", async (req, res) => {
   } catch (err) {
     console.error("Create lead error:", err);
     res.status(500).json({ message: "Failed to create lead" });
+  }
+});
+
+router.patch("/:id", auth, async (req, res) => {
+  try {
+    const allowedFields = [
+      "firstName",
+      "lastName",
+      "company",
+      "email",
+      "status",
+      "leadSource",
+      "expectedAmount",
+    ];
+
+    const update = {};
+    allowedFields.forEach((field) => {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        update[field] =
+          field === "expectedAmount"
+            ? Number(req.body[field] || 0)
+            : req.body[field];
+      }
+    });
+
+    const updated = await Lead.findByIdAndUpdate(req.params.id, update, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!updated) {
+      return res.status(404).json({ message: "Lead not found" });
+    }
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to update lead" });
   }
 });
 
@@ -96,6 +135,26 @@ router.patch("/:id/follow-up", auth, async (req, res) => {
     res.json(lead);
   } catch (err) {
     res.status(500).json({ message: "Failed to update follow-up date" });
+  }
+});
+
+router.patch("/:id/lead-source", auth, async (req, res) => {
+  try {
+    const { leadSource } = req.body || {};
+
+    const updated = await Lead.findByIdAndUpdate(
+      req.params.id,
+      { leadSource: leadSource || "" },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Lead not found" });
+    }
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to update lead source" });
   }
 });
 

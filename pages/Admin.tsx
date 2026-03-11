@@ -34,6 +34,7 @@ import {
   XCircle,
   Info,
   BarChart3,
+  BriefcaseBusiness,
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 
@@ -615,6 +616,7 @@ const Admin: React.FC = () => {
     | "dashboard"
     | "notifications"
     | "leads"
+    | "deals"
     | "support"
     | "tasks"
     | "users"
@@ -718,6 +720,7 @@ const Admin: React.FC = () => {
     company: string;
     email: string;
     phone: string;
+    expectedAmount?: number;
     mobile?: string;
     title?: string;
     industry?: string;
@@ -776,6 +779,7 @@ const Admin: React.FC = () => {
   const [showCreateLead, setShowCreateLead] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+  const [dealDrafts, setDealDrafts] = useState<Record<string, Partial<Lead>>>({});
   const deleteLead = async () => {
     if (!leadToDelete?._id) return;
 
@@ -814,6 +818,7 @@ const Admin: React.FC = () => {
     title: "",
     industry: "",
     leadSource: "",
+    expectedAmount: 0,
     status: "New",
   });
 
@@ -956,6 +961,75 @@ const Admin: React.FC = () => {
       console.error("Update lead follow-up date error:", err);
       showToast("error", "❌ Failed to update follow-up date");
     }
+  };
+
+  const updateDealField = async (
+    leadId: string | undefined,
+    updates: Partial<Lead>,
+  ) => {
+    if (!leadId) return;
+
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/leads/${leadId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updates),
+      });
+      if (handleUnauthorized(res)) return;
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to update deal");
+      }
+
+      const updatedLead = await res.json();
+      setLeads((prev) =>
+        prev.map((l) =>
+          l._id === leadId
+            ? { ...l, ...updatedLead }
+            : l,
+        ),
+      );
+      setDealDrafts((prev) => {
+        const next = { ...prev };
+        delete next[leadId];
+        return next;
+      });
+    } catch (err) {
+      console.error("Update deal error:", err);
+      showToast("error", "❌ Failed to update deal");
+    }
+  };
+
+  const getDealDraftValue = (
+    lead: Lead,
+    field: keyof Lead,
+  ) => {
+    const draft = lead._id ? dealDrafts[lead._id] : undefined;
+    return draft && Object.prototype.hasOwnProperty.call(draft, field)
+      ? draft[field]
+      : lead[field];
+  };
+
+  const setDealDraftValue = (
+    leadId: string | undefined,
+    field: keyof Lead,
+    value: string | number,
+  ) => {
+    if (!leadId) return;
+    setDealDrafts((prev) => ({
+      ...prev,
+      [leadId]: {
+        ...(prev[leadId] || {}),
+        [field]: value,
+      },
+    }));
   };
 
   const normalizeTaskStatus = (value?: string): TaskStatus => {
@@ -1452,6 +1526,7 @@ const Admin: React.FC = () => {
 
   const reportsData = useMemo(() => {
     const now = new Date();
+    const currentYear = now.getFullYear();
     const start = new Date(now);
     start.setDate(start.getDate() - (reportRangeDays - 1));
     start.setHours(0, 0, 0, 0);
@@ -1486,6 +1561,31 @@ const Admin: React.FC = () => {
       })
       .reduce((sum, o) => sum + Number(o.amount || 0), 0);
 
+    const currentYearRevenue = orders
+      .filter((o) => {
+        if (o.status !== "SUCCESS") return false;
+        const createdAt = new Date(o.createdAt);
+        return createdAt.getFullYear() === currentYear;
+      })
+      .reduce((sum, o) => sum + Number(o.amount || 0), 0);
+
+    const yearStart = new Date(currentYear, 0, 1);
+    const yearEnd = new Date(currentYear, 11, 31, 23, 59, 59, 999);
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const daysElapsed = Math.max(
+      1,
+      Math.min(
+        Math.ceil((now.getTime() - yearStart.getTime()) / msPerDay) + 1,
+        Math.ceil((yearEnd.getTime() - yearStart.getTime()) / msPerDay) + 1,
+      ),
+    );
+    const daysInYear =
+      Math.ceil((yearEnd.getTime() - yearStart.getTime()) / msPerDay) + 1;
+    const projectedYearRevenue =
+      daysElapsed > 0 ? (currentYearRevenue / daysElapsed) * daysInYear : 0;
+    const targetRevenue = Math.max(projectedYearRevenue, currentYearRevenue, 1);
+    const chartMidpoint = Math.round(targetRevenue / 2);
+
     const previousMonthRevenue = orders
       .filter((o) => {
         if (o.status !== "SUCCESS") return false;
@@ -1518,9 +1618,9 @@ const Admin: React.FC = () => {
     });
 
     const statusCounts = {
-      SUCCESS: ordersInRange.filter((o) => o.status === "SUCCESS").length,
-      PENDING: ordersInRange.filter((o) => o.status === "PENDING").length,
-      FAILED: ordersInRange.filter((o) => o.status === "FAILED").length,
+      SUCCESS: orders.filter((o) => o.status === "SUCCESS").length,
+      PENDING: orders.filter((o) => o.status === "PENDING").length,
+      FAILED: orders.filter((o) => o.status === "FAILED").length,
     };
 
     const customerMap = new Map<string, { name: string; totalSpent: number }>();
@@ -1547,16 +1647,21 @@ const Admin: React.FC = () => {
     return {
       totalRevenue,
       totalOrders,
+      totalCustomers: allCustomers.length,
       aov,
       conversionRate,
       failedRate,
       growthMoM,
       currentMonthRevenue,
+      currentYearRevenue,
+      projectedYearRevenue,
+      targetRevenue,
+      chartMidpoint,
       trendByDate,
       statusCounts,
       topCustomers,
     };
-  }, [orders, reportRangeDays]);
+  }, [allCustomers.length, orders, reportRangeDays]);
 
   // 🔍 LEADS FILTER STATE
   const [leadSearch, setLeadSearch] = useState("");
@@ -2021,6 +2126,7 @@ const Admin: React.FC = () => {
         break;
       case "reports":
         fetchOrdersData();
+        fetchLeadsData();
         break;
       case "products":
         fetchProductsData();
@@ -2029,6 +2135,9 @@ const Admin: React.FC = () => {
         fetchPromoCodes();
         break;
       case "leads":
+        fetchLeadsData();
+        break;
+      case "deals":
         fetchLeadsData();
         break;
       case "tasks":
@@ -3467,6 +3576,11 @@ const Admin: React.FC = () => {
                 icon: <DescriptionRoundedIcon sx={{ fontSize: 22 }} />,
               },
               {
+                id: "deals",
+                label: "Deals",
+                icon: <BriefcaseBusiness className="w-5 h-5" />,
+              },
+              {
                 id: "support",
                 label: "Support",
                 icon: <SupportAgentRoundedIcon sx={{ fontSize: 22 }} />,
@@ -3573,6 +3687,7 @@ const Admin: React.FC = () => {
                 {currentView === "dashboard" && "Dashboard"}
                 {currentView === "notifications" && "Notifications"}
                 {currentView === "leads" && "Leads"}
+                {currentView === "deals" && "Deals"}
                 {currentView === "support" && "Support"}
                 {currentView === "tasks" && "Tasks"}
                 {currentView === "users" && "All Users"}
@@ -4184,6 +4299,161 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* ================= DEALS VIEW ================= */}
+          {currentView === "deals" && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-xl border p-5">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <h3 className="text-2xl font-black">Deals</h3>
+                    <p className="text-sm text-slate-500">
+                      Deal pipeline built from current lead records.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setCurrentView("leads")}
+                    className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-bold"
+                  >
+                    Manage Leads
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl border overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[1100px]">
+                    <thead className="bg-slate-50 border-b">
+                      <tr className="text-left text-xs uppercase tracking-wide text-slate-600">
+                        <th className="px-4 py-3 font-black">Name</th>
+                        <th className="px-4 py-3 font-black">Company</th>
+                        <th className="px-4 py-3 font-black">Email</th>
+                        <th className="px-4 py-3 font-black">Stage</th>
+                        <th className="px-4 py-3 font-black">Lead Source</th>
+                        <th className="px-4 py-3 font-black">Expected Amt</th>
+                        <th className="px-4 py-3 font-black">More Options</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredLeads.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">
+                            No deals found.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredLeads.map((lead) => (
+                          <tr
+                            key={lead._id || `${lead.email}-${lead.phone}`}
+                            className="border-b last:border-b-0"
+                          >
+                            <td className="px-4 py-4">
+                              <div className="grid grid-cols-2 gap-2">
+                                <input
+                                  value={String(getDealDraftValue(lead, "firstName") || "")}
+                                  onChange={(e) => setDealDraftValue(lead._id, "firstName", e.target.value)}
+                                  onBlur={(e) => updateDealField(lead._id, { firstName: e.target.value })}
+                                  placeholder="First name"
+                                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
+                                />
+                                <input
+                                  value={String(getDealDraftValue(lead, "lastName") || "")}
+                                  onChange={(e) => setDealDraftValue(lead._id, "lastName", e.target.value)}
+                                  onBlur={(e) => updateDealField(lead._id, { lastName: e.target.value })}
+                                  placeholder="Last name"
+                                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
+                                />
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <input
+                                value={String(getDealDraftValue(lead, "company") || "")}
+                                onChange={(e) => setDealDraftValue(lead._id, "company", e.target.value)}
+                                onBlur={(e) => updateDealField(lead._id, { company: e.target.value })}
+                                placeholder="Company"
+                                className="min-w-[150px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+                              />
+                            </td>
+                            <td className="px-4 py-4">
+                              <input
+                                value={String(getDealDraftValue(lead, "email") || "")}
+                                onChange={(e) => setDealDraftValue(lead._id, "email", e.target.value)}
+                                onBlur={(e) => updateDealField(lead._id, { email: e.target.value })}
+                                placeholder="Email"
+                                className="min-w-[220px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+                              />
+                            </td>
+                            <td className="px-4 py-4">
+                              <select
+                                value={String(getDealDraftValue(lead, "status") || "New")}
+                                onChange={(e) => {
+                                  setDealDraftValue(lead._id, "status", e.target.value);
+                                  updateDealField(lead._id, { status: e.target.value });
+                                }}
+                                className="min-w-[120px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700"
+                              >
+                                <option value="New">New</option>
+                                <option value="Contacted">Contacted</option>
+                                <option value="Interested">Interested</option>
+                                <option value="Lost">Lost</option>
+                              </select>
+                            </td>
+                            <td className="px-4 py-4">
+                              <select
+                                value={String(getDealDraftValue(lead, "leadSource") || "")}
+                                onChange={(e) => {
+                                  setDealDraftValue(lead._id, "leadSource", e.target.value);
+                                  updateDealField(lead._id, { leadSource: e.target.value });
+                                }}
+                                className="min-w-[160px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+                              >
+                                <option value="">-</option>
+                                <option value="WhatsApp">WhatsApp</option>
+                                <option value="Phone contact">Phone contact</option>
+                                <option value="Social Media">Social Media</option>
+                                <option value="Email">Email</option>
+                                <option value="Referral">Referral</option>
+                                <option value="Website">Website</option>
+                              </select>
+                            </td>
+                            <td className="px-4 py-4">
+                              <input
+                                type="number"
+                                min={0}
+                                value={Number(getDealDraftValue(lead, "expectedAmount") || 0)}
+                                onChange={(e) => setDealDraftValue(lead._id, "expectedAmount", Number(e.target.value || 0))}
+                                onBlur={(e) => updateDealField(lead._id, { expectedAmount: Number(e.target.value || 0) })}
+                                className="w-[120px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+                              />
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => navigate("/admin/deal-convert", { state: { lead } })}
+                                  className="rounded-md border px-3 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                >
+                                  Convert
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setLeadToDelete(lead);
+                                    setShowDeleteModal(true);
+                                  }}
+                                  className="rounded-md border border-red-200 px-3 py-1 text-xs font-bold text-red-600 hover:bg-red-50"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -6309,7 +6579,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
           {currentView === "customers" && (
             <div className="space-y-6">
-              <div className="bg-white rounded-xl border p-5">
+              <div className="bg-white rounded-xl border p-5 max-w-4xl">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
                     <h3 className="text-2xl font-black">Customers ({customers.length})</h3>
@@ -6423,8 +6693,8 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   <p className="mt-2 text-3xl font-black text-slate-900">₹{Math.round(reportsData.currentMonthRevenue).toLocaleString("en-IN")}</p>
                 </div>
                 <div className="bg-white rounded-xl border p-5">
-                  <p className="text-xs uppercase font-black text-slate-500">Total Orders ({reportRangeDays} Days)</p>
-                  <p className="mt-2 text-3xl font-black text-slate-900">{reportsData.totalOrders}</p>
+                  <p className="text-xs uppercase font-black text-slate-500">Total Orders</p>
+                  <p className="mt-2 text-3xl font-black text-slate-900">{orders.length}</p>
                 </div>
                 <div className="bg-white rounded-xl border p-5">
                   <p className="text-xs uppercase font-black text-slate-500">Average Order Value (AOV)</p>
@@ -6433,59 +6703,98 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 <div className="bg-white rounded-xl border p-5">
                   <p className="text-xs uppercase font-black text-slate-500">Conversion Rate</p>
                   <p className="mt-2 text-3xl font-black text-slate-900">{reportsData.conversionRate.toFixed(1)}%</p>
-                  <p className="text-xs text-slate-500 mt-1">Successful Orders / Total Orders</p>
                 </div>
                 <div className="bg-white rounded-xl border p-5">
-                  <p className="text-xs uppercase font-black text-slate-500">Refund / Failed Rate</p>
-                  <p className="mt-2 text-3xl font-black text-slate-900">{reportsData.failedRate.toFixed(1)}%</p>
+                  <p className="text-xs uppercase font-black text-slate-500">Total Leads</p>
+                  <p className="mt-2 text-3xl font-black text-slate-900">{leads.length}</p>
                 </div>
                 <div className="bg-white rounded-xl border p-5">
-                  <p className="text-xs uppercase font-black text-slate-500">Revenue Growth % (MoM)</p>
-                  <p
-                    className={`mt-2 text-3xl font-black ${
-                      reportsData.growthMoM >= 0 ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    {reportsData.growthMoM >= 0 ? "+" : ""}
-                    {reportsData.growthMoM.toFixed(1)}%
-                  </p>
+                  <p className="text-xs uppercase font-black text-slate-500">Total Customers</p>
+                  <p className="mt-2 text-3xl font-black text-slate-900">{reportsData.totalCustomers}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <div className="bg-white rounded-xl border p-5">
-                  <h4 className="text-lg font-black text-slate-900 mb-4">Revenue Trend (Line Chart)</h4>
-                  {reportsData.trendByDate.length === 0 ? (
-                    <p className="text-sm text-slate-500">No data available.</p>
-                  ) : (
-                    <div className="space-y-3">
-                      <svg viewBox="0 0 600 220" className="w-full h-56">
-                        {(() => {
-                          const points = reportsData.trendByDate;
-                          const maxY = Math.max(...points.map((p) => p.revenue), 1);
-                          const getX = (i: number) => (i / Math.max(points.length - 1, 1)) * 560 + 20;
-                          const getY = (v: number) => 180 - (v / maxY) * 150 + 20;
-                          const path = points
-                            .map((p, i) => `${getX(i)},${getY(p.revenue)}`)
-                            .join(" ");
+                  <h4 className="text-lg font-black text-slate-900 mb-4">Revenue Target - This Year</h4>
+                  {(() => {
+                    const achieved = reportsData.currentYearRevenue;
+                    const target = reportsData.targetRevenue;
+                    const rawMax = Math.max(target, achieved, 0);
+                    const normalizedBase =
+                      rawMax <= 1000
+                        ? 1000
+                        : Math.ceil(rawMax / 10000) * 10000;
+                    const maxScale = normalizedBase;
+                    const achievedWidth = maxScale > 0 ? (achieved / maxScale) * 100 : 0;
+                    const targetWidth = maxScale > 0 ? (target / maxScale) * 100 : 0;
+                    const progress = target > 0 ? (achieved / target) * 100 : 0;
+                    const scaleTicks = [0, 0.25, 0.5, 0.75, 1];
+                    const showAchievedLabel = achievedWidth >= 18;
 
-                          return (
-                            <>
-                              <line x1="20" y1="200" x2="580" y2="200" stroke="#cbd5e1" strokeWidth="1" />
-                              <polyline fill="none" stroke="#0f172a" strokeWidth="3" points={path} />
-                              {points.map((p, i) => (
-                                <circle key={p.key} cx={getX(i)} cy={getY(p.revenue)} r="3" fill="#334155" />
+                    return (
+                      <div className="space-y-6">
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                          <div className="mb-3 flex items-center justify-between text-sm font-bold text-slate-600">
+                            <span>Entire Org</span>
+                            <span>{progress.toFixed(1)}% achieved</span>
+                          </div>
+
+                          <div className="relative">
+                            <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-slate-400">
+                              {scaleTicks.map((tick) => (
+                                <span key={tick}>{Math.round(maxScale * tick).toLocaleString("en-IN")}</span>
                               ))}
-                            </>
-                          );
-                        })()}
-                      </svg>
-                      <div className="flex justify-between text-xs text-slate-500">
-                        <span>{reportsData.trendByDate[0]?.label}</span>
-                        <span>{reportsData.trendByDate[reportsData.trendByDate.length - 1]?.label}</span>
+                            </div>
+
+                            <div className="relative h-20">
+                              {scaleTicks.map((tick) => (
+                                <div
+                                  key={tick}
+                                  className="absolute top-1/2 h-14 w-px -translate-y-1/2 bg-slate-300/80"
+                                  style={{ left: `${tick * 100}%` }}
+                                />
+                              ))}
+                            <div className="absolute left-0 right-0 top-1/2 h-10 -translate-y-1/2 rounded-md bg-slate-200" />
+                            <div
+                              className="absolute left-0 top-1/2 h-10 -translate-y-1/2 rounded-md bg-emerald-300"
+                              style={{ width: `${Math.min(achievedWidth, 100)}%` }}
+                            >
+                              {showAchievedLabel && (
+                                <div className="flex h-full items-center justify-end pr-3 text-xl font-black text-slate-900">
+                                  Rs. {Math.round(achieved).toLocaleString("en-IN")}
+                                </div>
+                              )}
+                            </div>
+                            {target > 0 && (
+                              <div
+                                className="absolute top-1/2 h-14 w-0.5 -translate-y-1/2 bg-slate-900"
+                                style={{ left: `${Math.min(targetWidth, 100)}%` }}
+                              />
+                            )}
+
+                            {!showAchievedLabel && (
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-lg font-black text-slate-900">
+                                Rs. {Math.round(achieved).toLocaleString("en-IN")}
+                              </div>
+                            )}
+                          </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4 text-sm text-slate-600">
+                          <div className="flex items-center gap-2">
+                            <span className="h-3 w-3 rounded-sm bg-emerald-400" />
+                            <span>Achieved</span>
+                          </div>
+                          <span>
+                            Forecast based on {new Date().getFullYear()} revenue pace: Rs.{" "}
+                            {Math.round(reportsData.projectedYearRevenue).toLocaleString("en-IN")}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 <div className="bg-white rounded-xl border p-5">
@@ -6582,9 +6891,9 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   <p className="text-sm text-slate-500">No successful orders in selected range.</p>
                 ) : (
                   <div className="overflow-x-auto">
-                    <div className="min-w-[680px]">
+                    <div className="w-fit min-w-[520px]">
                       <div className="h-72 border-l border-b border-slate-200 px-4 pt-4 pb-2">
-                        <div className="h-full flex items-end gap-6">
+                        <div className="h-full flex items-end justify-start gap-10">
                           {reportsData.topCustomers.map((c) => {
                             const max = reportsData.topCustomers[0]?.totalSpent || 1;
                             const height = Math.max((c.totalSpent / max) * 100, 6);
@@ -6597,9 +6906,9 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                 className="flex-1 min-w-[90px] h-full flex flex-col justify-end items-center"
                               >
                                 <p className="text-xs font-black text-slate-900 mb-2">
-                                  ?{Math.round(c.totalSpent).toLocaleString("en-IN")}
+                                  Rs. {Math.round(c.totalSpent).toLocaleString("en-IN")}
                                 </p>
-                                <div className="w-10/12 bg-slate-900 rounded-t-md" style={{ height: `${height}%` }} />
+                                <div className="w-8/12 max-w-[84px] bg-slate-900 rounded-t-md" style={{ height: `${height}%` }} />
                                 <p className="text-xs font-semibold text-slate-700 mt-2 text-center leading-tight">
                                   {shortName}
                                 </p>

@@ -339,24 +339,33 @@ export type Sticker = {
 };
 
 export const STICKERS: Sticker[] = [
-  // Sticker Pack (Whole Pack)
-  { id: 'sticker-pack-1', name: "CATCH 'EM ALL IN ONE PACK", price: 140, category: 'sticker-pack', image: '/sticker/mergesticker.jpeg', tagline: 'Ultimate Pokémon Pack', details: 'Complete collection of Pokémon stickers in one pack', isFeatured: true },
-  { id: 'sticker-pack-2', name: 'Anime Mega Pack', price: 140, category: 'sticker-pack', image: '/sticker/anime.jpeg', details: 'Full anime sticker collection bundle.', tagline: 'Ultimate anime bundle' },
-  { id: 'sticker-pack-3', name: 'Cartoon Mega Pack', price: 140, category: 'sticker-pack', image: '/sticker/cartoon.jpeg', details: 'All cartoon stickers in one bundle.', tagline: 'Cartoon lovers paradise' },
-   
-  { id: 'sticker-pack-4', name: 'Mix Mega Pack', price: 140, category: 'sticker-pack', image: '/sticker/shinshanmerge.jpeg', details: 'Best of everything mixed sticker pack.', tagline: 'The ultimate collection', isFeatured: true },
-    { id: 'sticker-pack-4', name: 'Mix Mega Pack', price: 140, category: 'sticker-pack', image: '/sticker/mergepack1.jpeg', details: 'Best of everything mixed sticker pack.', tagline: 'The ultimate collection', isFeatured: true },
-      { id: 'sticker-pack-4', name: 'Mix Mega Pack', price: 140, category: 'sticker-pack', image: '/sticker/coder.jpeg', details: 'Best of everything mixed sticker pack.', tagline: 'The ultimate collection', isFeatured: true },
-        { id: 'sticker-pack-4', name: 'Mix Mega Pack', price: 140, category: 'sticker-pack', image: '/sticker/mergepack2.jpeg', details: 'Best of everything mixed sticker pack.', tagline: 'The ultimate collection', isFeatured: true },
-      { id: 'sticker-pack-4', name: 'Mix Mega Pack', price: 140, category: 'sticker-pack', image: '/sticker/mergepack3.jpeg', details: 'Best of everything mixed sticker pack.', tagline: 'The ultimate collection', isFeatured: true },  
-       { id: 'sticker-pack-4', name: 'Mix Mega Pack', price: 140, category: 'sticker-pack', image: '/sticker/catpack.jpeg', details: 'Best of everything mixed sticker pack.', tagline: 'The ultimate collection', isFeatured: true },  
-       { id: 'sticker-pack-4', name: 'Mix Mega Pack', price: 140, category: 'sticker-pack', image: '/sticker/flpack.jpg', details: 'Best of everything mixed sticker pack.', tagline: 'The ultimate collection', isFeatured: true }, 
-     { id: 'sticker-pack-4', name: 'Mix Mega Pack', price: 140, category: 'sticker-pack', image: '/sticker/random.jpeg', details: 'Best of everything mixed sticker pack.', tagline: 'The ultimate collection', isFeatured: true }, 
+// Sticker Pack (Whole Pack)
 
+{ id: 'sticker-pack-1', name: "CATCH 'EM ALL IN ONE PACK", price: 140, category: 'sticker-pack', image: '/sticker/mergesticker.jpeg', tagline: 'Ultimate Pokémon Pack', details: 'Complete collection of Pokémon stickers in one pack', isFeatured: true },
+
+{ id: 'sticker-pack-2', name: 'Anime Mega Pack', price: 140, category: 'sticker-pack', image: '/sticker/anime.jpeg', details: 'Full anime sticker collection bundle.', tagline: 'Ultimate anime bundle' },
+
+{ id: 'sticker-pack-3', name: 'Cartoon Mega Pack', price: 140, category: 'sticker-pack', image: '/sticker/cartoon.jpeg', details: 'All cartoon stickers in one bundle.', tagline: 'Cartoon lovers paradise' },
+
+{ id: 'sticker-pack-4', name: 'Shinchan Mega Pack', price: 140, category: 'sticker-pack', image: '/sticker/shinshanmerge.jpeg', details: 'Best Shinchan sticker collection.', tagline: 'The ultimate Shinchan collection', isFeatured: true },
+
+{ id: 'sticker-pack-5', name: 'Pokémon Mix Pack', price: 140, category: 'sticker-pack', image: '/sticker/mergepack1.jpeg', details: 'Mixed Pokémon sticker bundle.', tagline: 'Gotta catch them all', isFeatured: true },
+
+{ id: 'sticker-pack-6', name: 'Developer Pack', price: 140, category: 'sticker-pack', image: '/sticker/coder.jpeg', details: 'Programming and developer stickers.', tagline: 'Code the future', isFeatured: true },
+
+{ id: 'sticker-pack-7', name: 'Anime Faces Pack', price: 140, category: 'sticker-pack', image: '/sticker/mergepack2.jpeg', details: 'Popular anime characters sticker pack.', tagline: 'Anime legends', isFeatured: true },
+
+{ id: 'sticker-pack-8', name: 'Cute Dog Pack', price: 140, category: 'sticker-pack', image: '/sticker/mergepack3.jpeg', details: 'Adorable dog stickers collection.', tagline: 'Too cute to handle', isFeatured: true },
+
+{ id: 'sticker-pack-9', name: 'Cat Meme Pack', price: 140, category: 'sticker-pack', image: '/sticker/catpack.jpeg', details: 'Funny cat meme stickers.', tagline: 'Internet cats', isFeatured: true },
+
+{ id: 'sticker-pack-10', name: 'Formula Racing Pack', price: 140, category: 'sticker-pack', image: '/sticker/flpack.jpg', details: 'F1 racing themed sticker collection.', tagline: 'Speed machines', isFeatured: true },
+
+{ id: 'sticker-pack-11', name: 'Random Mega Pack', price: 140, category: 'sticker-pack', image: '/sticker/random.jpeg', details: 'Best of everything mixed sticker pack.', tagline: 'The ultimate collection', isFeatured: true },
 
   // Marvel
-  { id: 'sticker-marvel-4', name: 'Thor', price: 15, category: 'marvel', image: '/sticker/spiderman.jpeg', details: 'God of Thunder sticker.', tagline: 'Worthy of the hammer' },
-   { id: 'sticker-marvel-4', name: 'Thor', price: 15, category: 'marvel', image: '/sticker/spider.jpeg', details: 'God of Thunder sticker.', tagline: 'Worthy of the hammer' },
+  { id: 'sticker-marvel-1', name: 'Spider-Man', price: 15, category: 'marvel', image: '/sticker/spiderman.jpeg', details: 'Friendly neighborhood Spider-Man sticker.', tagline: 'Your friendly neighborhood hero' },
+   { id: 'sticker-marvel-2', name: 'Miles Morales', price: 15, category: 'marvel', image: '/sticker/spider.jpeg', details: 'Miles Morales Spider-Man sticker.', tagline: 'Into the Spider-Verse' },
    { 
   id: 'sticker-hero-1',
   name: 'Venomized Spider',
@@ -472,15 +481,15 @@ export const STICKERS: Sticker[] = [
 },
 
   // Dog
-  { id: 'sticker-dog-1', name: 'Puppy Love', price: 15, category: 'dog', image: '/sticker/DogStickers.jpeg', details: 'Cute puppy sticker.', tagline: 'Dogs are love', isFeatured: true },
-  { id: 'sticker-dog-2', name: 'Loyal Pals', price: 15, category: 'dog', image: '/sticker/dodmix1.jpeg', details: 'Friendship forever sticker.', tagline: 'Best friend vibes' },
-  { id: 'sticker-dog-3', name: 'Happy Woof', price: 15, category: 'dog', image: '/sticker/dog1.jpeg', details: 'Joyful dog sticker.', tagline: 'Wag that tail' },
-  { id: 'sticker-dog-4', name: 'Pawsitivity', price: 15, category: 'dog', image: '/sticker/dog2.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
- { id: 'sticker-dog-4', name: 'Pawsitivity', price: 15, category: 'dog', image: '/sticker/dog3.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' }, 
- { id: 'sticker-dog-4', name: 'Pawsitivity', price: 15, category: 'dog', image: '/sticker/dog4.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
- { id: 'sticker-dog-4', name: 'Pawsitivity', price: 15, category: 'dog', image: '/sticker/dog5.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
- { id: 'sticker-dog-4', name: 'Pawsitivity', price: 15, category: 'dog', image: '/sticker/dog6.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
- { id: 'sticker-dog-4', name: 'Pawsitivity', price: 15, category: 'dog', image: '/sticker/dog7.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
+  { id: 'sticker-dog-1', name: 'Golden Pup', price: 15, category: 'dog', image: '/sticker/DogStickers.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness', isFeatured: true },
+  { id: 'sticker-dog-2', name: 'Paw Squad', price: 15, category: 'dog', image: '/sticker/dodmix1.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
+  { id: 'sticker-dog-3', name: 'Stay Pawsitive', price: 15, category: 'dog', image: '/sticker/dog1.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
+  { id: 'sticker-dog-4', name: 'Happy High Paw', price: 15, category: 'dog', image: '/sticker/dog2.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
+ { id: 'sticker-dog-5', name: 'Corgi Cheer', price: 15, category: 'dog', image: '/sticker/dog3.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' }, 
+ { id: 'sticker-dog-6', name: 'Pawsitive Vibes', price: 15, category: 'dog', image: '/sticker/dog4.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
+ { id: 'sticker-dog-7', name: 'Puppy Smiles', price: 15, category: 'dog', image: '/sticker/dog5.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
+ { id: 'sticker-dog-8', name: 'Woof Energy', price: 15, category: 'dog', image: '/sticker/dog6.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
+ { id: 'sticker-dog-9', name: 'Tail Wags Only', price: 15, category: 'dog', image: '/sticker/dog7.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
 
   // Love
   { id: 'sticker-love-1', name: 'Heartbeat', price: 15, category: 'love', image: '/sticker/mergesticker.jpeg', details: 'Love heartbeat sticker.', tagline: 'Love conquers all', isFeatured: true },
@@ -491,107 +500,80 @@ export const STICKERS: Sticker[] = [
   // Anime
   // Anime
 
-{ 
-  id: 'sticker-anime-1',
-  name: 'Anime Hero Pack',
-  price: 15,
-  category: 'anime',
-  image: '/sticker/anime.jpeg',
-  details: 'Main anime character sticker pack.',
-  tagline: 'Anime spirit within',
-  isFeatured: true
-},
+{ id: 'sticker-anime-1', name: 'Anime Hero Pack', price: 15, category: 'anime', image: '/sticker/anime.jpeg', details: 'Main anime character sticker pack.', tagline: 'Anime spirit within', isFeatured: true },
 
-{ 
-  id: 'sticker-anime-2',
-  name: 'Dragon Power',
-  price: 15,
-  category: 'anime',
-  image: '/sticker/animemix.jpeg',
-  details: 'Dragon energy anime sticker.',
-  tagline: 'Over 9000!'
-},
+{ id: 'sticker-anime-2', name: 'Dragon Power', price: 15, category: 'anime', image: '/sticker/animemix.jpeg', details: 'Dragon energy anime sticker.', tagline: 'Over 9000!' },
 
-{ 
-  id: 'sticker-anime-3',
-  name: 'Kawaii Cutie',
-  price: 15,
-  category: 'anime',
-  image: '/sticker/animemix1.jpeg',
-  details: 'Adorable chibi anime sticker.',
-  tagline: 'Super cute'
-},
-
-{ 
+{ id: 'sticker-anime-3', name: 'Kawaii Cutie', price: 15, category: 'anime', image: '/sticker/animemix1.jpeg', details: 'Adorable chibi anime sticker.', tagline: 'Super cute' },
+{
   id: 'sticker-anime-4',
-  name: 'Itachi Uchiha',
+  name: 'Haikyuu Squad',
   price: 15,
   category: 'anime',
   image: '/sticker/yah.jpeg',
+  details: 'Chibi Haikyuu volleyball team sticker pack.',
+  tagline: 'Fly high!'
+},
+
+{ 
+  id: 'sticker-anime-5',
+  name: 'Itachi Uchiha',
+  price: 15,
+  category: 'anime',
+  image: '/sticker/anime1.jpeg',
   details: 'Itachi Uchiha ninja sticker.',
   tagline: 'Hidden in shadows'
 },
 
 { 
-  id: 'sticker-anime-5',
+  id: 'sticker-anime-6',
   name: 'Baki Hanma',
   price: 15,
   category: 'anime',
-  image: '/sticker/anime1.jpeg',
+  image: '/sticker/anime5.jpeg',
   details: 'Baki Hanma fighter sticker.',
   tagline: 'Ultimate strength'
 },
 
 { 
-  id: 'sticker-anime-6',
+  id: 'sticker-anime-7',
   name: 'Roronoa Zoro',
   price: 15,
   category: 'anime',
-  image: '/sticker/anime5.jpeg',
-  details: 'Zoro swordsman chibi sticker.',
+  image: '/sticker/anime6.jpeg',
+  details: 'Roronoa Zoro swordsman sticker.',
   tagline: 'Three sword style'
 },
 
 { 
-  id: 'sticker-anime-7',
+  id: 'sticker-anime-8',
   name: 'Obito Uchiha',
   price: 15,
   category: 'anime',
-  image: '/sticker/anime6.jpeg',
-  details: 'Obito Uchiha anime sticker.',
-  tagline: 'Masked ninja'
-},
-
-{ 
-  id: 'sticker-anime-8',
-  name: 'Naruto Uzumaki',
-  price: 15,
-  category: 'anime',
   image: '/sticker/anime7.jpeg',
-  details: 'Naruto ninja hero sticker.',
-  tagline: 'Believe it!'
+  details: 'Obito Uchiha ninja sticker.',
+  tagline: 'Masked warrior'
 },
 
 { 
   id: 'sticker-anime-9',
-  name: 'Monkey D Luffy',
+  name: 'Naruto Uzumaki',
   price: 15,
   category: 'anime',
   image: '/sticker/anime8.jpeg',
-  details: 'Luffy pirate anime sticker.',
-  tagline: 'Future Pirate King'
+  details: 'Naruto Uzumaki ninja sticker.',
+  tagline: 'Believe it!'
 },
 
 { 
   id: 'sticker-anime-10',
-  name: 'Anime Squad',
+  name: 'Monkey D Luffy',
   price: 15,
   category: 'anime',
   image: '/sticker/anime9.jpeg',
-  details: 'Mixed anime characters sticker.',
-  tagline: 'Ultimate anime crew'
+  details: 'Monkey D Luffy pirate sticker.',
+  tagline: 'Future Pirate King'
 },
-
 
 // Cartoon
 

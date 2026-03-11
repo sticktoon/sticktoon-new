@@ -15,6 +15,10 @@ const LeadSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    expectedAmount: {
+      type: Number,
+      default: 0,
+    },
     email: {
       type: String,
       required: true,
@@ -23,6 +27,11 @@ const LeadSchema = new mongoose.Schema(
     phone: {
       type: String,
       trim: true,
+    },
+    leadSource: {
+      type: String,
+      trim: true,
+      default: "",
     },
     status: {
       type: String,

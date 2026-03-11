@@ -37,6 +37,7 @@ import AdminOrders from "./pages/AdminOrders";
 import AdminRevenue from "./pages/AdminRevenue";
 import AdminUserOrders from "./pages/AdminUserOrders";
 import AdminInvoice from "./pages/AdminInvoice";
+import AdminDealConvert from "./pages/AdminDealConvert";
 import AdminPromo from "./pages/AdminPromo";
 import AdminInfluencerManage from "./pages/AdminInfluencerManage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -484,7 +485,7 @@ useEffect(() => {
    FOOTER
 ======================= */
 const Footer: React.FC = () => (
-<footer className="bg-black text-white pt-8 pb-4 relative z-50">
+<footer className="bg-black text-white pt-8 pb-4 relative z-10">
 
 
 
@@ -1149,6 +1150,7 @@ export default function App() {
           <Route path="/admin/revenue" element={<AdminRevenue />} />
           <Route path="/admin/user-orders" element={<AdminUserOrders />} />
           <Route path="/admin/invoice/:id" element={<AdminInvoice />} />
+          <Route path="/admin/deal-convert" element={<AdminDealConvert />} />
           <Route path="/admin/promo" element={<AdminPromo />} />
           <Route path="/admin/influencers" element={<AdminInfluencerManage />} />
           {/* Admin Routes - Unified */}
