@@ -49,6 +49,9 @@ export default function Checkout({
   const [promoError, setPromoError] = useState("");
   const [showPromoBurst, setShowPromoBurst] = useState(false);
   const [showPromoSavePopup, setShowPromoSavePopup] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(
+    typeof window !== "undefined" ? window.innerWidth <= 640 : false
+  );
   const [appliedPromo, setAppliedPromo] = useState<{
     code: string;
     discount: number;
@@ -82,6 +85,16 @@ export default function Checkout({
   }, [cart]);
 
   useEffect(() => {
+    const onResize = () => {
+      setIsMobileView(window.innerWidth <= 640);
+    };
+
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
     if (!showPromoBurst) return;
 
     const timer = window.setTimeout(() => {
@@ -96,7 +109,7 @@ export default function Checkout({
 
     const timer = window.setTimeout(() => {
       setShowPromoSavePopup(false);
-    }, 3000);
+    }, 5000);
 
     return () => window.clearTimeout(timer);
   }, [showPromoSavePopup]);
@@ -136,6 +149,10 @@ export default function Checkout({
       ["--rot" as "--rot"]: `${(index * 19) % 360}deg`,
     } as React.CSSProperties;
   };
+
+  const burstCount = isMobileView
+    ? { side: 50, vertical: 34 }
+    : { side: 70, vertical: 48 };
 
   // Apply promo code
   const handleApplyPromo = async () => {
@@ -394,7 +411,7 @@ export default function Checkout({
       {showPromoBurst && (
         <div className="promo-page-burst-layer" aria-hidden="true">
           <div className="promo-page-burst promo-page-burst-left">
-            {Array.from({ length: 70 }).map((_, i) => (
+            {Array.from({ length: burstCount.side }).map((_, i) => (
               <Fragment key={`page-left-wrap-${i}`}>
                 <span
                   className="promo-page-burst-particle"
@@ -408,7 +425,7 @@ export default function Checkout({
             ))}
           </div>
           <div className="promo-page-burst promo-page-burst-right">
-            {Array.from({ length: 70 }).map((_, i) => (
+            {Array.from({ length: burstCount.side }).map((_, i) => (
               <Fragment key={`page-right-wrap-${i}`}>
                 <span
                   className="promo-page-burst-particle"
@@ -422,7 +439,7 @@ export default function Checkout({
             ))}
           </div>
           <div className="promo-page-burst promo-page-burst-top">
-            {Array.from({ length: 48 }).map((_, i) => (
+            {Array.from({ length: burstCount.vertical }).map((_, i) => (
               <Fragment key={`page-top-wrap-${i}`}>
                 <span
                   className="promo-page-burst-particle"
@@ -436,7 +453,7 @@ export default function Checkout({
             ))}
           </div>
           <div className="promo-page-burst promo-page-burst-bottom">
-            {Array.from({ length: 48 }).map((_, i) => (
+            {Array.from({ length: burstCount.vertical }).map((_, i) => (
               <Fragment key={`page-bottom-wrap-${i}`}>
                 <span
                   className="promo-page-burst-particle"

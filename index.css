@@ -597,7 +597,7 @@ body {
   border-radius: 999px;
   transform-origin: left center;
   background: linear-gradient(90deg, #f59e0b, #f97316);
-  animation: promoProgressDrain 3s linear forwards;
+  animation: promoProgressDrain 5s linear forwards;
 }
 
 .promo-toast-sparkle {
@@ -606,8 +606,67 @@ body {
 }
 
 @media (max-width: 640px) {
+  .promo-page-burst-layer {
+    z-index: 45;
+  }
+
+  .promo-page-burst-layer::before {
+    background: radial-gradient(circle at center, rgba(251, 191, 36, 0.3), rgba(255, 255, 255, 0));
+  }
+
+  .promo-page-burst-layer::after {
+    background: radial-gradient(circle at center, rgba(249, 115, 22, 0.18), rgba(255, 255, 255, 0));
+  }
+
+  .promo-page-burst-left {
+    left: -0.45rem;
+  }
+
+  .promo-page-burst-right {
+    right: -0.45rem;
+  }
+
+  .promo-page-burst-top {
+    top: -0.45rem;
+  }
+
+  .promo-page-burst-bottom {
+    bottom: -0.45rem;
+  }
+
+  .promo-page-burst-particle {
+    width: calc(11px + (var(--size) * 1.4px));
+    height: calc(11px + (var(--size) * 1.4px));
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55), 0 0 24px rgba(249, 115, 22, 0.62);
+  }
+
+  .promo-page-burst-left .promo-page-burst-particle,
+  .promo-page-burst-right .promo-page-burst-particle,
+  .promo-page-burst-top .promo-page-burst-particle,
+  .promo-page-burst-bottom .promo-page-burst-particle {
+    animation-duration: 1.65s;
+  }
+
+  .promo-toast-overlay {
+    padding: 0 0.75rem;
+    z-index: 55;
+  }
+
   .promo-toast {
-    width: calc(100vw - 1.5rem);
-    padding: 0.9rem 0.95rem;
+    width: min(94vw, 360px);
+    padding: 0.95rem;
+    border-radius: 15px;
+  }
+
+  .promo-toast-title {
+    font-size: 0.75rem;
+  }
+
+  .promo-toast-text {
+    font-size: 0.9rem;
+  }
+
+  .promo-toast-subtext {
+    font-size: 0.7rem;
   }
 }
