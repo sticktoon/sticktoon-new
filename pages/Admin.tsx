@@ -1212,13 +1212,21 @@ const Admin: React.FC = () => {
         setShowProductForm(false);
         showToast("success", "✅ Product added successfully!");
       } else {
-        const errorData = await res.json();
-        console.error("Add failed:", errorData);
-        showToast("error", `❌ ${errorData.error || "Failed to add product"}`);
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Add failed:", res.status, errorData);
+        if (res.status === 401) {
+          localStorage.removeItem("adminToken");
+          localStorage.removeItem("adminUser");
+          showToast("error", "❌ Session expired. Please log in again.");
+          setIsAuthenticated(false);
+          setCurrentView("login");
+          return;
+        }
+        showToast("error", `❌ ${errorData.error || errorData.message || "Failed to add product"}`);
       }
     } catch (err) {
       console.error("Error adding product:", err);
-      showToast("error", "❌ Error adding product. Please try again.");
+      showToast("error", "❌ Cannot reach server. Is the backend running?");
     }
   };
 
@@ -1254,13 +1262,21 @@ const Admin: React.FC = () => {
         setProductForm({ name: "", description: "", price: 0, category: "Moody", image: "", stock: 0 });
         showToast("success", "✅ Product updated successfully!");
       } else {
-        const errorData = await res.json();
-        console.error("Update failed:", errorData);
-        showToast("error", `❌ ${errorData.error || "Failed to update product"}`);
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Update failed:", res.status, errorData);
+        if (res.status === 401) {
+          localStorage.removeItem("adminToken");
+          localStorage.removeItem("adminUser");
+          showToast("error", "❌ Session expired. Please log in again.");
+          setIsAuthenticated(false);
+          setCurrentView("login");
+          return;
+        }
+        showToast("error", `❌ ${errorData.error || errorData.message || "Failed to update product"}`);
       }
     } catch (err) {
       console.error("Error updating product:", err);
-      showToast("error", "❌ Error updating product. Please try again.");
+      showToast("error", "❌ Cannot reach server. Is the backend running?");
     }
   };
 
@@ -1280,13 +1296,21 @@ const Admin: React.FC = () => {
         setConfirmingDeleteProduct(null);
         showToast("success", "✅ Product deleted successfully!");
       } else {
-        const errorData = await res.json();
-        console.error("Delete failed:", errorData);
-        showToast("error", `❌ ${errorData.error || "Failed to delete product"}`);
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Delete failed:", res.status, errorData);
+        if (res.status === 401) {
+          localStorage.removeItem("adminToken");
+          localStorage.removeItem("adminUser");
+          showToast("error", "❌ Session expired. Please log in again.");
+          setIsAuthenticated(false);
+          setCurrentView("login");
+          return;
+        }
+        showToast("error", `❌ ${errorData.error || errorData.message || "Failed to delete product"}`);
       }
     } catch (err) {
       console.error("Error deleting product:", err);
-      showToast("error", "❌ Error deleting product. Please try again.");
+      showToast("error", "❌ Cannot reach server. Is the backend running?");
     }
   };
 
