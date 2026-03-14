@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Trash2, ShoppingCart, Tag, X, CheckCircle } from "lucide-react";
+import { Trash2, ShoppingCart, Tag, X, CheckCircle, Sparkles } from "lucide-react";
 import { CartItem } from "../types";
 import { formatPrice } from "../constants";
 import { API_BASE_URL } from "../config/api";
@@ -47,6 +47,8 @@ export default function Checkout({
   const [promoCode, setPromoCode] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError, setPromoError] = useState("");
+  const [showPromoBurst, setShowPromoBurst] = useState(false);
+  const [showPromoSavePopup, setShowPromoSavePopup] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState<{
     code: string;
     discount: number;
@@ -79,6 +81,26 @@ export default function Checkout({
     setQuantityInputs(next);
   }, [cart]);
 
+  useEffect(() => {
+    if (!showPromoBurst) return;
+
+    const timer = window.setTimeout(() => {
+      setShowPromoBurst(false);
+    }, 1850);
+
+    return () => window.clearTimeout(timer);
+  }, [showPromoBurst]);
+
+  useEffect(() => {
+    if (!showPromoSavePopup) return;
+
+    const timer = window.setTimeout(() => {
+      setShowPromoSavePopup(false);
+    }, 3000);
+
+    return () => window.clearTimeout(timer);
+  }, [showPromoSavePopup]);
+
   const handleQuantityInputChange = (id: string, value: string) => {
     if (!/^[0-9]*$/.test(value)) return;
     setQuantityInputs((prev) => ({ ...prev, [id]: value }));
@@ -105,6 +127,14 @@ export default function Checkout({
     const nextQuantity = Math.max(1, item.quantity - 1);
     setQuantityInputs((prev) => ({ ...prev, [item.id]: String(nextQuantity) }));
     updateQuantity(item.id, nextQuantity);
+  };
+
+  const getBurstParticleStyle = (index: number) => {
+    return {
+      ["--i" as "--i"]: index,
+      ["--size" as "--size"]: (index % 5) + 1,
+      ["--rot" as "--rot"]: `${(index * 19) % 360}deg`,
+    } as React.CSSProperties;
   };
 
   // Apply promo code
@@ -146,6 +176,8 @@ export default function Checkout({
         description: data.description,
       });
       setPromoCode("");
+      setShowPromoBurst(true);
+      setShowPromoSavePopup(true);
     } catch (err) {
       setPromoError("Failed to validate promo code");
     } finally {
@@ -157,6 +189,7 @@ export default function Checkout({
   const handleRemovePromo = () => {
     setAppliedPromo(null);
     setPromoError("");
+    setShowPromoSavePopup(false);
   };
 
   const validate = () => {
@@ -339,7 +372,7 @@ export default function Checkout({
         </h2>
         <Link
           to="/categories"
-          className="bg-blue-600 text-white px-8 md:px-12 py-3 md:py-4 rounded-2xl text-sm md:text-base"
+          className="bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-black px-8 md:px-12 py-3 md:py-4 rounded-2xl text-sm md:text-base shadow-lg hover:shadow-xl hover:shadow-yellow-500/20 hover:from-yellow-400 hover:to-orange-400 transition"
         >
           Go Shopping
         </Link>
@@ -348,9 +381,100 @@ export default function Checkout({
   }
 
   return (
-    <div className="bg-slate-50 min-h-screen pt-12 pb-24 px-4 md:px-0">
-      <div className="max-w-6xl mx-auto px-4 md:px-6">
-        <h1 className="text-2xl md:text-4xl font-black mb-8 md:mb-12">Checkout</h1>
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-white via-slate-50 to-yellow-50/40 pt-10 md:pt-12 pb-20 md:pb-24 px-3 sm:px-4 md:px-0">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute top-[-250px] left-1/2 -translate-x-1/2 w-[920px] h-[920px] rounded-full bg-yellow-500/10 blur-[145px]" />
+        <div className="absolute right-[-220px] top-[28%] w-[620px] h-[620px] rounded-full bg-orange-400/12 blur-[125px]" />
+        <div className="absolute bottom-[-210px] left-[-180px] w-[580px] h-[580px] rounded-full bg-red-400/10 blur-[120px]" />
+        <div className="hidden md:block absolute top-24 -left-8 w-24 h-24 rounded-full border-[6px] border-yellow-500/20 animate-bounce" style={{ animationDuration: "5s" }} />
+        <div className="hidden md:block absolute top-44 -right-10 w-28 h-28 rounded-full border-[6px] border-orange-500/15 animate-pulse" style={{ animationDuration: "4s" }} />
+        <div className="hidden lg:block absolute bottom-28 right-10 w-20 h-20 rounded-full border-[5px] border-red-500/15 animate-bounce" style={{ animationDuration: "6s", animationDelay: "0.8s" }} />
+      </div>
+
+      {showPromoBurst && (
+        <div className="promo-page-burst-layer" aria-hidden="true">
+          <div className="promo-page-burst promo-page-burst-left">
+            {Array.from({ length: 70 }).map((_, i) => (
+              <Fragment key={`page-left-wrap-${i}`}>
+                <span
+                  className="promo-page-burst-particle"
+                  style={getBurstParticleStyle(i)}
+                />
+                <span
+                  className="promo-page-burst-particle promo-page-burst-particle-alt"
+                  style={getBurstParticleStyle(i + 3)}
+                />
+              </Fragment>
+            ))}
+          </div>
+          <div className="promo-page-burst promo-page-burst-right">
+            {Array.from({ length: 70 }).map((_, i) => (
+              <Fragment key={`page-right-wrap-${i}`}>
+                <span
+                  className="promo-page-burst-particle"
+                  style={getBurstParticleStyle(i)}
+                />
+                <span
+                  className="promo-page-burst-particle promo-page-burst-particle-alt"
+                  style={getBurstParticleStyle(i + 3)}
+                />
+              </Fragment>
+            ))}
+          </div>
+          <div className="promo-page-burst promo-page-burst-top">
+            {Array.from({ length: 48 }).map((_, i) => (
+              <Fragment key={`page-top-wrap-${i}`}>
+                <span
+                  className="promo-page-burst-particle"
+                  style={getBurstParticleStyle(i)}
+                />
+                <span
+                  className="promo-page-burst-particle promo-page-burst-particle-alt"
+                  style={getBurstParticleStyle(i + 2)}
+                />
+              </Fragment>
+            ))}
+          </div>
+          <div className="promo-page-burst promo-page-burst-bottom">
+            {Array.from({ length: 48 }).map((_, i) => (
+              <Fragment key={`page-bottom-wrap-${i}`}>
+                <span
+                  className="promo-page-burst-particle"
+                  style={getBurstParticleStyle(i)}
+                />
+                <span
+                  className="promo-page-burst-particle promo-page-burst-particle-alt"
+                  style={getBurstParticleStyle(i + 2)}
+                />
+              </Fragment>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {showPromoSavePopup && appliedPromo && (
+        <div className="promo-toast-overlay" role="status" aria-live="polite">
+          <div className="promo-toast">
+            <div className="promo-toast-icon-wrap">
+              <CheckCircle className="w-5 h-5" />
+            </div>
+            <div className="promo-toast-copy">
+              <p className="promo-toast-title">Coupon Applied Successfully</p>
+              <p className="promo-toast-text">
+                Hurry! You saved {formatPrice(appliedPromo.discount)}
+              </p>
+              <p className="promo-toast-subtext">Your discount is now included in the final total.</p>
+              <div className="promo-toast-progress" />
+            </div>
+            <div className="promo-toast-sparkle" aria-hidden="true">
+              <Sparkles className="w-4 h-4" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="relative z-10 max-w-6xl mx-auto px-1 sm:px-2 md:px-6">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-6 md:mb-12">Checkout</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
           {/* LEFT */}
@@ -358,7 +482,7 @@ export default function Checkout({
             {/* ADDRESS */}
             <div
               id="delivery-form"
-              className="bg-white rounded-3xl p-6 md:p-8 border"
+              className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 border border-white/70 shadow-[0_18px_45px_rgba(15,23,42,0.08)]"
             >
               <h3 className="text-lg md:text-xl font-black mb-6">
                 Deliver to:
@@ -400,11 +524,26 @@ export default function Checkout({
             </div>
 
             {/* PROMO CODE */}
-            <div className="bg-white rounded-3xl p-6 md:p-8 border">
+            <div className="relative overflow-hidden bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 border border-white/70 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
               <h3 className="text-lg md:text-xl font-black mb-4 flex items-center gap-2">
                 <Tag className="w-5 h-5" />
                 Promo Code
               </h3>
+
+              {showPromoBurst && (
+                <div className="promo-burst-layer" aria-hidden="true">
+                  <div className="promo-burst promo-burst-left">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <span key={`left-${i}`} className="promo-burst-particle" style={{ ["--i" as "--i"]: i } as React.CSSProperties} />
+                    ))}
+                  </div>
+                  <div className="promo-burst promo-burst-right">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <span key={`right-${i}`} className="promo-burst-particle" style={{ ["--i" as "--i"]: i } as React.CSSProperties} />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {appliedPromo ? (
                 <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-4">
@@ -426,7 +565,7 @@ export default function Checkout({
                 </div>
               ) : (
                 <div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="text"
                       value={promoCode}
@@ -440,7 +579,7 @@ export default function Checkout({
                     <button
                       onClick={handleApplyPromo}
                       disabled={promoLoading}
-                      className="px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 disabled:opacity-50 transition"
+                      className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-black rounded-xl shadow-lg hover:shadow-xl hover:shadow-yellow-500/25 hover:from-yellow-400 hover:to-orange-400 disabled:opacity-50 transition"
                     >
                       {promoLoading ? "..." : "Apply"}
                     </button>
@@ -454,7 +593,7 @@ export default function Checkout({
 
             {/* CART ITEMS */}
           
-<div className="bg-white rounded-3xl p-6 md:p-8 border space-y-6">
+<div className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 border border-white/70 shadow-[0_18px_45px_rgba(15,23,42,0.08)] space-y-6">
 
   {/* ✅ HEADER (Repo1 style) */}
   <div className="flex items-center justify-between">
@@ -467,25 +606,36 @@ export default function Checkout({
   {cart.map((item) => (
     <div
       key={item.id}
-      className="flex items-center justify-between gap-4 border-b pb-6 last:border-b-0"
+      className="border-b pb-5 last:border-b-0"
     >
-      <img
-        src={item.image}
-        alt={item.name}
-        className="w-16 h-16 object-cover rounded-lg"
-      />
+      <div className="flex items-start gap-3">
+        <img
+          src={item.image}
+          alt={item.name}
+          className="w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-lg shrink-0"
+        />
 
-      <div className="flex-1">
-        <p className="font-black">{item.name}</p>
-        <p className="text-sm text-gray-500">
-          ₹{item.price} × {item.quantity}
-        </p>
+        <div className="flex-1 min-w-0">
+          <p className="font-black truncate">{item.name}</p>
+          <p className="text-sm text-gray-500">
+            ₹{item.price} × {item.quantity}
+          </p>
+        </div>
+
+        <button
+          onClick={() => removeFromCart(item.id)}
+          className="shrink-0 p-1"
+          aria-label="Remove item"
+        >
+          <Trash2 className="text-rose-500 w-4 h-4 sm:w-5 sm:h-5" />
+        </button>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
         <button
           onClick={() => handleDecrement(item)}
-          className="w-8 h-8 rounded-full border"
+            className="w-8 h-8 rounded-full border"
         >
           −
         </button>
@@ -502,26 +652,23 @@ export default function Checkout({
               (e.target as HTMLInputElement).blur();
             }
           }}
-          className="w-16 h-8 rounded-md border text-center font-bold"
+            className="w-14 sm:w-16 h-8 rounded-md border text-center font-bold"
           inputMode="numeric"
           aria-label="Item quantity"
         />
 
         <button
           onClick={() => handleIncrement(item)}
-          className="w-8 h-8 rounded-full border"
+            className="w-8 h-8 rounded-full border"
         >
           +
         </button>
+        </div>
 
-        <button onClick={() => removeFromCart(item.id)}>
-          <Trash2 className="text-rose-500" />
-        </button>
+        <p className="font-bold text-sm sm:text-base whitespace-nowrap">
+          ₹{item.price * item.quantity}
+        </p>
       </div>
-
-      <p className="font-bold">
-        ₹{item.price * item.quantity}
-      </p>
     </div>
   ))}
 </div>
@@ -529,7 +676,7 @@ export default function Checkout({
           </div>
 
           {/* RIGHT */}
-<div className="bg-white rounded-3xl p-8 border sticky top-32">
+<div className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 border border-white/70 shadow-[0_18px_45px_rgba(15,23,42,0.08)] lg:sticky lg:top-32">
 
   {/* PRICE DETAILS HEADER */}
   <div className="flex items-center justify-between mb-6">
@@ -583,7 +730,7 @@ export default function Checkout({
   {/* CTA */}
   <button
     onClick={handlePlaceOrder}
-    className="w-full py-5 bg-blue-600 hover:bg-blue-700 transition text-white font-black rounded-2xl"
+    className="w-full py-5 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 transition text-slate-900 font-black rounded-2xl shadow-lg hover:shadow-xl hover:shadow-yellow-500/25"
   >
     PLACE ORDER NOW
   </button>
