@@ -42,7 +42,7 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [panelOpen, setPanelOpen] = useState(true);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
 
   const backgroundPresets = [
     '#FFFFFF', '#000000', '#E5E7EB', '#C7D2FE', '#B11494', '#6D28D9',
@@ -446,10 +446,10 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
       )}
 
       {/* Header */}
-      <header className="border-b border-slate-200 bg-white px-6 py-4 shadow-sm">
+      <header className="border-b border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-black text-slate-900">
+            <h1 className="text-xl font-black text-slate-900 sm:text-2xl">
               Custom Badge Designer
             </h1>
             <p className="text-sm text-slate-600 font-medium mt-1">
@@ -459,10 +459,18 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8">
-        <div className="flex flex-col lg:flex-row gap-8 items-start">
+      <main className="mx-auto max-w-7xl px-3 py-6 pb-24 sm:px-4 sm:py-8 lg:pb-8">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif"
+          className="hidden"
+          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+        />
+
+        <div className="flex flex-col lg:flex-row gap-5 sm:gap-6 lg:gap-8 items-start">
           {/* Left: Control Panel */}
-          <div className={`w-full lg:w-80 bg-gradient-to-b from-slate-900 to-slate-800 rounded-2xl shadow-2xl transition-all duration-300 ${panelOpen ? '' : 'hidden lg:block'}`}>
+          <div className="hidden w-full lg:block lg:w-80 bg-gradient-to-b from-slate-900 to-slate-800 rounded-2xl shadow-2xl transition-all duration-300">
             <div className="p-6 space-y-6">
               {/* Badge Configuration */}
               <div className="space-y-4">
@@ -508,18 +516,11 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
               {/* Image Upload */}
               <div className="space-y-3">
                 <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">Image Upload</h3>
-                <input 
-                  ref={fileInputRef} 
-                  type="file" 
-                  accept="image/jpeg,image/png,image/gif" 
-                  className="hidden" 
-                  onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} 
-                />
                 <button 
                   onClick={() => fileInputRef.current?.click()} 
-                  className="w-full h-24 rounded-xl border-2 border-dashed border-yellow-500/30 text-slate-300 font-bold text-sm flex flex-col items-center justify-center gap-2 hover:border-yellow-500/60 hover:text-yellow-400 hover:bg-slate-700/30 transition-all"
+                  className="w-full h-16 rounded-xl border-2 border-dashed border-yellow-500/30 text-slate-300 font-bold text-xs flex flex-col items-center justify-center gap-1.5 hover:border-yellow-500/60 hover:text-yellow-400 hover:bg-slate-700/30 transition-all sm:h-20 sm:text-sm"
                 >
-                  <Upload className="w-8 h-8" />
+                  <Upload className="h-5 w-5 sm:h-6 sm:w-6" />
                   <span>Upload Image</span>
                   <span className="text-[10px] font-normal text-slate-500">or drag and drop</span>
                 </button>
@@ -562,20 +563,20 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
           <div className="flex-1 space-y-6">
             {!imageState && (
               <div
-                className="mb-6 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-white p-16 cursor-pointer transition-all hover:border-yellow-500 hover:bg-yellow-50/50"
+                className="mb-6 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-white p-5 text-center cursor-pointer transition-all hover:border-yellow-500 hover:bg-yellow-50/50 sm:p-8 md:p-10"
                 onDrop={handleDrop}
                 onDragOver={(e) => e.preventDefault()}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <Upload className="mb-4 h-16 w-16 text-slate-400" />
-                <p className="text-lg font-bold text-slate-700">Drop an image here or click to upload</p>
-                <p className="mt-2 text-sm text-slate-500">JPG, PNG, GIF supported</p>
+                <Upload className="mb-3 h-10 w-10 text-slate-400 sm:h-12 sm:w-12" />
+                <p className="text-sm font-bold text-slate-700 sm:text-base">Drop an image here or click to upload</p>
+                <p className="mt-1 text-xs text-slate-500 sm:text-sm">JPG, PNG, GIF supported</p>
               </div>
             )}
 
             {/* Canvas */}
-            <div className="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-4">
+            <div className="rounded-2xl border-2 border-slate-300 bg-white p-4 shadow-xl sm:p-6">
+              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
                   <Info className="w-4 h-4 text-blue-500" />
                   {OUTER_BADGE_MM}mm Artwork Canvas
@@ -617,7 +618,7 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
             </div>
 
             {/* Order Actions & Downloads */}
-            <div className="rounded-2xl bg-gradient-to-b from-slate-900 to-slate-800 p-5 shadow-xl">
+            <div className="rounded-2xl bg-gradient-to-b from-slate-900 to-slate-800 p-4 shadow-xl sm:p-5">
               <div className="flex flex-col sm:flex-row gap-4">
                 {/* Price & Cart */}
                 <div className="flex-1 space-y-3">
@@ -693,7 +694,7 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
 
           {/* Right: Preview & Controls */}
           <div className="w-full lg:w-80 space-y-6">
-            <div className="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-xl">
+            <div className="rounded-2xl border-2 border-slate-300 bg-white p-4 shadow-xl sm:p-6">
               <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 text-center">
                 Final Badge Preview ({BADGE_MM}mm)
               </h3>
@@ -702,8 +703,8 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
                   ref={previewCanvasRef} 
                   width={250} 
                   height={250} 
-                  className="rounded-full shadow-2xl" 
-                  style={{ width: 250, height: 250 }} 
+                  className="rounded-full shadow-2xl w-full max-w-[250px] h-auto" 
+                  style={{ aspectRatio: '1 / 1' }} 
                 />
               </div>
               <p className="text-xs text-slate-500 text-center mt-4">
@@ -810,6 +811,164 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
             </div>
           </div>
         </div>
+
+        {/* Mobile Bottom Tools Bar */}
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-3 backdrop-blur lg:hidden">
+          <button
+            onClick={() => setMobileToolsOpen(true)}
+            className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-yellow-400"
+          >
+            Open Design Tools
+          </button>
+        </div>
+
+        {/* Mobile Tools Drawer */}
+        {mobileToolsOpen && (
+          <div className="fixed inset-0 z-50 bg-black/50 lg:hidden" onClick={() => setMobileToolsOpen(false)}>
+            <div
+              className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-slate-900 p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-yellow-400">Design Tools</h3>
+                <button
+                  onClick={() => setMobileToolsOpen(false)}
+                  className="rounded-lg bg-slate-700 p-2 text-slate-200"
+                  aria-label="Close tools"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-slate-300">Fastener Type:</label>
+                  <select
+                    value={fastener}
+                    onChange={(e) => setFastener(e.target.value)}
+                    className="mt-1 h-10 w-full rounded-xl border border-yellow-500/30 bg-slate-700 px-3 text-sm font-semibold text-white"
+                  >
+                    {fasteners.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-300">Quantity:</label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <button
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="h-10 w-10 rounded-lg bg-slate-700 text-lg font-black text-white"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      value={quantity}
+                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="h-10 flex-1 rounded-xl border border-yellow-500/30 bg-slate-700 px-3 text-center font-bold text-white"
+                    />
+                    <button
+                      onClick={() => setQuantity(quantity + 1)}
+                      className="h-10 w-10 rounded-lg bg-slate-700 text-lg font-black text-white"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-yellow-500/30 text-sm font-bold text-slate-300"
+                >
+                  <Upload className="h-5 w-5" /> Upload Image
+                </button>
+
+                <textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Describe your badge design..."
+                  className="h-20 w-full resize-none rounded-xl border border-yellow-500/30 bg-slate-700 px-3 py-2 text-sm text-white placeholder-slate-400"
+                />
+
+                <button
+                  onClick={handleGenerateImage}
+                  disabled={loading || !prompt.trim()}
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-xs font-bold uppercase tracking-widest text-white disabled:opacity-50"
+                >
+                  {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Wand2 className="h-4 w-4" /> Generate</>}
+                </button>
+
+                {imageState && (
+                  <div className="space-y-3 rounded-xl border border-yellow-500/20 bg-slate-800/60 p-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-yellow-400">Canvas Controls</h4>
+
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <label className="text-xs font-semibold text-slate-300">Zoom</label>
+                        <span className="text-xs font-mono text-yellow-400">{Math.round(zoom * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.2"
+                        max="5"
+                        step="0.01"
+                        value={zoom}
+                        onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
+                        className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-700 accent-yellow-500"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <label className="text-xs font-semibold text-slate-300">Rotate</label>
+                        <span className="text-xs font-mono text-yellow-400">{rotation}°</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-180"
+                        max="180"
+                        step="1"
+                        value={rotation}
+                        onChange={(e) => handleRotationChange(parseInt(e.target.value))}
+                        className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-700 accent-yellow-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold text-slate-300">Background:</label>
+                      <div className="grid grid-cols-7 gap-2">
+                        {backgroundPresets.map(color => (
+                          <button
+                            key={color}
+                            onClick={() => setBgColor(color)}
+                            className={`aspect-square w-full rounded-lg border-2 transition-all ${bgColor === color ? 'scale-110 border-yellow-500' : 'border-slate-600 hover:border-slate-500'}`}
+                            style={{ backgroundColor: color }}
+                            title={color}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={handleReset}
+                        className="flex items-center justify-center gap-1 rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-300"
+                      >
+                        <RotateCcw className="h-3 w-3" /> Reset
+                      </button>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center justify-center gap-1 rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-300"
+                      >
+                        <Upload className="h-3 w-3" /> Replace
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

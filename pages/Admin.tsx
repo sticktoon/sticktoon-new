@@ -373,6 +373,16 @@ interface Product {
 const ADMIN_PRODUCT_CATEGORIES = ["Positive Vibes", "Moody", "Sports", "Religious", "Entertainment", "Events", "Pet", "Couple", "Anime", "Custom"] as const;
 type AdminProductCategory = (typeof ADMIN_PRODUCT_CATEGORIES)[number];
 
+const ADMIN_TABS = [
+  { id: "dashboard", label: "Dashboard", icon: "📊" },
+  { id: "users", label: "All Users", icon: "👥" },
+  { id: "all-influencers", label: "All Influencers", icon: "🌟" },
+  { id: "influencers", label: "Pending Approvals", icon: "⭐" },
+  { id: "withdrawals", label: "Withdrawals", icon: "💰" },
+  { id: "orders", label: "Orders", icon: "🛒" },
+  { id: "products", label: "Products", icon: "📦" },
+] as const;
+
 const ensureMinimumProductsPerCategory = (items: Product[], minCount = 4): Product[] => {
   const result: Product[] = [...items];
 
@@ -1420,9 +1430,9 @@ const Admin: React.FC = () => {
      RENDER DASHBOARD
   =========================== */
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 admin-zoho flex">
+    <div className="min-h-screen bg-slate-50 text-slate-900 admin-zoho flex flex-col lg:flex-row">
       {/* Left Sidebar Navigation */}
-      <aside className="w-64 bg-slate-950 border-r border-slate-800 h-screen sticky top-0 overflow-y-auto">
+      <aside className="hidden lg:block w-64 bg-slate-950 border-r border-slate-800 h-screen sticky top-0 overflow-y-auto">
         <div className="p-6">
           <div className="mb-8">
             <h1 className="text-xl font-black text-white admin-zoho-keep-white">🛡️ StickToon</h1>
@@ -1430,15 +1440,7 @@ const Admin: React.FC = () => {
           </div>
           
           <nav className="space-y-2">
-            {[
-              { id: "dashboard", label: "Dashboard", icon: "📊" },
-              { id: "users", label: "All Users", icon: "👥" },
-              { id: "all-influencers", label: "All Influencers", icon: "🌟" },
-              { id: "influencers", label: "Pending Approvals", icon: "⭐" },
-              { id: "withdrawals", label: "Withdrawals", icon: "💰" },
-              { id: "orders", label: "Orders", icon: "🛒" },
-              { id: "products", label: "Products", icon: "📦" },
-            ].map((tab) => (
+            {ADMIN_TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setCurrentView(tab.id as any)}
@@ -1474,12 +1476,12 @@ const Admin: React.FC = () => {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         {/* Header */}
         <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-          <div className="px-8 py-4 flex items-center justify-between">
+          <div className="px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-2xl font-black text-slate-900">
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900">
                 {currentView === "dashboard" && "Dashboard"}
                 {currentView === "users" && "All Users"}
                 {currentView === "all-influencers" && "All Influencers"}
@@ -1490,14 +1492,48 @@ const Admin: React.FC = () => {
                 {currentView === "profile" && "Edit Profile"}
               </h2>
             </div>
-            <div className="text-sm text-slate-500">
+            <div className="text-xs sm:text-sm text-slate-500 shrink-0">
               {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </div>
+          </div>
+
+          {/* Mobile Navigation */}
+          <div className="lg:hidden border-t border-slate-100">
+            <div className="px-3 py-2 overflow-x-auto">
+              <div className="flex gap-2 min-w-max">
+                {ADMIN_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setCurrentView(tab.id as any)}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-bold transition-colors whitespace-nowrap ${
+                      currentView === tab.id
+                        ? "bg-slate-900 text-white"
+                        : "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    <span>{tab.icon}</span>
+                    <span>{tab.label}</span>
+                  </button>
+                ))}
+                <button
+                  onClick={() => setCurrentView("profile")}
+                  className={`px-3 py-2 rounded-md text-xs font-bold whitespace-nowrap ${currentView === "profile" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}
+                >
+                  ✏️ Profile
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-2 rounded-md text-xs font-bold whitespace-nowrap bg-red-100 text-red-700"
+                >
+                  🚪 Logout
+                </button>
+              </div>
             </div>
           </div>
         </header>
 
         {/* Content */}
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {/* DASHBOARD VIEW */}
           {currentView === "dashboard" && (
           <div className="space-y-6">{/* Key Metrics Overview */}
@@ -1741,15 +1777,15 @@ const Admin: React.FC = () => {
         {currentView === "products" && (
           <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-              <h2 className="text-3xl font-bold text-gray-900">Products ({products.length})</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Products ({products.length})</h2>
               <button
                 onClick={() => {
                   setShowProductForm(!showProductForm);
                   setEditingProduct(null);
                   setProductForm({ name: "", description: "", price: 0, category: "Moody", image: "", stock: 0 });
                 }}
-                className="group flex items-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white font-bold tracking-wide transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
+                className="w-full sm:w-auto group flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white font-bold tracking-wide transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
               >
                 <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" /> 
                 Add Product
@@ -1758,7 +1794,7 @@ const Admin: React.FC = () => {
 
             {/* Add Product Form (only show when not editing) */}
             {showProductForm && !editingProduct && (
-              <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-md">
+              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-8 shadow-md">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-12 h-12 rounded-lg bg-indigo-600 flex items-center justify-center shadow-md">
                     <Plus className="w-6 h-6 text-white" />
@@ -1875,7 +1911,7 @@ const Admin: React.FC = () => {
                     />
                   </div>
 
-                  <div className="md:col-span-2 flex gap-4 mt-4">
+                  <div className="md:col-span-2 flex flex-col sm:flex-row gap-4 mt-4">
                     <button
                       type="submit"
                       className="flex-1 group py-3 px-6 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white font-bold transition-all duration-300 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
@@ -1891,7 +1927,7 @@ const Admin: React.FC = () => {
                         setShowProductForm(false);
                         setProductForm({ name: "", description: "", price: 0, category: "Moody", image: "", stock: 0 });
                       }}
-                      className="px-8 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-gray-700 font-bold transition-all duration-300 hover:scale-105 active:scale-95"
+                      className="w-full sm:w-auto px-8 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-gray-700 font-bold transition-all duration-300 hover:scale-105 active:scale-95"
                     >
                       Cancel
                     </button>
@@ -2033,10 +2069,10 @@ const Admin: React.FC = () => {
         {/* ALL USERS VIEW */}
         {currentView === "users" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">All Users ({allUsers.length})</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">All Users ({allUsers.length})</h2>
               {allUsers.length > 0 && (
-                <div className="text-sm text-gray-400 space-x-4">
+                <div className="text-xs sm:text-sm text-gray-400 space-x-3 sm:space-x-4">
                   <span>👤 Users: {allUsers.filter(u => u.role === 'user').length}</span>
                   <span>⭐ Influencers: {allUsers.filter(u => u.role === 'influencer').length}</span>
                   <span>👑 Admins: {allUsers.filter(u => u.role === 'admin').length}</span>
@@ -2135,10 +2171,10 @@ const Admin: React.FC = () => {
         {/* ALL INFLUENCERS VIEW */}
         {currentView === "all-influencers" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">All Influencers ({allInfluencers.length})</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">All Influencers ({allInfluencers.length})</h2>
               {allInfluencers.length > 0 && (
-                <div className="text-sm text-gray-600 space-x-4 font-semibold">
+                <div className="text-xs sm:text-sm text-gray-600 space-x-3 sm:space-x-4 font-semibold">
                   <span>✅ Approved: {allInfluencers.filter(i => i.influencerProfile?.isApproved).length}</span>
                   <span>⏳ Pending: {allInfluencers.filter(i => !i.influencerProfile?.isApproved).length}</span>
                 </div>
@@ -2214,10 +2250,10 @@ const Admin: React.FC = () => {
         {/* ORDERS VIEW */}
         {currentView === "orders" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">All Orders ({orders.length})</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">All Orders ({orders.length})</h2>
               {orders.length > 0 && (
-                <div className="text-sm text-gray-400 space-x-3">
+                <div className="text-xs sm:text-sm text-gray-400 space-x-3">
                   <span>✅ Success: {orders.filter(o => o.status === 'SUCCESS').length}</span>
                   <span>⏳ Pending: {orders.filter(o => o.status === 'PENDING').length}</span>
                 </div>
