@@ -1910,7 +1910,7 @@ const Admin: React.FC = () => {
               <div className="space-y-8">
                 {ADMIN_PRODUCT_CATEGORIES.map((category) => {
                   const categoryProducts = productsForDisplay.filter(
-                    (p) => p.category === category && (p.isPlaceholder || hasValidImage(p.image))
+                    (p) => p.category === category
                   );
                   if (categoryProducts.length === 0) return null;
 
@@ -1943,7 +1943,17 @@ const Admin: React.FC = () => {
                           <div key={product._id} className="group bg-white border border-gray-200 rounded-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
                             {/* Image */}
                             <div className="relative h-56 bg-gray-100 overflow-hidden">
-                              <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                              <img
+                                src={product.image}
+                                alt={product.name}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                onError={(e) => {
+                                  const img = e.currentTarget;
+                                  if (img.dataset.fallbackApplied === "1") return;
+                                  img.dataset.fallbackApplied = "1";
+                                  img.src = "/badge/placeholder.png";
+                                }}
+                              />
                               {/* Stock badge overlay */}
                               <div className="absolute top-3 right-3">
                                 <span className={`px-3 py-1.5 rounded-full text-xs font-bold ${
