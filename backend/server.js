@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const compression = require("compression");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 
@@ -8,6 +9,7 @@ dotenv.config();
 const app = express();
 
 /* Middleware */
+app.use(compression()); // Gzip all responses
 app.use(
   cors({
     origin: [

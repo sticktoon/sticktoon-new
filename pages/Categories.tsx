@@ -261,6 +261,10 @@ export default function Categories({ addToCart }: CategoriesProps) {
   // Check if user is admin
   const isAdmin = !!localStorage.getItem('adminToken');
 
+  // Simple product cache to avoid refetching on every navigation
+  const productCacheRef = useRef<{ data: Badge[]; timestamp: number } | null>(null);
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
   const normalizeImagePath = (path?: string) => {
     if (!path) return undefined;
     
@@ -321,25 +325,38 @@ export default function Categories({ addToCart }: CategoriesProps) {
     return normalized;
   };
 
-  // Fetch products from API
+  // Fetch products from API with caching
   useEffect(() => {
     const fetchProducts = async () => {
+      // Check cache first
+      const cached = productCacheRef.current;
+      if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+        setProducts(cached.data);
+        setLoading(false);
+        return;
+      }
+
+      // Show static badges immediately while fetching from API
+      if (products.length === 0) {
+        setProducts(ensureMinimumPerCategory(BADGES));
+      }
+
       try {
         setLoading(true);
-        // Request all products with limit=100 for better performance
         const res = await fetch(`${API_BASE_URL}/api/products?limit=100&all=true`);
         if (res.ok) {
           const data = await res.json();
           const apiItems = Array.isArray(data) ? data : data.products || [];
           const mappedProducts = mapApiProductsToBadges(apiItems);
-          setProducts(ensureMinimumPerCategory(mappedProducts));
+          const finalProducts = ensureMinimumPerCategory(mappedProducts);
+          setProducts(finalProducts);
+          // Cache the result
+          productCacheRef.current = { data: finalProducts, timestamp: Date.now() };
         } else {
-          // Fallback to static badges if API fails
           setProducts(ensureMinimumPerCategory(BADGES));
         }
       } catch (err) {
         console.error('Error fetching products:', err);
-        // Fallback to static badges
         setProducts(ensureMinimumPerCategory(BADGES));
       } finally {
         setLoading(false);

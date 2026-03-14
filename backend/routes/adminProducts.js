@@ -51,30 +51,56 @@ const normalizeCategory = (value) => {
 /* ========================
    GET ALL PRODUCTS (WITH PAGINATION)
 ======================== */
+// In-memory product cache
+let productCache = null;
+let productCacheTime = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+const invalidateProductCache = () => {
+  productCache = null;
+  productCacheTime = 0;
+};
+
 router.get("/", async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 100; // Increased default limit
+    const limit = parseInt(req.query.limit) || 100;
     const skip = (page - 1) * limit;
     const all = req.query.all === 'true';
 
     // Set cache headers for better performance
-    res.set('Cache-Control', 'public, max-age=300'); // 5 minutes cache
+    res.set('Cache-Control', 'public, max-age=300');
 
-    // Only select necessary fields for list view
     const selectFields = 'name price category image imageMagnetic description isActive stock';
+
+    // Use server-side cache for "all" queries
+    if (all && productCache && (Date.now() - productCacheTime < CACHE_TTL)) {
+      return res.json({
+        products: productCache,
+        pagination: { total: productCache.length, page: 1, limit: productCache.length, pages: 1 },
+      });
+    }
 
     let query = Product.find({ isActive: true })
       .select(selectFields)
       .sort("-createdAt")
-      .lean(); // Use lean() for faster reads
+      .lean();
 
     if (!all) {
       query = query.skip(skip).limit(limit);
     }
 
-    const products = await query;
-    const total = await Product.countDocuments({ isActive: true });
+    // Run find and count in parallel
+    const [products, total] = await Promise.all([
+      query,
+      Product.countDocuments({ isActive: true }),
+    ]);
+
+    // Cache the "all" result
+    if (all) {
+      productCache = products;
+      productCacheTime = Date.now();
+    }
 
     res.json({
       products,
@@ -104,20 +130,18 @@ router.get("/category/:category", async (req, res) => {
 
     const selectFields = 'name price category image imageMagnetic description isActive stock';
 
-    const products = await Product.find({
-      category: req.params.category,
-      isActive: true,
-    })
-      .select(selectFields)
-      .sort("-createdAt")
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    const filter = { category: req.params.category, isActive: true };
 
-    const total = await Product.countDocuments({
-      category: req.params.category,
-      isActive: true,
-    });
+    // Run find and count in parallel
+    const [products, total] = await Promise.all([
+      Product.find(filter)
+        .select(selectFields)
+        .sort("-createdAt")
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(filter),
+    ]);
 
     res.json({
       products,
@@ -138,7 +162,8 @@ router.get("/category/:category", async (req, res) => {
 ======================== */
 router.get("/:id", async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    res.set('Cache-Control', 'public, max-age=300');
+    const product = await Product.findById(req.params.id).lean();
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
@@ -175,6 +200,7 @@ router.post("/", auth, adminOnly, async (req, res) => {
     });
 
     await product.save();
+    invalidateProductCache();
     res.status(201).json(product);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -210,6 +236,7 @@ router.patch("/:id", auth, adminOnly, async (req, res) => {
     if (isActive !== undefined) product.isActive = isActive;
 
     await product.save();
+    invalidateProductCache();
     res.json(product);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -225,6 +252,7 @@ router.delete("/:id", auth, adminOnly, async (req, res) => {
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
+    invalidateProductCache();
     res.json({ message: "Product deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });

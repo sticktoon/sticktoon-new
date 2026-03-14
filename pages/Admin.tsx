@@ -1812,6 +1812,31 @@ const Admin: React.FC = () => {
                       required
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300"
                     />
+                    {productForm.image.trim() && (
+                      <div className="mt-3 flex items-start gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                        <div className="w-20 h-20 rounded-lg border border-gray-300 overflow-hidden bg-white flex items-center justify-center shrink-0">
+                          <img
+                            key={productForm.image.trim()}
+                            src={productForm.image.trim()}
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                              (e.target as HTMLImageElement).nextElementSibling!.classList.remove('hidden');
+                            }}
+                            onLoad={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'block';
+                              (e.target as HTMLImageElement).nextElementSibling!.classList.add('hidden');
+                            }}
+                          />
+                          <span className="hidden text-xs text-red-500 text-center px-1">Invalid URL</span>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          <p className="font-semibold text-gray-700 mb-1">Image Preview</p>
+                          <p className="text-xs text-gray-400 break-all">{productForm.image.trim()}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="md:col-span-2">
@@ -2774,6 +2799,31 @@ const Admin: React.FC = () => {
                   required
                   className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-indigo-500 focus:outline-none transition-all"
                 />
+                {productForm.image.trim() && (
+                  <div className="mt-3 flex items-start gap-3 p-3 bg-white/5 border border-white/15 rounded-lg">
+                    <div className="w-20 h-20 rounded-lg border border-white/20 overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
+                      <img
+                        key={productForm.image.trim()}
+                        src={productForm.image.trim()}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          (e.target as HTMLImageElement).nextElementSibling!.classList.remove('hidden');
+                        }}
+                        onLoad={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'block';
+                          (e.target as HTMLImageElement).nextElementSibling!.classList.add('hidden');
+                        }}
+                      />
+                      <span className="hidden text-xs text-red-400 text-center px-1">Invalid URL</span>
+                    </div>
+                    <div className="text-sm text-gray-300">
+                      <p className="font-semibold text-white mb-1">Image Preview</p>
+                      <p className="text-xs text-gray-400 break-all">{productForm.image.trim()}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="md:col-span-2">
