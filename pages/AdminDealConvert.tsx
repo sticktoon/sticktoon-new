@@ -6,6 +6,10 @@ import jsPDF from "jspdf";
 const printFieldClass =
   "print:border-0 print:bg-transparent print:p-0 print:shadow-none print:outline-none print:ring-0";
 
+const rowCellClass = "border h-[156px] px-3 py-5 text-center align-middle";
+const designBoxClass =
+  "flex h-24 w-36 items-center justify-center rounded-md border border-slate-200 bg-white p-1.5";
+
 type LeadLike = {
   _id?: string;
   firstName?: string;
@@ -19,6 +23,7 @@ type LeadLike = {
 type QuoteItem = {
   id: string;
   description: string;
+  subDescription: string;
   unitPrice: number;
   quantity: number;
   image?: string;
@@ -60,6 +65,11 @@ export default function AdminDealConvert() {
   const location = useLocation();
   const navigate = useNavigate();
   const lead = (location.state as { lead?: LeadLike } | null)?.lead;
+  const isSendMode = location.pathname === "/admin/deal-send";
+  const pageTitle = isSendMode ? "Send Quotation" : "Convert Deal";
+  const pageSubtitle = isSendMode
+    ? "Prepare the quotation before sending it."
+    : "Edit fields and generate quotation.";
 
   const [quotationFor, setQuotationFor] = useState(
     [lead?.firstName, lead?.lastName].filter(Boolean).join(" ") || "",
@@ -80,6 +90,7 @@ export default function AdminDealConvert() {
     {
       id: "item-1",
       description: "Custom product",
+      subDescription: "",
       unitPrice: Number(lead?.expectedAmount || 0),
       quantity: 1,
       image: "",
@@ -125,8 +136,8 @@ export default function AdminDealConvert() {
     };
   }, [gstRate, items]);
 
-  const firstPageRows = 4;
-  const otherPageRows = 5;
+  const firstPageRows = 2;
+  const otherPageRows = isStaticPreview ? 6 : 5;
 
   const itemPages = useMemo(() => {
     const pages: QuoteItem[][] = [];
@@ -137,10 +148,16 @@ export default function AdminDealConvert() {
     }
 
     pages.push(items.slice(0, firstPageRows));
-    let start = firstPageRows;
-    while (start < items.length) {
-      pages.push(items.slice(start, start + otherPageRows));
-      start += otherPageRows;
+    const remainingItems = items.slice(firstPageRows);
+    const remainingPageCount = Math.ceil(remainingItems.length / otherPageRows);
+    const baseItemsPerPage = Math.floor(remainingItems.length / remainingPageCount);
+    const extraItems = remainingItems.length % remainingPageCount;
+
+    let start = 0;
+    for (let pageIndex = 0; pageIndex < remainingPageCount; pageIndex += 1) {
+      const pageSize = baseItemsPerPage + (pageIndex < extraItems ? 1 : 0);
+      pages.push(remainingItems.slice(start, start + pageSize));
+      start += pageSize;
     }
 
     return pages;
@@ -156,6 +173,7 @@ export default function AdminDealConvert() {
       {
         id: `item-${prev.length + 1}`,
         description: "",
+        subDescription: "",
         unitPrice: 0,
         quantity: 1,
         image: "",
@@ -256,7 +274,7 @@ export default function AdminDealConvert() {
       }
 
       pdf.autoPrint();
-      const printUrl = pdf.output("bloburl");
+      const printUrl = String(pdf.output("bloburl"));
       const printWindow = window.open(printUrl, "_blank", "noopener,noreferrer");
 
       if (!printWindow) {
@@ -291,7 +309,7 @@ export default function AdminDealConvert() {
         <div className="mx-auto max-w-3xl rounded-2xl border bg-white p-8">
           <h1 className="text-2xl font-black text-slate-900">No deal selected</h1>
           <p className="mt-2 text-slate-600">
-            Open this page from the Deals table using the Convert action.
+            Open this page from the Leads table using the {isSendMode ? "Send" : "Convert"} action.
           </p>
           <button
             onClick={() => navigate("/admin")}
@@ -418,8 +436,15 @@ export default function AdminDealConvert() {
           gap: 24px;
         }
 
+        #deal-quotation-preview {
+          overflow-x: auto;
+          overflow-y: visible;
+          padding-bottom: 8px;
+        }
+
         .a4-page {
           width: 210mm;
+          min-width: 210mm;
           height: 297mm;
           margin: 0 auto;
           background: #ffffff;
@@ -447,12 +472,12 @@ export default function AdminDealConvert() {
           }
         }
       `}</style>
-      <div id="deal-convert-layout" className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[380px_1fr]">
+      <div id="deal-convert-layout" className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
         <div id="deal-editor-panel" className="rounded-2xl border bg-white p-5 print:hidden">
           <div className="mb-5 flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-black text-slate-900">Convert Deal</h1>
-              <p className="text-sm text-slate-500">Edit fields and generate quotation.</p>
+              <h1 className="text-2xl font-black text-slate-900">{pageTitle}</h1>
+              <p className="text-sm text-slate-500">{pageSubtitle}</p>
             </div>
             <Link to="/admin" className="text-sm font-bold text-slate-600 print:hidden">
               Back
@@ -568,7 +593,7 @@ export default function AdminDealConvert() {
 
         <div
           id="deal-quotation-preview"
-          className={`text-black ${isStaticPreview ? "exporting" : ""}`}
+          className={`min-w-0 text-black ${isStaticPreview ? "exporting" : ""}`}
         >
           <div id="deal-main-content">
             {itemPages.map((pageItems, pageIndex) => (
@@ -627,17 +652,27 @@ export default function AdminDealConvert() {
                       </button>
                     )}
                   </div>
-                  <table className="w-full border-collapse text-sm">
+                  <table className="w-full table-fixed border-collapse text-sm">
+                    <colgroup>
+                      <col style={{ width: "7%" }} />
+                      <col style={{ width: "15%" }} />
+                      <col style={{ width: "21%" }} />
+                      <col style={{ width: "12%" }} />
+                      <col style={{ width: "11%" }} />
+                      <col style={{ width: "11%" }} />
+                      <col style={{ width: "8%" }} />
+                      <col style={{ width: "15%" }} />
+                    </colgroup>
                     <thead className="bg-slate-100">
                       <tr>
-                        <th className="border px-3 py-2 text-left font-black">S.N.</th>
-                        <th className="border px-3 py-2 text-left font-black">Description</th>
-                        <th className="border px-3 py-2 text-left font-black">Design Preview</th>
-                        <th className="border px-3 py-2 text-right font-black">Unit Price</th>
-                        <th className="border px-3 py-2 text-right font-black">Quantity</th>
-                        <th className="border px-3 py-2 text-right font-black">Amount</th>
-                        <th className="border px-3 py-2 text-right font-black">IGST</th>
-                        <th className="border px-3 py-2 text-right font-black">Total</th>
+                        <th className="border px-2 py-2 text-center align-middle font-black">S.N.</th>
+                        <th className="border px-2 py-2 text-center align-middle font-black">Description</th>
+                        <th className="border px-2 py-2 text-center align-middle font-black">Design Preview</th>
+                        <th className="border px-2 py-2 text-center align-middle font-black">Unit Price</th>
+                        <th className="border px-2 py-2 text-center align-middle font-black">Quantity</th>
+                        <th className="border px-2 py-2 text-center align-middle font-black">Amount</th>
+                        <th className="border px-2 py-2 text-center align-middle font-black">IGST</th>
+                        <th className="border px-2 py-2 text-center align-middle font-black">Total</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -652,87 +687,95 @@ export default function AdminDealConvert() {
                         const amount = item.unitPrice * item.quantity;
                         const igst = (amount * gstRate) / 100;
                         return (
-                          <tr key={item.id}>
-                            <td className="border px-3 py-3">{globalIndex + 1}</td>
-                            <td className="border px-3 py-3">
+                          <tr key={item.id} className="h-[124px]">
+                            <td className={rowCellClass}>{globalIndex + 1}</td>
+                            <td className={rowCellClass}>
                               {isStaticPreview ? (
-                                <div className="text-sm font-semibold">{item.description || "-"}</div>
+                                <div className="text-left leading-snug">
+                                  <p className="text-sm font-semibold">{item.description || "-"}</p>
+                                  {item.subDescription ? (
+                                    <p className="mt-1 text-xs italic text-slate-500">{item.subDescription}</p>
+                                  ) : null}
+                                </div>
                               ) : (
-                                <input
-                                  value={item.description}
-                                  onChange={(e) => updateItem(item.id, { description: e.target.value })}
-                                  placeholder="Description"
-                                  className={`w-full rounded-md border px-2 py-2 text-sm font-semibold ${printFieldClass}`}
-                                />
+                                <div className="space-y-2 text-left">
+                                  <input
+                                    value={item.description}
+                                    onChange={(e) => updateItem(item.id, { description: e.target.value })}
+                                    placeholder="Title"
+                                    className={`w-full rounded-md border px-2 py-2 text-sm font-semibold ${printFieldClass}`}
+                                  />
+                                  <input
+                                    value={item.subDescription}
+                                    onChange={(e) => updateItem(item.id, { subDescription: e.target.value })}
+                                    placeholder="Description"
+                                    className={`w-full rounded-md border px-2 py-2 text-xs italic text-slate-600 ${printFieldClass}`}
+                                  />
+                                </div>
                               )}
                             </td>
-                            <td className="border px-3 py-3">
-                              <div className="space-y-2">
+                            <td className={rowCellClass}>
+                              <div className="flex h-[120px] flex-col items-center justify-center gap-2">
                                 {item.image ? (
                                   <img
                                     src={item.image}
                                     crossOrigin="anonymous"
                                     alt={item.description || `Item ${globalIndex + 1}`}
-                                    className="h-16 w-24 rounded object-cover"
+                                    className={`${designBoxClass} object-contain`}
                                   />
-                                ) : !isStaticPreview ? (
-                                  <div className="flex h-16 w-24 items-center justify-center rounded bg-slate-100 text-xs text-slate-400">
+                                ) : (
+                                  <div className={`${designBoxClass} bg-slate-100 text-sm text-slate-400`}>
                                     No image
                                   </div>
-                                ) : null}
+                                )}
                                 {!isStaticPreview && (
-                                  <>
-                                    <input
-                                      value={item.image || ""}
-                                      onChange={(e) => updateItem(item.id, { image: e.target.value })}
-                                      placeholder="Image URL"
-                                      className="w-full rounded-md border px-2 py-1.5 text-xs print:hidden"
-                                    />
+                                  <label className="cursor-pointer rounded border border-slate-300 px-2 py-1 text-[10px] font-semibold text-slate-600 print:hidden">
+                                    Upload
                                     <input
                                       type="file"
                                       accept="image/*"
                                       onChange={(e) => handleItemImageUpload(item.id, e.target.files?.[0])}
-                                      className="block w-full text-xs text-slate-600 print:hidden"
+                                      className="hidden"
                                     />
-                                  </>
+                                  </label>
                                 )}
                               </div>
                             </td>
-                            <td className="border px-3 py-3">
+                            <td className={rowCellClass}>
                               {isStaticPreview ? (
-                                <div className="text-right">Rs. {item.unitPrice.toLocaleString("en-IN")}</div>
+                                <div>Rs. {item.unitPrice.toLocaleString("en-IN")}</div>
                               ) : (
                                 <input
                                   type="number"
                                   min={0}
                                   value={item.unitPrice}
                                   onChange={(e) => updateItem(item.id, { unitPrice: Number(e.target.value || 0) })}
-                                  className={`w-24 rounded-md border px-2 py-2 text-right ${printFieldClass}`}
+                                  className={`mx-auto w-full max-w-[96px] rounded-md border px-2 py-2 text-center ${printFieldClass}`}
                                 />
                               )}
                             </td>
-                            <td className="border px-3 py-3">
+                            <td className={rowCellClass}>
                               {isStaticPreview ? (
-                                <div className="text-right">{item.quantity}</div>
+                                <div>{item.quantity}</div>
                               ) : (
                                 <input
                                   type="number"
                                   min={1}
                                   value={item.quantity}
                                   onChange={(e) => updateItem(item.id, { quantity: Number(e.target.value || 1) })}
-                                  className={`w-20 rounded-md border px-2 py-2 text-right ${printFieldClass}`}
+                                  className={`mx-auto w-full max-w-[80px] rounded-md border px-2 py-2 text-center ${printFieldClass}`}
                                 />
                               )}
                             </td>
-                            <td className="border px-3 py-3 text-right">Rs. {amount.toLocaleString("en-IN")}</td>
-                            <td className="border px-3 py-3 text-right">Rs. {Math.round(igst).toLocaleString("en-IN")}</td>
-                            <td className="border px-3 py-3 text-right font-black">
-                              <div className="flex items-center justify-end gap-2">
+                            <td className={rowCellClass}>Rs. {amount.toLocaleString("en-IN")}</td>
+                            <td className={rowCellClass}>Rs. {Math.round(igst).toLocaleString("en-IN")}</td>
+                            <td className={`${rowCellClass} font-black`}>
+                              <div className={`flex items-center justify-center ${isStaticPreview ? "" : "flex-col gap-2"}`}>
                                 <span>Rs. {Math.round(amount + igst).toLocaleString("en-IN")}</span>
                                 {!isStaticPreview && (
                                   <button
                                     onClick={() => removeItem(item.id)}
-                                    className="rounded border border-red-200 px-2 py-1 text-xs font-bold text-red-600 print:hidden"
+                                    className="rounded border border-red-200 px-2 py-1 text-[10px] font-bold text-red-600 print:hidden"
                                   >
                                     Remove
                                   </button>
@@ -746,10 +789,10 @@ export default function AdminDealConvert() {
                     {pageIndex === itemPages.length - 1 && (
                       <tfoot className="bg-slate-900 text-white">
                         <tr>
-                          <td colSpan={5} className="border px-3 py-3 text-right font-black">Grand Total</td>
-                          <td className="border px-3 py-3 text-right">Rs. {Math.round(totals.subtotal).toLocaleString("en-IN")}</td>
-                          <td className="border px-3 py-3 text-right">Rs. {Math.round(totals.gstAmount).toLocaleString("en-IN")}</td>
-                          <td className="border px-3 py-3 text-right font-black">Rs. {Math.round(totals.grandTotal).toLocaleString("en-IN")}</td>
+                          <td colSpan={5} className="border px-3 py-3 text-center font-black">Grand Total</td>
+                          <td className="border px-3 py-3 text-center">Rs. {Math.round(totals.subtotal).toLocaleString("en-IN")}</td>
+                          <td className="border px-3 py-3 text-center">Rs. {Math.round(totals.gstAmount).toLocaleString("en-IN")}</td>
+                          <td className="border px-3 py-3 text-center font-black">Rs. {Math.round(totals.grandTotal).toLocaleString("en-IN")}</td>
                         </tr>
                       </tfoot>
                     )}

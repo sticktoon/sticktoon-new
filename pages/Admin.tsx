@@ -64,6 +64,14 @@ const normalizeCategory = (value?: string) => {
   return map[lower] || trimmed;
 };
 
+const formatINRCurrency = (value: number) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number.isFinite(value) ? value : 0);
+
 // Add CSS for animations
 const style = document.createElement("style");
 style.textContent = `
@@ -4054,7 +4062,7 @@ const Admin: React.FC = () => {
 
                 {/* TABLE */}
                 <div className="bg-white border rounded-xl overflow-hidden">
-                  <div className="grid grid-cols-9 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left">
+                  <div className="grid grid-cols-10 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left">
                     <span>Name</span>
                     <span>Company</span>
                     <span>Email</span>
@@ -4063,6 +4071,7 @@ const Admin: React.FC = () => {
                     <span>Date</span>
                     <span>Next Follow Up</span>
                     <span>Mail</span>
+                    <span>Send</span>
                     <span>Delete</span>
                   </div>
 
@@ -4074,7 +4083,7 @@ const Admin: React.FC = () => {
                     filteredLeads.map((lead) => (
                       <div
                         key={lead._id}
-                        className="grid grid-cols-9 px-6 py-4 text-sm border-b hover:bg-slate-50 text-left"
+                        className="grid grid-cols-10 px-6 py-4 text-sm border-b hover:bg-slate-50 text-left"
                       >
                         <span className="font-semibold">
                           {lead.firstName} {lead.lastName}
@@ -4156,6 +4165,15 @@ const Admin: React.FC = () => {
                               className="w-4 h-4"
                             />
                             Mail
+                          </button>
+                        </span>
+
+                        <span>
+                          <button
+                            onClick={() => navigate("/admin/deal-send", { state: { lead } })}
+                            className="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-semibold transition"
+                          >
+                            Send
                           </button>
                         </span>
 
@@ -7201,64 +7219,87 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   </div>
                 </div>
 
-                {/* CRM Invoice Form Preview */}
-                <div className="mb-6 rounded-xl border border-indigo-500/30 bg-white p-4 text-slate-900">
-                  <div className="flex items-start justify-between border-b border-slate-200 pb-3 mb-4">
-                    <div>
-                      <h4 className="text-lg font-black">INVOICE FORM</h4>
-                      <p className="text-xs text-slate-500">CRM Preview (Static + Dynamic)</p>
-                    </div>
-                    <div className="text-right text-xs">
-                      <p><span className="text-slate-500">Invoice ID:</span> <span className="font-bold text-slate-900">{typeof viewingOrder.invoiceId === "string" ? viewingOrder.invoiceId : viewingOrder.invoiceId?._id || "Pending"}</span></p>
-                      <p><span className="text-slate-500">Order ID:</span> <span className="font-bold text-slate-900">#{viewingOrder.orderId || viewingOrder._id}</span></p>
-                      <p><span className="text-slate-500">Date:</span> <span className="font-bold text-slate-900">{new Date(viewingOrder.createdAt).toLocaleDateString("en-IN")}</span></p>
-                    </div>
-                  </div>
+                {/* Commercial Proposal Preview */}
+                {(() => {
+                  const items = viewingOrder.items || [];
+                  const totalUnits = items.reduce(
+                    (sum: number, item: any) => sum + Number(item.quantity || 0),
+                    0,
+                  );
+                  const subtotal =
+                    Number(viewingOrder.subtotal) ||
+                    items.reduce(
+                      (sum: number, item: any) =>
+                        sum + Number(item.price || 0) * Number(item.quantity || 0),
+                      0,
+                    );
+                  const basePricePerUnit =
+                    totalUnits > 0 ? subtotal / totalUnits : Number(viewingOrder.amount || 0);
+                  const gstPerUnit = basePricePerUnit * 0.18;
+                  const totalPerUnit = basePricePerUnit + gstPerUnit;
+                  const overviewPoints = [
+                    "Specializes in the creation of 58 mm round plastic pin badges.",
+                    "Fully customizable plastic badges tailored to meet design preferences.",
+                    "Innovative pin+magnet dual feature for apparel and magnetic surfaces.",
+                    "High-quality glossy coating for a durable finish.",
+                  ];
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                    <div className="rounded-lg border border-slate-200 p-3 bg-slate-50">
-                      <p className="text-[11px] font-black uppercase text-slate-500 mb-1">Seller (Static)</p>
-                      <p className="font-bold">StickToon</p>
-                      <p className="text-sm">TBI, Ramdeobaba College, Nagpur</p>
-                      <p className="text-sm">Maharashtra - 440013</p>
-                      <p className="text-sm">GSTIN: 27HENPP0138G1Z9</p>
-                      <p className="text-sm">Email: sticktoon.xyz@gmail.com</p>
-                    </div>
-                    <div className="rounded-lg border border-slate-200 p-3 bg-slate-50">
-                      <p className="text-[11px] font-black uppercase text-slate-500 mb-1">Bill To (Dynamic)</p>
-                      <p className="font-bold">{viewingOrder.address?.name || viewingOrder.userId?.name || "Customer"}</p>
-                      <p className="text-sm">{viewingOrder.address?.street || "-"}</p>
-                      <p className="text-sm">Phone: {viewingOrder.address?.phone || "-"}</p>
-                      <p className="text-sm">Email: {viewingOrder.userId?.email || "-"}</p>
-                      <p className="text-sm">Payment: {viewingOrder.paymentMethod || "Online"}</p>
-                    </div>
-                  </div>
+                  return (
+                    <div className="mb-6 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.06)]">
+                      <div className="grid grid-cols-1 md:grid-cols-[1fr_1.08fr]">
+                        <div className="border-b border-slate-200 px-6 py-8 md:border-b-0 md:border-r md:px-12 md:py-11">
+                          <p className="mb-8 text-xs font-extrabold uppercase tracking-[0.24em] text-slate-400">
+                            Commercial Proposal
+                          </p>
 
-                  <div className="rounded-lg border border-slate-200 overflow-hidden mb-3">
-                    <div className="grid grid-cols-12 bg-slate-100 text-xs font-black text-slate-600">
-                      <div className="col-span-1 p-2">#</div>
-                      <div className="col-span-5 p-2">Item</div>
-                      <div className="col-span-2 p-2 text-center">Qty</div>
-                      <div className="col-span-2 p-2 text-right">Rate</div>
-                      <div className="col-span-2 p-2 text-right">Amount</div>
-                    </div>
-                    {(viewingOrder.items || []).map((item: any, idx: number) => (
-                      <div key={idx} className="grid grid-cols-12 text-sm border-t border-slate-200">
-                        <div className="col-span-1 p-2">{idx + 1}</div>
-                        <div className="col-span-5 p-2 font-semibold">{item.name}</div>
-                        <div className="col-span-2 p-2 text-center">{item.quantity}</div>
-                        <div className="col-span-2 p-2 text-right">Rs {item.price}</div>
-                        <div className="col-span-2 p-2 text-right font-bold">Rs {item.price * item.quantity}</div>
+                          <div className="space-y-0">
+                            <div className="flex items-center justify-between border-b border-slate-200 py-5">
+                              <span className="text-[15px] font-semibold text-slate-900">
+                                Product Price
+                              </span>
+                              <span className="text-[15px] font-extrabold text-slate-950">
+                                {formatINRCurrency(basePricePerUnit)}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between border-b border-slate-200 py-5">
+                              <span className="text-[15px] font-semibold text-slate-900">
+                                GST (18%)
+                              </span>
+                              <span className="text-[15px] font-extrabold text-slate-950">
+                                {formatINRCurrency(gstPerUnit)}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-7">
+                              <span className="text-[18px] font-bold text-slate-950">
+                                Total Per Unit
+                              </span>
+                              <span className="text-[22px] font-black text-slate-950 md:text-[24px]">
+                                {formatINRCurrency(totalPerUnit)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="px-6 py-8 md:px-12 md:py-11">
+                          <p className="mb-8 text-xs font-extrabold uppercase tracking-[0.24em] text-slate-400">
+                            Sticktoon Overview
+                          </p>
+
+                          <ul className="space-y-5 text-[15px] leading-7 text-slate-600">
+                            {overviewPoints.map((point) => (
+                              <li key={point} className="flex items-start gap-4">
+                                <span className="mt-[10px] h-1.5 w-1.5 flex-none rounded-full bg-blue-500" />
+                                <span className="font-semibold">{point}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="ml-auto w-full md:w-72 rounded-lg border border-slate-200 p-3 bg-slate-50 text-sm">
-                    <div className="flex justify-between"><span className="text-slate-600">Subtotal</span><span className="font-semibold">Rs {viewingOrder.subtotal || viewingOrder.amount - 99}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-600">Delivery</span><span className="font-semibold">Rs 99</span></div>
-                    <div className="flex justify-between border-t border-slate-300 mt-2 pt-2"><span className="font-black">Total</span><span className="font-black">Rs {viewingOrder.amount}</span></div>
-                  </div>
-                </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Action Button */}
                 <button

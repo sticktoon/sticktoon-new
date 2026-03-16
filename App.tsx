@@ -38,6 +38,7 @@ import AdminRevenue from "./pages/AdminRevenue";
 import AdminUserOrders from "./pages/AdminUserOrders";
 import AdminInvoice from "./pages/AdminInvoice";
 import AdminDealConvert from "./pages/AdminDealConvert";
+import AdminDealSend from "./pages/AdminDealSend";
 import AdminPromo from "./pages/AdminPromo";
 import AdminInfluencerManage from "./pages/AdminInfluencerManage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -1151,6 +1152,7 @@ export default function App() {
           <Route path="/admin/user-orders" element={<AdminUserOrders />} />
           <Route path="/admin/invoice/:id" element={<AdminInvoice />} />
           <Route path="/admin/deal-convert" element={<AdminDealConvert />} />
+          <Route path="/admin/deal-send" element={<AdminDealSend />} />
           <Route path="/admin/promo" element={<AdminPromo />} />
           <Route path="/admin/influencers" element={<AdminInfluencerManage />} />
           {/* Admin Routes - Unified */}
