@@ -8,7 +8,7 @@ const printFieldClass =
 
 const rowCellClass = "border h-[156px] px-3 py-5 text-center align-middle";
 const designBoxClass =
-  "flex h-24 w-36 items-center justify-center rounded-md border border-slate-200 bg-white p-1.5";
+  "flex h-24 w-36 items-center justify-center rounded-md border bg-white p-1.5";
 
 type LeadLike = {
   _id?: string;
@@ -721,10 +721,10 @@ export default function AdminDealConvert() {
                                     src={item.image}
                                     crossOrigin="anonymous"
                                     alt={item.description || `Item ${globalIndex + 1}`}
-                                    className={`${designBoxClass} object-contain`}
+                                    className={`${designBoxClass} object-contain ${isStaticPreview ? "border-transparent" : "border-slate-200"}`}
                                   />
                                 ) : (
-                                  <div className={`${designBoxClass} bg-slate-100 text-sm text-slate-400`}>
+                                  <div className={`${designBoxClass} border-slate-200 bg-slate-100 text-sm text-slate-400`}>
                                     No image
                                   </div>
                                 )}
