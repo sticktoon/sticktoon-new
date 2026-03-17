@@ -6,7 +6,7 @@ import jsPDF from "jspdf";
 const printFieldClass =
   "print:border-0 print:bg-transparent print:p-0 print:shadow-none print:outline-none print:ring-0";
 
-const rowCellClass = "border h-[156px] px-3 py-5 text-center align-middle";
+const rowCellClass = "border h-[120px] px-3 py-3 text-center align-middle";
 const designBoxClass =
   "flex h-24 w-36 items-center justify-center rounded-md border bg-white p-1.5";
 
@@ -136,8 +136,8 @@ export default function AdminDealConvert() {
     };
   }, [gstRate, items]);
 
-  const firstPageRows = 2;
-  const otherPageRows = isStaticPreview ? 6 : 5;
+  const firstPageRows = 3;
+  const otherPageRows = 8;
 
   const itemPages = useMemo(() => {
     const pages: QuoteItem[][] = [];
@@ -149,15 +149,8 @@ export default function AdminDealConvert() {
 
     pages.push(items.slice(0, firstPageRows));
     const remainingItems = items.slice(firstPageRows);
-    const remainingPageCount = Math.ceil(remainingItems.length / otherPageRows);
-    const baseItemsPerPage = Math.floor(remainingItems.length / remainingPageCount);
-    const extraItems = remainingItems.length % remainingPageCount;
-
-    let start = 0;
-    for (let pageIndex = 0; pageIndex < remainingPageCount; pageIndex += 1) {
-      const pageSize = baseItemsPerPage + (pageIndex < extraItems ? 1 : 0);
-      pages.push(remainingItems.slice(start, start + pageSize));
-      start += pageSize;
+    for (let start = 0; start < remainingItems.length; start += otherPageRows) {
+      pages.push(remainingItems.slice(start, start + otherPageRows));
     }
 
     return pages;
@@ -687,7 +680,7 @@ export default function AdminDealConvert() {
                         const amount = item.unitPrice * item.quantity;
                         const igst = (amount * gstRate) / 100;
                         return (
-                          <tr key={item.id} className="h-[124px]">
+                          <tr key={item.id} className="h-[100px]">
                             <td className={rowCellClass}>{globalIndex + 1}</td>
                             <td className={rowCellClass}>
                               {isStaticPreview ? (
@@ -715,7 +708,7 @@ export default function AdminDealConvert() {
                               )}
                             </td>
                             <td className={rowCellClass}>
-                              <div className="flex h-[120px] flex-col items-center justify-center gap-2">
+                              <div className="flex h-[96px] flex-col items-center justify-center gap-2">
                                 {item.image ? (
                                   <img
                                     src={item.image}
