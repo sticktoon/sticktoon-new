@@ -687,7 +687,7 @@ export default function AdminDealConvert() {
                                 <div className="text-left leading-snug">
                                   <p className="text-sm font-semibold">{item.description || "-"}</p>
                                   {item.subDescription ? (
-                                    <p className="mt-1 text-xs italic text-slate-500">{item.subDescription}</p>
+                                    <p className="mt-1 text-[9px] italic text-slate-500">{item.subDescription}</p>
                                   ) : null}
                                 </div>
                               ) : (
@@ -702,7 +702,7 @@ export default function AdminDealConvert() {
                                     value={item.subDescription}
                                     onChange={(e) => updateItem(item.id, { subDescription: e.target.value })}
                                     placeholder="Description"
-                                    className={`w-full rounded-md border px-2 py-2 text-xs italic text-slate-600 ${printFieldClass}`}
+                                    className={`w-full rounded-md border px-2 py-2 text-[9px] italic text-slate-600 ${printFieldClass}`}
                                   />
                                 </div>
                               )}
