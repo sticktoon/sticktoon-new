@@ -395,6 +395,24 @@ interface WithdrawalRequest {
   influencerId: { _id: string; name: string; email: string };
   amount: number;
   paymentMethod: string;
+  paymentDetails?: {
+    upiId?: string;
+    bankName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    accountHolderName?: string;
+    paytmNumber?: string;
+    bankDetails?: {
+      bankName?: string;
+      accountNumber?: string;
+      ifscCode?: string;
+      accountHolder?: string;
+      accountHolderName?: string;
+    };
+  };
+  adminNote?: string;
+  transactionId?: string;
+  processedAt?: string;
   status: "pending" | "approved" | "rejected" | "paid";
   createdAt: string;
 }
@@ -657,6 +675,7 @@ const Admin: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [updatingDeliveryOrderId, setUpdatingDeliveryOrderId] = useState<string | null>(null);
   const [viewingOrder, setViewingOrder] = useState<any>(null);
   const [viewingCustomerId, setViewingCustomerId] = useState<string | null>(null);
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
@@ -1631,26 +1650,83 @@ const Admin: React.FC = () => {
       FAILED: orders.filter((o) => o.status === "FAILED").length,
     };
 
-    const customerMap = new Map<string, { name: string; totalSpent: number }>();
-    successfulOrders.forEach((o) => {
-      const key =
-        o.userId?._id ||
-        o.userId?.email ||
-        o.address?.phone ||
-        o._id;
-      const name =
-        o.userId?.name ||
-        o.address?.name ||
-        o.userId?.email ||
-        "Guest";
-      const current = customerMap.get(key) || { name, totalSpent: 0 };
-      current.totalSpent += Number(o.amount || 0);
-      customerMap.set(key, current);
+    const getTopCustomers = (sourceOrders: any[]) => {
+      const customerMap = new Map<string, { name: string; totalSpent: number }>();
+
+      sourceOrders.forEach((o) => {
+        const key =
+          o.userId?._id ||
+          o.userId?.email ||
+          o.address?.phone ||
+          o._id;
+        const name =
+          o.userId?.name ||
+          o.address?.name ||
+          o.userId?.email ||
+          "Guest";
+        const current = customerMap.get(key) || { name, totalSpent: 0 };
+        current.totalSpent += Number(o.amount || 0);
+        customerMap.set(key, current);
+      });
+
+      return Array.from(customerMap.values())
+        .sort((a, b) => b.totalSpent - a.totalSpent)
+        .slice(0, 3);
+    };
+
+    const topInSelectedRange = getTopCustomers(ordersInRange);
+    const topCustomers =
+      topInSelectedRange.length >= 3 ? topInSelectedRange : getTopCustomers(orders);
+
+    const monthLabels = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+
+    const monthlyBuckets = Array.from({ length: 12 }, () => ({
+      units: 0,
+      orderCount: 0,
+    }));
+
+    orders.forEach((order) => {
+      if (order.status !== "SUCCESS") return;
+
+      const createdAt = new Date(order.createdAt);
+      if (Number.isNaN(createdAt.getTime())) return;
+      if (createdAt.getFullYear() !== currentYear) return;
+
+      const monthIndex = createdAt.getMonth();
+      const units = Array.isArray(order.items) && order.items.length > 0
+        ? order.items.reduce(
+            (sum: number, item: any) => sum + Number(item.quantity || 0),
+            0,
+          )
+        : 1;
+
+      monthlyBuckets[monthIndex].units += units;
+      monthlyBuckets[monthIndex].orderCount += 1;
     });
 
-    const topCustomers = Array.from(customerMap.values())
-      .sort((a, b) => b.totalSpent - a.totalSpent)
-      .slice(0, 6);
+    const monthlyProductSales = monthLabels.map((label, idx) => {
+      const bucket = monthlyBuckets[idx];
+      const average =
+        bucket.orderCount > 0 ? bucket.units / bucket.orderCount : 0;
+
+      return {
+        label,
+        value: Number(average.toFixed(1)),
+      };
+    });
 
     return {
       totalRevenue,
@@ -1668,6 +1744,7 @@ const Admin: React.FC = () => {
       trendByDate,
       statusCounts,
       topCustomers,
+      monthlyProductSales,
     };
   }, [allCustomers.length, orders, reportRangeDays]);
 
@@ -2004,6 +2081,8 @@ const Admin: React.FC = () => {
   const [confirmingDelete, setConfirmingDelete] = useState<any>(null);
   const [deletingUser, setDeletingUser] = useState<any>(null);
   const [resettingPassword, setResettingPassword] = useState<any>(null);
+  const [viewingWithdrawal, setViewingWithdrawal] =
+    useState<WithdrawalRequest | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [stats, setStats] = useState({
     totalInfluencers: 0,
@@ -2277,6 +2356,36 @@ const Admin: React.FC = () => {
         setPendingInfluencers(data);
         setLoadedData((prev) => ({ ...prev, pendingInfluencers: true }));
       }
+
+      const [usersRes, ordersRes, productsRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/admin/users`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_BASE_URL}/api/admin/orders`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_BASE_URL}/api/admin/products`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      if (!handleUnauthorized(usersRes) && usersRes.ok) {
+        const data = await usersRes.json();
+        setAllUsers(data);
+        setLoadedData((prev) => ({ ...prev, users: true }));
+      }
+
+      if (!handleUnauthorized(ordersRes) && ordersRes.ok) {
+        const data = await ordersRes.json();
+        setOrders(data);
+        setLoadedData((prev) => ({ ...prev, orders: true }));
+      }
+
+      if (!handleUnauthorized(productsRes) && productsRes.ok) {
+        const data = await productsRes.json();
+        setProducts(data);
+        setLoadedData((prev) => ({ ...prev, products: true }));
+      }
     } catch (err) {
       console.error("Fetch data error:", err);
     }
@@ -2347,7 +2456,7 @@ const Admin: React.FC = () => {
     setLoadingData((prev) => ({ ...prev, withdrawals: true }));
     try {
       const withdrawalsRes = await fetch(
-        `${API_BASE_URL}/api/admin/influencer-manage/withdrawals/all?status=pending`,
+        `${API_BASE_URL}/api/admin/influencer-manage/withdrawals/all`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -2355,7 +2464,13 @@ const Admin: React.FC = () => {
       if (handleUnauthorized(withdrawalsRes)) return;
       if (withdrawalsRes.ok) {
         const data = await withdrawalsRes.json();
-        setWithdrawals(data);
+        setWithdrawals(
+          Array.isArray(data)
+            ? data.filter(
+                (w) => w.status === "pending" || w.status === "approved",
+              )
+            : [],
+        );
         setLoadedData((prev) => ({ ...prev, withdrawals: true }));
       } else {
         showToast("error", "❌ Failed to fetch withdrawals");
@@ -2390,6 +2505,52 @@ const Admin: React.FC = () => {
       console.error("Fetch orders error:", err);
     } finally {
       setLoadingData((prev) => ({ ...prev, orders: false }));
+    }
+  };
+
+  const updateOrderDeliveryStatus = async (orderId: string, isDelivered: boolean) => {
+    if (!orderId || updatingDeliveryOrderId) return;
+
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    setUpdatingDeliveryOrderId(orderId);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/orders/${orderId}/delivery`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isDelivered }),
+      });
+      if (handleUnauthorized(res)) return;
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast("error", data.message || "❌ Failed to update delivery status");
+        return;
+      }
+
+      const updatedOrder = data.order;
+      setOrders((prev) =>
+        prev.map((order) => (order._id === updatedOrder._id ? { ...order, ...updatedOrder } : order)),
+      );
+
+      setViewingOrder((prev: any) =>
+        prev && prev._id === updatedOrder._id ? { ...prev, ...updatedOrder } : prev,
+      );
+
+      showToast(
+        "success",
+        isDelivered ? "✅ Marked as delivered" : "🟡 Marked as not delivered",
+      );
+    } catch (err) {
+      console.error("Update delivery status error:", err);
+      showToast("error", "❌ Failed to update delivery status");
+    } finally {
+      setUpdatingDeliveryOrderId(null);
     }
   };
 
@@ -2620,9 +2781,19 @@ const Admin: React.FC = () => {
         if (loadedData.allInfluencers) {
           setLoadedData((prev) => ({ ...prev, allInfluencers: false }));
         }
+      } else {
+        const data = await res.json().catch(() => null);
+        showToast(
+          "error",
+          data?.message || `❌ Failed to ${approve ? "approve" : "reject"} influencer`,
+        );
       }
     } catch (err) {
-      console.error("Error:", err);
+      console.error("Influencer approval error:", err);
+      showToast(
+        "error",
+        `❌ Failed to ${approve ? "approve" : "reject"} influencer`,
+      );
     }
   };
 
@@ -2642,7 +2813,7 @@ const Admin: React.FC = () => {
   =========================== */
   const handleProcessWithdrawal = async (
     withdrawalId: string,
-    status: "approved" | "paid" | "rejected",
+    status: "pending" | "approved" | "paid" | "rejected",
     transactionId?: string,
   ) => {
     const token = localStorage.getItem("adminToken");
@@ -2663,8 +2834,37 @@ const Admin: React.FC = () => {
       if (handleUnauthorized(res)) return;
 
       if (res.ok) {
+        const result = await res.json();
         // Refresh - only update withdrawal list and stats
-        setWithdrawals(withdrawals.filter((w) => w._id !== withdrawalId));
+        setWithdrawals((prev) =>
+          status === "approved" || status === "pending"
+            ? prev.map((w) =>
+                w._id === withdrawalId
+                  ? {
+                      ...w,
+                      status,
+                      adminNote: result.withdrawal?.adminNote || w.adminNote,
+                      transactionId:
+                        result.withdrawal?.transactionId || w.transactionId,
+                      processedAt:
+                        result.withdrawal?.processedAt || w.processedAt,
+                    }
+                  : w,
+              )
+            : prev.filter((w) => w._id !== withdrawalId),
+        );
+        setViewingWithdrawal((prev) =>
+          prev && prev._id === withdrawalId
+            ? {
+                ...prev,
+                status,
+                adminNote: result.withdrawal?.adminNote || prev.adminNote,
+                transactionId:
+                  result.withdrawal?.transactionId || prev.transactionId,
+                processedAt: result.withdrawal?.processedAt || prev.processedAt,
+              }
+            : prev,
+        );
 
         // Refresh stats only (not all data)
         const statsRes = await fetch(
@@ -3612,11 +3812,13 @@ const Admin: React.FC = () => {
                 id: "influencers",
                 label: "Pending Approvals",
                 icon: <PendingActionsRoundedIcon sx={{ fontSize: 22 }} />,
+                badge: stats.pendingApprovals,
               },
               {
                 id: "withdrawals",
                 label: "Withdrawals",
                 icon: <AccountBalanceWalletRoundedIcon sx={{ fontSize: 22 }} />,
+                badge: stats.pendingWithdrawals.count,
               },
               {
                 id: "orders",
@@ -5351,7 +5553,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
           {currentView === "withdrawals" && (
             <div className="space-y-4">
               <h2 className="text-2xl font-bold text-white mb-6">
-                Pending Withdrawal Requests
+                Withdrawal Requests
               </h2>
               {loadingData.withdrawals ? (
                 <div className="bg-white/10 border border-white/20 rounded-2xl p-8 text-center">
@@ -5362,13 +5564,14 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 </div>
               ) : withdrawals.length === 0 ? (
                 <div className="bg-white/10 border border-white/20 rounded-2xl p-8 text-center">
-                  <p className="text-gray-400">No pending withdrawals</p>
+                  <p className="text-gray-400">No withdrawals found</p>
                 </div>
               ) : (
                 withdrawals.map((w) => (
                   <div
                     key={w._id}
-                    className="bg-white/10 border border-white/20 rounded-2xl p-6"
+                    className="bg-white/10 border border-white/20 rounded-2xl p-6 cursor-pointer transition-all hover:bg-white/15 hover:border-indigo-400/40"
+                    onClick={() => setViewingWithdrawal(w)}
                   >
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                       <div>
@@ -5385,35 +5588,258 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                           {w.paymentMethod.toUpperCase()} •{" "}
                           {new Date(w.createdAt).toLocaleDateString()}
                         </p>
+                        <span
+                          className={`inline-flex mt-2 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                            w.status === "approved"
+                              ? "bg-blue-500/20 text-blue-300"
+                              : w.status === "paid"
+                                ? "bg-green-500/20 text-green-300"
+                                : w.status === "rejected"
+                                  ? "bg-red-500/20 text-red-300"
+                                  : "bg-yellow-500/20 text-yellow-300"
+                          }`}
+                        >
+                          {w.status.toUpperCase()}
+                        </span>
+                        <p className="text-indigo-300 text-xs mt-2">
+                          Click to view submitted payment details
+                        </p>
                       </div>
                       <div className="flex gap-3">
                         <button
-                          onClick={() =>
-                            handleProcessWithdrawal(w._id, "approved")
-                          }
-                          className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 rounded-lg text-blue-300 font-medium transition-colors text-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleProcessWithdrawal(
+                              w._id,
+                              w.status === "approved" ? "pending" : "approved",
+                            );
+                          }}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors text-sm ${
+                            w.status === "approved"
+                              ? "bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/50 text-yellow-300"
+                              : "bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-300"
+                          }`}
                         >
-                          <Check className="w-4 h-4" /> Approve
+                          <Check className="w-4 h-4" />{" "}
+                          {w.status === "approved" ? "Set Pending" : "Approve"}
                         </button>
                         <button
-                          onClick={() => handleProcessWithdrawal(w._id, "paid")}
-                          className="flex items-center gap-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 rounded-lg text-green-300 font-medium transition-colors text-sm"
-                        >
-                          💰 Mark Paid
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleProcessWithdrawal(w._id, "rejected")
-                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleProcessWithdrawal(w._id, "rejected");
+                          }}
                           className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-lg text-red-300 font-medium transition-colors text-sm"
                         >
                           <X className="w-4 h-4" /> Reject
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleProcessWithdrawal(w._id, "paid");
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 rounded-lg text-green-300 font-medium transition-colors text-sm"
+                        >
+                          💰 Mark Paid
                         </button>
                       </div>
                     </div>
                   </div>
                 ))
               )}
+            </div>
+          )}
+
+          {viewingWithdrawal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+              <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-indigo-500/30 rounded-2xl p-6 max-w-2xl w-full shadow-2xl shadow-indigo-500/20 transform transition-all duration-300 max-h-[90vh] overflow-y-auto">
+                <div className="mb-6 pb-4 border-b border-indigo-500/20 flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-white font-bold text-xl">
+                      Withdrawal Details
+                    </h3>
+                    <p className="text-gray-400 text-sm mt-1">
+                      {viewingWithdrawal.influencerId.name} •{" "}
+                      {viewingWithdrawal.influencerId.email}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setViewingWithdrawal(null)}
+                    className="text-gray-400 hover:text-white text-2xl leading-none"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <p className="text-gray-400 text-sm">Amount</p>
+                    <p className="text-2xl font-bold text-emerald-400 mt-1">
+                      ₹{viewingWithdrawal.amount}
+                    </p>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <p className="text-gray-400 text-sm">Requested On</p>
+                    <p className="text-white font-semibold mt-1">
+                      {new Date(viewingWithdrawal.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <p className="text-gray-400 text-sm">Payment Method</p>
+                    <p className="text-white font-semibold mt-1 uppercase">
+                      {viewingWithdrawal.paymentMethod.replace("_", " ")}
+                    </p>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <p className="text-gray-400 text-sm">Status</p>
+                    <p className="text-white font-semibold mt-1 capitalize">
+                      {viewingWithdrawal.status}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-white/5 rounded-xl p-5 border border-white/10 mb-6">
+                  <h4 className="text-white font-semibold mb-4">
+                    Submitted Payment Details
+                  </h4>
+
+                  {(() => {
+                    const details = viewingWithdrawal.paymentDetails;
+                    const bankDetails = details?.bankDetails;
+                    const bankName = details?.bankName || bankDetails?.bankName;
+                    const accountNumber =
+                      details?.accountNumber || bankDetails?.accountNumber;
+                    const ifscCode = details?.ifscCode || bankDetails?.ifscCode;
+                    const accountHolderName =
+                      details?.accountHolderName ||
+                      bankDetails?.accountHolderName ||
+                      bankDetails?.accountHolder;
+
+                    if (!details) {
+                      return (
+                        <p className="text-gray-400 text-sm">
+                          No payment details were included with this request.
+                        </p>
+                      );
+                    }
+
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        {details.upiId && (
+                          <div className="bg-white/10 rounded-lg p-3">
+                            <p className="text-gray-400">UPI ID</p>
+                            <p className="text-white font-medium mt-1 break-all">
+                              {details.upiId}
+                            </p>
+                          </div>
+                        )}
+                        {details.paytmNumber && (
+                          <div className="bg-white/10 rounded-lg p-3">
+                            <p className="text-gray-400">Paytm Number</p>
+                            <p className="text-white font-medium mt-1">
+                              {details.paytmNumber}
+                            </p>
+                          </div>
+                        )}
+                        {accountHolderName && (
+                          <div className="bg-white/10 rounded-lg p-3">
+                            <p className="text-gray-400">Account Holder Name</p>
+                            <p className="text-white font-medium mt-1">
+                              {accountHolderName}
+                            </p>
+                          </div>
+                        )}
+                        {bankName && (
+                          <div className="bg-white/10 rounded-lg p-3">
+                            <p className="text-gray-400">Bank Name</p>
+                            <p className="text-white font-medium mt-1">
+                              {bankName}
+                            </p>
+                          </div>
+                        )}
+                        {accountNumber && (
+                          <div className="bg-white/10 rounded-lg p-3">
+                            <p className="text-gray-400">Account Number</p>
+                            <p className="text-white font-medium mt-1">
+                              {accountNumber}
+                            </p>
+                          </div>
+                        )}
+                        {ifscCode && (
+                          <div className="bg-white/10 rounded-lg p-3">
+                            <p className="text-gray-400">IFSC Code</p>
+                            <p className="text-white font-medium mt-1">
+                              {ifscCode}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {(viewingWithdrawal.adminNote || viewingWithdrawal.transactionId) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    {viewingWithdrawal.transactionId && (
+                      <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <p className="text-gray-400 text-sm">Transaction ID</p>
+                        <p className="text-white font-medium mt-1 break-all">
+                          {viewingWithdrawal.transactionId}
+                        </p>
+                      </div>
+                    )}
+                    {viewingWithdrawal.adminNote && (
+                      <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <p className="text-gray-400 text-sm">Admin Note</p>
+                        <p className="text-white font-medium mt-1">
+                          {viewingWithdrawal.adminNote}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      handleProcessWithdrawal(
+                        viewingWithdrawal._id,
+                        viewingWithdrawal.status === "approved"
+                          ? "pending"
+                          : "approved",
+                      );
+                      setViewingWithdrawal(null);
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors text-sm ${
+                      viewingWithdrawal.status === "approved"
+                        ? "bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/50 text-yellow-300"
+                        : "bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-300"
+                    }`}
+                  >
+                    <Check className="w-4 h-4" />{" "}
+                    {viewingWithdrawal.status === "approved"
+                      ? "Set Pending"
+                      : "Approve"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleProcessWithdrawal(viewingWithdrawal._id, "rejected");
+                      setViewingWithdrawal(null);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-lg text-red-300 font-medium transition-colors text-sm"
+                  >
+                    <X className="w-4 h-4" /> Reject
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleProcessWithdrawal(viewingWithdrawal._id, "paid");
+                      setViewingWithdrawal(null);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 rounded-lg text-green-300 font-medium transition-colors text-sm"
+                  >
+                    💰 Mark Paid
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -6584,9 +7010,19 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                           </div>
                         </div>
 
-                        <p className="text-xs text-slate-400">
-                          📅 {new Date(order.createdAt).toLocaleDateString()}
-                        </p>
+                        <div className="text-xs text-slate-400 flex items-center gap-2">
+                          <span>📅 {new Date(order.createdAt).toLocaleDateString()}</span>
+                          <span>•</span>
+                          <span
+                            className={
+                              order.isDelivered
+                                ? "text-emerald-600 font-semibold"
+                                : "text-amber-600 font-semibold"
+                            }
+                          >
+                            {order.isDelivered ? "Delivered" : "Not Delivered"}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -6906,13 +7342,13 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
               <div className="bg-white rounded-xl border p-5">
                 <h4 className="text-lg font-black text-slate-900 mb-4">Top Customers (Bar Chart)</h4>
                 {reportsData.topCustomers.length === 0 ? (
-                  <p className="text-sm text-slate-500">No successful orders in selected range.</p>
+                  <p className="text-sm text-slate-500">No order data available.</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <div className="w-fit min-w-[520px]">
                       <div className="h-72 border-l border-b border-slate-200 px-4 pt-4 pb-2">
                         <div className="h-full flex items-end justify-start gap-10">
-                          {reportsData.topCustomers.map((c) => {
+                          {reportsData.topCustomers.map((c, idx) => {
                             const max = reportsData.topCustomers[0]?.totalSpent || 1;
                             const height = Math.max((c.totalSpent / max) * 100, 6);
                             const shortName =
@@ -6920,7 +7356,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
                             return (
                               <div
-                                key={`${c.name}-${c.totalSpent}`}
+                                key={`${c.name}-${c.totalSpent}-${idx}`}
                                 className="flex-1 min-w-[90px] h-full flex flex-col justify-end items-center"
                               >
                                 <p className="text-xs font-black text-slate-900 mb-2">
@@ -6938,6 +7374,112 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     </div>
                   </div>
                 )}
+              </div>
+
+              <div className="bg-slate-900 rounded-xl border border-slate-800 p-5">
+                <div className="flex items-end gap-3 mb-4">
+                  <h4 className="text-4xl font-black text-white leading-none">Product Sales</h4>
+                  <p className="text-slate-400 text-2xl leading-none">Monthly Average</p>
+                </div>
+
+                {(() => {
+                  const series = reportsData.monthlyProductSales;
+                  const maxValue = Math.max(
+                    ...series.map((item: { value: number }) => item.value),
+                    1,
+                  );
+                  const minValue = 0;
+                  const width = 840;
+                  const height = 360;
+                  const leftPad = 60;
+                  const rightPad = 26;
+                  const topPad = 24;
+                  const bottomPad = 72;
+                  const plotWidth = width - leftPad - rightPad;
+                  const plotHeight = height - topPad - bottomPad;
+                  const yTicks = 6;
+
+                  const xFor = (idx: number) =>
+                    leftPad + (idx / (series.length - 1)) * plotWidth;
+
+                  const yFor = (value: number) => {
+                    const normalized = (value - minValue) / (maxValue - minValue || 1);
+                    return topPad + (1 - normalized) * plotHeight;
+                  };
+
+                  const polylinePoints = series
+                    .map((point: { value: number }, idx: number) => `${xFor(idx)},${yFor(point.value)}`)
+                    .join(" ");
+
+                  return (
+                    <div className="w-full overflow-x-auto">
+                      <svg
+                        viewBox={`0 0 ${width} ${height}`}
+                        className="w-full min-w-[760px]"
+                        role="img"
+                        aria-label="Product sales monthly average line chart"
+                      >
+                        {Array.from({ length: yTicks + 1 }).map((_, idx) => {
+                          const ratio = idx / yTicks;
+                          const y = topPad + ratio * plotHeight;
+                          const value = Math.round(maxValue * (1 - ratio));
+
+                          return (
+                            <g key={idx}>
+                              <line
+                                x1={leftPad}
+                                y1={y}
+                                x2={width - rightPad}
+                                y2={y}
+                                stroke="rgba(148,163,184,0.2)"
+                                strokeWidth="1"
+                              />
+                              <text
+                                x={leftPad - 14}
+                                y={y + 4}
+                                textAnchor="end"
+                                fill="#cbd5e1"
+                                fontSize="13"
+                                fontWeight="600"
+                              >
+                                {value}
+                              </text>
+                            </g>
+                          );
+                        })}
+
+                        <polyline
+                          fill="none"
+                          stroke="#f87171"
+                          strokeWidth="3"
+                          points={polylinePoints}
+                        />
+
+                        {series.map((point: { label: string; value: number }, idx: number) => {
+                          const x = xFor(idx);
+                          const y = yFor(point.value);
+
+                          return (
+                            <g key={`${point.label}-${idx}`}>
+                              <circle cx={x} cy={y} r="4" fill="#f87171" />
+                              <text
+                                x={x}
+                                y={height - 34}
+                                textAnchor="end"
+                                transform={`rotate(-45 ${x} ${height - 34})`}
+                                fill="#e2e8f0"
+                                fontSize="12"
+                                fontWeight="500"
+                              >
+                                {point.label}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </svg>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -7216,6 +7758,52 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     <p className="text-gray-400 text-xs">
                       {new Date(viewingOrder.createdAt).toLocaleString()}
                     </p>
+                  </div>
+                </div>
+
+                <div className="bg-white/5 rounded-xl p-4 mb-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-gray-400 text-xs mb-1">Delivery Status</p>
+                      <p
+                        className={`font-bold ${viewingOrder.isDelivered ? "text-emerald-400" : "text-amber-300"}`}
+                      >
+                        {viewingOrder.isDelivered ? "Delivered" : "Not Delivered"}
+                      </p>
+                      {viewingOrder.deliveredAt && (
+                        <p className="text-gray-400 text-xs mt-1">
+                          Delivered on {new Date(viewingOrder.deliveredAt).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => updateOrderDeliveryStatus(viewingOrder._id, true)}
+                        disabled={
+                          updatingDeliveryOrderId === viewingOrder._id ||
+                          Boolean(viewingOrder.isDelivered)
+                        }
+                        className="px-4 py-2 rounded-lg text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {updatingDeliveryOrderId === viewingOrder._id
+                          ? "Updating..."
+                          : "Mark Delivered"}
+                      </button>
+
+                      <button
+                        onClick={() => updateOrderDeliveryStatus(viewingOrder._id, false)}
+                        disabled={
+                          updatingDeliveryOrderId === viewingOrder._id ||
+                          !Boolean(viewingOrder.isDelivered)
+                        }
+                        className="px-4 py-2 rounded-lg text-sm font-bold bg-amber-500 hover:bg-amber-400 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {updatingDeliveryOrderId === viewingOrder._id
+                          ? "Updating..."
+                          : "Mark Not Delivered"}
+                      </button>
+                    </div>
                   </div>
                 </div>
 

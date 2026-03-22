@@ -180,17 +180,30 @@ const Influencer: React.FC = () => {
     }
   };
 
+  const fetchWithdrawalHistory = async (token: string) => {
+    const withdrawRes = await fetch(`${API_BASE_URL}/api/influencer/withdrawals`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (withdrawRes.ok) {
+      const withdrawData = await withdrawRes.json();
+      setWithdrawals(withdrawData.withdrawals || []);
+    }
+  };
+
+  const fetchDashboardSummary = async (token: string) => {
+    const dashRes = await fetch(`${API_BASE_URL}/api/influencer/earnings`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (dashRes.ok) {
+      const data = await dashRes.json();
+      setDashboardData(data);
+      setPromoCodes(data.promoCodes || []);
+    }
+  };
+
   const fetchAllData = async (token: string) => {
     try {
-      // Fetch dashboard data
-      const dashRes = await fetch(`${API_BASE_URL}/api/influencer/earnings`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (dashRes.ok) {
-        const data = await dashRes.json();
-        setDashboardData(data);
-        setPromoCodes(data.promoCodes || []);
-      }
+      await fetchDashboardSummary(token);
 
       // Fetch profile
       const profileRes = await fetch(`${API_BASE_URL}/api/influencer/profile`, {
@@ -215,18 +228,37 @@ const Influencer: React.FC = () => {
         }));
       }
 
-      // Fetch withdrawals
-      const withdrawRes = await fetch(`${API_BASE_URL}/api/influencer/withdrawals`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (withdrawRes.ok) {
-        const withdrawData = await withdrawRes.json();
-        setWithdrawals(withdrawData.withdrawals || []);
-      }
+      await fetchWithdrawalHistory(token);
     } catch (err) {
       console.error("Fetch data error:", err);
     }
   };
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (currentView !== "dashboard" && currentView !== "withdraw") return;
+
+    const token = localStorage.getItem("influencerToken");
+    if (!token) return;
+
+    fetchDashboardSummary(token).catch((err) =>
+      console.error("Dashboard refresh error:", err),
+    );
+    fetchWithdrawalHistory(token).catch((err) =>
+      console.error("Withdrawal refresh error:", err),
+    );
+
+    const interval = window.setInterval(() => {
+      fetchDashboardSummary(token).catch((err) =>
+        console.error("Dashboard refresh error:", err),
+      );
+      fetchWithdrawalHistory(token).catch((err) =>
+        console.error("Withdrawal refresh error:", err),
+      );
+    }, 15000);
+
+    return () => window.clearInterval(interval);
+  }, [isAuthenticated, currentView]);
 
   /* ===========================
      AUTH HANDLERS

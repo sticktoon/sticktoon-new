@@ -26,6 +26,16 @@ export default function Categories({ addToCart }: CategoriesProps) {
   // Check if user is admin
   const isAdmin = !!localStorage.getItem('adminToken');
 
+  const normalizeCategoryId = (value?: string) => {
+    if (!value) return '';
+    const normalized = value.toString().trim().toLowerCase().replace(/\s+/g, '-');
+
+    if (normalized === 'animal') return 'pet';
+    if (normalized === 'positive-vibe') return 'positive-vibes';
+
+    return normalized;
+  };
+
   const normalizeImagePath = (path?: string) => {
     if (!path) return undefined;
     
@@ -61,7 +71,9 @@ export default function Categories({ addToCart }: CategoriesProps) {
   const ensureMinimumPerCategory = (items: Badge[], minCount = 4): Badge[] => {
     const normalized = [...items];
     const byCategory = CATEGORIES.reduce((acc, cat) => {
-      acc[cat.id] = normalized.filter((p) => p.category.toLowerCase() === cat.id.toLowerCase());
+      acc[cat.id] = normalized.filter(
+        (p) => normalizeCategoryId(String(p.category)) === normalizeCategoryId(cat.id),
+      );
       return acc;
     }, {} as Record<string, Badge[]>);
 
@@ -69,7 +81,9 @@ export default function Categories({ addToCart }: CategoriesProps) {
       const current = byCategory[cat.id] || [];
       if (current.length >= minCount) return;
 
-      const fallback = BADGES.filter((b) => b.category.toLowerCase() === cat.id.toLowerCase());
+      const fallback = BADGES.filter(
+        (b) => normalizeCategoryId(String(b.category)) === normalizeCategoryId(cat.id),
+      );
       const needed = minCount - current.length;
       const existingIds = new Set(current.map((b) => b.id));
       const toAdd = fallback.filter((b) => !existingIds.has(b.id)).slice(0, needed);
@@ -88,8 +102,12 @@ export default function Categories({ addToCart }: CategoriesProps) {
         if (res.ok) {
           const data = await res.json();
           const apiItems = Array.isArray(data) ? data : data.products || [];
-          const mappedProducts = mapApiProductsToBadges(apiItems);
-          setProducts(ensureMinimumPerCategory(mappedProducts));
+          if (apiItems.length === 0) {
+            setProducts(ensureMinimumPerCategory(BADGES));
+          } else {
+            const mappedProducts = mapApiProductsToBadges(apiItems);
+            setProducts(ensureMinimumPerCategory(mappedProducts));
+          }
         } else {
           // Fallback to static badges if API fails
           setProducts(ensureMinimumPerCategory(BADGES));
@@ -128,7 +146,9 @@ export default function Categories({ addToCart }: CategoriesProps) {
 
   const filteredBadges = activeCategory === 'all' 
     ? products 
-    : products.filter(b => b.category.toLowerCase() === activeCategory.toLowerCase());
+    : products.filter(
+        (b) => normalizeCategoryId(String(b.category)) === normalizeCategoryId(activeCategory),
+      );
 
   const currentCategoryName = activeCategory === 'all' 
     ? 'All Badges' 
@@ -143,6 +163,7 @@ export default function Categories({ addToCart }: CategoriesProps) {
       'religious': 'Religious',
       'entertainment': 'Entertainment',
       'events': 'Events',
+      'pet': 'Animal',
       'animal': 'Animal',
       'couple': 'Couple',
       'anime': 'Anime',
@@ -158,7 +179,9 @@ export default function Categories({ addToCart }: CategoriesProps) {
 
   // Group products by category for section-wise display
   const productsByCategory = CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = products.filter(p => p.category.toLowerCase() === cat.id.toLowerCase());
+    acc[cat.id] = products.filter(
+      (p) => normalizeCategoryId(String(p.category)) === normalizeCategoryId(cat.id),
+    );
     return acc;
   }, {} as Record<string, Badge[]>);
 
