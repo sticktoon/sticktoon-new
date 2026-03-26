@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useRef, JSX } from "react";
+import React, { useState, useEffect, useMemo, useRef, JSX } from "react";
 
 import { useNavigate, useLocation } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";

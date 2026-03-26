@@ -369,14 +369,11 @@ useEffect(() => {
 
   {/* 👤 USER */}
   {user ? (
-    <div className="hidden lg:block relative">
-      {/* AVATAR BUTTON */}
+<<<<<<< HEAD
+    <div className="hidden lg:block relative" ref={userMenuRef}>
       <div 
         className="cursor-pointer"
-        onClick={(e) => {
-          e.stopPropagation();
-          setProfileOpen((v) => !v);
-        }}
+        onClick={() => setUserMenuOpen(!userMenuOpen)}
       >
         {user.avatar && (user.avatar.startsWith('http') || user.avatar.startsWith('data:')) ? (
           <img
@@ -392,28 +389,25 @@ useEffect(() => {
       </div>
 
       {/* DROPDOWN */}
-      <div 
-        onClick={(e) => e.stopPropagation()}
-        className={`absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-xl border border-slate-100 transition-all duration-200 origin-top-right z-50 ${profileOpen ? 'opacity-100 scale-100 visible' : 'opacity-0 scale-95 invisible'}`}
-      >
+      <div className={`absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-lg border border-slate-100 transition-all duration-200 origin-top-right z-50 ${userMenuOpen ? 'opacity-100 scale-100 visible pointer-events-auto' : 'opacity-0 scale-95 invisible pointer-events-none'}`}>
         <div className="px-4 py-3 border-b border-slate-100">
-          <p className="font-bold text-slate-900">{user.name || "User"}</p>
-          <p className="text-xs text-slate-500 truncate">{user.email}</p>
+          <p className="font-bold">{user.name || "User"}</p>
+          <p className="text-xs text-slate-500">{user.email}</p>
         </div>
 
-        <Link to="/profile" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50">
+        <Link to="/profile" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50" onClick={() => setUserMenuOpen(false)}>
           My Profile
         </Link>
 
         {user.role === "admin" && (
-          <Link to="/admin" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50">
+          <Link to="/admin" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50" onClick={() => setUserMenuOpen(false)}>
             Admin Panel
           </Link>
         )}
 
         <button
-          onClick={handleLogout}
-          className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50"
+          onClick={() => { setUserMenuOpen(false); handleLogout(); }}
+          className="w-full text-left px-4 py-3 text-red-600 hover:bg-red-50"
         >
           Logout
         </button>
@@ -423,10 +417,88 @@ useEffect(() => {
     <Link
       to="/login"
       className="hidden lg:block p-3 rounded-2xl text-slate-300 hover:bg-slate-800 hover:text-white transition"
+=======
+  <div className="hidden lg:block relative">
+    {/* AVATAR BUTTON */}
+    <div
+      className="cursor-pointer"
+      onClick={(e) => {
+        e.stopPropagation();
+        setProfileOpen((v) => !v);
+      }}
+>>>>>>> origin/b2
     >
-      <UserIcon className="w-6 h-6" />
-    </Link>
-  )}
+      {user.avatar &&
+      (user.avatar.startsWith("http") || user.avatar.startsWith("data:")) ? (
+        <img
+          src={user.avatar}
+          alt={user.name || user.email}
+          className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md"
+        />
+      ) : (
+        <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black uppercase shadow-md">
+          {(user.name?.charAt(0) || user.email?.charAt(0) || "U").toUpperCase()}
+        </div>
+      )}
+    </div>
+
+    {/* DROPDOWN */}
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className={`
+        absolute right-0 mt-3 w-56
+        bg-white rounded-xl shadow-xl
+        border border-slate-100
+        transition-all duration-200 origin-top-right z-50
+        ${profileOpen
+          ? "opacity-100 scale-100 visible"
+          : "opacity-0 scale-95 invisible"}
+      `}
+    >
+      {/* USER INFO */}
+      <div className="px-4 py-3 border-b border-slate-100">
+        <p className="font-bold text-slate-900">
+          {user.name || "User"}
+        </p>
+        <p className="text-xs text-slate-500 truncate">
+          {user.email}
+        </p>
+      </div>
+
+      {/* LINKS */}
+      <Link
+        to="/profile"
+        className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
+      >
+        My Profile
+      </Link>
+
+      {user.role === "admin" && (
+        <Link
+          to="/admin"
+          className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
+        >
+          Admin Panel
+        </Link>
+      )}
+
+      {/* LOGOUT */}
+      <button
+        onClick={handleLogout}
+        className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50"
+      >
+        Logout
+      </button>
+    </div>
+  </div>
+) : (
+  <Link
+    to="/login"
+    className="hidden lg:block p-3 rounded-2xl text-slate-300 hover:bg-slate-800 hover:text-white transition"
+  >
+    <UserIcon className="w-6 h-6" />
+  </Link>
+)}
 
 </div>
 
@@ -1169,17 +1241,27 @@ export default function App() {
           <Route path="/returnsandrefunds" element={<RefundCancellation />} />
           <Route path="/about" element={<About />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
+<<<<<<< HEAD
           <Route path="/admin" element={<ProtectedAdminRoute user={user}><AdminDashboard /></ProtectedAdminRoute>} />
           <Route path="/admin/users" element={<ProtectedAdminRoute user={user}><AdminUsers /></ProtectedAdminRoute>} />
           <Route path="/admin/orders" element={<ProtectedAdminRoute user={user}><AdminOrders /></ProtectedAdminRoute>} />
           <Route path="/admin/revenue" element={<ProtectedAdminRoute user={user}><AdminRevenue /></ProtectedAdminRoute>} />
           <Route path="/admin/user-orders" element={<ProtectedAdminRoute user={user}><AdminUserOrders /></ProtectedAdminRoute>} />
           <Route path="/admin/invoice/:id" element={<ProtectedAdminRoute user={user}><AdminInvoice /></ProtectedAdminRoute>} />
-          <Route path="/admin/deal-convert" element={<ProtectedAdminRoute user={user}><AdminDealConvert /></ProtectedAdminRoute>} />
-          <Route path="/admin/deal-send" element={<ProtectedAdminRoute user={user}><AdminDealSend /></ProtectedAdminRoute>} />
           <Route path="/admin/promo" element={<ProtectedAdminRoute user={user}><AdminPromo /></ProtectedAdminRoute>} />
           <Route path="/admin/influencers" element={<ProtectedAdminRoute user={user}><AdminInfluencerManage /></ProtectedAdminRoute>} />
-
+=======
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/users" element={<AdminUsers />} />
+          <Route path="/admin/orders" element={<AdminOrders />} />
+          <Route path="/admin/revenue" element={<AdminRevenue />} />
+          <Route path="/admin/user-orders" element={<AdminUserOrders />} />
+          <Route path="/admin/invoice/:id" element={<AdminInvoice />} />
+          <Route path="/admin/deal-convert" element={<AdminDealConvert />} />
+          <Route path="/admin/deal-send" element={<AdminDealSend />} />
+          <Route path="/admin/promo" element={<AdminPromo />} />
+          <Route path="/admin/influencers" element={<AdminInfluencerManage />} />
+>>>>>>> origin/b2
           {/* Admin Routes - Unified */}
           <Route path="/admin/login" element={<Admin />} />
           <Route path="/admin/dashboard" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />

@@ -15,6 +15,7 @@ export interface Badge {
   tagline?: string;         // New subtitle/tagline field
   color: string;
   isFeatured?: boolean;
+  isCombo?: boolean;        // Combo pack of all badges in category
 }
 
 
@@ -35,7 +36,10 @@ export enum Category {
   RELIGIOUS = 'Religious',
   ENTERTAINMENT = 'Entertainment',
   EVENTS = 'Events',
+<<<<<<< HEAD
+=======
   ANIMAL = 'Animal',
+>>>>>>> origin/b2
   PET = 'Pet',
   COUPLE = 'Couple',
   ANIME = 'Anime',

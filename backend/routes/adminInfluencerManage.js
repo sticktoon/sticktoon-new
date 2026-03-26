@@ -163,13 +163,7 @@ router.get("/stats/overview", auth, adminOnly, async (req, res) => {
     });
     const pendingApprovals = await User.countDocuments({
       role: "influencer",
-      $or: [
-        { "influencerProfile.applicationStatus": "pending" },
-        {
-          "influencerProfile.applicationStatus": { $exists: false },
-          "influencerProfile.isApproved": false,
-        },
-      ],
+      "influencerProfile.isApproved": false,
     });
 
     const earningsStats = await InfluencerEarning.aggregate([
@@ -353,4 +347,57 @@ router.patch("/:id/earning-rate", auth, adminOnly, async (req, res) => {
   }
 });
 
+<<<<<<< HEAD
+=======
+/* =========================
+   STATS OVERVIEW
+========================= */
+router.get("/stats/overview", auth, adminOnly, async (req, res) => {
+  try {
+    const totalInfluencers = await User.countDocuments({ role: "influencer" });
+    const approvedInfluencers = await User.countDocuments({
+      role: "influencer",
+      "influencerProfile.isApproved": true,
+    });
+    const pendingApprovals = await User.countDocuments({
+      role: "influencer",
+      $or: [
+        { "influencerProfile.applicationStatus": "pending" },
+        {
+          "influencerProfile.applicationStatus": { $exists: false },
+          "influencerProfile.isApproved": false,
+        },
+      ],
+    });
+
+    const earningsStats = await InfluencerEarning.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: "$totalEarning" },
+          totalUnits: { $sum: "$totalUnits" },
+          totalOrders: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const pendingWithdrawals = await WithdrawalRequest.aggregate([
+      { $match: { status: "pending" } },
+      { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } },
+    ]);
+
+    res.json({
+      totalInfluencers,
+      approvedInfluencers,
+      pendingApprovals,
+      earnings: earningsStats[0] || { totalEarnings: 0, totalUnits: 0, totalOrders: 0 },
+      pendingWithdrawals: pendingWithdrawals[0] || { total: 0, count: 0 },
+    });
+  } catch (err) {
+    console.error("Stats error:", err);
+    res.status(500).json({ message: "Failed to get stats" });
+  }
+});
+
+>>>>>>> origin/b2
 module.exports = router;

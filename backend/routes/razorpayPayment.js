@@ -13,12 +13,19 @@ const UserOrders = require("../models/User_Orders");
 const PromoCode = require("../models/PromoCode");
 const InfluencerEarning = require("../models/InfluencerEarning");
 const User = require("../models/User");
+<<<<<<< HEAD
 const auth = require("../middleware/auth");
 const sendEmail = require("../utils/sendEmail");
 const promoUsedEmailTemplate = require("../utils/promoUsedEmail");
 const generateInvoicePDF = require("../utils/generateInvoicePDF");
 const generateBadgeDoc = require("../utils/generateBadgeDoc");
+=======
+const auth = require("../middleware/auth");
+const sendEmail = require("../utils/sendEmail");
+const promoUsedEmailTemplate = require("../utils/promoUsedEmail");
+const generateInvoicePDF = require("../utils/generateInvoicePDF");
 const buildAdminOrderAttachments = require("../utils/buildAdminOrderAttachments");
+>>>>>>> origin/b2
 
 /* =========================
    CREATE RAZORPAY ORDER
@@ -375,8 +382,9 @@ for (const earn of earnings) {
     }
 
     // Send order notification to OWNER (sticktoon.xyz@gmail.com)
+<<<<<<< HEAD
     const ownerEmail = process.env.ADMIN_EMAIL || "sticktoon.xyz@gmail.com";
-    const frontendUrl = process.env.FRONTEND_URL;
+    const frontendUrl = process.env.FRONTEND_URL ;
     try {
       // Extract custom badges (items with base64 images)
       const customBadges = order.items.filter(item => 
@@ -403,6 +411,11 @@ for (const earn of earnings) {
         }
       }
 
+=======
+    const ownerEmail = process.env.ADMIN_EMAIL || "sticktoon.xyz@gmail.com";
+    const frontendUrl = process.env.FRONTEND_URL;
+    try {
+>>>>>>> origin/b2
       const itemsList = order.items.map(item => {
         // Build image URL - handle different image path formats
         let imageUrl = '';
@@ -496,8 +509,15 @@ for (const earn of earnings) {
             </div>
           </div>
         `,
+<<<<<<< HEAD
         attachments: (() => {
-          const attachments = [...adminAttachments];
+          const attachments = [];
+          if (invoicePdfBuffer) {
+            attachments.push({
+              name: `Invoice-${invoice.invoiceNumber}.pdf`,
+              content: invoicePdfBuffer.toString("base64"),
+            });
+          }
           if (badgeDocBuffer) {
             attachments.push({
               name: `CustomBadges-Order-${order._id.toString().slice(-8).toUpperCase()}.docx`,
@@ -507,6 +527,10 @@ for (const earn of earnings) {
           return attachments;
         })(),
       });
+=======
+        attachments: adminAttachments,
+      });
+>>>>>>> origin/b2
       console.log("✅ Owner notification email with invoice sent to:", ownerEmail);
       if (badgeDocBuffer) console.log("✅ Custom badge Word doc attached");
     } catch (ownerEmailErr) {

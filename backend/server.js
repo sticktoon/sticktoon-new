@@ -50,11 +50,14 @@ app.use("/api/admin/influencer-manage", require("./routes/adminInfluencerManage"
 app.use("/api/products", require("./routes/adminProducts"));
 app.use("/api/influencer", require("./routes/influencer"));
 app.use("/api/cart", require("./routes/cart"));
+<<<<<<< HEAD
 app.use("/api/badge-doc", require("./routes/badgeDoc"));
+=======
 app.use("/api/admin/leads", require("./routes/adminLeads"));
 app.use("/api/admin/tasks", require("./routes/adminTasks"));
 app.use("/api/admin/support", require("./routes/adminSupport"));
 app.use("/api/contact", require("./routes/contact"));
+>>>>>>> origin/b2
 
 /* Server */
 const DEFAULT_PORT = 5000;
