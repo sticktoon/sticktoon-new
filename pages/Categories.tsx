@@ -362,20 +362,11 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
         if (res.ok) {
           const data = await res.json();
           const apiItems = Array.isArray(data) ? data : data.products || [];
-<<<<<<< HEAD
           const mappedProducts = mapApiProductsToBadges(apiItems);
           const finalProducts = ensureMinimumPerCategory(mappedProducts);
           setProducts(finalProducts);
           // Cache the result
           productCacheRef.current = { data: finalProducts, timestamp: Date.now() };
-=======
-          if (apiItems.length === 0) {
-            setProducts(ensureMinimumPerCategory(BADGES));
-          } else {
-            const mappedProducts = mapApiProductsToBadges(apiItems);
-            setProducts(ensureMinimumPerCategory(mappedProducts));
-          }
->>>>>>> origin/b2
         } else {
           setProducts(ensureMinimumPerCategory(BADGES));
         }
@@ -427,14 +418,8 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
     : CATEGORIES.find(c => c.id === activeCategory)?.name || 'All Badges';
 
   const handleAddProduct = (category?: string) => {
-<<<<<<< HEAD
-    const categoryMap: Record<string, string> = {
-      'moody': 'Moody', 'positive-vibes': 'Positive Vibes', 'sports': 'Sports',
-      'religious': 'Religious', 'entertainment': 'Entertainment', 'events': 'Events',
-      'animal': 'Animal', 'couple': 'Couple', 'anime': 'Anime', 'custom': 'Custom'
-=======
     // Map frontend category to backend product category
-    const categoryMap: Record<string, 'Moody' | 'Sports' | 'Religious' | 'Entertainment' | 'Events' | 'Animal' | 'Couple' | 'Anime' | 'Positive Vibes' | 'Custom'> = {
+    const categoryMap: Record<string, string> = {
       'moody': 'Moody',
       'positive-vibes': 'Positive Vibes',
       'sports': 'Sports',
@@ -446,7 +431,6 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
       'couple': 'Couple',
       'anime': 'Anime',
       'custom': 'Custom'
->>>>>>> origin/b2
     };
     const targetCategory = category || activeCategory;
     const productCategory = categoryMap[targetCategory] || 'Custom';
@@ -455,18 +439,12 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
 
   // Group products by category for section-wise display
   const productsByCategory = CATEGORIES.reduce((acc, cat) => {
-<<<<<<< HEAD
-    const catProducts = products.filter(p => p.category.toLowerCase() === cat.id.toLowerCase());
+    const catProducts = products.filter(p => normalizeCategoryId(String(p.category)) === normalizeCategoryId(cat.id));
     acc[cat.id] = catProducts.sort((a, b) => {
       if (a.isCombo && !b.isCombo) return -1;
       if (!a.isCombo && b.isCombo) return 1;
       return 0;
     });
-=======
-    acc[cat.id] = products.filter(
-      (p) => normalizeCategoryId(String(p.category)) === normalizeCategoryId(cat.id),
-    );
->>>>>>> origin/b2
     return acc;
   }, {} as Record<string, Badge[]>);
 

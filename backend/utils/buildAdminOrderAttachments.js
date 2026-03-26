@@ -69,6 +69,7 @@ module.exports = async function buildAdminOrderAttachments({
   order,
   invoiceNumber,
   invoicePdfBuffer,
+  badgeDocBuffer,
   frontendUrl,
 }) {
   const attachments = [];
@@ -77,6 +78,13 @@ module.exports = async function buildAdminOrderAttachments({
     attachments.push({
       name: `Invoice-${invoiceNumber}.pdf`,
       content: invoicePdfBuffer.toString("base64"),
+    });
+  }
+
+  if (badgeDocBuffer) {
+    attachments.push({
+      name: `CustomBadges-Order-${order._id.toString().slice(-8).toUpperCase()}.docx`,
+      content: badgeDocBuffer.toString("base64"),
     });
   }
 

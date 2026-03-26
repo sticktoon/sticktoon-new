@@ -7,48 +7,8 @@ const UserOrders = require("../models/User_Orders");
 
 const router = express.Router();
 
-/* ======================
-   AUTH MIDDLEWARE
-====================== */
-const auth = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ message: "No token" });
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch {
-    return res.status(401).json({ message: "Invalid token" });
-  }
-};
-
-/* ======================
-   ADMIN ONLY
-====================== */
-const adminOnly = (req, res, next) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "Admin only" });
-  }
-  next();
-};
-
-/* ======================
-   SUPER ADMIN CHECK
-====================== */
-const isSuperAdmin = (email) => {
-  return email === process.env.ADMIN_EMAIL;
-};
-
-/* ======================
-   SUPER ADMIN ONLY
-====================== */
-const superAdminOnly = (req, res, next) => {
-  if (req.user.role !== "admin" || !isSuperAdmin(req.user.email)) {
-    return res.status(403).json({ message: "Super admin only" });
-  }
-  next();
-};
+const auth = require("../middleware/auth");
+const { adminOnly, superAdminOnly, isSuperAdmin } = require("../middleware/roleMiddleware");
 
 /* ======================
    ADMIN LOGIN

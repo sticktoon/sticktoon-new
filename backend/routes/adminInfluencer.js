@@ -5,13 +5,7 @@ const PromoCode = require("../models/PromoCode");
 const User = require("../models/User");
 const auth = require("../middleware/auth");
 
-/* Admin only middleware */
-const adminOnly = (req, res, next) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "Admin only" });
-  }
-  next();
-};
+const { adminOnly } = require("../middleware/roleMiddleware");
 
 /* =========================
    GET ALL INFLUENCER EARNINGS

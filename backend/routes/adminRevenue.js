@@ -4,13 +4,7 @@ const auth = require("../middleware/auth");
 
 const router = express.Router();
 
-/* 👑 ADMIN ONLY */
-const adminOnly = (req, res, next) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "Admin only" });
-  }
-  next();
-};
+const { adminOnly } = require("../middleware/roleMiddleware");
 
 /* 📊 DAY-WISE REVENUE */
 router.get("/daily", auth, adminOnly, async (req, res) => {

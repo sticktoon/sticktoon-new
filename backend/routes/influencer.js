@@ -9,31 +9,7 @@ const WithdrawalRequest = require("../models/WithdrawalRequest");
 const auth = require("../middleware/auth");
 const sendEmail = require("../utils/sendEmail");
 
-/* Influencer only middleware */
-const influencerOnly = (req, res, next) => {
-  if (req.user.role !== "influencer") {
-    return res.status(403).json({ message: "Influencer access only" });
-  }
-  next();
-};
-
-/* Approved influencer only middleware */
-const approvedInfluencerOnly = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user || user.role !== "influencer") {
-      return res.status(403).json({ message: "Influencer access only" });
-    }
-    if (!user.influencerProfile?.isApproved) {
-      return res.status(403).json({ 
-        message: "Your account is pending admin approval. You'll be able to access the dashboard once approved." 
-      });
-    }
-    next();
-  } catch (err) {
-    res.status(500).json({ message: "Error verifying access" });
-  }
-};
+const { influencerOnly, approvedInfluencerOnly } = require("../middleware/roleMiddleware");
 
 /* =========================
    INFLUENCER SIGNUP

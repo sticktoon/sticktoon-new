@@ -5,7 +5,6 @@ export interface Badge {
   price: number;
   category: Category;
    quantity?: number; 
-  isCombo?: boolean;
 
   image: string;            // pin image (default)
   imageMagnetic?: string;  // magnetic image (optional)
@@ -36,10 +35,7 @@ export enum Category {
   RELIGIOUS = 'Religious',
   ENTERTAINMENT = 'Entertainment',
   EVENTS = 'Events',
-<<<<<<< HEAD
-=======
   ANIMAL = 'Animal',
->>>>>>> origin/b2
   PET = 'Pet',
   COUPLE = 'Couple',
   ANIME = 'Anime',

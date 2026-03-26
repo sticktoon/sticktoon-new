@@ -3,13 +3,7 @@ const router = express.Router();
 const PromoCode = require("../models/PromoCode");
 const auth = require("../middleware/auth");
 
-/* 👑 ADMIN ONLY */
-const adminOnly = (req, res, next) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "Admin only" });
-  }
-  next();
-};
+const { adminOnly } = require("../middleware/roleMiddleware");
 
 /* =========================
    GET ALL PROMO CODES

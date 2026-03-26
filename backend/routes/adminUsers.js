@@ -1,29 +1,10 @@
 const express = require("express");
-const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
 const router = express.Router();
 
-/* 🔐 AUTH */
-const auth = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ message: "No token" });
-
-  try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ message: "Invalid token" });
-  }
-};
-
-/* 👑 ADMIN ONLY */
-const adminOnly = (req, res, next) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "Admin access only" });
-  }
-  next();
-};
+const auth = require("../middleware/auth");
+const { adminOnly } = require("../middleware/roleMiddleware");
 
 /* 👥 GET ALL USERS */
 router.get("/", auth, adminOnly, async (req, res) => {

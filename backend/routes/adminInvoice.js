@@ -4,13 +4,7 @@ const auth = require("../middleware/auth");
 
 const router = express.Router();
 
-/* 👑 ADMIN ONLY */
-const adminOnly = (req, res, next) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "Admin only" });
-  }
-  next();
-};
+const { adminOnly } = require("../middleware/roleMiddleware");
 
 /* 🧾 GET INVOICE BY ID */
 router.get("/:id", auth, adminOnly, async (req, res) => {
