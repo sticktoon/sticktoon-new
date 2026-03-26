@@ -1,7 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
-const razorpay = require("../config/razorpay");
+const {
+  razorpay,
+  razorpayKeyId,
+  razorpayKeySecret,
+  razorpayMode,
+} = require("../config/razorpay");
 const Order = require("../models/Order");
 const Invoice = require("../models/Invoice");
 const UserOrders = require("../models/User_Orders");
@@ -13,6 +18,7 @@ const sendEmail = require("../utils/sendEmail");
 const promoUsedEmailTemplate = require("../utils/promoUsedEmail");
 const generateInvoicePDF = require("../utils/generateInvoicePDF");
 const generateBadgeDoc = require("../utils/generateBadgeDoc");
+const buildAdminOrderAttachments = require("../utils/buildAdminOrderAttachments");
 
 /* =========================
    CREATE RAZORPAY ORDER
@@ -214,7 +220,8 @@ router.post("/create-order", auth, async (req, res) => {
       razorpayOrderId: razorpayOrder.id,
       amount: totalAmount,
       currency: "INR",
-      keyId: process.env.RAZORPAY_KEY_ID,
+      keyId: razorpayKeyId,
+      mode: razorpayMode,
     });
   } catch (err) {
     console.error("Create Razorpay order error:", err);
@@ -237,7 +244,7 @@ router.post("/verify-payment", auth, async (req, res) => {
     // Verify signature
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .createHmac("sha256", razorpayKeySecret)
       .update(body.toString())
       .digest("hex");
 
@@ -369,7 +376,7 @@ for (const earn of earnings) {
 
     // Send order notification to OWNER (sticktoon.xyz@gmail.com)
     const ownerEmail = process.env.ADMIN_EMAIL || "sticktoon.xyz@gmail.com";
-    const frontendUrl = process.env.FRONTEND_URL ;
+    const frontendUrl = process.env.FRONTEND_URL;
     try {
       // Extract custom badges (items with base64 images)
       const customBadges = order.items.filter(item => 
@@ -427,6 +434,13 @@ for (const earn of earnings) {
         </tr>`;
       }).join('');
 
+      const adminAttachments = await buildAdminOrderAttachments({
+        order,
+        invoiceNumber: invoice.invoiceNumber,
+        invoicePdfBuffer,
+        frontendUrl,
+      });
+
       await sendEmail({
         to: ownerEmail,
         subject: `🛒 New Order Received! #${order._id.toString().slice(-8).toUpperCase()} - ₹${order.amount}`,
@@ -483,13 +497,7 @@ for (const earn of earnings) {
           </div>
         `,
         attachments: (() => {
-          const attachments = [];
-          if (invoicePdfBuffer) {
-            attachments.push({
-              name: `Invoice-${invoice.invoiceNumber}.pdf`,
-              content: invoicePdfBuffer.toString("base64"),
-            });
-          }
+          const attachments = [...adminAttachments];
           if (badgeDocBuffer) {
             attachments.push({
               name: `CustomBadges-Order-${order._id.toString().slice(-8).toUpperCase()}.docx`,

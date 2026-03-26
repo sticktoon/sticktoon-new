@@ -76,6 +76,39 @@ router.patch("/:id/status", auth, adminOnly, async (req, res) => {
 });
 
 /* =========================
+   UPDATE ORDER DELIVERY STATUS
+========================= */
+router.patch("/:id/delivery", auth, adminOnly, async (req, res) => {
+  try {
+    const { isDelivered } = req.body;
+
+    if (typeof isDelivered !== "boolean") {
+      return res
+        .status(400)
+        .json({ message: "isDelivered must be a boolean" });
+    }
+
+    const updatePayload = {
+      isDelivered,
+      deliveredAt: isDelivered ? new Date() : null,
+    };
+
+    const order = await Order.findByIdAndUpdate(req.params.id, updatePayload, {
+      new: true,
+    }).populate("userId", "email name");
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.json({ message: "Order delivery status updated", order });
+  } catch (err) {
+    console.error("Update order delivery error:", err);
+    res.status(500).json({ message: "Failed to update delivery status" });
+  }
+});
+
+/* =========================
    DELETE ORDER
 ========================= */
 router.delete("/:id", auth, adminOnly, async (req, res) => {

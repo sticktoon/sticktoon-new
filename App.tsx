@@ -37,6 +37,8 @@ import AdminOrders from "./pages/AdminOrders";
 import AdminRevenue from "./pages/AdminRevenue";
 import AdminUserOrders from "./pages/AdminUserOrders";
 import AdminInvoice from "./pages/AdminInvoice";
+import AdminDealConvert from "./pages/AdminDealConvert";
+import AdminDealSend from "./pages/AdminDealSend";
 import AdminPromo from "./pages/AdminPromo";
 import AdminInfluencerManage from "./pages/AdminInfluencerManage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -133,6 +135,9 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
   const location = useLocation();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+  setIsOpen(false);
+}, [location.pathname]);
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -163,6 +168,19 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
     { name: "CUSTOMIZE", path: "/custom-order" },
     { name: "CONTACT", path: "/contact" },
   ];
+
+  const [profileOpen, setProfileOpen] = useState(false);
+
+useEffect(() => {
+  const close = () => setProfileOpen(false);
+  document.addEventListener("click", close);
+  return () => document.removeEventListener("click", close);
+}, []);
+
+useEffect(() => {
+  setProfileOpen(false);
+}, [location.pathname]);
+
 
   return (
 <nav
@@ -351,10 +369,14 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
 
   {/* 👤 USER */}
   {user ? (
-    <div className="hidden lg:block relative" ref={userMenuRef}>
+    <div className="hidden lg:block relative">
+      {/* AVATAR BUTTON */}
       <div 
         className="cursor-pointer"
-        onClick={() => setUserMenuOpen(!userMenuOpen)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setProfileOpen((v) => !v);
+        }}
       >
         {user.avatar && (user.avatar.startsWith('http') || user.avatar.startsWith('data:')) ? (
           <img
@@ -370,25 +392,28 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
       </div>
 
       {/* DROPDOWN */}
-      <div className={`absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-lg border border-slate-100 transition-all duration-200 origin-top-right z-50 ${userMenuOpen ? 'opacity-100 scale-100 visible pointer-events-auto' : 'opacity-0 scale-95 invisible pointer-events-none'}`}>
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className={`absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-xl border border-slate-100 transition-all duration-200 origin-top-right z-50 ${profileOpen ? 'opacity-100 scale-100 visible' : 'opacity-0 scale-95 invisible'}`}
+      >
         <div className="px-4 py-3 border-b border-slate-100">
-          <p className="font-bold">{user.name || "User"}</p>
-          <p className="text-xs text-slate-500">{user.email}</p>
+          <p className="font-bold text-slate-900">{user.name || "User"}</p>
+          <p className="text-xs text-slate-500 truncate">{user.email}</p>
         </div>
 
-        <Link to="/profile" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50" onClick={() => setUserMenuOpen(false)}>
+        <Link to="/profile" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50">
           My Profile
         </Link>
 
         {user.role === "admin" && (
-          <Link to="/admin" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50" onClick={() => setUserMenuOpen(false)}>
+          <Link to="/admin" className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50">
             Admin Panel
           </Link>
         )}
 
         <button
-          onClick={() => { setUserMenuOpen(false); handleLogout(); }}
-          className="w-full text-left px-4 py-3 text-red-600 hover:bg-red-50"
+          onClick={handleLogout}
+          className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50"
         >
           Logout
         </button>
@@ -402,6 +427,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
       <UserIcon className="w-6 h-6" />
     </Link>
   )}
+
 </div>
 
   </div>
@@ -482,7 +508,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
    FOOTER
 ======================= */
 const Footer: React.FC = () => (
-<footer className="bg-black text-white pt-8 pb-4 relative z-50">
+<footer className="bg-black text-white pt-8 pb-4 relative z-10">
 
 
 
@@ -1149,8 +1175,11 @@ export default function App() {
           <Route path="/admin/revenue" element={<ProtectedAdminRoute user={user}><AdminRevenue /></ProtectedAdminRoute>} />
           <Route path="/admin/user-orders" element={<ProtectedAdminRoute user={user}><AdminUserOrders /></ProtectedAdminRoute>} />
           <Route path="/admin/invoice/:id" element={<ProtectedAdminRoute user={user}><AdminInvoice /></ProtectedAdminRoute>} />
+          <Route path="/admin/deal-convert" element={<ProtectedAdminRoute user={user}><AdminDealConvert /></ProtectedAdminRoute>} />
+          <Route path="/admin/deal-send" element={<ProtectedAdminRoute user={user}><AdminDealSend /></ProtectedAdminRoute>} />
           <Route path="/admin/promo" element={<ProtectedAdminRoute user={user}><AdminPromo /></ProtectedAdminRoute>} />
           <Route path="/admin/influencers" element={<ProtectedAdminRoute user={user}><AdminInfluencerManage /></ProtectedAdminRoute>} />
+
           {/* Admin Routes - Unified */}
           <Route path="/admin/login" element={<Admin />} />
           <Route path="/admin/dashboard" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />

@@ -38,7 +38,13 @@ router.get("/pending", auth, adminOnly, async (req, res) => {
   try {
     const pending = await User.find({
       role: "influencer",
-      "influencerProfile.isApproved": false,
+      $or: [
+        { "influencerProfile.applicationStatus": "pending" },
+        {
+          "influencerProfile.applicationStatus": { $exists: false },
+          "influencerProfile.isApproved": false,
+        },
+      ],
     }).sort({ createdAt: -1 });
 
     res.json(pending);
@@ -55,7 +61,10 @@ router.patch("/:id/approve", auth, adminOnly, async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { "influencerProfile.isApproved": true },
+      {
+        "influencerProfile.isApproved": true,
+        "influencerProfile.applicationStatus": "approved",
+      },
       { new: true }
     );
 
@@ -101,9 +110,16 @@ router.patch("/:id/approve", auth, adminOnly, async (req, res) => {
 ========================= */
 router.patch("/:id/reject", auth, adminOnly, async (req, res) => {
   try {
-    const { reason } = req.body;
+    const { reason } = req.body || {};
 
-    const user = await User.findByIdAndDelete(req.params.id);
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        "influencerProfile.isApproved": false,
+        "influencerProfile.applicationStatus": "rejected",
+      },
+      { new: true }
+    );
 
     if (!user) {
       return res.status(404).json({ message: "Influencer not found" });
@@ -128,7 +144,7 @@ router.patch("/:id/reject", auth, adminOnly, async (req, res) => {
       console.error("Rejection email error:", emailErr);
     }
 
-    res.json({ message: "Influencer rejected and removed" });
+    res.json({ message: "Influencer rejected", user });
   } catch (err) {
     console.error("Reject error:", err);
     res.status(500).json({ message: "Failed to reject" });
@@ -147,7 +163,13 @@ router.get("/stats/overview", auth, adminOnly, async (req, res) => {
     });
     const pendingApprovals = await User.countDocuments({
       role: "influencer",
-      "influencerProfile.isApproved": false,
+      $or: [
+        { "influencerProfile.applicationStatus": "pending" },
+        {
+          "influencerProfile.applicationStatus": { $exists: false },
+          "influencerProfile.isApproved": false,
+        },
+      ],
     });
 
     const earningsStats = await InfluencerEarning.aggregate([
@@ -237,7 +259,7 @@ router.patch("/withdrawals/:id/process", auth, adminOnly, async (req, res) => {
   try {
     const { status, transactionId, adminNote } = req.body;
 
-    if (!["approved", "rejected", "paid"].includes(status)) {
+    if (!["pending", "approved", "rejected", "paid"].includes(status)) {
       return res.status(400).json({ message: "Invalid status" });
     }
 
@@ -251,11 +273,13 @@ router.patch("/withdrawals/:id/process", auth, adminOnly, async (req, res) => {
     const previousStatus = withdrawal.status;
     withdrawal.status = status;
     withdrawal.adminNote = adminNote || "";
-    withdrawal.processedAt = new Date();
-    withdrawal.processedBy = req.user.id;
+    withdrawal.processedAt = status === "pending" ? null : new Date();
+    withdrawal.processedBy = status === "pending" ? null : req.user.id;
 
     if (transactionId) {
       withdrawal.transactionId = transactionId;
+    } else if (status === "pending") {
+      withdrawal.transactionId = null;
     }
 
     await withdrawal.save();

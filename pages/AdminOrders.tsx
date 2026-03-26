@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { XCircle, AlertCircle } from "lucide-react";
 import AdminBackButton from "./AdminBackButton";
 import { API_BASE_URL } from "../config/api";
@@ -7,7 +6,7 @@ const DELIVERY_CHARGES = 99;
 
 interface Toast {
   id: number;
-  type: "error" | "warning";
+  type: "error" | "warning" | "success";
   message: string;
   isExiting?: boolean;
 }
@@ -18,13 +17,12 @@ export default function AdminOrders() {
   const [orders, setOrders] = useState<any[]>([]);
   const [activeOrder, setActiveOrder] = useState<any>(null);
   const [invoice, setInvoice] = useState<any>(null);
-  const navigate = useNavigate();
 
   // Toast state
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [toastIdCounter, setToastIdCounter] = useState(0);
 
-  const showToast = (type: "error" | "warning", message: string) => {
+  const showToast = (type: "error" | "warning" | "success", message: string) => {
     const id = toastIdCounter;
     setToastIdCounter(id + 1);
     const newToast: Toast = { id, type, message };
@@ -47,14 +45,40 @@ export default function AdminOrders() {
 
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/admin/orders`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    })
-      .then((res) => res.json())
-      .then(setOrders)
-      .catch(console.error);
+    const fetchOrders = async () => {
+      if (!token) {
+        showToast("warning", "Please login as admin to view orders.");
+        setOrders([]);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/admin/orders`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showToast(
+            "error",
+            data?.message || "Failed to fetch orders. Please login again."
+          );
+          setOrders([]);
+          return;
+        }
+
+        setOrders(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Fetch orders error:", error);
+        showToast("error", "Unable to load orders right now.");
+        setOrders([]);
+      }
+    };
+
+    fetchOrders();
   }, [token]);
 
   return (
@@ -242,6 +266,7 @@ export default function AdminOrders() {
           const colors = {
             error: "from-red-500/20 via-pink-500/10 to-transparent border-red-400/50 shadow-[0_8px_32px_rgba(239,68,68,0.3)]",
             warning: "from-yellow-500/20 via-orange-500/10 to-transparent border-yellow-400/50 shadow-[0_8px_32px_rgba(234,179,8,0.3)]",
+            success: "from-emerald-500/20 via-green-500/10 to-transparent border-emerald-400/50 shadow-[0_8px_32px_rgba(34,197,94,0.3)]",
           };
 
           return (

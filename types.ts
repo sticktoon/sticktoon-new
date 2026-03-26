@@ -5,6 +5,7 @@ export interface Badge {
   price: number;
   category: Category;
    quantity?: number; 
+  isCombo?: boolean;
 
   image: string;            // pin image (default)
   imageMagnetic?: string;  // magnetic image (optional)
@@ -14,7 +15,6 @@ export interface Badge {
   tagline?: string;         // New subtitle/tagline field
   color: string;
   isFeatured?: boolean;
-  isCombo?: boolean;        // Combo pack of all badges in category
 }
 
 
@@ -35,6 +35,7 @@ export enum Category {
   RELIGIOUS = 'Religious',
   ENTERTAINMENT = 'Entertainment',
   EVENTS = 'Events',
+  ANIMAL = 'Animal',
   PET = 'Pet',
   COUPLE = 'Couple',
   ANIME = 'Anime',

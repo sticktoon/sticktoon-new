@@ -2,20 +2,55 @@
 import React, { useState } from 'react';
 import { Mail, Send, Loader2, CheckCircle2, Sparkle, MessageCircle } from 'lucide-react';
 import { Instagram } from "lucide-react";
+import { API_BASE_URL } from '../config/api';
 
 export default function Contact() {
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '' });
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    inquiryType: '',
+    message: '',
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedTicketId, setSubmittedTicketId] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const inquiryOptions = [
+    'Customer Support (Existing Order Issue)',
+    'Product Inquiry',
+    'Feedback / Suggestions',
+    'Other',
+  ];
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError('');
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/contact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to send inquiry');
+      }
+
+      setSubmittedTicketId(data.ticketId || '');
       setSubmitted(true);
-      setFormData({ name: '', email: '', phone: '', message: '' });
-    }, 1500);
+      setFormData({ name: '', email: '', phone: '', inquiryType: '', message: '' });
+    } catch (error: any) {
+      setSubmitError(error.message || 'Failed to send inquiry');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const infoCards = [
@@ -69,8 +104,16 @@ export default function Contact() {
                 </div>
                 <h3 className="text-lg font-black text-slate-900">Message Sent! ✨</h3>
                 <p className="text-slate-600 font-semibold text-sm">Our crew will get back to you within 24 hours.</p>
+                {submittedTicketId && (
+                  <p className="text-sm font-bold text-indigo-700">
+                    Ticket ID: {submittedTicketId}
+                  </p>
+                )}
                 <button 
-                  onClick={() => setSubmitted(false)}
+                  onClick={() => {
+                    setSubmitted(false);
+                    setSubmittedTicketId('');
+                  }}
                   className="px-6 py-2 bg-yellow-500 text-white font-bold rounded-lg hover:bg-yellow-600 transition-all"
                 >
                   Send Another
@@ -81,6 +124,12 @@ export default function Contact() {
                 <h2 className="text-xl font-black text-slate-900 mb-6 tracking-tight">
                   Get In Touch 💬
                 </h2>
+
+                {submitError && (
+                  <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                    {submitError}
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-bold text-slate-900 mb-2">Your Name</label>
@@ -116,6 +165,23 @@ export default function Contact() {
                     onChange={e => setFormData({...formData, email: e.target.value})}
                     className="w-full px-4 py-3 bg-white border-2 border-yellow-500/20 rounded-xl focus:border-yellow-500 focus:outline-none transition-all text-slate-900 placeholder:text-slate-400"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-slate-900 mb-2">Inquiry Type</label>
+                  <select
+                    required
+                    value={formData.inquiryType}
+                    onChange={e => setFormData({ ...formData, inquiryType: e.target.value })}
+                    className="w-full px-4 py-3 bg-white border-2 border-yellow-500/20 rounded-xl focus:border-yellow-500 focus:outline-none transition-all text-slate-900"
+                  >
+                    <option value="" disabled>Select an inquiry type</option>
+                    {inquiryOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

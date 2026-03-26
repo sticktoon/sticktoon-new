@@ -266,6 +266,16 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
   const productCacheRef = useRef<{ data: Badge[]; timestamp: number } | null>(null);
   const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+  const normalizeCategoryId = (value?: string) => {
+    if (!value) return '';
+    const normalized = value.toString().trim().toLowerCase().replace(/\s+/g, '-');
+
+    if (normalized === 'animal') return 'pet';
+    if (normalized === 'positive-vibe') return 'positive-vibes';
+
+    return normalized;
+  };
+
   const normalizeImagePath = (path?: string) => {
     if (!path) return undefined;
     
@@ -308,7 +318,9 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
     comboBadges.forEach((b) => existingIds.add(b.id));
 
     const byCategory = CATEGORIES.reduce((acc, cat) => {
-      acc[cat.id] = normalized.filter((p) => p.category.toLowerCase() === cat.id.toLowerCase());
+      acc[cat.id] = normalized.filter(
+        (p) => normalizeCategoryId(String(p.category)) === normalizeCategoryId(cat.id),
+      );
       return acc;
     }, {} as Record<string, Badge[]>);
 
@@ -316,7 +328,9 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
       const current = byCategory[cat.id] || [];
       if (current.length >= minCount) return;
 
-      const fallback = BADGES.filter((b) => b.category.toLowerCase() === cat.id.toLowerCase());
+      const fallback = BADGES.filter(
+        (b) => normalizeCategoryId(String(b.category)) === normalizeCategoryId(cat.id),
+      );
       const needed = minCount - current.length;
       const toAdd = fallback.filter((b) => !existingIds.has(b.id)).slice(0, needed);
       normalized.push(...toAdd);
@@ -353,6 +367,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
           setProducts(finalProducts);
           // Cache the result
           productCacheRef.current = { data: finalProducts, timestamp: Date.now() };
+
         } else {
           setProducts(ensureMinimumPerCategory(BADGES));
         }
@@ -395,17 +410,28 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
 
   const filteredBadges = activeCategory === 'all' 
     ? products 
-    : products.filter(b => b.category.toLowerCase() === activeCategory.toLowerCase());
+    : products.filter(
+        (b) => normalizeCategoryId(String(b.category)) === normalizeCategoryId(activeCategory),
+      );
 
   const currentCategoryName = activeCategory === 'all' 
     ? 'All Badges' 
     : CATEGORIES.find(c => c.id === activeCategory)?.name || 'All Badges';
 
   const handleAddProduct = (category?: string) => {
-    const categoryMap: Record<string, string> = {
-      'moody': 'Moody', 'positive-vibes': 'Positive Vibes', 'sports': 'Sports',
-      'religious': 'Religious', 'entertainment': 'Entertainment', 'events': 'Events',
-      'animal': 'Animal', 'couple': 'Couple', 'anime': 'Anime', 'custom': 'Custom'
+    const categoryMap: Record<string, 'Moody' | 'Sports' | 'Religious' | 'Entertainment' | 'Events' | 'Animal' | 'Couple' | 'Anime' | 'Positive Vibes' | 'Custom'> = {
+      'moody': 'Moody',
+      'positive-vibes': 'Positive Vibes',
+      'sports': 'Sports',
+      'religious': 'Religious',
+      'entertainment': 'Entertainment',
+      'events': 'Events',
+      'pet': 'Animal',
+      'animal': 'Animal',
+      'couple': 'Couple',
+      'anime': 'Anime',
+      'custom': 'Custom'
+
     };
     const targetCategory = category || activeCategory;
     const productCategory = categoryMap[targetCategory] || 'Custom';
@@ -414,12 +440,15 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
 
   // Group products by category for section-wise display
   const productsByCategory = CATEGORIES.reduce((acc, cat) => {
-    const catProducts = products.filter(p => p.category.toLowerCase() === cat.id.toLowerCase());
+    const catProducts = products.filter(
+      (p) => normalizeCategoryId(String(p.category)) === normalizeCategoryId(cat.id),
+    );
     acc[cat.id] = catProducts.sort((a, b) => {
       if (a.isCombo && !b.isCombo) return -1;
       if (!a.isCombo && b.isCombo) return 1;
       return 0;
     });
+
     return acc;
   }, {} as Record<string, Badge[]>);
 

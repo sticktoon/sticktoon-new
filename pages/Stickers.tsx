@@ -157,7 +157,8 @@ export default function Stickers({ addToCart }: StickersProps) {
 
       <div className="relative z-10 flex">
         {/* STICKY SIDEBAR */}
-        <aside className="hidden lg:flex flex-col w-64 fixed left-0 top-24 h-[calc(100vh-6rem)] pt-4 px-4 bg-white/80 backdrop-blur-md border-r border-slate-200/60 overflow-y-auto">
+        <aside className="hidden lg:flex flex-col w-64 fixed left-0 top-24 h-[calc(100vh-6rem)] pt-4 px-4 bg-white/80 backdrop-blur-md border-r border-slate-200/60 overflow-y-auto z-[60]">
+
           <div className="flex flex-col h-full">
             <button
               onClick={() => handleCategorySelect('all')}

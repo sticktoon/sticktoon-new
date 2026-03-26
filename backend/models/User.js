@@ -37,6 +37,11 @@ const UserSchema = new mongoose.Schema(
 
     // Influencer specific fields
     influencerProfile: {
+      applicationStatus: {
+        type: String,
+        enum: ["pending", "approved", "rejected"],
+        default: "pending",
+      },
       isApproved: { type: Boolean, default: false },
       promoCodeId: { type: mongoose.Schema.Types.ObjectId, ref: "PromoCode" },
       totalEarnings: { type: Number, default: 0 },

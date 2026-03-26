@@ -8,6 +8,7 @@ const User = require("../models/User");
 
 const sendEmail = require("../utils/sendEmail");
 const generateInvoicePDF = require("../utils/generateInvoicePDF");
+const buildAdminOrderAttachments = require("../utils/buildAdminOrderAttachments");
 
 const {
   adminOrderSuccessEmail,
@@ -158,14 +159,18 @@ router.post("/webhook", async (req, res) => {
       /* =========================
          SEND ADMIN EMAIL
       ========================= */
+      const adminAttachments = await buildAdminOrderAttachments({
+        order,
+        invoiceNumber: invoice.invoiceNumber,
+        invoicePdfBuffer: pdfBuffer,
+        frontendUrl: process.env.FRONTEND_URL,
+      });
+
       await sendEmail({
         to: process.env.ADMIN_EMAIL,
         subject: "🧾 New Paid Order – StickToon",
         html: adminOrderSuccessEmail({ order, invoice }),
-        attachment: {
-          filename: `${invoice.invoiceNumber}.pdf`,
-          content: pdfBuffer,
-        },
+        attachments: adminAttachments,
       });
     }
 

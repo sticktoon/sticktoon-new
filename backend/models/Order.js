@@ -88,6 +88,17 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
 
+    isDelivered: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    deliveredAt: {
+      type: Date,
+      default: null,
+    },
+
     gatewayOrderId: {
       type: String,
       index: true,
