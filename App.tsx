@@ -18,7 +18,7 @@ import {
   Contact2
 } from 'lucide-react';
 
-import { Badge, CartItem, User as UserType } from './types';
+import { Badge, CartItem, User as UserType } from './types.ts';
 import { CATEGORIES, STICKER_CATEGORIES } from "./constants";
 import Home from "./pages/Home";
 import Categories from "./pages/Categories";
@@ -31,10 +31,20 @@ import About from "./pages/About";
 import Stickers from "./pages/Stickers";
 import StickerDetail from "./pages/StickerDetail";
 import ResetPassword from "./pages/ResetPassword";
-import PrivacyPolicyPage from "./pages/PrivacyPolicy";
-import TermsConditionsPage from "./pages/TermsConditions";
-import RefundCancellationPage from "./pages/RefundCancellation";
-import FaqPage from "./pages/Faq";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminUsers from "./pages/AdminUsers";
+import AdminOrders from "./pages/AdminOrders";
+import AdminRevenue from "./pages/AdminRevenue";
+import AdminUserOrders from "./pages/AdminUserOrders";
+import AdminInvoice from "./pages/AdminInvoice";
+import AdminDealConvert from "./pages/AdminDealConvert";
+import AdminDealSend from "./pages/AdminDealSend";
+import AdminPromo from "./pages/AdminPromo";
+import AdminInfluencerManage from "./pages/AdminInfluencerManage";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsConditions from "./pages/TermsConditions";
+import RefundCancellation from "./pages/RefundCancellation";
+import Faq from "./pages/Faq";
 import Influencer from "./pages/Influencer";
 import Admin from "./pages/Admin";
 import OrderSuccess from "./pages/OrderSuccess";
@@ -1153,15 +1163,38 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/custom-order" element={<CustomOrder addToCart={addToCart} />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/faq" element={<FaqPage />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-          <Route path="/terms-conditions" element={<TermsConditionsPage />} />
-          <Route path="/refund-cancellation" element={<RefundCancellationPage />} />
+          <Route path="/Faq" element={< Faq/>} />
+          <Route path="/privacypolicy" element={<PrivacyPolicy />} />
+          <Route path="/termsconditions" element={<TermsConditions />} />
+          <Route path="/returnsandrefunds" element={<RefundCancellation />} />
           <Route path="/about" element={<About />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
-          <Route path="/admin" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/:view" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/influencer/*" element={<Influencer />} />
+          <Route path="/admin" element={<ProtectedAdminRoute user={user}><AdminDashboard /></ProtectedAdminRoute>} />
+          <Route path="/admin/users" element={<ProtectedAdminRoute user={user}><AdminUsers /></ProtectedAdminRoute>} />
+          <Route path="/admin/orders" element={<ProtectedAdminRoute user={user}><AdminOrders /></ProtectedAdminRoute>} />
+          <Route path="/admin/revenue" element={<ProtectedAdminRoute user={user}><AdminRevenue /></ProtectedAdminRoute>} />
+          <Route path="/admin/user-orders" element={<ProtectedAdminRoute user={user}><AdminUserOrders /></ProtectedAdminRoute>} />
+          <Route path="/admin/invoice/:id" element={<ProtectedAdminRoute user={user}><AdminInvoice /></ProtectedAdminRoute>} />
+          <Route path="/admin/deal-convert" element={<ProtectedAdminRoute user={user}><AdminDealConvert /></ProtectedAdminRoute>} />
+          <Route path="/admin/deal-send" element={<ProtectedAdminRoute user={user}><AdminDealSend /></ProtectedAdminRoute>} />
+          <Route path="/admin/promo" element={<ProtectedAdminRoute user={user}><AdminPromo /></ProtectedAdminRoute>} />
+          <Route path="/admin/influencers" element={<ProtectedAdminRoute user={user}><AdminInfluencerManage /></ProtectedAdminRoute>} />
+
+          {/* Admin Routes - Unified */}
+          <Route path="/admin/login" element={<Admin />} />
+          <Route path="/admin/dashboard" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/withdrawals" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/products" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          {/* Influencer Portal Routes - Unified */}
+          <Route path="/influencer/login" element={<Influencer />} />
+          <Route path="/influencer/signup" element={<Influencer />} />
+          <Route path="/influencer/dashboard" element={<Influencer />} />
+          <Route path="/influencer/promo" element={<Influencer />} />
+          <Route path="/influencer/withdraw" element={<Influencer />} />
+          <Route path="/influencer/profile" element={<Influencer />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-conditions" element={<TermsConditions />} />
+          <Route path="/refund-cancellation" element={<RefundCancellation />} />
           <Route path="/order-success" element={<OrderSuccess />} />
           <Route path="/profile" element={<Profile />} />
         </Routes>

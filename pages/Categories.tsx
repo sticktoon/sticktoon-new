@@ -12,7 +12,7 @@ interface CategoriesProps {
 }
 
 // Premium Badge Card Component (matching sticker card style)
-function BadgeCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: Badge) => void; index: number; key?: string | number }) {
+function BadgeCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: Badge) => void; index: number }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [added, setAdded] = useState(false);
 
@@ -136,7 +136,7 @@ function BadgeCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: B
 }
 
 // Premium Combo Card Component
-function ComboCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: Badge) => void; index: number; key?: string | number }) {
+function ComboCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: Badge) => void; index: number }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [added, setAdded] = useState(false);
 
