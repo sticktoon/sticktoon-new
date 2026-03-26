@@ -9,7 +9,7 @@ interface StickersProps {
 }
 
 // Premium Sticker Card Component
-function StickerCard({ sticker, addToCart, index }: { sticker: Sticker; addToCart: (s: Sticker) => void; index: number }) {
+function StickerCard({ sticker, addToCart, index }: { sticker: Sticker; addToCart: (s: Sticker) => void; index: number; key?: string | number }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [added, setAdded] = useState(false);
 

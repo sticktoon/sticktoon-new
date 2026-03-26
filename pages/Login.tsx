@@ -489,20 +489,6 @@ export default function Login() {
             </>
           )}
         </div>
-
-        {/* Portal Links */}
-        {!forgotMode && (
-          <div className="mt-6 mb-5 flex gap-3 sm:gap-4 md:gap-6">
-            <Link to="/influencer/login" className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 rounded-2xl border-2 border-yellow-500/20 font-bold text-sm uppercase tracking-wider hover:shadow-lg hover:shadow-yellow-500/20 hover:border-yellow-500/60 transition-all">
-              <span className="text-lg">🎯</span>
-              <span>Influencer</span>
-            </Link>
-            <Link to="/admin/login" className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-2xl border-2 border-indigo-500/20 font-bold text-sm uppercase tracking-wider hover:shadow-lg hover:shadow-indigo-500/20 hover:border-indigo-500/60 transition-all">
-              <span className="text-lg">🛡️</span>
-              <span>Admin</span>
-            </Link>
-          </div>
-        )}
       </div>
     </div>
   );
