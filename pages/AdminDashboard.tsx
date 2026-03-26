@@ -46,11 +46,7 @@ export default function AdminDashboard() {
       });
   }, [token]);
 
-  /* 🔐 Frontend admin protection */
-  if (user.role !== "admin") {
-    window.location.href = "/";
-    return null;
-  }
+  /* 🔐 Frontend admin protection handled by ProtectedAdminRoute in App.tsx */
 
   if (loading) {
     return (

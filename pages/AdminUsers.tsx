@@ -26,11 +26,7 @@ export default function AdminUsers() {
       .catch(console.error);
   }, []);
 
-  // 🔐 Admin protection
-  if (currentUser.role !== "admin") {
-    window.location.href = "/";
-    return null;
-  }
+  /* 🔐 Admin protection handled by ProtectedAdminRoute in App.tsx */
 
   return (
     <div className="min-h-screen bg-slate-100 p-4 md:p-10">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from "react-router-dom";
 import { 
   ShoppingCart, 
   User as UserIcon, 
@@ -62,6 +62,21 @@ type AuthUser = {
   role?: string; // ✅ ADD THIS
 };
 
+
+/* =======================
+   PROTECTED ROUTE COMPONENT
+======================= */
+const ProtectedAdminRoute = ({ user, children }: { user: AuthUser | null; children: React.ReactNode }) => {
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  if (user.role !== "admin") {
+    return <Navigate to="/" replace />;
+  }
+  
+  return <>{children}</>;
+};
 
 /* =======================
    SCROLL TO TOP ON ROUTE CHANGE
@@ -1105,7 +1120,7 @@ export default function App() {
       <main className="flex-grow pt-[80px]">
         <Routes>
           <Route path="/" element={<Home addToCart={addToCart} />} />
-          <Route path="/categories" element={<Categories addToCart={addToCart} />} />
+          <Route path="/categories" element={<Categories addToCart={addToCart} user={user} />} />
           <Route path="/stickers" element={<Stickers addToCart={addToCart} />} />
           <Route path="/stickers/:id" element={<StickerDetail addToCart={addToCart} />} />
           <Route path="/badge/:id" element={<BadgeDetail addToCart={addToCart} />} />
@@ -1128,19 +1143,19 @@ export default function App() {
           <Route path="/returnsandrefunds" element={<RefundCancellation />} />
           <Route path="/about" element={<About />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/users" element={<AdminUsers />} />
-          <Route path="/admin/orders" element={<AdminOrders />} />
-          <Route path="/admin/revenue" element={<AdminRevenue />} />
-          <Route path="/admin/user-orders" element={<AdminUserOrders />} />
-          <Route path="/admin/invoice/:id" element={<AdminInvoice />} />
-          <Route path="/admin/promo" element={<AdminPromo />} />
-          <Route path="/admin/influencers" element={<AdminInfluencerManage />} />
+          <Route path="/admin" element={<ProtectedAdminRoute user={user}><AdminDashboard /></ProtectedAdminRoute>} />
+          <Route path="/admin/users" element={<ProtectedAdminRoute user={user}><AdminUsers /></ProtectedAdminRoute>} />
+          <Route path="/admin/orders" element={<ProtectedAdminRoute user={user}><AdminOrders /></ProtectedAdminRoute>} />
+          <Route path="/admin/revenue" element={<ProtectedAdminRoute user={user}><AdminRevenue /></ProtectedAdminRoute>} />
+          <Route path="/admin/user-orders" element={<ProtectedAdminRoute user={user}><AdminUserOrders /></ProtectedAdminRoute>} />
+          <Route path="/admin/invoice/:id" element={<ProtectedAdminRoute user={user}><AdminInvoice /></ProtectedAdminRoute>} />
+          <Route path="/admin/promo" element={<ProtectedAdminRoute user={user}><AdminPromo /></ProtectedAdminRoute>} />
+          <Route path="/admin/influencers" element={<ProtectedAdminRoute user={user}><AdminInfluencerManage /></ProtectedAdminRoute>} />
           {/* Admin Routes - Unified */}
           <Route path="/admin/login" element={<Admin />} />
-          <Route path="/admin/dashboard" element={<Admin />} />
-          <Route path="/admin/withdrawals" element={<Admin />} />
-          <Route path="/admin/products" element={<Admin />} />
+          <Route path="/admin/dashboard" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/withdrawals" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/products" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
           {/* Influencer Portal Routes - Unified */}
           <Route path="/influencer/login" element={<Influencer />} />
           <Route path="/influencer/signup" element={<Influencer />} />

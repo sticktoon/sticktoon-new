@@ -38,10 +38,7 @@ export default function AdminUserOrders() {
       .catch(console.error);
   }, [token]);
 
-  if (user.role !== "admin") {
-    window.location.href = "/";
-    return null;
-  }
+  /* 🔐 Admin protection handled by ProtectedAdminRoute in App.tsx */
 
   if (loading) {
     return <div className="p-10">Loading user orders...</div>;

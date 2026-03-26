@@ -226,11 +226,7 @@ export default function AdminPromo() {
   // Check if promo is expired
   const isExpired = (date: string) => new Date(date) < new Date();
 
-  // Admin protection
-  if (user.role !== "admin") {
-    window.location.href = "/";
-    return null;
-  }
+  /* 🔐 Admin protection handled by ProtectedAdminRoute in App.tsx */
 
   if (loading) {
     return (

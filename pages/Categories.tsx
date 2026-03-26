@@ -8,6 +8,7 @@ import { API_BASE_URL } from '../config/api';
 
 interface CategoriesProps {
   addToCart: (badge: Badge) => void;
+  user?: any;
 }
 
 // Premium Badge Card Component (matching sticker card style)
@@ -245,7 +246,7 @@ function ComboCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: B
   );
 }
 
-export default function Categories({ addToCart }: CategoriesProps) {
+export default function Categories({ addToCart, user }: CategoriesProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const catParam = searchParams.get('cat');
@@ -259,7 +260,7 @@ export default function Categories({ addToCart }: CategoriesProps) {
   const [loading, setLoading] = useState(true);
   
   // Check if user is admin
-  const isAdmin = !!localStorage.getItem('adminToken');
+  const isAdmin = user?.role === 'admin';
 
   // Simple product cache to avoid refetching on every navigation
   const productCacheRef = useRef<{ data: Badge[]; timestamp: number } | null>(null);
