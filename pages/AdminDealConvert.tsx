@@ -124,15 +124,24 @@ export default function AdminDealConvert() {
   const isStaticPreview = isExporting || isPrinting;
 
   const totals = useMemo(() => {
-    const subtotal = items.reduce(
-      (sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0),
-      0,
+    const computed = items.reduce(
+      (sum, item) => {
+        const amount = Number(item.unitPrice || 0) * Number(item.quantity || 0);
+        const igst = (amount * Number(gstRate || 0)) / 100;
+
+        return {
+          subtotal: sum.subtotal + Math.round(amount),
+          gstAmount: sum.gstAmount + Math.round(igst),
+          grandTotal: sum.grandTotal + Math.round(amount + igst),
+        };
+      },
+      { subtotal: 0, gstAmount: 0, grandTotal: 0 },
     );
-    const gstAmount = (subtotal * Number(gstRate || 0)) / 100;
+
     return {
-      subtotal,
-      gstAmount,
-      grandTotal: subtotal + gstAmount,
+      subtotal: computed.subtotal,
+      gstAmount: computed.gstAmount,
+      grandTotal: computed.grandTotal,
     };
   }, [gstRate, items]);
 
@@ -760,8 +769,8 @@ export default function AdminDealConvert() {
                                 />
                               )}
                             </td>
-                            <td className={rowCellClass}>Rs. {amount.toLocaleString("en-IN")}</td>
-                            <td className={rowCellClass}>Rs. {Math.round(igst).toLocaleString("en-IN")}</td>
+                            <td className={rowCellClass}>{amount.toLocaleString("en-IN")}</td>
+                            <td className={rowCellClass}>{Math.round(igst).toLocaleString("en-IN")}</td>
                             <td className={`${rowCellClass} font-black`}>
                               <div className={`flex items-center justify-center ${isStaticPreview ? "" : "flex-col gap-2"}`}>
                                 <span>Rs. {Math.round(amount + igst).toLocaleString("en-IN")}</span>
@@ -783,9 +792,9 @@ export default function AdminDealConvert() {
                       <tfoot className="bg-slate-900 text-white">
                         <tr>
                           <td colSpan={5} className="border px-3 py-3 text-center font-black">Grand Total</td>
-                          <td className="border px-3 py-3 text-center">Rs. {Math.round(totals.subtotal).toLocaleString("en-IN")}</td>
-                          <td className="border px-3 py-3 text-center">Rs. {Math.round(totals.gstAmount).toLocaleString("en-IN")}</td>
-                          <td className="border px-3 py-3 text-center font-black">Rs. {Math.round(totals.grandTotal).toLocaleString("en-IN")}</td>
+                          <td className="border px-3 py-3 text-center">{Math.round(totals.subtotal).toLocaleString("en-IN")}</td>
+                          <td className="border px-3 py-3 text-center">{Math.round(totals.gstAmount).toLocaleString("en-IN")}</td>
+                          <td className="border px-4 py-3 text-center font-black">Rs. {Math.round(totals.grandTotal).toLocaleString("en-IN")}</td>
                         </tr>
                       </tfoot>
                     )}
