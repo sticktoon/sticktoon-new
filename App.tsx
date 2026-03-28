@@ -426,7 +426,7 @@ useEffect(() => {
 
       {user.role === "admin" && (
         <Link
-          to="/admin"
+          to="/admin/login"
           className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
         >
           Admin Panel
@@ -479,7 +479,7 @@ useEffect(() => {
 
                 {user.role === "admin" && (
                   <Link
-                    to="/admin"
+                    to="/admin/login"
                     onClick={() => setIsOpen(false)}
                     className="block mt-3 text-lg font-bold text-white focus:outline-none focus-visible:outline-none focus-visible:ring-0"
                   >
