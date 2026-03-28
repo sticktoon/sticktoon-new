@@ -98,10 +98,6 @@ export default function AdminDealSend() {
   const navigate = useNavigate();
   const lead = (location.state as { lead?: LeadLike } | null)?.lead;
 
-  const [quotationFor, setQuotationFor] = useState(
-    [lead?.firstName, lead?.lastName].filter(Boolean).join(" ") || "",
-  );
-  const [company, setCompany] = useState(lead?.company || "Advantage Club");
   const [email, setEmail] = useState(lead?.email || "");
   const [phone, setPhone] = useState(lead?.phone || "");
   const [quotationNo, setQuotationNo] = useState(makeQuoteNumber());
@@ -623,20 +619,9 @@ export default function AdminDealSend() {
 
           <div className="space-y-4">
             <label className="block">
-              <span className="mb-1 block text-xs font-black uppercase text-slate-500">Client</span>
-              <input value={quotationFor} onChange={(e) => setQuotationFor(e.target.value)} className={fieldClass} />
+              <span className="mb-1 block text-xs font-black uppercase text-slate-500">Subject</span>
+              <input value={subject} onChange={(e) => setSubject(e.target.value)} className={fieldClass} />
             </label>
-
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block">
-                <span className="mb-1 block text-xs font-black uppercase text-slate-500">Company</span>
-                <input value={company} onChange={(e) => setCompany(e.target.value)} className={fieldClass} />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-black uppercase text-slate-500">Subject</span>
-                <input value={subject} onChange={(e) => setSubject(e.target.value)} className={fieldClass} />
-              </label>
-            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
@@ -804,9 +789,6 @@ export default function AdminDealSend() {
                       <div className="mx-auto mt-2 inline-flex rounded-full bg-amber-100 px-3 py-1 text-[7px] font-bold text-amber-800">
                         {highlightLine}
                       </div>
-                      <p className="mt-3 text-[10px] font-semibold text-slate-500">
-                        Prepared for {quotationFor || "Client"} · {company || "Company"} · {quotationDate}
-                      </p>
                     </div>
                   )}
 
