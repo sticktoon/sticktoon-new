@@ -662,10 +662,14 @@ export default function AdminDealSend() {
                 <input
                   type="number"
                   min={0}
-                  value={Math.round(totals.baseUnitPrice)}
+                  value={Number(totals.totalPerUnit.toFixed(2))}
                   onChange={(e) => {
-                    const next = Number(e.target.value || 0);
-                    setItems((prev) => prev.map((item) => ({ ...item, unitPrice: next })));
+                    const nextTotalPerUnit = Number(e.target.value || 0);
+                    const rate = Number(gstRate || 0);
+                    const nextBaseUnitPrice = nextTotalPerUnit / (1 + rate / 100);
+                    setItems((prev) =>
+                      prev.map((item) => ({ ...item, unitPrice: nextBaseUnitPrice }))
+                    );
                   }}
                   className={fieldClass}
                 />
