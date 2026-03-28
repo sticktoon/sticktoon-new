@@ -3752,9 +3752,9 @@ const Admin: React.FC = () => {
      RENDER DASHBOARD
   =========================== */
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 admin-zoho flex">
+    <div className="min-h-screen bg-slate-50 text-slate-900 admin-zoho flex overflow-x-hidden">
       {/* Left Sidebar Navigation */}
-      <aside className="w-64 bg-slate-950 border-r border-slate-800 h-screen sticky top-0 overflow-y-auto">
+      <aside className="w-64 shrink-0 bg-slate-950 border-r border-slate-800 h-screen sticky top-0 overflow-y-auto">
         <div className="p-6">
           <div className="mb-8">
             <h1 className="text-xl font-black text-white admin-zoho-keep-white">
@@ -3888,7 +3888,7 @@ const Admin: React.FC = () => {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         {/* Header */}
         <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
           <div className="px-8 py-4 flex items-center justify-between">
@@ -3923,7 +3923,7 @@ const Admin: React.FC = () => {
         </header>
 
         {/* Content */}
-        <div className="p-8">
+        <div className="p-8 min-w-0 overflow-x-hidden">
           {/* DASHBOARD VIEW */}
           {currentView === "dashboard" && (
             <div className="space-y-6">
@@ -4173,7 +4173,7 @@ const Admin: React.FC = () => {
 
           {/* ================= LEADS VIEW ================= */}
           {currentView === "leads" && (
-            <div className="flex gap-6">
+            <div className="flex gap-6 min-w-0">
               {/* ================= SIDEBAR ================= */}
               <aside className="w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
                 <h3 className="font-black text-sm">Filters</h3>
@@ -4247,7 +4247,7 @@ const Admin: React.FC = () => {
               </aside>
 
               {/* ================= MAIN CONTENT ================= */}
-              <div className="flex-1 flex flex-col gap-6">
+              <div className="flex-1 min-w-0 flex flex-col gap-6">
                 {/* HEADER */}
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-black">
@@ -4743,7 +4743,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
           {/* ================= SUPPORT VIEW ================= */}
           {currentView === "support" && (
-            <div className="flex gap-6">
+            <div className="flex gap-6 min-w-0">
               <aside className="w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
                 <h3 className="font-black text-sm">Filters</h3>
 
@@ -4814,7 +4814,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 </div>
               </aside>
 
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
               <div className="bg-white border rounded-xl p-6 space-y-4">
                 <h3 className="text-xl font-black text-slate-900">
                   Support Inbox ({filteredSupportMessages.length})
@@ -5068,7 +5068,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
           {/* ================= TASKS VIEW ================= */}
           {currentView === "tasks" && (
-            <div className="flex gap-6">
+            <div className="flex gap-6 min-w-0">
               <aside className="w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
                 <h3 className="font-black text-sm">Filters</h3>
 
@@ -5117,7 +5117,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 </div>
               </aside>
 
-              <div className="flex-1 flex flex-col gap-6">
+              <div className="flex-1 min-w-0 flex flex-col gap-6">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-black">Tasks ({filteredTasks.length})</h2>
                   <button
