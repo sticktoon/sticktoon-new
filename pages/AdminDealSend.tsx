@@ -98,6 +98,10 @@ export default function AdminDealSend() {
   const navigate = useNavigate();
   const lead = (location.state as { lead?: LeadLike } | null)?.lead;
 
+  const [quotationFor, setQuotationFor] = useState(
+    [lead?.firstName, lead?.lastName].filter(Boolean).join(" ") || "",
+  );
+  const [company, setCompany] = useState(lead?.company || "Advantage Club");
   const [email, setEmail] = useState(lead?.email || "");
   const [phone, setPhone] = useState(lead?.phone || "");
   const [quotationNo, setQuotationNo] = useState(makeQuoteNumber());
@@ -312,20 +316,20 @@ export default function AdminDealSend() {
           margin: 0 auto;
           overflow: hidden;
           position: relative;
-          background: #242424;
+          background: #ffffff;
           color: #0f172a;
         }
 
         .catalog-shell {
           height: 100%;
-          padding: 2.4mm;
+          padding: 1.5mm;
           box-sizing: border-box;
-          border: 1px solid rgba(255, 255, 255, 0.72);
+          border: 2px solid rgba(0, 0, 0, 0.72);
         }
 
         .catalog-sheet {
           background: linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%);
-          border: 1px solid #dbe3ec;
+          border: 2px solid #000000;
           height: 100%;
           overflow: hidden;
           display: grid;
@@ -333,10 +337,21 @@ export default function AdminDealSend() {
         }
 
         .catalog-header {
-          padding: 5.5mm 14mm 5mm;
+          
           text-align: center;
           background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
           border-bottom: 1px solid #e2e8f0;
+        }
+
+        .catalog-logo-wrap {
+          display: block;
+          align-items: center;
+          justify-content: center;
+          background: #000000;
+          padding: 8px 18px;
+          border: none;
+          box-shadow: none;
+          outline: none;
         }
 
         .catalog-grid {
@@ -608,9 +623,20 @@ export default function AdminDealSend() {
 
           <div className="space-y-4">
             <label className="block">
-              <span className="mb-1 block text-xs font-black uppercase text-slate-500">Subject</span>
-              <input value={subject} onChange={(e) => setSubject(e.target.value)} className={fieldClass} />
+              <span className="mb-1 block text-xs font-black uppercase text-slate-500">Client</span>
+              <input value={quotationFor} onChange={(e) => setQuotationFor(e.target.value)} className={fieldClass} />
             </label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-black uppercase text-slate-500">Company</span>
+                <input value={company} onChange={(e) => setCompany(e.target.value)} className={fieldClass} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-black uppercase text-slate-500">Subject</span>
+                <input value={subject} onChange={(e) => setSubject(e.target.value)} className={fieldClass} />
+              </label>
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
@@ -758,14 +784,16 @@ export default function AdminDealSend() {
                 <div className="catalog-sheet">
                   {pageIndex === 0 && (
                     <div className="catalog-header">
-                      <img
-                        src="/images/STICKTOON_LONG.jpeg"
-                        alt="StickToon"
-                        className="mx-auto h-10 w-auto object-contain"
-                      />
-                      <p className="mt-1.5 text-[7px] font-semibold uppercase tracking-[0.32em] text-slate-400">
-                        We create for the souls
-                      </p>
+                      <div className="catalog-logo-wrap">
+                        <img
+                          src="/images/STICKTOON_LONG.jpeg"
+                          alt="StickToon"
+                          className="mx-auto h-10 w-auto object-contain"
+                        />
+                      </div>
+                      <p className=" text-[7px] font-semibold uppercase tracking-[0.32em] bg-black text-white px-2 py-1 ">
+  We create for the souls
+</p>
                       <div className="mx-auto mt-3 h-px w-28 bg-slate-200" />
                       <p className="mt-3 text-[7px] font-black uppercase tracking-[0.34em] text-slate-400">
                         {tagline}
@@ -776,6 +804,9 @@ export default function AdminDealSend() {
                       <div className="mx-auto mt-2 inline-flex rounded-full bg-amber-100 px-3 py-1 text-[7px] font-bold text-amber-800">
                         {highlightLine}
                       </div>
+                      <p className="mt-3 text-[10px] font-semibold text-slate-500">
+                        Prepared for {quotationFor || "Client"} · {company || "Company"} · {quotationDate}
+                      </p>
                     </div>
                   )}
 
