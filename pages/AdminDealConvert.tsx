@@ -610,10 +610,10 @@ export default function AdminDealConvert() {
                       <div>
                         <p className="text-sm font-black uppercase">Quotation For:</p>
                         <p className="mt-3 text-2xl font-black">{quotationFor || "-"}</p>
-                        <p className="mt-1 text-base">{company || "-"}</p>
-                        <p className="text-base">{email || "-"}</p>
-                        <p className="text-base">{phone || "-"}</p>
-                        <p className="whitespace-pre-line text-base">{address || "-"}</p>
+                        {company.trim() ? <p className="mt-1 text-base">{company}</p> : null}
+                        {email.trim() ? <p className="text-base">{email}</p> : null}
+                        {phone.trim() ? <p className="text-base">{phone}</p> : null}
+                        {address.trim() ? <p className="whitespace-pre-line text-base">{address}</p> : null}
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-black uppercase">Details:</p>
