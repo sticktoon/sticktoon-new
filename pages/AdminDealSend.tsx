@@ -786,7 +786,7 @@ export default function AdminDealSend() {
                       <h2 className="mt-1.5 text-[18px] font-black uppercase tracking-tight text-slate-900">
                         {subject}
                       </h2>
-                      <div className="mx-auto mt-2 inline-flex rounded-full bg-amber-100 px-3 py-1 text-[7px] font-bold text-amber-800">
+                      <div className="mx-auto mt-2 mb-3 inline-flex rounded-full bg-amber-100 px-3 py-1 text-[7px] font-bold text-amber-800">
                         {highlightLine}
                       </div>
                     </div>
