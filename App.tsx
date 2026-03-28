@@ -69,11 +69,25 @@ type AuthUser = {
    PROTECTED ROUTE COMPONENT
 ======================= */
 const ProtectedAdminRoute = ({ user, children }: { user: AuthUser | null; children: React.ReactNode }) => {
-  if (!user) {
-    return <Navigate to="/login" replace />;
+  const isStorefrontAdmin = Boolean(user && user.role === "admin");
+
+  let storedAdminUser: AuthUser | null = null;
+  try {
+    const rawAdminUser = localStorage.getItem("adminUser");
+    storedAdminUser = rawAdminUser ? (JSON.parse(rawAdminUser) as AuthUser) : null;
+  } catch {
+    storedAdminUser = null;
   }
-  
-  if (user.role !== "admin") {
+
+  const hasAdminPanelSession = Boolean(
+    localStorage.getItem("adminToken") && storedAdminUser?.role === "admin",
+  );
+
+  if (!isStorefrontAdmin && !hasAdminPanelSession) {
+    return <Navigate to="/admin/login" replace />;
+  }
+
+  if (!isStorefrontAdmin && storedAdminUser?.role !== "admin") {
     return <Navigate to="/" replace />;
   }
   
