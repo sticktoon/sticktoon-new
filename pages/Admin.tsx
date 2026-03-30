@@ -3752,9 +3752,9 @@ const Admin: React.FC = () => {
      RENDER DASHBOARD
   =========================== */
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 admin-zoho flex overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 text-slate-900 admin-zoho flex overflow-x-hidden relative">
       {/* Left Sidebar Navigation */}
-      <aside className="w-64 shrink-0 bg-slate-950 border-r border-slate-800 h-screen sticky top-0 overflow-y-auto">
+      <aside className="w-64 shrink-0 bg-slate-950 border-r border-slate-800 h-[calc(100vh-80px)] fixed left-0 top-[80px] z-30 overflow-y-auto">
         <div className="p-6">
           <div className="mb-8">
             <h1 className="text-xl font-black text-white admin-zoho-keep-white">
@@ -3888,7 +3888,7 @@ const Admin: React.FC = () => {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 ml-64">
         {/* Header */}
         <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
           <div className="px-8 py-4 flex items-center justify-between">
