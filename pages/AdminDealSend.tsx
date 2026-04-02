@@ -105,7 +105,7 @@ export default function AdminDealSend() {
   const [subject, setSubject] = useState("Advantage Club Collection");
   const [tagline, setTagline] = useState("Limited Edition");
   const [highlightLine, setHighlightLine] = useState(
-    "Smart Magnetic 58mm Pin Badges - Designed to Stick Anywhere in Your Office.",
+    "Smart Magnetic 58mm Pin Badges - Designed to Stick Anywhere in Your Office",
   );
   const [items, setItems] = useState<QuoteItem[]>(() =>
     makeInitialItems(Number(lead?.expectedAmount || 50)),
@@ -133,6 +133,13 @@ export default function AdminDealSend() {
   );
   const [isExporting, setIsExporting] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const normalizedTagline = (tagline || "Limited Edition").trim() || "Limited Edition";
+  const normalizedHighlightLine =
+    ((highlightLine || "Smart Magnetic 58mm Pin Badges - Designed to Stick Anywhere in Your Office").trim() ||
+      "Smart Magnetic 58mm Pin Badges - Designed to Stick Anywhere in Your Office")
+      .replace(/[–—]/g, "-")
+      .replace(/\s*-\s*/g, " - ")
+      .replace(/\.+$/, "");
 
   const totals = useMemo(() => {
     const totalUnits = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -216,18 +223,34 @@ export default function AdminDealSend() {
       let isFirst = true;
 
       for (const page of pages) {
+        const pageRect = page.getBoundingClientRect();
         const canvas = await html2canvas(page, {
           scale: 3,
           backgroundColor: "#101828",
           useCORS: true,
           allowTaint: true,
+          width: Math.ceil(pageRect.width),
+          height: Math.ceil(pageRect.height),
+          scrollX: -window.scrollX,
+          scrollY: -window.scrollY,
+          windowWidth: document.documentElement.clientWidth,
+          windowHeight: document.documentElement.clientHeight,
+          onclone: (clonedDocument) => {
+            // Stabilize capture origin so exported pages don't pick up viewport offset artifacts.
+            clonedDocument.documentElement.scrollTop = 0;
+            clonedDocument.documentElement.scrollLeft = 0;
+            clonedDocument.body.scrollTop = 0;
+            clonedDocument.body.scrollLeft = 0;
+          },
         });
 
         if (!isFirst) pdf.addPage();
         isFirst = false;
 
         const image = canvas.toDataURL("image/png");
-        pdf.addImage(image, "PNG", 0, 0, pageWidth, pageHeight);
+        // The preview page is already authored at A4 proportions.
+        // Render it edge-to-edge onto the PDF page to avoid offset/letterboxing drift.
+        pdf.addImage(image, "PNG", 0, 0, pageWidth, pageHeight, undefined, "FAST");
       }
 
       return pdf;
@@ -333,21 +356,62 @@ export default function AdminDealSend() {
         }
 
         .catalog-header {
-          
+          padding: 0;
           text-align: center;
           background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
           border-bottom: 1px solid #e2e8f0;
         }
 
         .catalog-logo-wrap {
-          display: block;
+          display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
           background: #000000;
-          padding: 8px 18px;
+          min-height: 78px;
+          padding: 8px 18px 7px;
           border: none;
           box-shadow: none;
           outline: none;
+        }
+
+        .catalog-soul-line {
+          margin: 6px 0 0;
+          font-size: 8px;
+          font-weight: 700;
+          font-family: Arial, Helvetica, sans-serif;
+          text-transform: uppercase;
+          letter-spacing: 0.38em;
+          color: #ffffff;
+          line-height: 1;
+          transform: translateX(0.18em);
+        }
+
+        .catalog-tagline {
+          margin-top: 11px;
+          font-size: 8px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.34em;
+          color: #94a3b8;
+          line-height: 1;
+        }
+
+        .catalog-highlight-line {
+          margin: 8px auto 12px;
+          min-height: 20px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          background: #f9e8b5;
+          padding: 4px 20px;
+          font-size: 8px;
+          line-height: 1.1;
+          font-weight: 700;
+          font-family: Arial, Helvetica, sans-serif;
+          color: #92400e;
+          white-space: nowrap;
         }
 
         .catalog-grid {
@@ -779,19 +843,17 @@ export default function AdminDealSend() {
                           alt="StickToon"
                           className="mx-auto h-10 w-auto object-contain"
                         />
+                        <p className="catalog-soul-line">WE CREATE FOR THE SOULS</p>
                       </div>
-                      <p className=" text-[7px] font-semibold uppercase tracking-[0.32em] bg-black text-white px-2 py-1 ">
-  We create for the souls
-</p>
                       <div className="mx-auto mt-3 h-px w-28 bg-slate-200" />
-                      <p className="mt-3 text-[7px] font-black uppercase tracking-[0.34em] text-slate-400">
-                        {tagline}
+                      <p className="catalog-tagline">
+                        {normalizedTagline}
                       </p>
                       <h2 className="mt-1.5 text-[18px] font-black uppercase tracking-tight text-slate-900">
                         {subject}
                       </h2>
-                      <div className="mx-auto mt-2 mb-3 inline-flex rounded-full bg-amber-100 px-3 py-1 text-[7px] font-bold text-amber-800">
-                        {highlightLine}
+                      <div className="catalog-highlight-line">
+                        {normalizedHighlightLine}
                       </div>
                     </div>
                   )}

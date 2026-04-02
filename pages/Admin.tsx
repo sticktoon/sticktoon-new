@@ -738,7 +738,7 @@ const Admin: React.FC = () => {
       }>
     >
   >({});
-  const [reportRangeDays, setReportRangeDays] = useState<30 | 90>(30);
+  const [reportFilter, setReportFilter] = useState<"all" | "daily" | "weekly" | "monthly">("monthly");
 
   type Lead = {
     _id?: string;
@@ -1554,9 +1554,32 @@ const Admin: React.FC = () => {
   const reportsData = useMemo(() => {
     const now = new Date();
     const currentYear = now.getFullYear();
+
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const rangeDaysByFilter: Record<"daily" | "weekly" | "monthly", number> = {
+      daily: 1,
+      weekly: 7,
+      monthly: 30,
+    };
+
+    const allOrderTimes = orders
+      .map((o) => new Date(o.createdAt).getTime())
+      .filter((t) => !Number.isNaN(t));
+    const earliestOrderTime = allOrderTimes.length ? Math.min(...allOrderTimes) : now.getTime();
+
     const start = new Date(now);
-    start.setDate(start.getDate() - (reportRangeDays - 1));
+    if (reportFilter === "all") {
+      start.setTime(earliestOrderTime);
+    } else {
+      const rangeDays = rangeDaysByFilter[reportFilter];
+      start.setDate(start.getDate() - (rangeDays - 1));
+    }
     start.setHours(0, 0, 0, 0);
+
+    const reportRangeDays = Math.max(
+      1,
+      Math.ceil((now.getTime() - start.getTime()) / msPerDay) + 1,
+    );
 
     const ordersInRange = orders.filter((o) => {
       const t = new Date(o.createdAt).getTime();
@@ -1598,7 +1621,6 @@ const Admin: React.FC = () => {
 
     const yearStart = new Date(currentYear, 0, 1);
     const yearEnd = new Date(currentYear, 11, 31, 23, 59, 59, 999);
-    const msPerDay = 24 * 60 * 60 * 1000;
     const daysElapsed = Math.max(
       1,
       Math.min(
@@ -1678,55 +1700,118 @@ const Admin: React.FC = () => {
     const topCustomers =
       topInSelectedRange.length >= 3 ? topInSelectedRange : getTopCustomers(orders);
 
-    const monthLabels = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
-
-    const monthlyBuckets = Array.from({ length: 12 }, () => ({
-      units: 0,
-      orderCount: 0,
-    }));
-
-    orders.forEach((order) => {
-      if (order.status !== "SUCCESS") return;
-
-      const createdAt = new Date(order.createdAt);
-      if (Number.isNaN(createdAt.getTime())) return;
-      if (createdAt.getFullYear() !== currentYear) return;
-
-      const monthIndex = createdAt.getMonth();
-      const units = Array.isArray(order.items) && order.items.length > 0
+    const getOrderUnits = (order: any) =>
+      Array.isArray(order.items) && order.items.length > 0
         ? order.items.reduce(
             (sum: number, item: any) => sum + Number(item.quantity || 0),
             0,
           )
         : 1;
 
-      monthlyBuckets[monthIndex].units += units;
-      monthlyBuckets[monthIndex].orderCount += 1;
-    });
+    const successfulOrdersForSales = orders
+      .filter((order) => order.status === "SUCCESS")
+      .map((order) => ({ order, createdAt: new Date(order.createdAt) }))
+      .filter(({ createdAt }) => !Number.isNaN(createdAt.getTime()));
 
-    const monthlyProductSales = monthLabels.map((label, idx) => {
-      const bucket = monthlyBuckets[idx];
-      const average =
-        bucket.orderCount > 0 ? bucket.units / bucket.orderCount : 0;
+    let productSalesSeries: Array<{ label: string; value: number }> = [];
+    let productSalesSubtitle = "Monthly";
 
-      return {
+    if (reportFilter === "daily") {
+      const dayStart = new Date(now);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+
+      const totalUnits = successfulOrdersForSales.reduce((sum, { order, createdAt }) => {
+        if (createdAt >= dayStart && createdAt < dayEnd) {
+          return sum + getOrderUnits(order);
+        }
+        return sum;
+      }, 0);
+
+      productSalesSeries = [{
+        label: now.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
+        value: totalUnits,
+      }];
+      productSalesSubtitle = "Daily";
+    } else if (reportFilter === "weekly") {
+      const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const weekStart = new Date(now);
+      const day = weekStart.getDay();
+      const offsetFromMonday = day === 0 ? 6 : day - 1;
+      weekStart.setDate(weekStart.getDate() - offsetFromMonday);
+      weekStart.setHours(0, 0, 0, 0);
+
+      const weekBuckets = Array.from({ length: 7 }, (_, idx) => ({
+        label: labels[idx],
+        value: 0,
+      }));
+
+      successfulOrdersForSales.forEach(({ order, createdAt }) => {
+        if (createdAt < weekStart || createdAt > now) return;
+        const index = Math.floor((createdAt.getTime() - weekStart.getTime()) / msPerDay);
+        if (index >= 0 && index < 7) {
+          weekBuckets[index].value += getOrderUnits(order);
+        }
+      });
+
+      productSalesSeries = weekBuckets;
+      productSalesSubtitle = "Weekly";
+    } else if (reportFilter === "all") {
+      const years = Array.from(
+        new Set(successfulOrdersForSales.map(({ createdAt }) => createdAt.getFullYear())),
+      ).sort((a, b) => a - b);
+
+      productSalesSeries = years.map((year) => {
+        const value = successfulOrdersForSales.reduce((sum, { order, createdAt }) => {
+          if (createdAt.getFullYear() === year) {
+            return sum + getOrderUnits(order);
+          }
+          return sum;
+        }, 0);
+
+        return {
+          label: String(year),
+          value,
+        };
+      });
+
+      if (productSalesSeries.length === 0) {
+        productSalesSeries = [{ label: String(now.getFullYear()), value: 0 }];
+      }
+      productSalesSubtitle = "All Time";
+    } else {
+      const monthLabels = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ];
+
+      const monthlyBuckets = Array.from({ length: 12 }, () => ({
+        units: 0,
+      }));
+
+      successfulOrdersForSales.forEach(({ order, createdAt }) => {
+        if (createdAt.getFullYear() !== currentYear) return;
+        const monthIndex = createdAt.getMonth();
+        monthlyBuckets[monthIndex].units += getOrderUnits(order);
+      });
+
+      productSalesSeries = monthLabels.map((label, idx) => ({
         label,
-        value: Number(average.toFixed(1)),
-      };
-    });
+        value: Number(monthlyBuckets[idx].units.toFixed(1)),
+      }));
+      productSalesSubtitle = "Monthly";
+    }
 
     return {
       totalRevenue,
@@ -1744,9 +1829,10 @@ const Admin: React.FC = () => {
       trendByDate,
       statusCounts,
       topCustomers,
-      monthlyProductSales,
+      productSalesSeries,
+      productSalesSubtitle,
     };
-  }, [allCustomers.length, orders, reportRangeDays]);
+  }, [allCustomers.length, orders, reportFilter]);
 
   // 🔍 LEADS FILTER STATE
   const [leadSearch, setLeadSearch] = useState("");
@@ -7033,7 +7119,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
           {currentView === "customers" && (
             <div className="space-y-6">
-              <div className="bg-white rounded-xl border p-5 max-w-4xl">
+              <div className="bg-white rounded-xl border p-5 ">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
                     <h3 className="text-2xl font-black">Customers ({customers.length})</h3>
@@ -7125,17 +7211,26 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 className="text-xl font-black text-slate-900">Business Reports</h3>
                 <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
-                  {[30, 90].map((days) => (
+                  {[
+                    { key: "all", label: "All" },
+                    { key: "daily", label: "Daily" },
+                    { key: "weekly", label: "Weekly" },
+                    { key: "monthly", label: "Monthly" },
+                  ].map((option) => (
                     <button
-                      key={days}
-                      onClick={() => setReportRangeDays(days as 30 | 90)}
+                      key={option.key}
+                      onClick={() =>
+                        setReportFilter(
+                          option.key as "all" | "daily" | "weekly" | "monthly",
+                        )
+                      }
                       className={`px-4 py-1.5 text-sm font-bold rounded-md transition ${
-                        reportRangeDays === days
+                        reportFilter === option.key
                           ? "bg-slate-900 text-white"
                           : "text-slate-600 hover:bg-slate-100"
                       }`}
                     >
-                      Last {days} days
+                      {option.label}
                     </button>
                   ))}
                 </div>
@@ -7379,11 +7474,11 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
               <div className="bg-slate-900 rounded-xl border border-slate-800 p-5">
                 <div className="flex items-end gap-3 mb-4">
                   <h4 className="text-4xl font-black text-white leading-none">Product Sales</h4>
-                  <p className="text-slate-400 text-2xl leading-none">Monthly Average</p>
+                  <p className="text-slate-400 text-2xl leading-none">{reportsData.productSalesSubtitle}</p>
                 </div>
 
                 {(() => {
-                  const series = reportsData.monthlyProductSales;
+                  const series = reportsData.productSalesSeries;
                   const maxValue = Math.max(
                     ...series.map((item: { value: number }) => item.value),
                     1,
