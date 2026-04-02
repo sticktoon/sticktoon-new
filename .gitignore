@@ -19,6 +19,7 @@ backend/logs/
 public/badge/generated/
 backend/config/*.local.js
 backend/config/*.env
+backend/config/google-drive-service-account.json
 *.dump
 *.sql
 *.tgz
