@@ -5,6 +5,74 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
+function readEnv(name) {
+  const value = process.env[name];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function resolveServiceAccountPath() {
+  const configuredPath = readEnv("GOOGLE_APPLICATION_CREDENTIALS");
+  const fallbackPath = path.resolve(__dirname, "../config/google-drive-service-account.json");
+
+  if (!configuredPath) return fallbackPath;
+  if (path.isAbsolute(configuredPath)) return configuredPath;
+
+  // Resolve relative paths from backend root, then process cwd as a fallback.
+  const fromBackendRoot = path.resolve(__dirname, "..", configuredPath);
+  if (fs.existsSync(fromBackendRoot)) {
+    return fromBackendRoot;
+  }
+
+  return path.resolve(process.cwd(), configuredPath);
+}
+
+function createServiceAccountDrive() {
+  const keyFilePath = resolveServiceAccountPath();
+  if (!fs.existsSync(keyFilePath)) {
+    throw new Error(
+      "Google Drive auth missing. Set GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET + GOOGLE_DRIVE_REFRESH_TOKEN, or provide a valid GOOGLE_APPLICATION_CREDENTIALS file path."
+    );
+  }
+
+  const auth = new google.auth.GoogleAuth({
+    keyFile: keyFilePath,
+    scopes: ["https://www.googleapis.com/auth/drive"],
+  });
+
+  drive = google.drive({ version: "v3", auth });
+  authMode = "service-account";
+  console.log("✅ Google Drive initialized via service account");
+  return drive;
+}
+
+function createOAuthDrive(clientId, clientSecret, refreshToken) {
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+  oauth2Client.setCredentials({ refresh_token: refreshToken });
+  drive = google.drive({ version: "v3", auth: oauth2Client });
+  authMode = "oauth";
+  console.log("✅ Google Drive initialized via OAuth refresh token");
+  return drive;
+}
+
+function escapeDriveQueryValue(value) {
+  return String(value).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+async function findExistingFileByName(driveClient, folderId, fileName) {
+  const safeName = escapeDriveQueryValue(fileName);
+  const query = `name='${safeName}' and '${folderId}' in parents and trashed=false`;
+
+  const response = await driveClient.files.list({
+    q: query,
+    fields: "files(id, name)",
+    spaces: "drive",
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+
+  return response.data.files || [];
+}
+
 // Initialize Google Drive API
 let drive = null;
 let authMode = null;
@@ -19,36 +87,16 @@ function initializeDrive() {
 
   try {
     // Preferred mode: OAuth refresh token for personal Google Drive (free tier).
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const refreshToken = process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
+    const clientId = readEnv("GOOGLE_CLIENT_ID");
+    const clientSecret = readEnv("GOOGLE_CLIENT_SECRET");
+    const refreshToken = readEnv("GOOGLE_DRIVE_REFRESH_TOKEN");
 
     if (clientId && clientSecret && refreshToken) {
-      const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
-      oauth2Client.setCredentials({ refresh_token: refreshToken });
-      drive = google.drive({ version: "v3", auth: oauth2Client });
-      authMode = "oauth";
-      console.log("✅ Google Drive initialized via OAuth refresh token");
-      return drive;
+      return createOAuthDrive(clientId, clientSecret, refreshToken);
     }
 
     // Fallback mode: service account (works well with Shared Drives / Workspace setup).
-    const keyFilePath = path.resolve(__dirname, "../config/google-drive-service-account.json");
-    if (!fs.existsSync(keyFilePath)) {
-      throw new Error(
-        "Google Drive auth missing. Set GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET + GOOGLE_DRIVE_REFRESH_TOKEN, or provide backend/config/google-drive-service-account.json"
-      );
-    }
-
-    const auth = new google.auth.GoogleAuth({
-      keyFile: keyFilePath,
-      scopes: ["https://www.googleapis.com/auth/drive"],
-    });
-
-    drive = google.drive({ version: "v3", auth });
-    authMode = "service-account";
-    console.log("✅ Google Drive initialized via service account");
-    return drive;
+    return createServiceAccountDrive();
   } catch (error) {
     console.error("❌ Failed to initialize Google Drive:", error.message);
     throw error;
@@ -123,9 +171,9 @@ async function findOrCreateFolder(folderName, parentFolderId = null) {
 async function getOrCreateFolderStructure() {
   try {
     // Use explicit folder IDs from .env when available.
-    const badgeFolderId = process.env.GOOGLE_DRIVE_BADGE_FOLDER_ID;
-    const imagesFolderId = process.env.GOOGLE_DRIVE_IMAGES_FOLDER_ID;
-    const stickerFolderId = process.env.GOOGLE_DRIVE_STICKER_FOLDER_ID;
+    const badgeFolderId = readEnv("GOOGLE_DRIVE_BADGE_FOLDER_ID");
+    const imagesFolderId = readEnv("GOOGLE_DRIVE_IMAGES_FOLDER_ID");
+    const stickerFolderId = readEnv("GOOGLE_DRIVE_STICKER_FOLDER_ID");
 
     if (badgeFolderId && imagesFolderId && stickerFolderId) {
       console.log("✅ Using pre-configured shared Google Drive folders");
@@ -168,7 +216,7 @@ async function getOrCreateFolderStructure() {
  * @param {string} fileName - Original file name
  * @returns {Promise<{url: string, fileId: string}>}
  */
-async function uploadToGoogleDrive(fileSource, category, fileName) {
+async function uploadToGoogleDrive(fileSource, category, fileName, _retriedWithServiceAccount = false) {
   const driveClient = initializeDrive();
 
   try {
@@ -205,14 +253,34 @@ async function uploadToGoogleDrive(fileSource, category, fileName) {
       };
     }
 
-    const response = await driveClient.files.create({
-      requestBody: fileMetadata,
-      media: media,
-      fields: "id, webViewLink, webContentLink",
-      supportsAllDrives: true,
-    });
+    const existingFiles = await findExistingFileByName(driveClient, folderId, fileName);
+    let response;
+    let fileId;
+    let updatedExisting = false;
 
-    const fileId = response.data.id;
+    if (existingFiles.length > 0) {
+      fileId = existingFiles[0].id;
+      updatedExisting = true;
+
+      if (existingFiles.length > 1) {
+        console.warn(`⚠️ Multiple files found in Drive for '${fileName}'. Updating the first match.`);
+      }
+
+      response = await driveClient.files.update({
+        fileId,
+        media,
+        fields: "id, webViewLink, webContentLink",
+        supportsAllDrives: true,
+      });
+    } else {
+      response = await driveClient.files.create({
+        requestBody: fileMetadata,
+        media: media,
+        fields: "id, webViewLink, webContentLink",
+        supportsAllDrives: true,
+      });
+      fileId = response.data.id;
+    }
 
     // Make file publicly accessible (optional - remove if you want private files)
     try {
@@ -225,13 +293,20 @@ async function uploadToGoogleDrive(fileSource, category, fileName) {
         supportsAllDrives: true,
       });
     } catch (permError) {
-      console.warn("⚠️ Could not set public permissions:", permError.message);
+      const permMessage = (permError.message || "").toLowerCase();
+      if (!permMessage.includes("already") && !permMessage.includes("duplicate")) {
+        console.warn("⚠️ Could not set public permissions:", permError.message);
+      }
     }
 
     // Get the direct download link
     const directLink = `https://drive.google.com/uc?export=view&id=${fileId}`;
 
-    console.log(`✅ Google Drive upload successful: ${fileName} (ID: ${fileId})`);
+    if (updatedExisting) {
+      console.log(`♻️ Google Drive file updated (no duplicate created): ${fileName} (ID: ${fileId})`);
+    } else {
+      console.log(`✅ Google Drive upload successful: ${fileName} (ID: ${fileId})`);
+    }
 
     return {
       url: directLink,
@@ -239,7 +314,24 @@ async function uploadToGoogleDrive(fileSource, category, fileName) {
       webViewLink: response.data.webViewLink,
     };
   } catch (error) {
-    if (error.message && error.message.toLowerCase().includes("storage quota")) {
+    const message = (error.message || "").toLowerCase();
+
+    if (message.includes("invalid_grant") && authMode === "oauth") {
+      const keyFilePath = resolveServiceAccountPath();
+
+      if (fs.existsSync(keyFilePath) && !_retriedWithServiceAccount) {
+        console.warn("⚠️ OAuth refresh token invalid. Retrying upload using service account credentials.");
+        drive = null;
+        createServiceAccountDrive();
+        return uploadToGoogleDrive(fileSource, category, fileName, true);
+      }
+
+      throw new Error(
+        "GOOGLE_DRIVE_INVALID_GRANT: Refresh token is invalid or expired. Regenerate GOOGLE_DRIVE_REFRESH_TOKEN using `node scripts/generateGoogleDriveToken.js`."
+      );
+    }
+
+    if (message.includes("storage quota")) {
       if (authMode === "service-account") {
         console.warn("⚠️ Service-account quota limitation detected.");
         console.warn("   Fix: use OAuth refresh token from your personal Google account.");

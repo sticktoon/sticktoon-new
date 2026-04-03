@@ -26,36 +26,23 @@ async function uploadToCloudinary(fileBuffer, category, fileName) {
     const publicIdName = fileName.split(".")[0];
     
     return new Promise((resolve, reject) => {
-      // Upload directly from buffer
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: folderPath,
-          public_id: publicIdName,
-          resource_type: "image",
-          overwrite: true,
-          unique_filename: false,
-        },
-        (error, result) => {
-          if (error) {
-            console.error("❌ Cloudinary upload error:", error);
-            reject(error);
-          } else {
-            console.log(`✅ Cloudinary upload successful: ${result.secure_url}`);
-            resolve({
-              url: result.secure_url,
-              publicId: result.public_id,
-            });
-          }
+      const handleUploadResult = (error, result) => {
+        if (error) {
+          console.error("❌ Cloudinary upload error:", error);
+          reject(error);
+          return;
         }
-      );
 
-      // If fileBuffer is a Buffer, write it to the stream
+        console.log(`✅ Cloudinary upload successful: ${result.secure_url}`);
+        resolve({
+          url: result.secure_url,
+          publicId: result.public_id,
+        });
+      };
+
       if (Buffer.isBuffer(fileBuffer)) {
-        uploadStream.end(fileBuffer);
-      } else {
-        // If it's a base64 string or file path
-        cloudinary.uploader.upload(
-          fileBuffer,
+        // Stream upload for in-memory buffers.
+        const uploadStream = cloudinary.uploader.upload_stream(
           {
             folder: folderPath,
             public_id: publicIdName,
@@ -63,20 +50,24 @@ async function uploadToCloudinary(fileBuffer, category, fileName) {
             overwrite: true,
             unique_filename: false,
           },
-          (error, result) => {
-            if (error) {
-              console.error("❌ Cloudinary upload error:", error);
-              reject(error);
-            } else {
-              console.log(`✅ Cloudinary upload successful: ${result.secure_url}`);
-              resolve({
-                url: result.secure_url,
-                publicId: result.public_id,
-              });
-            }
-          }
+          handleUploadResult
         );
+        uploadStream.end(fileBuffer);
+        return;
       }
+
+      // Direct upload for base64 strings or local file paths.
+      cloudinary.uploader.upload(
+        fileBuffer,
+        {
+          folder: folderPath,
+          public_id: publicIdName,
+          resource_type: "image",
+          overwrite: true,
+          unique_filename: false,
+        },
+        handleUploadResult
+      );
     });
   } catch (error) {
     console.error("❌ Cloudinary service error:", error);
