@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate, useParams } from 'react-router-dom';
 import { BADGES, CATEGORIES, formatPrice } from '../constants';
 import { Badge } from '../types';
 import { Plus, SlidersHorizontal, Check, ShoppingCart, Crown, Package, Sparkles } from 'lucide-react';
@@ -10,6 +10,39 @@ interface CategoriesProps {
   addToCart: (badge: Badge) => void;
   user?: any;
 }
+
+const normalizeCategoryId = (value?: string) => {
+  if (!value) return '';
+  const normalized = value.toString().trim().toLowerCase().replace(/\s+/g, '-');
+
+  if (normalized === 'animal') return 'pet';
+  if (normalized === 'positive-vibe') return 'positive-vibes';
+
+  return normalized;
+};
+
+const slugifySubcategory = (value?: string) => {
+  if (!value) return '';
+  return value
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+};
+
+const matchesSubcategorySlug = (subcategory?: string, slug?: string) => {
+  if (!subcategory || !slug) return false;
+  return slugifySubcategory(subcategory) === slug;
+};
+
+const buildSubcategoryRoute = (categoryId: string, subcategory?: string) => {
+  const normalizedCategory = normalizeCategoryId(categoryId);
+  const subcategorySlug = slugifySubcategory(subcategory);
+
+  if (!normalizedCategory || !subcategorySlug) return '/categories';
+  return `/categories/${normalizedCategory}/${subcategorySlug}`;
+};
 
 // Premium Badge Card Component (matching sticker card style)
 function BadgeCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: Badge) => void; index: number }) {
@@ -95,6 +128,14 @@ function BadgeCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: B
           <p className="text-[9px] sm:text-[10px] font-bold text-orange-600/80 uppercase tracking-widest mb-0.5 truncate">
             {badge.category}
           </p>
+        )}
+        {badge.subcategory && (
+          <Link
+            to={buildSubcategoryRoute(String(badge.category), badge.subcategory)}
+            className="inline-flex items-center text-[9px] sm:text-[10px] font-bold text-yellow-700 hover:text-orange-700 transition-colors mb-1"
+          >
+            #{badge.subcategory}
+          </Link>
         )}
 
         <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mb-0.5 leading-tight tracking-tight line-clamp-1">
@@ -248,9 +289,16 @@ function ComboCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: B
 
 export default function Categories({ addToCart, user }: CategoriesProps) {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const { categoryId: categoryPathParam, subcategory: subcategoryPathParam } =
+    useParams<{ categoryId?: string; subcategory?: string }>();
   const catParam = searchParams.get('cat');
-  const [activeCategory, setActiveCategory] = useState(catParam || 'all');
+  const [activeCategory, setActiveCategory] = useState(
+    normalizeCategoryId(categoryPathParam || catParam || 'all') || 'all',
+  );
+  const [activeSubcategorySlug, setActiveSubcategorySlug] = useState(
+    slugifySubcategory(subcategoryPathParam || ''),
+  );
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterPanelRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
@@ -265,16 +313,6 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
   // Simple product cache to avoid refetching on every navigation
   const productCacheRef = useRef<{ data: Badge[]; timestamp: number } | null>(null);
   const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-  const normalizeCategoryId = (value?: string) => {
-    if (!value) return '';
-    const normalized = value.toString().trim().toLowerCase().replace(/\s+/g, '-');
-
-    if (normalized === 'animal') return 'pet';
-    if (normalized === 'positive-vibe') return 'positive-vibes';
-
-    return normalized;
-  };
 
   const normalizeImagePath = (path?: string) => {
     if (!path) return undefined;
@@ -304,6 +342,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
       price: p.price,
       image: normalizeImagePath(p.image) || '/badge/placeholder.png',
       imageMagnetic: normalizeImagePath(p.imageMagnetic),
+      subcategory: p.subcategory || undefined,
       details: p.description || '',
       color: p.color || 'bg-transparent',
     }));
@@ -382,14 +421,24 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
   }, []); // Empty dependency array - fetch once on mount
 
   useEffect(() => {
-    if (catParam) setActiveCategory(catParam);
-    else setActiveCategory('all');
-  }, [catParam]);
+    if (categoryPathParam && subcategoryPathParam) {
+      setActiveCategory(normalizeCategoryId(categoryPathParam) || 'all');
+      setActiveSubcategorySlug(slugifySubcategory(subcategoryPathParam));
+      return;
+    }
+
+    setActiveSubcategorySlug('');
+    if (catParam) {
+      setActiveCategory(normalizeCategoryId(catParam) || 'all');
+    } else {
+      setActiveCategory('all');
+    }
+  }, [categoryPathParam, subcategoryPathParam, catParam]);
 
   // Scroll to top when category changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [activeCategory]);
+  }, [activeCategory, activeSubcategorySlug]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -402,8 +451,10 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
   }, [isFilterOpen]);
 
   const handleCategorySelect = (id: string) => {
-    setActiveCategory(id);
-    setSearchParams(id === 'all' ? {} : { cat: id });
+    const normalized = normalizeCategoryId(id) || 'all';
+    setActiveCategory(normalized);
+    setActiveSubcategorySlug('');
+    navigate(normalized === 'all' ? '/categories' : `/categories?cat=${normalized}`);
     setIsFilterOpen(false);
   };
 
@@ -413,9 +464,34 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
         (b) => normalizeCategoryId(String(b.category)) === normalizeCategoryId(activeCategory),
       );
 
+  const subcategoryFilteredBadges = activeSubcategorySlug
+    ? filteredBadges.filter((b) =>
+        matchesSubcategorySlug(b.subcategory, activeSubcategorySlug),
+      )
+    : filteredBadges;
+
   const currentCategoryName = activeCategory === 'all' 
     ? 'All Badges' 
     : CATEGORIES.find(c => c.id === activeCategory)?.name || 'All Badges';
+
+  const currentSubcategoryName = activeSubcategorySlug
+    ?
+        filteredBadges.find((b) =>
+          matchesSubcategorySlug(b.subcategory, activeSubcategorySlug),
+        )?.subcategory ||
+        activeSubcategorySlug
+          .split('-')
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+          .join(' ')
+    : '';
+
+  const subcategoryOptions = Array.from(
+    new Set(
+      filteredBadges
+        .map((b) => (b.subcategory || '').trim())
+        .filter((value) => Boolean(value)),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
 
   const handleAddProduct = (category?: string) => {
     // Map frontend category to backend product category
@@ -449,10 +525,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
   }, {} as Record<string, Badge[]>);
 
   // Sort filtered badges so combo appears first
-  const sortedFilteredBadges = [...(activeCategory === 'all'
-    ? products
-    : products.filter(b => b.category.toLowerCase() === activeCategory.toLowerCase())
-  )].sort((a, b) => {
+  const sortedFilteredBadges = [...subcategoryFilteredBadges].sort((a, b) => {
     if (a.isCombo && !b.isCombo) return -1;
     if (!a.isCombo && b.isCombo) return 1;
     return 0;
@@ -668,7 +741,9 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
                     </div>
                     <div>
                       <h2 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tight leading-none">
-                        {currentCategoryName}
+                        {activeSubcategorySlug
+                          ? `${currentCategoryName} / ${currentSubcategoryName}`
+                          : currentCategoryName}
                       </h2>
                       <p className="text-xs text-slate-400 font-medium mt-0.5">{categoryDescriptions[activeCategory] || ''}</p>
                     </div>
@@ -684,6 +759,40 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
                       </button>
                     )}
                   </div>
+
+                  {subcategoryOptions.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 mb-5">
+                      <Link
+                        to={`/categories?cat=${activeCategory}`}
+                        className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all ${
+                          !activeSubcategorySlug
+                            ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-yellow-400 shadow-sm shadow-yellow-500/20'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-yellow-400 hover:text-yellow-700'
+                        }`}
+                      >
+                        All
+                      </Link>
+                      {subcategoryOptions.map((subcategory) => {
+                        const subcategorySlug = slugifySubcategory(subcategory);
+                        const isActiveSubcategory =
+                          activeSubcategorySlug === subcategorySlug;
+
+                        return (
+                          <Link
+                            key={subcategory}
+                            to={buildSubcategoryRoute(activeCategory, subcategory)}
+                            className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all ${
+                              isActiveSubcategory
+                                ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-yellow-400 shadow-sm shadow-yellow-500/20'
+                                : 'bg-white text-slate-600 border-slate-200 hover:border-yellow-400 hover:text-yellow-700'
+                            }`}
+                          >
+                            {subcategory}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
                     {sortedFilteredBadges.map((badge, i) =>
@@ -705,7 +814,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
                 <span className="text-5xl">🔍</span>
               </div>
               <h3 className="text-2xl font-black text-slate-900 uppercase">No badges found</h3>
-              <p className="text-slate-500 mt-2 text-sm max-w-sm mx-auto font-medium">Try selecting a different category from the sidebar.</p>
+              <p className="text-slate-500 mt-2 text-sm max-w-sm mx-auto font-medium">Try selecting a different subcategory or category.</p>
             </div>
           )}
         </main>

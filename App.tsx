@@ -1169,6 +1169,7 @@ export default function App() {
       <main className="flex-grow pt-[80px]">
         <Routes>
           <Route path="/" element={<Home addToCart={addToCart} />} />
+          <Route path="/categories/:categoryId/:subcategory" element={<Categories addToCart={addToCart} user={user} />} />
           <Route path="/categories" element={<Categories addToCart={addToCart} user={user} />} />
           <Route path="/stickers" element={<Stickers addToCart={addToCart} />} />
           <Route path="/stickers/:id" element={<StickerDetail addToCart={addToCart} />} />

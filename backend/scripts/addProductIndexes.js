@@ -13,6 +13,7 @@ const addIndexes = async () => {
     // Create indexes
     console.log("⏳ Creating indexes for Product collection...");
     await Product.collection.createIndex({ category: 1, isActive: 1 });
+    await Product.collection.createIndex({ category: 1, subcategory: 1, isActive: 1 });
     await Product.collection.createIndex({ isActive: 1 });
     await Product.collection.createIndex({ createdAt: -1 });
     

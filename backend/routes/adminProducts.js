@@ -12,7 +12,7 @@ const ALLOWED_CATEGORIES = [
   "Religious",
   "Entertainment",
   "Events",
-  "Pet",
+  "Animal",
   "Couple",
   "Anime",
   "Custom",
@@ -21,25 +21,34 @@ const ALLOWED_CATEGORIES = [
 const normalizeCategory = (value) => {
   if (!value) return null;
   const trimmed = String(value).trim();
-  const exact = ALLOWED_CATEGORIES.find((c) => c === trimmed);
-  if (exact) return exact;
-
   const lower = trimmed.toLowerCase();
   const lookup = {
     "positive vibe": "Positive Vibes",
     "positive vibes": "Positive Vibes",
+    "positive-vibes": "Positive Vibes",
+    positive_vibes: "Positive Vibes",
     "moody": "Moody",
     "sports": "Sports",
     "religious": "Religious",
     "entertainment": "Entertainment",
     "events": "Events",
-    "pet": "Pet",
+    "animal": "Animal",
+    "pet": "Animal",
     "couple": "Couple",
     "anime": "Anime",
     "custom": "Custom",
   };
 
-  return lookup[lower] || null;
+  if (lookup[lower]) return lookup[lower];
+
+  const exact = ALLOWED_CATEGORIES.find((c) => c.toLowerCase() === lower);
+  return exact || null;
+};
+
+const SUBCATEGORY_MAX_LENGTH = 60;
+const normalizeSubcategory = (value) => {
+  if (value === undefined || value === null) return "";
+  return String(value).trim().slice(0, SUBCATEGORY_MAX_LENGTH);
 };
 
 /* ========================
@@ -65,7 +74,7 @@ router.get("/", async (req, res) => {
     // Set cache headers for better performance
     res.set('Cache-Control', 'public, max-age=300');
 
-    const selectFields = 'name price category image imageMagnetic description isActive stock';
+    const selectFields = 'name price category subcategory image imageMagnetic description isActive stock';
 
     // Use server-side cache for "all" queries
     if (all && productCache && (Date.now() - productCacheTime < CACHE_TTL)) {
@@ -122,9 +131,19 @@ router.get("/category/:category", async (req, res) => {
     // Set cache headers
     res.set('Cache-Control', 'public, max-age=300');
 
-    const selectFields = 'name price category image imageMagnetic description isActive stock';
+    const selectFields = 'name price category subcategory image imageMagnetic description isActive stock';
 
-    const filter = { category: req.params.category, isActive: true };
+    const normalizedCategory = normalizeCategory(req.params.category);
+    if (!normalizedCategory) {
+      return res.status(400).json({ error: "Invalid category" });
+    }
+
+    const normalizedSubcategory = normalizeSubcategory(req.query.subcategory);
+
+    const filter = { category: normalizedCategory, isActive: true };
+    if (normalizedSubcategory) {
+      filter.subcategory = normalizedSubcategory;
+    }
 
     // Run find and count in parallel
     const [products, total] = await Promise.all([
@@ -172,8 +191,9 @@ router.get("/:id", async (req, res) => {
 ======================== */
 router.post("/", auth, adminOnly, async (req, res) => {
   try {
-    const { name, price, description, category, image, stock } = req.body;
+    const { name, price, description, category, subcategory, image, stock } = req.body;
     const normalizedCategory = normalizeCategory(category);
+    const normalizedSubcategory = normalizeSubcategory(subcategory);
 
     // Validation
     if (!name || !price || !description || !category || !image) {
@@ -189,6 +209,7 @@ router.post("/", auth, adminOnly, async (req, res) => {
       price: parseFloat(price),
       description,
       category: normalizedCategory,
+      subcategory: normalizedSubcategory,
       image,
       stock: parseInt(stock) || 0,
     });
@@ -206,7 +227,7 @@ router.post("/", auth, adminOnly, async (req, res) => {
 ======================== */
 router.patch("/:id", auth, adminOnly, async (req, res) => {
   try {
-    const { name, price, description, category, image, stock, isActive } =
+    const { name, price, description, category, subcategory, image, stock, isActive } =
       req.body;
 
     const product = await Product.findById(req.params.id);
@@ -224,6 +245,9 @@ router.patch("/:id", auth, adminOnly, async (req, res) => {
         return res.status(400).json({ error: "Invalid category" });
       }
       product.category = normalizedCategory;
+    }
+    if (subcategory !== undefined) {
+      product.subcategory = normalizeSubcategory(subcategory);
     }
     if (image) product.image = image;
     if (stock !== undefined) product.stock = parseInt(stock);

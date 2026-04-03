@@ -56,6 +56,7 @@ const normalizeCategory = (value?: string) => {
     entertainment: "Entertainment",
     events: "Events",
     animal: "Animal",
+    pet: "Animal",
     couple: "Couple",
     anime: "Anime",
     custom: "Custom",
@@ -433,6 +434,7 @@ interface Product {
     | "Couple"
     | "Anime"
     | "Custom";
+  subcategory?: string;
   image: string;
   stock: number;
   createdAt: string;
@@ -452,6 +454,82 @@ const ADMIN_PRODUCT_CATEGORIES = [
   "Custom",
 ] as const;
 type AdminProductCategory = (typeof ADMIN_PRODUCT_CATEGORIES)[number];
+
+const ADMIN_PRODUCT_CATEGORY_OPTIONS: Array<{
+  value: AdminProductCategory;
+  label: string;
+  emoji: string;
+}> = [
+  { value: "Positive Vibes", label: "Positive Vibes", emoji: "✨" },
+  { value: "Moody", label: "Moody", emoji: "😊" },
+  { value: "Sports", label: "Sports", emoji: "🏆" },
+  { value: "Religious", label: "Religious", emoji: "🕉️" },
+  { value: "Entertainment", label: "Entertainment", emoji: "🎭" },
+  { value: "Events", label: "Events", emoji: "🎉" },
+  { value: "Animal", label: "Animal", emoji: "🐾" },
+  { value: "Couple", label: "Couple", emoji: "💑" },
+  { value: "Anime", label: "Anime", emoji: "🎌" },
+  { value: "Custom", label: "Custom", emoji: "✨" },
+];
+
+const ADMIN_PRODUCT_SUBCATEGORY_SUGGESTIONS: Record<
+  AdminProductCategory,
+  string[]
+> = {
+  "Positive Vibes": ["Motivational", "Quotes", "Self Love", "Success"],
+  Moody: ["Attitude", "Dark", "Introvert", "Aesthetic"],
+  Sports: ["Cricket", "Football", "Gym", "Esports"],
+  Religious: ["Festival", "Devotional", "Temple", "Spiritual"],
+  Entertainment: ["Movies", "Music", "Memes", "Celebrities"],
+  Events: ["Birthday", "Wedding", "Party", "College"],
+  Animal: ["Dog", "Cat", "Bird", "Wildlife"],
+  Couple: ["Anniversary", "Love Quotes", "Long Distance", "Cute"],
+  Anime: ["Shonen", "Shojo", "Classic", "Manga"],
+  Custom: ["Name", "Logo", "Photo", "Bulk"],
+};
+
+const PRODUCT_SUBCATEGORY_MAX_LENGTH = 60;
+const sanitizeProductSubcategory = (value?: string) => {
+  if (!value) return "";
+  return value.trim().slice(0, PRODUCT_SUBCATEGORY_MAX_LENGTH);
+};
+
+type ProductFormState = {
+  name: string;
+  description: string;
+  price: number;
+  category: AdminProductCategory;
+  subcategory: string;
+  image: string;
+  stock: number;
+};
+
+const createDefaultProductForm = (
+  category: AdminProductCategory = "Moody",
+): ProductFormState => ({
+  name: "",
+  description: "",
+  price: 0,
+  category,
+  subcategory: "",
+  image: "",
+  stock: 0,
+});
+
+const normalizeAdminProduct = (product: Product): Product => {
+  const normalizedCategory = normalizeCategory(product.category) as
+    | AdminProductCategory
+    | undefined;
+
+  return {
+    ...product,
+    category:
+      normalizedCategory && ADMIN_PRODUCT_CATEGORIES.includes(normalizedCategory)
+        ? normalizedCategory
+        : "Moody",
+    subcategory: sanitizeProductSubcategory(product.subcategory),
+  };
+};
 
 const ensureMinimumProductsPerCategory = (
   items: Product[],
@@ -2189,24 +2267,9 @@ const Admin: React.FC = () => {
   const [isSavingPromo, setIsSavingPromo] = useState(false);
   const [confirmingDeleteProduct, setConfirmingDeleteProduct] =
     useState<any>(null);
-  const [productForm, setProductForm] = useState({
-    name: "",
-    description: "",
-    price: 0,
-    category: "Moody" as
-      | "Positive Vibes"
-      | "Moody"
-      | "Sports"
-      | "Religious"
-      | "Entertainment"
-      | "Events"
-      | "Animal"
-      | "Couple"
-      | "Anime"
-      | "Custom",
-    image: "",
-    stock: 0,
-  });
+  const [productForm, setProductForm] = useState<ProductFormState>(
+    createDefaultProductForm(),
+  );
 
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
 
@@ -2259,20 +2322,20 @@ const Admin: React.FC = () => {
       setShowProductForm(true);
 
       if (category) {
-        setProductForm({
-          ...productForm,
-          category: normalizeCategory(category) as
-            | "Positive Vibes"
-            | "Moody"
-            | "Sports"
-            | "Religious"
-            | "Entertainment"
-            | "Events"
-            | "Animal"
-            | "Couple"
-            | "Anime"
-            | "Custom",
-        });
+        const normalizedCategory = normalizeCategory(category) as
+          | AdminProductCategory
+          | undefined;
+
+        if (
+          normalizedCategory &&
+          ADMIN_PRODUCT_CATEGORIES.includes(normalizedCategory)
+        ) {
+          setProductForm((prev) => ({
+            ...prev,
+            category: normalizedCategory,
+            subcategory: "",
+          }));
+        }
       }
     }
   }, [location.search, isAuthenticated]);
@@ -2469,7 +2532,9 @@ const Admin: React.FC = () => {
 
       if (!handleUnauthorized(productsRes) && productsRes.ok) {
         const data = await productsRes.json();
-        setProducts(data);
+        if (Array.isArray(data)) {
+          setProducts(data.map((item: Product) => normalizeAdminProduct(item)));
+        }
         setLoadedData((prev) => ({ ...prev, products: true }));
       }
     } catch (err) {
@@ -2648,7 +2713,11 @@ const Admin: React.FC = () => {
       const productsRes = await fetch(`${API_BASE_URL}/api/products`);
       if (productsRes.ok) {
         const data = await productsRes.json();
-        setProducts(data.products);
+        setProducts(
+          (Array.isArray(data.products) ? data.products : []).map(
+            (item: Product) => normalizeAdminProduct(item),
+          ),
+        );
         setLoadedData((prev) => ({ ...prev, products: true }));
       }
     } catch (err) {
@@ -3581,6 +3650,7 @@ const Admin: React.FC = () => {
     const payload = {
       ...productForm,
       category: normalizeCategory(productForm.category),
+      subcategory: sanitizeProductSubcategory(productForm.subcategory),
     };
 
     try {
@@ -3596,15 +3666,8 @@ const Admin: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         console.log("New product created:", data);
-        setProducts([...products, data]);
-        setProductForm({
-          name: "",
-          description: "",
-          price: 0,
-          category: "Moody",
-          image: "",
-          stock: 0,
-        });
+        setProducts((prev) => [...prev, normalizeAdminProduct(data)]);
+        setProductForm(createDefaultProductForm());
         setShowProductForm(false);
         showToast("success", "✅ Product added successfully!");
       } else {
@@ -3625,6 +3688,7 @@ const Admin: React.FC = () => {
     const payload = {
       ...productForm,
       category: normalizeCategory(productForm.category),
+      subcategory: sanitizeProductSubcategory(productForm.subcategory),
     };
 
     try {
@@ -3643,18 +3707,13 @@ const Admin: React.FC = () => {
 
         // Update products state using functional update to ensure latest state
         setProducts((prevProducts) =>
-          prevProducts.map((p) => (p._id === productId ? data : p)),
+          prevProducts.map((p) =>
+            p._id === productId ? normalizeAdminProduct(data) : p,
+          ),
         );
 
         setEditingProduct(null);
-        setProductForm({
-          name: "",
-          description: "",
-          price: 0,
-          category: "Moody",
-          image: "",
-          stock: 0,
-        });
+        setProductForm(createDefaultProductForm());
         showToast("success", "✅ Product updated successfully!");
       } else {
         const errorData = await res.json();
@@ -5941,14 +6000,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   onClick={() => {
                     setShowProductForm(!showProductForm);
                     setEditingProduct(null);
-                    setProductForm({
-                      name: "",
-                      description: "",
-                      price: 0,
-                      category: "Moody",
-                      image: "",
-                      stock: 0,
-                    });
+                    setProductForm(createDefaultProductForm());
                   }}
                   className="group flex items-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white font-bold tracking-wide transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
                 >
@@ -6017,38 +6069,49 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       </label>
                       <select
                         value={productForm.category}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const nextCategory = e.target.value as AdminProductCategory;
                           setProductForm({
                             ...productForm,
-                            category: e.target.value as
-                              | "Positive Vibes"
-                              | "Moody"
-                              | "Sports"
-                              | "Religious"
-                              | "Entertainment"
-                              | "Events"
-                              | "Animal"
-                              | "Couple"
-                              | "Anime"
-                              | "Custom",
-                          })
-                        }
+                            category: nextCategory,
+                            subcategory: "",
+                          });
+                        }}
                         required
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300 cursor-pointer"
                       >
-                        <option value="Positive Vibes">
-                          ✨ Positive Vibes
-                        </option>
-                        <option value="Moody">😊 Moody</option>
-                        <option value="Sports">🏆 Sports</option>
-                        <option value="Religious">🕉️ Religious</option>
-                        <option value="Entertainment">🎭 Entertainment</option>
-                        <option value="Events">🎉 Events</option>
-                        <option value="Animal">🐾 Animal</option>
-                        <option value="Couple">💑 Couple</option>
-                        <option value="Anime">🎌 Anime</option>
-                        <option value="Custom">✨ Custom</option>
+                        {ADMIN_PRODUCT_CATEGORY_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.emoji} {option.label}
+                          </option>
+                        ))}
                       </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-gray-700 font-bold text-sm mb-2">
+                        Subcategory
+                      </label>
+                      <input
+                        type="text"
+                        list="admin-product-subcategory-add"
+                        placeholder="Optional (e.g., Cricket, Birthday, Dog Lovers)"
+                        value={productForm.subcategory}
+                        onChange={(e) =>
+                          setProductForm({
+                            ...productForm,
+                            subcategory: sanitizeProductSubcategory(e.target.value),
+                          })
+                        }
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300"
+                      />
+                      <datalist id="admin-product-subcategory-add">
+                        {ADMIN_PRODUCT_SUBCATEGORY_SUGGESTIONS[
+                          productForm.category
+                        ].map((subcategory) => (
+                          <option key={subcategory} value={subcategory} />
+                        ))}
+                      </datalist>
                     </div>
 
                     <div>
@@ -6122,14 +6185,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         type="button"
                         onClick={() => {
                           setShowProductForm(false);
-                          setProductForm({
-                            name: "",
-                            description: "",
-                            price: 0,
-                            category: "Moody",
-                            image: "",
-                            stock: 0,
-                          });
+                          setProductForm(createDefaultProductForm());
                         }}
                         className="px-8 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-gray-700 font-bold transition-all duration-300 hover:scale-105 active:scale-95"
                       >
@@ -6220,6 +6276,11 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                 <p className="text-gray-600 text-sm line-clamp-2 leading-relaxed">
                                   {product.description}
                                 </p>
+                                {product.subcategory && (
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                                    {product.subcategory}
+                                  </p>
+                                )}
 
                                 {/* Price */}
                                 <div className="flex items-baseline gap-2 pt-2">
@@ -6245,6 +6306,9 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                           description: product.description,
                                           price: product.price,
                                           category: product.category,
+                                          subcategory: sanitizeProductSubcategory(
+                                            product.subcategory,
+                                          ),
                                           image: product.image,
                                           stock: product.stock,
                                         });
@@ -8615,36 +8679,53 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     </label>
                     <select
                       value={productForm.category}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const nextCategory = e.target.value as AdminProductCategory;
                         setProductForm({
                           ...productForm,
-                          category: e.target.value as
-                            | "Positive Vibes"
-                            | "Moody"
-                            | "Sports"
-                            | "Religious"
-                            | "Entertainment"
-                            | "Events"
-                            | "Animal"
-                            | "Couple"
-                            | "Anime"
-                            | "Custom",
-                        })
-                      }
+                          category: nextCategory,
+                          subcategory: "",
+                        });
+                      }}
                       required
                       className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white focus:border-indigo-500 focus:outline-none transition-all"
                     >
-                      <option value="Positive Vibes">✨ Positive Vibes</option>
-                      <option value="Moody">😊 Moody</option>
-                      <option value="Sports">🏆 Sports</option>
-                      <option value="Religious">🕉️ Religious</option>
-                      <option value="Entertainment">🎭 Entertainment</option>
-                      <option value="Events">🎉 Events</option>
-                      <option value="Animal">🐾 Animal</option>
-                      <option value="Couple">💑 Couple</option>
-                      <option value="Anime">🎌 Anime</option>
-                      <option value="Custom">✨ Custom</option>
+                      {ADMIN_PRODUCT_CATEGORY_OPTIONS.map((option) => (
+                        <option
+                          key={option.value}
+                          value={option.value}
+                          className="text-black"
+                        >
+                          {option.emoji} {option.label}
+                        </option>
+                      ))}
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-white font-semibold mb-2">
+                      Subcategory
+                    </label>
+                    <input
+                      type="text"
+                      list="admin-product-subcategory-edit"
+                      placeholder="Optional (e.g., Cricket, Birthday, Dog Lovers)"
+                      value={productForm.subcategory}
+                      onChange={(e) =>
+                        setProductForm({
+                          ...productForm,
+                          subcategory: sanitizeProductSubcategory(e.target.value),
+                        })
+                      }
+                      className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-indigo-500 focus:outline-none transition-all"
+                    />
+                    <datalist id="admin-product-subcategory-edit">
+                      {ADMIN_PRODUCT_SUBCATEGORY_SUGGESTIONS[productForm.category].map(
+                        (subcategory) => (
+                          <option key={subcategory} value={subcategory} />
+                        ),
+                      )}
+                    </datalist>
                   </div>
 
                   <div>
@@ -8715,14 +8796,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       type="button"
                       onClick={() => {
                         setEditingProduct(null);
-                        setProductForm({
-                          name: "",
-                          description: "",
-                          price: 0,
-                          category: "Moody",
-                          image: "",
-                          stock: 0,
-                        });
+                        setProductForm(createDefaultProductForm());
                       }}
                       className="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white font-bold transition-all"
                     >
