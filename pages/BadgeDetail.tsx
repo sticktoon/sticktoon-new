@@ -97,6 +97,7 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
             category: p.category?.toLowerCase?.() ?? p.category,
             price: p.price,
             image: normalizeImagePath(p.image) || p.image,
+            subcategory: p.subcategory || p.subCategory || p.sub_category,
             details: p.description || p.details || '',
             imageMagnetic: normalizeImagePath(p.imageMagnetic),
             color: p.color || 'bg-transparent',

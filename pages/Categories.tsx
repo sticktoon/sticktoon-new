@@ -11,6 +11,8 @@ interface CategoriesProps {
   user?: any;
 }
 
+const PRODUCTS_FETCH_VERSION = 'subcat-v1';
+
 const normalizeCategoryId = (value?: string) => {
   if (!value) return '';
   const normalized = value.toString().trim().toLowerCase().replace(/\s+/g, '-');
@@ -368,7 +370,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
       price: p.price,
       image: normalizeImagePath(p.image) || '/badge/placeholder.png',
       imageMagnetic: normalizeImagePath(p.imageMagnetic),
-      subcategory: p.subcategory || undefined,
+      subcategory: p.subcategory || p.subCategory || p.sub_category || undefined,
       details: p.description || '',
       color: p.color || 'bg-transparent',
     }));
@@ -423,7 +425,10 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
 
       try {
         setLoading(true);
-        const res = await fetch(`${API_BASE_URL}/api/products?limit=100&all=true`);
+        const res = await fetch(
+          `${API_BASE_URL}/api/products?limit=100&all=true&v=${PRODUCTS_FETCH_VERSION}`,
+          { cache: 'no-store' },
+        );
         if (res.ok) {
           const data = await res.json();
           const apiItems = Array.isArray(data) ? data : data.products || [];
