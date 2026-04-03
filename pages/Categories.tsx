@@ -516,13 +516,16 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
           .join(' ')
     : '';
 
-  const subcategoryOptions = Array.from(
-    new Set(
-      filteredBadges
-        .map((b) => (b.subcategory || '').trim())
-        .filter((value) => Boolean(value)),
-    ),
-  ).sort((a, b) => a.localeCompare(b));
+  const getSubcategoryOptions = (items: Badge[]) =>
+    Array.from(
+      new Set(
+        items
+          .map((b) => (b.subcategory || '').trim())
+          .filter((value) => Boolean(value)),
+      ),
+    ).sort((a, b) => a.localeCompare(b));
+
+  const subcategoryOptions = getSubcategoryOptions(filteredBadges);
 
   const handleAddProduct = (category?: string) => {
     // Map frontend category to backend product category
@@ -723,6 +726,8 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
                 <div className="space-y-14">
                   {CATEGORIES.map((category) => {
                     const categoryProducts = productsByCategory[category.id] || [];
+                    const categorySubcategoryOptions =
+                      getSubcategoryOptions(categoryProducts);
                     if (categoryProducts.length === 0) return null;
 
                     return (
@@ -749,6 +754,26 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
                             </button>
                           )}
                         </div>
+
+                        {categorySubcategoryOptions.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-2 mb-5">
+                            <Link
+                              to={`/categories?cat=${category.id}`}
+                              className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-yellow-400 shadow-sm shadow-yellow-500/20"
+                            >
+                              All
+                            </Link>
+                            {categorySubcategoryOptions.map((subcategory) => (
+                              <Link
+                                key={`${category.id}-${subcategory}`}
+                                to={buildSubcategoryRoute(category.id, subcategory)}
+                                className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all bg-white text-slate-600 border-slate-200 hover:border-yellow-400 hover:text-yellow-700"
+                              >
+                                {subcategory}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
 
                         {/* Category Products Grid */}
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
