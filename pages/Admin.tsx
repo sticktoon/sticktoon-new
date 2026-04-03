@@ -494,6 +494,39 @@ const sanitizeProductSubcategory = (value?: string) => {
   return value.trim().slice(0, PRODUCT_SUBCATEGORY_MAX_LENGTH);
 };
 
+const sanitizeProductImagePath = (value?: string) => {
+  if (!value) return "";
+
+  let normalized = value.trim();
+  if (!normalized) return "";
+  if (/^https?:\/\//i.test(normalized) || /^data:/i.test(normalized)) {
+    return normalized;
+  }
+
+  normalized = normalized.replace(/\\/g, "/").replace(/\/+/g, "/");
+  const lower = normalized.toLowerCase();
+
+  if (lower.includes("/public/")) {
+    normalized = normalized.slice(lower.lastIndexOf("/public/") + "/public".length);
+  } else if (lower.startsWith("public/")) {
+    normalized = normalized.slice("public".length);
+  } else if (lower.startsWith("./public/")) {
+    normalized = normalized.slice("./public".length);
+  }
+
+  normalized = normalized.replace(/^\.\//, "");
+
+  if (!normalized.startsWith("/") && /^(badge|images|sticker)\//i.test(normalized)) {
+    normalized = `/${normalized}`;
+  }
+
+  if (!normalized.startsWith("/")) {
+    normalized = `/badge/${normalized}`;
+  }
+
+  return normalized;
+};
+
 type ProductFormState = {
   name: string;
   description: string;
@@ -528,6 +561,7 @@ const normalizeAdminProduct = (product: Product): Product => {
         ? normalizedCategory
         : "Moody",
     subcategory: sanitizeProductSubcategory(product.subcategory),
+    image: sanitizeProductImagePath(product.image),
   };
 };
 
@@ -3651,6 +3685,7 @@ const Admin: React.FC = () => {
       ...productForm,
       category: normalizeCategory(productForm.category),
       subcategory: sanitizeProductSubcategory(productForm.subcategory),
+      image: sanitizeProductImagePath(productForm.image),
     };
 
     try {
@@ -3689,6 +3724,7 @@ const Admin: React.FC = () => {
       ...productForm,
       category: normalizeCategory(productForm.category),
       subcategory: sanitizeProductSubcategory(productForm.subcategory),
+      image: sanitizeProductImagePath(productForm.image),
     };
 
     try {
@@ -6002,9 +6038,9 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     setEditingProduct(null);
                     setProductForm(createDefaultProductForm());
                   }}
-                  className="group flex items-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white font-bold tracking-wide transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
+                  className="group flex items-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white-500 font-bold tracking-wide transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 text-white-800"
                 >
-                  <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+                  <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300 text-white-900" />
                   Add Product
                 </button>
               </div>
@@ -6176,7 +6212,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         type="submit"
                         className="flex-1 group py-3 px-6 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white font-bold transition-all duration-300 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
                       >
-                        <span className="flex items-center justify-center gap-2">
+                        <span className="flex items-center justify-center gap-2 "> 
                           <Plus className="w-5 h-5" />
                           Add Product
                         </span>

@@ -51,6 +51,41 @@ const normalizeSubcategory = (value) => {
   return String(value).trim().slice(0, SUBCATEGORY_MAX_LENGTH);
 };
 
+const normalizeProductImagePath = (value) => {
+  if (value === undefined || value === null) return "";
+
+  let normalized = String(value).trim();
+  if (!normalized) return "";
+  if (/^https?:\/\//i.test(normalized) || /^data:/i.test(normalized)) {
+    return normalized;
+  }
+
+  normalized = normalized.replace(/\\/g, "/").replace(/\/+/g, "/");
+  const lower = normalized.toLowerCase();
+
+  if (lower.includes("/public/")) {
+    normalized = normalized.slice(lower.lastIndexOf("/public/") + "/public".length);
+  } else if (lower.startsWith("public/")) {
+    normalized = normalized.slice("public".length);
+  } else if (lower.startsWith("./public/")) {
+    normalized = normalized.slice("./public".length);
+  } else if (lower.startsWith("../public/")) {
+    normalized = normalized.slice("../public".length);
+  }
+
+  normalized = normalized.replace(/^\.\//, "");
+
+  if (!normalized.startsWith("/") && /^(badge|images|sticker)\//i.test(normalized)) {
+    normalized = `/${normalized}`;
+  }
+
+  if (!normalized.startsWith("/")) {
+    normalized = `/badge/${normalized}`;
+  }
+
+  return normalized;
+};
+
 /* ========================
    GET ALL PRODUCTS (WITH PAGINATION)
 ======================== */
@@ -194,9 +229,10 @@ router.post("/", auth, adminOnly, async (req, res) => {
     const { name, price, description, category, subcategory, image, stock } = req.body;
     const normalizedCategory = normalizeCategory(category);
     const normalizedSubcategory = normalizeSubcategory(subcategory);
+    const normalizedImage = normalizeProductImagePath(image);
 
     // Validation
-    if (!name || !price || !description || !category || !image) {
+    if (!name || !price || !description || !category || !normalizedImage) {
       return res.status(400).json({ error: "All fields are required" });
     }
 
@@ -210,7 +246,7 @@ router.post("/", auth, adminOnly, async (req, res) => {
       description,
       category: normalizedCategory,
       subcategory: normalizedSubcategory,
-      image,
+      image: normalizedImage,
       stock: parseInt(stock) || 0,
     });
 
@@ -249,7 +285,13 @@ router.patch("/:id", auth, adminOnly, async (req, res) => {
     if (subcategory !== undefined) {
       product.subcategory = normalizeSubcategory(subcategory);
     }
-    if (image) product.image = image;
+    if (image !== undefined) {
+      const normalizedImage = normalizeProductImagePath(image);
+      if (!normalizedImage) {
+        return res.status(400).json({ error: "Invalid image path" });
+      }
+      product.image = normalizedImage;
+    }
     if (stock !== undefined) product.stock = parseInt(stock);
     if (isActive !== undefined) product.isActive = isActive;
 

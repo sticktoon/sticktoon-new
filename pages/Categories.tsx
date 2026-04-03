@@ -316,20 +316,46 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
 
   const normalizeImagePath = (path?: string) => {
     if (!path) return undefined;
-    
+
+    let normalized = String(path).trim();
+    if (!normalized) return undefined;
+    if (/^https?:\/\//i.test(normalized) || /^data:/i.test(normalized)) {
+      return normalized;
+    }
+
+    normalized = normalized.replace(/\\/g, '/').replace(/\/+/g, '/');
+    const lower = normalized.toLowerCase();
+
+    if (lower.includes('/public/')) {
+      normalized = normalized.slice(lower.lastIndexOf('/public/') + '/public'.length);
+    } else if (lower.startsWith('public/')) {
+      normalized = normalized.slice('public'.length);
+    } else if (lower.startsWith('./public/')) {
+      normalized = normalized.slice('./public'.length);
+    } else if (lower.startsWith('../public/')) {
+      normalized = normalized.slice('../public'.length);
+    }
+
+    normalized = normalized.replace(/^\.\//, '');
+
     // Fix common typos: sport -> sports, entert3 -> enter3, animal.jpg -> animal1.png
-    path = path.replace(/\/sport([0-9])/g, '/sports$1').replace(/^sport([0-9])/g, 'sports$1');
-    path = path.replace(/\/entert3/g, '/enter3').replace(/^entert3/g, 'enter3');
-    path = path.replace(/\/animal\.jpg/g, '/animal1.png').replace(/^animal\.jpg/g, 'animal1.png');
-    
-    // If already starts with /, return as is
-    if (path.startsWith('/')) return path;
-    
-    // If starts with 'badge/', add leading slash
-    if (path.startsWith('badge/')) return `/${path}`;
-    
-    // If just filename, prepend /badge/
-    return `/badge/${path}`;
+    normalized = normalized
+      .replace(/\/sport([0-9])/g, '/sports$1')
+      .replace(/^sport([0-9])/g, 'sports$1')
+      .replace(/\/entert3/g, '/enter3')
+      .replace(/^entert3/g, 'enter3')
+      .replace(/\/animal\.jpg/g, '/animal1.png')
+      .replace(/^animal\.jpg/g, 'animal1.png');
+
+    if (!normalized.startsWith('/') && /^(badge|images|sticker)\//i.test(normalized)) {
+      normalized = `/${normalized}`;
+    }
+
+    if (!normalized.startsWith('/')) {
+      normalized = `/badge/${normalized}`;
+    }
+
+    return normalized;
   };
 
   const mapApiProductsToBadges = (items: any[]): Badge[] =>

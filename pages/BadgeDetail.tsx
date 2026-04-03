@@ -28,12 +28,45 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
 
   const normalizeImagePath = (path?: string) => {
     if (!path) return undefined;
-    path = path.replace(/\/sport([0-9])/g, '/sports$1').replace(/^sport([0-9])/g, 'sports$1');
-    path = path.replace(/\/entert3/g, '/enter3').replace(/^entert3/g, 'enter3');
-    path = path.replace(/\/animal\.jpg/g, '/animal1.png').replace(/^animal\.jpg/g, 'animal1.png');
-    if (path.startsWith('/')) return path;
-    if (path.startsWith('badge/')) return `/${path}`;
-    return `/badge/${path}`;
+
+    let normalized = String(path).trim();
+    if (!normalized) return undefined;
+    if (/^https?:\/\//i.test(normalized) || /^data:/i.test(normalized)) {
+      return normalized;
+    }
+
+    normalized = normalized.replace(/\\/g, '/').replace(/\/+/g, '/');
+    const lower = normalized.toLowerCase();
+
+    if (lower.includes('/public/')) {
+      normalized = normalized.slice(lower.lastIndexOf('/public/') + '/public'.length);
+    } else if (lower.startsWith('public/')) {
+      normalized = normalized.slice('public'.length);
+    } else if (lower.startsWith('./public/')) {
+      normalized = normalized.slice('./public'.length);
+    } else if (lower.startsWith('../public/')) {
+      normalized = normalized.slice('../public'.length);
+    }
+
+    normalized = normalized.replace(/^\.\//, '');
+
+    normalized = normalized
+      .replace(/\/sport([0-9])/g, '/sports$1')
+      .replace(/^sport([0-9])/g, 'sports$1')
+      .replace(/\/entert3/g, '/enter3')
+      .replace(/^entert3/g, 'enter3')
+      .replace(/\/animal\.jpg/g, '/animal1.png')
+      .replace(/^animal\.jpg/g, 'animal1.png');
+
+    if (!normalized.startsWith('/') && /^(badge|images|sticker)\//i.test(normalized)) {
+      normalized = `/${normalized}`;
+    }
+
+    if (!normalized.startsWith('/')) {
+      normalized = `/badge/${normalized}`;
+    }
+
+    return normalized;
   };
 
   const normalizeBadge = (b: Badge | null) => {
