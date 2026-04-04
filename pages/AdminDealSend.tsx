@@ -24,6 +24,10 @@ type QuoteItem = {
   finishLabel?: string;
 };
 
+const DEFAULT_CUSTOM_CARD_TITLE = "Custom\nAdvantage";
+const DEFAULT_CUSTOM_CARD_COPY =
+  "We can turn your own corporate branding or event logo into a premium 58mm badge set.";
+
 const fieldClass =
   "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400";
 
@@ -131,6 +135,8 @@ export default function AdminDealSend() {
   const [footerNote, setFooterNote] = useState(
     "GSTIN: 27HENPP0138G1Z9 • THANK YOU FOR YOUR VALUABLE TIME",
   );
+  const [customCardTitle, setCustomCardTitle] = useState(DEFAULT_CUSTOM_CARD_TITLE);
+  const [customCardCopy, setCustomCardCopy] = useState(DEFAULT_CUSTOM_CARD_COPY);
   const [isExporting, setIsExporting] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const normalizedTagline = (tagline || "Limited Edition").trim() || "Limited Edition";
@@ -140,6 +146,10 @@ export default function AdminDealSend() {
       .replace(/[–—]/g, "-")
       .replace(/\s*-\s*/g, " - ")
       .replace(/\.+$/, "");
+  const normalizedCustomCardTitle =
+    (customCardTitle || DEFAULT_CUSTOM_CARD_TITLE).trim() || DEFAULT_CUSTOM_CARD_TITLE;
+  const normalizedCustomCardCopy =
+    (customCardCopy || DEFAULT_CUSTOM_CARD_COPY).trim() || DEFAULT_CUSTOM_CARD_COPY;
 
   const totals = useMemo(() => {
     const totalUnits = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -519,6 +529,7 @@ export default function AdminDealSend() {
           letter-spacing: 0.06em;
           line-height: 1.35;
           text-transform: uppercase;
+          white-space: pre-line;
         }
 
         .catalog-card-custom-copy {
@@ -804,6 +815,28 @@ export default function AdminDealSend() {
               </div>
             </div>
 
+            <div className="space-y-3 rounded-2xl border border-slate-200 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">Custom Card</p>
+              <label className="block">
+                <span className="mb-1 block text-xs font-black uppercase text-slate-500">Title</span>
+                <textarea
+                  value={customCardTitle}
+                  onChange={(e) => setCustomCardTitle(e.target.value)}
+                  rows={2}
+                  className={fieldClass}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-black uppercase text-slate-500">Description</span>
+                <textarea
+                  value={customCardCopy}
+                  onChange={(e) => setCustomCardCopy(e.target.value)}
+                  rows={4}
+                  className={fieldClass}
+                />
+              </label>
+            </div>
+
             <div className="grid grid-cols-3 gap-3">
               <label className="block">
                 <span className="mb-1 block text-xs font-black uppercase text-slate-500">Office Location</span>
@@ -892,9 +925,9 @@ export default function AdminDealSend() {
                             <div className="catalog-card-custom-icon">
                               <Camera className="h-5 w-5" strokeWidth={2.2} />
                             </div>
-                            <p className="catalog-card-custom-title">Custom<br />Advantage</p>
+                            <p className="catalog-card-custom-title">{normalizedCustomCardTitle}</p>
                             <p className="catalog-card-custom-copy">
-                              We can turn your own corporate branding or event logo into a premium 58mm badge set.
+                              {normalizedCustomCardCopy}
                             </p>
                           </div>
                         </div>
