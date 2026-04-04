@@ -405,7 +405,7 @@ export default function AdminDealSend() {
           justify-content: center;
           border-radius: 999px;
           background: #f9e8b5;
-          padding: 4px 20px;
+          padding: 3px 20px 10px 20px;
           font-size: 8px;
           line-height: 1.1;
           font-weight: 700;
