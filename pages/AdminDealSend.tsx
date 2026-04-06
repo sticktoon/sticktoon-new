@@ -662,19 +662,25 @@ export default function AdminDealSend() {
 
         .catalog-overview-list {
           margin-top: 10px;
-          padding-left: 18px;
-          list-style-type: disc;
-          list-style-position: outside;
+          padding-left: 0;
+          list-style: none;
           color: #334155;
           font-size: 10px;
           line-height: 1.65;
         }
 
         .catalog-overview-list li {
-          display: list-item;
+          position: relative;
+          padding-left: 16px;
         }
 
-        .catalog-overview-list li::marker {
+        .catalog-overview-list li::before {
+          content: "•";
+          position: absolute;
+          left: 0;
+          top: 0;
+          line-height: 1.65;
+          font-size: 11px;
           color: #64748b;
         }
 
