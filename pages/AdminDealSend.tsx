@@ -27,6 +27,7 @@ type QuoteItem = {
 const DEFAULT_CUSTOM_CARD_TITLE = "Custom\nAdvantage";
 const DEFAULT_CUSTOM_CARD_COPY =
   "We can turn your own corporate branding or event logo into a premium 58mm badge set.";
+const INSTAGRAM_PROFILE_URL = "https://www.instagram.com/sticktoon.shop?igsh=ZWllbWE0ZHdvOTJq";
 
 const fieldClass =
   "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400";
@@ -150,6 +151,43 @@ export default function AdminDealSend() {
     (customCardTitle || DEFAULT_CUSTOM_CARD_TITLE).trim() || DEFAULT_CUSTOM_CARD_TITLE;
   const normalizedCustomCardCopy =
     (customCardCopy || DEFAULT_CUSTOM_CARD_COPY).trim() || DEFAULT_CUSTOM_CARD_COPY;
+
+  const contactChannelLines = useMemo(() => {
+    return contactChannels
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [rawLabel, ...rawValueParts] = line.split(":");
+        if (rawValueParts.length === 0) {
+          return { kind: "text" as const, label: "", value: line, href: "" };
+        }
+
+        const label = rawLabel.trim();
+        const value = rawValueParts.join(":").trim();
+
+        if (/^email$/i.test(label) && value) {
+          const emailAddress = value.replace(/^mailto:/i, "").trim();
+          return {
+            kind: "email" as const,
+            label,
+            value: emailAddress,
+            href: `mailto:${emailAddress}`,
+          };
+        }
+
+        if ((/^social$/i.test(label) || /^instagram$/i.test(label)) && value) {
+          return {
+            kind: "instagram" as const,
+            label,
+            value,
+            href: INSTAGRAM_PROFILE_URL,
+          };
+        }
+
+        return { kind: "text" as const, label: "", value: line, href: "" };
+      });
+  }, [contactChannels]);
 
   const totals = useMemo(() => {
     const totalUnits = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -659,6 +697,19 @@ export default function AdminDealSend() {
           color: #eef2ff;
         }
 
+        .catalog-footer-link {
+          color: #eef2ff;
+          text-decoration: underline;
+          text-decoration-color: rgba(226, 232, 240, 0.45);
+          text-underline-offset: 2px;
+          transition: color 0.2s ease, text-decoration-color 0.2s ease;
+        }
+
+        .catalog-footer-link:hover {
+          color: #ffffff;
+          text-decoration-color: rgba(255, 255, 255, 0.8);
+        }
+
         .catalog-footer-copy-muted {
           margin-top: 10px;
           white-space: pre-line;
@@ -989,7 +1040,27 @@ export default function AdminDealSend() {
                           </div>
                           <div>
                             <p className="catalog-footer-title">Contact Channels</p>
-                            <p className="catalog-footer-copy">{contactChannels}</p>
+                            <p className="catalog-footer-copy">
+                              {contactChannelLines.map((line, index) => (
+                                <span key={`${line.value}-${index}`} className="block">
+                                  {line.kind === "text" ? (
+                                    line.value
+                                  ) : (
+                                    <>
+                                      {line.label}: {" "}
+                                      <a
+                                        href={line.href}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="catalog-footer-link"
+                                      >
+                                        {line.value}
+                                      </a>
+                                    </>
+                                  )}
+                                </span>
+                              ))}
+                            </p>
                           </div>
                           <div>
                             <p className="catalog-footer-title">Curation Note</p>
