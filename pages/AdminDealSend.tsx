@@ -272,6 +272,24 @@ export default function AdminDealSend() {
 
       for (const page of pages) {
         const pageRect = page.getBoundingClientRect();
+        const pageLinks = Array.from(page.querySelectorAll<HTMLAnchorElement>("a[href]"))
+          .map((anchor) => {
+            const href = anchor.getAttribute("href") || "";
+            if (!href) return null;
+
+            const linkRect = anchor.getBoundingClientRect();
+            if (linkRect.width <= 0 || linkRect.height <= 0) return null;
+
+            return {
+              href,
+              x: linkRect.left - pageRect.left,
+              y: linkRect.top - pageRect.top,
+              width: linkRect.width,
+              height: linkRect.height,
+            };
+          })
+          .filter((link): link is { href: string; x: number; y: number; width: number; height: number } => Boolean(link));
+
         const canvas = await html2canvas(page, {
           scale: 3,
           backgroundColor: "#101828",
@@ -299,6 +317,23 @@ export default function AdminDealSend() {
         // The preview page is already authored at A4 proportions.
         // Render it edge-to-edge onto the PDF page to avoid offset/letterboxing drift.
         pdf.addImage(image, "PNG", 0, 0, pageWidth, pageHeight, undefined, "FAST");
+
+        // html2canvas flattens anchors into pixels; add explicit PDF link annotations.
+        const scaleX = pageWidth / pageRect.width;
+        const scaleY = pageHeight / pageRect.height;
+        for (const link of pageLinks) {
+          const x = Math.max(0, link.x * scaleX);
+          const y = Math.max(0, link.y * scaleY);
+          const width = Math.max(0.1, link.width * scaleX);
+          const height = Math.max(0.1, link.height * scaleY);
+
+          const maxWidth = Math.max(0.1, pageWidth - x);
+          const maxHeight = Math.max(0.1, pageHeight - y);
+
+          pdf.link(x, y, Math.min(width, maxWidth), Math.min(height, maxHeight), {
+            url: link.href,
+          });
+        }
       }
 
       return pdf;
@@ -627,10 +662,20 @@ export default function AdminDealSend() {
 
         .catalog-overview-list {
           margin-top: 10px;
-          padding-left: 16px;
+          padding-left: 18px;
+          list-style-type: disc;
+          list-style-position: outside;
           color: #334155;
           font-size: 10px;
           line-height: 1.65;
+        }
+
+        .catalog-overview-list li {
+          display: list-item;
+        }
+
+        .catalog-overview-list li::marker {
+          color: #64748b;
         }
 
         .catalog-overview-list li + li {
