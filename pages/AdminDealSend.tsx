@@ -553,6 +553,7 @@ export default function AdminDealSend() {
           align-items: center;
           justify-content: center;
           line-height: 1.1;
+          padding-bottom:7px;
         }
 
         .catalog-card-subtitle {
