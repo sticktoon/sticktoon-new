@@ -532,9 +532,13 @@ export default function AdminDealSend() {
         }
 
         .catalog-card-image img {
-          width: 100%;
-          height: 100%;
+          max-width: 100%;
+          max-height: 100%;
+          width: auto;
+          height: auto;
           object-fit: contain;
+          object-position: center;
+          display: block;
         }
 
         .catalog-card-title {
