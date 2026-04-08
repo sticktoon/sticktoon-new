@@ -160,6 +160,8 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem(GUEST_CART_STORAGE_KEY);
+    localStorage.removeItem("cart");
     window.location.href = "/login";
   };
 
@@ -792,11 +794,17 @@ const Footer: React.FC = () => (
 /* =======================
    APP
 ======================= */
+const GUEST_CART_STORAGE_KEY = "guest_cart";
+
 export default function App() {
-  // Load cart from localStorage on initial load (for guests)
+  // Load cart from localStorage on initial load (guest-only).
   const [cart, setCart] = useState<CartItem[]>(() => {
-    const savedCart = localStorage.getItem("cart");
-    return savedCart ? JSON.parse(savedCart) : [];
+    try {
+      const savedCart = localStorage.getItem(GUEST_CART_STORAGE_KEY);
+      return savedCart ? JSON.parse(savedCart) : [];
+    } catch {
+      return [];
+    }
   });
   const [user, setUser] = useState<AuthUser | null>(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -804,49 +812,80 @@ export default function App() {
   const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
   const [cartLoaded, setCartLoaded] = useState(false);
 
-  // Save cart to localStorage whenever it changes (for guests or as backup)
+  // Persist cart only for guests. Authenticated cart lives in DB.
   useEffect(() => {
-    if (cartLoaded) {
-      localStorage.setItem("cart", JSON.stringify(cart));
-    }
+    if (!cartLoaded) return;
+
+    const token = localStorage.getItem("token");
+    if (token) return;
+
+    localStorage.setItem(GUEST_CART_STORAGE_KEY, JSON.stringify(cart));
   }, [cart, cartLoaded]);
 
   /* 🔐 JWT AUTH CHECK + CART SYNC */
   useEffect(() => {
+    let isMounted = true;
+
     const initAuth = async () => {
       const token = localStorage.getItem("token");
       const savedUser = localStorage.getItem("user");
 
       if (token && savedUser) {
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
-
-        // Sync cart with database for logged-in users
         try {
-          const localCart = JSON.parse(localStorage.getItem("cart") || "[]");
-          const res = await fetch(`${API_BASE_URL}/api/cart/sync`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ localCart }),
-          });
+          const parsedUser = JSON.parse(savedUser);
+          if (isMounted) {
+            setUser(parsedUser);
+          }
+
+          const localGuestCart = JSON.parse(
+            localStorage.getItem(GUEST_CART_STORAGE_KEY) || "[]",
+          );
+
+          const shouldSyncGuestCart =
+            Array.isArray(localGuestCart) && localGuestCart.length > 0;
+
+          const res = shouldSyncGuestCart
+            ? await fetch(`${API_BASE_URL}/api/cart/sync`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ localCart: localGuestCart }),
+              })
+            : await fetch(`${API_BASE_URL}/api/cart`, {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              });
 
           if (res.ok) {
             const data = await res.json();
-            setCart(data.items || []);
-            // Clear localStorage cart after sync (DB is source of truth)
+            if (isMounted) {
+              setCart(data.items || []);
+            }
+            localStorage.removeItem(GUEST_CART_STORAGE_KEY);
+            // Cleanup legacy key from older builds.
             localStorage.removeItem("cart");
+          } else {
+            console.error("Cart bootstrap failed", await res.json());
           }
         } catch (err) {
-          console.error("Cart sync error:", err);
+          console.error("Cart bootstrap error:", err);
         }
       }
-      setCartLoaded(true);
+
+      if (isMounted) {
+        setCartLoaded(true);
+      }
     };
 
     initAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   /* =======================
@@ -878,13 +917,6 @@ export default function App() {
       console.error("Error fetching cart", err);
     }
   };
-
-  useEffect(() => {
-    if (!cartLoaded) {
-      syncCartWithDatabase();
-      setCartLoaded(true); // Prevent multiple syncs
-    }
-  }, [cartLoaded]);
 
  const addToCart = async (badge: any, quantity?: number) => {
   const qty = Number(quantity ?? badge.quantity ?? 1);
@@ -994,6 +1026,8 @@ export default function App() {
       return;
     }
 
+    setCart((prev) => prev.filter((item) => item.id !== id));
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/cart/remove/${id}`, {
         method: "DELETE",
@@ -1003,12 +1037,15 @@ export default function App() {
       });
 
       if (res.ok) {
-        await syncCartWithDatabase();
+        const data = await res.json();
+        setCart(data.items || []);
       } else {
         console.error("Failed to remove from cart", await res.json());
+        await syncCartWithDatabase();
       }
     } catch (err) {
       console.error("Error removing from cart", err);
+      await syncCartWithDatabase();
     }
   };
 
@@ -1019,6 +1056,16 @@ export default function App() {
       console.error("User is not authenticated");
       return;
     }
+
+    setCart((prev) => {
+      if (q <= 0) {
+        return prev.filter((item) => item.id !== id);
+      }
+
+      return prev.map((item) =>
+        item.id === id ? { ...item, quantity: q } : item,
+      );
+    });
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/cart/update/${id}`, {
@@ -1031,12 +1078,15 @@ export default function App() {
       });
 
       if (res.ok) {
-        await syncCartWithDatabase();
+        const data = await res.json();
+        setCart(data.items || []);
       } else {
         console.error("Failed to update cart quantity", await res.json());
+        await syncCartWithDatabase();
       }
     } catch (err) {
       console.error("Error updating cart quantity", err);
+      await syncCartWithDatabase();
     }
   };
 
@@ -1068,10 +1118,6 @@ export default function App() {
       console.error("Error updating avatar", err);
     }
   };
-
-  useEffect(() => {
-    syncCartWithDatabase();
-  }, []);
 
   // Check for order success on component mount
   useEffect(() => {

@@ -137,6 +137,7 @@ const Profile: React.FC<ProfileProps> = ({ addToCart }) => {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("guest_cart");
     localStorage.removeItem("cart");
     window.location.href = "/";
   };

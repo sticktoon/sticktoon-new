@@ -315,6 +315,7 @@ export default function Checkout({
 
             if (verifyRes.ok && verifyData.success) {
               // Payment successful - clear cart from localStorage and DB
+              localStorage.removeItem("guest_cart");
               localStorage.removeItem("cart");
               
               // Clear cart from database
