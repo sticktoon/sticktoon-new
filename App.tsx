@@ -797,30 +797,13 @@ const Footer: React.FC = () => (
 const GUEST_CART_STORAGE_KEY = "guest_cart";
 
 export default function App() {
-  // Load cart from localStorage on initial load (guest-only).
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    try {
-      const savedCart = localStorage.getItem(GUEST_CART_STORAGE_KEY);
-      return savedCart ? JSON.parse(savedCart) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Logged-in users are required for cart actions, so DB is source of truth.
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showOrderConfirmation, setShowOrderConfirmation] = useState(false);
   const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
   const [cartLoaded, setCartLoaded] = useState(false);
-
-  // Persist cart only for guests. Authenticated cart lives in DB.
-  useEffect(() => {
-    if (!cartLoaded) return;
-
-    const token = localStorage.getItem("token");
-    if (token) return;
-
-    localStorage.setItem(GUEST_CART_STORAGE_KEY, JSON.stringify(cart));
-  }, [cart, cartLoaded]);
 
   /* 🔐 JWT AUTH CHECK + CART SYNC */
   useEffect(() => {
@@ -830,49 +813,41 @@ export default function App() {
       const token = localStorage.getItem("token");
       const savedUser = localStorage.getItem("user");
 
-      if (token && savedUser) {
+      if (token) {
         try {
-          const parsedUser = JSON.parse(savedUser);
-          if (isMounted) {
-            setUser(parsedUser);
+          if (savedUser) {
+            try {
+              const parsedUser = JSON.parse(savedUser);
+              if (isMounted) {
+                setUser(parsedUser);
+              }
+            } catch (parseErr) {
+              console.error("Failed to parse saved user", parseErr);
+            }
           }
 
-          const localGuestCart = JSON.parse(
-            localStorage.getItem(GUEST_CART_STORAGE_KEY) || "[]",
-          );
-
-          const shouldSyncGuestCart =
-            Array.isArray(localGuestCart) && localGuestCart.length > 0;
-
-          const res = shouldSyncGuestCart
-            ? await fetch(`${API_BASE_URL}/api/cart/sync`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ localCart: localGuestCart }),
-              })
-            : await fetch(`${API_BASE_URL}/api/cart`, {
-                method: "GET",
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              });
+          const res = await fetch(`${API_BASE_URL}/api/cart`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
 
           if (res.ok) {
             const data = await res.json();
             if (isMounted) {
               setCart(data.items || []);
             }
-            localStorage.removeItem(GUEST_CART_STORAGE_KEY);
             // Cleanup legacy key from older builds.
+            localStorage.removeItem(GUEST_CART_STORAGE_KEY);
             localStorage.removeItem("cart");
           } else {
             console.error("Cart bootstrap failed", await res.json());
+            await syncCartWithDatabase();
           }
         } catch (err) {
           console.error("Cart bootstrap error:", err);
+          await syncCartWithDatabase();
         }
       }
 
@@ -920,9 +895,19 @@ export default function App() {
 
  const addToCart = async (badge: any, quantity?: number) => {
   const qty = Number(quantity ?? badge.quantity ?? 1);
+  const price = Number(badge?.price);
 
     if (!Number.isFinite(qty) || qty === 0) {
       console.error("Invalid cart quantity", { badgeId: badge?.id, quantity: qty });
+      return;
+    }
+
+    if (!badge?.id || !badge?.name || !Number.isFinite(price) || price <= 0) {
+      console.error("Invalid cart item", {
+        badgeId: badge?.id,
+        name: badge?.name,
+        price: badge?.price,
+      });
       return;
     }
 
@@ -935,7 +920,7 @@ export default function App() {
     const cartItem = {
       id: badge.id,
       name: badge.name,
-      price: badge.price,
+      price,
       image: badge.image,
       printImage: badge.printImage,
       category: badge.category,

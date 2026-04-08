@@ -83,23 +83,48 @@ router.post("/create-order", auth, async (req, res) => {
         continue;
       }
 
-      if (!mongoose.Types.ObjectId.isValid(rawBadgeId)) {
-        return res.status(400).json({ message: `Invalid product ID for ${item.name || "item"}` });
+      let product = null;
+
+      if (mongoose.Types.ObjectId.isValid(rawBadgeId)) {
+        product = await Product.findById(rawBadgeId);
+        if (!product || !product.isActive) {
+          return res.status(400).json({ message: `Product ${item.name} is no longer available` });
+        }
+      } else if (typeof item.name === "string" && item.name.trim()) {
+        // Support legacy/static cart items that use slug IDs instead of Mongo ObjectIds.
+        product = await Product.findOne({
+          name: item.name.trim(),
+          isActive: true,
+        });
       }
 
-      const product = await Product.findById(rawBadgeId);
-      if (!product || !product.isActive) {
-        return res.status(400).json({ message: `Product ${item.name} is no longer available` });
+      if (product) {
+        const verifiedPrice = product.price;
+        subtotal += verifiedPrice * quantity;
+
+        verifiedItems.push({
+          ...item,
+          quantity,
+          price: verifiedPrice, // Use DB price
+          name: product.name,   // Use DB name
+        });
+        continue;
       }
 
-      const verifiedPrice = product.price;
-      subtotal += verifiedPrice * quantity;
+      // Final fallback for items not present in Product DB (static catalog/custom stickers).
+      const fallbackPrice = Number(item.price);
+      if (!Number.isFinite(fallbackPrice) || fallbackPrice <= 0 || fallbackPrice > 50000) {
+        return res.status(400).json({ message: `Invalid price for ${item.name || "item"}` });
+      }
 
+      subtotal += fallbackPrice * quantity;
       verifiedItems.push({
-        ...item,
+        badgeId: rawBadgeId,
+        name: item.name || "Item",
+        price: fallbackPrice,
         quantity,
-        price: verifiedPrice, // Use DB price
-        name: product.name,   // Use DB name
+        image: item.image || null,
+        printImage: item.printImage || null,
       });
     }
 
