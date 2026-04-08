@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
+const mongoose = require("mongoose");
 const {
   razorpay,
   razorpayKeyId,
@@ -55,21 +56,55 @@ router.post("/create-order", auth, async (req, res) => {
     const verifiedItems = [];
 
     for (const item of safeItems) {
-      if (!item.badgeId) continue;
+      if (!item?.badgeId) continue;
 
-      const product = await Product.findById(item.badgeId);
+      const quantity = Math.max(1, Number(item.quantity) || 1);
+      const rawBadgeId = String(item.badgeId);
+      const isCustomItem =
+        rawBadgeId.startsWith("custom-") ||
+        (typeof item.printImage === "string" && item.printImage.startsWith("data:image")) ||
+        (typeof item.image === "string" && item.image.startsWith("data:image"));
+
+      if (isCustomItem) {
+        const customPrice = Number(item.price);
+        if (!Number.isFinite(customPrice) || customPrice <= 0) {
+          return res.status(400).json({ message: "Invalid custom item price" });
+        }
+
+        subtotal += customPrice * quantity;
+        verifiedItems.push({
+          badgeId: rawBadgeId,
+          name: item.name || "Custom Badge",
+          price: customPrice,
+          quantity,
+          image: item.image || null,
+          printImage: item.printImage || null,
+        });
+        continue;
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(rawBadgeId)) {
+        return res.status(400).json({ message: `Invalid product ID for ${item.name || "item"}` });
+      }
+
+      const product = await Product.findById(rawBadgeId);
       if (!product || !product.isActive) {
         return res.status(400).json({ message: `Product ${item.name} is no longer available` });
       }
 
       const verifiedPrice = product.price;
-      subtotal += verifiedPrice * Number(item.quantity);
-      
+      subtotal += verifiedPrice * quantity;
+
       verifiedItems.push({
         ...item,
+        quantity,
         price: verifiedPrice, // Use DB price
         name: product.name,   // Use DB name
       });
+    }
+
+    if (verifiedItems.length === 0) {
+      return res.status(400).json({ message: "No valid items found" });
     }
 
     const deliveryCharges = 99;
