@@ -69,15 +69,21 @@ type AuthUser = {
    PROTECTED ROUTE COMPONENT
 ======================= */
 const ProtectedAdminRoute = ({ user, children }: { user: AuthUser | null; children: React.ReactNode }) => {
-  const isStorefrontAdmin = Boolean(user && user.role === "admin");
+  // Check storefront admin from localStorage as a fallback
+  let sfToken = localStorage.getItem("token");
+  let sfUser: AuthUser | null = null;
+  try {
+    const rawUser = localStorage.getItem("user");
+    sfUser = rawUser ? (JSON.parse(rawUser) as AuthUser) : null;
+  } catch {}
+
+  const isStorefrontAdmin = Boolean((user && user.role === "admin") || (sfToken && sfUser?.role === "admin"));
 
   let storedAdminUser: AuthUser | null = null;
   try {
     const rawAdminUser = localStorage.getItem("adminUser");
     storedAdminUser = rawAdminUser ? (JSON.parse(rawAdminUser) as AuthUser) : null;
-  } catch {
-    storedAdminUser = null;
-  }
+  } catch {}
 
   const hasAdminPanelSession = Boolean(
     localStorage.getItem("adminToken") && storedAdminUser?.role === "admin",
@@ -424,6 +430,13 @@ useEffect(() => {
         My Profile
       </Link>
 
+      <Link
+        to="/profile?tab=orders"
+        className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
+      >
+        My Orders
+      </Link>
+
       {user.role === "admin" && (
         <Link
           to="/admin/login"
@@ -475,6 +488,14 @@ useEffect(() => {
                   className="block text-lg font-bold text-white focus:outline-none focus-visible:outline-none focus-visible:ring-0"
                 >
                   My Profile
+                </Link>
+
+                <Link
+                  to="/profile?tab=orders"
+                  onClick={() => setIsOpen(false)}
+                  className="block mt-3 text-lg font-bold text-white focus:outline-none focus-visible:outline-none focus-visible:ring-0"
+                >
+                  My Orders
                 </Link>
 
                 {user.role === "admin" && (
@@ -1093,70 +1114,66 @@ export default function App() {
       {/* Order Confirmation Modal */}
       {showOrderConfirmation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="bg-gradient-to-br from-white via-green-50/30 to-emerald-50/30 rounded-3xl shadow-2xl p-8 md:p-10 max-w-lg w-full text-center transform animate-scaleIn border-4 border-green-500/20">
+          <div className="bg-gradient-to-br from-white via-green-50/30 to-emerald-50/30 rounded-3xl shadow-2xl p-6 md:p-8 max-w-md w-full text-center transform animate-scaleIn border-4 border-green-500/20">
             {/* Success Icon with Glow */}
-            <div className="relative mx-auto mb-6">
+            <div className="relative mx-auto mb-4">
               <div className="absolute inset-0 bg-green-500/30 rounded-full blur-2xl animate-pulse"></div>
-              <div className="relative w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-xl transform hover:scale-110 transition-transform duration-300">
-                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+              <div className="relative w-16 h-16 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-xl transform hover:scale-110 transition-transform duration-300">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
             </div>
 
             {/* Title with Animation */}
-            <h2 className="text-3xl md:text-4xl font-black bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent mb-2 animate-slideDown">
+            <h2 className="text-2xl md:text-3xl font-black bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent mb-1 animate-slideDown">
               Order Confirmed!
             </h2>
-            <div className="text-4xl mb-4 animate-bounce">🎉</div>
+            <div className="text-3xl mb-2 animate-bounce">🎉</div>
 
-            <p className="text-slate-700 font-medium mb-6 text-lg">
+            <p className="text-slate-700 font-medium mb-4 text-sm md:text-base leading-relaxed">
               Thank you for your order! We've sent a confirmation email with your order details.
             </p>
 
             {/* Order ID */}
             {confirmedOrderId && (
-              <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl p-5 mb-6 shadow-xl transform hover:scale-105 transition-transform">
-                <p className="text-xs text-white/80 mb-2 uppercase tracking-widest font-bold">Order ID</p>
-                <p className="text-2xl font-black font-mono text-white">
+              <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl p-3 mb-4 shadow-lg transform hover:scale-105 transition-transform">
+                <p className="text-[10px] text-white/80 mb-1 uppercase tracking-widest font-bold">Order ID</p>
+                <p className="text-xl font-black font-mono text-white">
                   #{confirmedOrderId.slice(-8).toUpperCase()}
                 </p>
               </div>
             )}
 
             {/* What's Next */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 mb-6 text-left shadow-lg border-2 border-green-200/50">
-              <h3 className="font-black text-slate-900 mb-4 text-base flex items-center gap-2">
-                <span className="text-2xl">📦</span>
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 mb-4 text-left shadow-md border-2 border-green-200/50">
+              <h3 className="font-black text-slate-900 mb-3 text-sm flex items-center gap-2">
+                <span className="text-xl">📦</span>
                 What happens next?
               </h3>
-              <ul className="space-y-3 text-sm text-slate-700">
-                <li className="flex items-start gap-3 group">
-                  <span className="w-7 h-7 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-md group-hover:scale-110 transition-transform">1</span>
+              <ul className="space-y-2 text-xs text-slate-700">
+                <li className="flex items-start gap-2 group">
+                  <span className="w-5 h-5 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 shadow-md">1</span>
                   <span className="font-medium">We'll start preparing your order</span>
                 </li>
-                <li className="flex items-start gap-3 group">
-                  <span className="w-7 h-7 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-md group-hover:scale-110 transition-transform">2</span>
+                <li className="flex items-start gap-2 group">
+                  <span className="w-5 h-5 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 shadow-md">2</span>
                   <span className="font-medium">You'll receive tracking info via email</span>
-                </li>
-                <li className="flex items-start gap-3 group">
-                  <span className="w-7 h-7 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-md group-hover:scale-110 transition-transform">3</span>
-                  <span className="font-medium">Your items will arrive in 5-7 business days</span>
                 </li>
               </ul>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
               <button
                 onClick={() => setShowOrderConfirmation(false)}
-                className="w-full px-6 py-4 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white rounded-xl font-black text-lg uppercase tracking-wide hover:from-green-500 hover:via-emerald-500 hover:to-teal-500 transition-all shadow-xl hover:shadow-2xl transform hover:scale-105 hover:-translate-y-1"
+                className="w-full px-5 py-3 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white rounded-xl font-black text-sm uppercase tracking-wide hover:from-green-500 hover:via-emerald-500 hover:to-teal-500 transition-all shadow-lg transform hover:scale-[1.02]"
               >
                 Continue Shopping
               </button>
               <Link
                 to="/profile"
-                className="w-full px-6 py-4 border-3 border-green-600 text-green-600 rounded-xl font-bold uppercase tracking-wide hover:bg-green-600 hover:text-white transition-all text-center shadow-md hover:shadow-lg transform hover:scale-105"
+                className="w-full px-5 py-3 border-2 border-green-600 text-green-600 rounded-xl font-bold uppercase tracking-wide hover:bg-green-600 hover:text-white transition-all text-center text-sm transform hover:scale-[1.02]"
                 onClick={() => setShowOrderConfirmation(false)}
               >
                 View My Orders
@@ -1219,7 +1236,7 @@ export default function App() {
           <Route path="/terms-conditions" element={<TermsConditions />} />
           <Route path="/refund-cancellation" element={<RefundCancellation />} />
           <Route path="/order-success" element={<OrderSuccess />} />
-          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile" element={<Profile addToCart={addToCart} />} />
         </Routes>
       </main>
       <Footer />

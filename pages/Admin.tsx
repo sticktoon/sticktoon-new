@@ -2476,8 +2476,28 @@ const Admin: React.FC = () => {
   };
 
   const checkAuth = async () => {
-    const token = localStorage.getItem("adminToken");
-    const storedUser = localStorage.getItem("adminUser");
+    let token = localStorage.getItem("adminToken");
+    let storedUser = localStorage.getItem("adminUser");
+
+    // 🔄 SYNC: If admin panel session is missing but storefront admin session exists, sync them
+    if (!token || !storedUser) {
+      const storefrontToken = localStorage.getItem("token");
+      const storefrontUserRaw = localStorage.getItem("user");
+      if (storefrontToken && storefrontUserRaw) {
+        try {
+          const sfUser = JSON.parse(storefrontUserRaw);
+          if (sfUser.role === "admin") {
+            // Set for admin panel
+            localStorage.setItem("adminToken", storefrontToken);
+            localStorage.setItem("adminUser", storefrontUserRaw);
+            token = storefrontToken;
+            storedUser = storefrontUserRaw;
+          }
+        } catch (e) {
+          console.error("Failed to parse storefront user for sync", e);
+        }
+      }
+    }
 
     if (token && storedUser) {
       try {

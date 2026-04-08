@@ -74,6 +74,7 @@ export default function Checkout({
   });
 
   const [paymentError, setPaymentError] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
   const [quantityInputs, setQuantityInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -244,6 +245,7 @@ export default function Checkout({
       return;
     }
 
+    setIsProcessing(true);
     try {
       const Razorpay = await loadRazorpay();
 
@@ -276,6 +278,7 @@ export default function Checkout({
       
       if (!res.ok) {
         setPaymentError(data.message || "Failed to create order");
+        setIsProcessing(false);
         return;
       }
 
@@ -288,6 +291,7 @@ export default function Checkout({
         description: "Custom Stickers & Badges",
         order_id: data.razorpayOrderId,
         handler: async function (response: any) {
+          setIsProcessing(true); // Ensure it's showing during verification
           // Verify payment on backend
           try {
             const verifyRes = await fetch(
@@ -329,10 +333,12 @@ export default function Checkout({
               window.location.href = `/#/?orderId=${verifyData.orderId}&orderSuccess=true`;
             } else {
               setPaymentError("Payment verification failed");
+              setIsProcessing(false);
             }
           } catch (verifyErr) {
             console.error("Verify error:", verifyErr);
             setPaymentError("Payment verification failed");
+            setIsProcessing(false);
           }
         },
         prefill: {
@@ -344,6 +350,7 @@ export default function Checkout({
         },
         modal: {
           ondismiss: function () {
+            setIsProcessing(false);
             console.log("Payment modal closed");
           },
         },
@@ -354,6 +361,7 @@ export default function Checkout({
       razorpay.on("payment.failed", async function (response: any) {
         console.error("Payment failed:", response.error);
         setPaymentError(response.error.description || "Payment failed");
+        setIsProcessing(false);
         
         // Mark order as failed
         try {
@@ -377,6 +385,7 @@ export default function Checkout({
     } catch (err) {
       console.error("Payment error:", err);
       setPaymentError("Payment processing failed. Please try again.");
+      setIsProcessing(false);
     }
   };
 
@@ -399,6 +408,18 @@ export default function Checkout({
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-white via-slate-50 to-yellow-50/40 pt-10 md:pt-12 pb-20 md:pb-24 px-3 sm:px-4 md:px-0">
+      {/* Processing Overlay */}
+      {isProcessing && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/80 backdrop-blur-md animate-fadeIn">
+          <div className="relative">
+            <div className="w-20 h-20 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin"></div>
+            <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-yellow-500 animate-pulse" />
+          </div>
+          <h2 className="mt-6 text-2xl font-black text-slate-900 tracking-tight">Processing Payment...</h2>
+          <p className="mt-2 text-slate-500 font-medium">Please do not close or refresh the window.</p>
+        </div>
+      )}
+
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-[-250px] left-1/2 -translate-x-1/2 w-[920px] h-[920px] rounded-full bg-yellow-500/10 blur-[145px]" />
         <div className="absolute right-[-220px] top-[28%] w-[620px] h-[620px] rounded-full bg-orange-400/12 blur-[125px]" />
@@ -501,8 +522,8 @@ export default function Checkout({
               id="delivery-form"
               className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 border border-white/70 shadow-[0_18px_45px_rgba(15,23,42,0.08)]"
             >
-              <h3 className="text-lg md:text-xl font-black mb-6">
-                Deliver to:
+              <h3 className="text-lg md:text-xl font-black mb-6 flex items-center gap-2">
+                Shipping Details <span className="text-red-500 text-xs font-bold uppercase tracking-tighter">(All Fields Required)</span>
               </h3>
 
               {(["name", "street", "phone"] as const).map(

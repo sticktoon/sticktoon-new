@@ -19,6 +19,7 @@ const promoUsedEmailTemplate = require("../utils/promoUsedEmail");
 const generateInvoicePDF = require("../utils/generateInvoicePDF");
 const generateBadgeDoc = require("../utils/generateBadgeDoc");
 const buildAdminOrderAttachments = require("../utils/buildAdminOrderAttachments");
+const Product = require("../models/Product");
 
 /* =========================
    CREATE RAZORPAY ORDER
@@ -49,11 +50,27 @@ router.post("/create-order", auth, async (req, res) => {
 
     const email = user.email;
 
-    // Calculate subtotal
-    const subtotal = safeItems.reduce(
-      (sum, item) => sum + Number(item.price) * Number(item.quantity),
-      0
-    );
+    // Verified items and subtotal calculation
+    let subtotal = 0;
+    const verifiedItems = [];
+
+    for (const item of safeItems) {
+      if (!item.badgeId) continue;
+
+      const product = await Product.findById(item.badgeId);
+      if (!product || !product.isActive) {
+        return res.status(400).json({ message: `Product ${item.name} is no longer available` });
+      }
+
+      const verifiedPrice = product.price;
+      subtotal += verifiedPrice * Number(item.quantity);
+      
+      verifiedItems.push({
+        ...item,
+        price: verifiedPrice, // Use DB price
+        name: product.name,   // Use DB name
+      });
+    }
 
     const deliveryCharges = 99;
     const totalBeforeDiscount = subtotal + deliveryCharges;
@@ -123,7 +140,7 @@ router.post("/create-order", auth, async (req, res) => {
     // Save order in DB
     const order = await Order.create({
       userId,
-      items: safeItems,
+      items: verifiedItems,
       subtotal,
       deliveryCharges,
       discount,
@@ -314,12 +331,12 @@ for (const earn of earnings) {
     order.invoiceId = invoice._id;
     await order.save();
 
-    // Update user orders
-    await UserOrders.findOneAndUpdate(
-      { userId: order.userId },
-      { $push: { orders: order._id } },
-      { upsert: true, new: true }
-    );
+    // Update user orders (Mapping for profile and admin)
+    await UserOrders.create({
+      userId: order.userId,
+      orderId: order._id,
+      invoiceId: invoice._id,
+    });
 
     // Generate Invoice PDF
     let invoicePdfBuffer = null;

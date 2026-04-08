@@ -55,6 +55,7 @@ app.use("/api/admin/influencer-manage", require("./routes/adminInfluencerManage"
 app.use("/api/products", require("./routes/adminProducts"));
 app.use("/api/influencer", require("./routes/influencer"));
 app.use("/api/cart", require("./routes/cart"));
+app.use("/api/user-orders", require("./routes/userOrders"));
 app.use("/api/badge-doc", require("./routes/badgeDoc"));
 app.use("/api/admin/images", require("./routes/adminImages"));
 app.use("/api/admin/leads", require("./routes/adminLeads"));
@@ -153,6 +154,11 @@ const startServer = (port) => {
   });
 };
 
+
+// Health Check for UptimeRobot / Monitoring
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
 
 // Friendly root route
 app.get("/", (req, res) => {

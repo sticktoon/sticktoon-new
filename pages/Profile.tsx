@@ -12,6 +12,30 @@ interface UserProfile {
   createdAt: string;
 }
 
+interface OrderItem {
+  badgeId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image: string;
+  printImage?: string;
+}
+
+interface Order {
+  _id: string;
+  items: OrderItem[];
+  amount: number;
+  status: string;
+  createdAt: string;
+  invoiceId?: {
+    invoiceNumber: string;
+  };
+}
+
+interface ProfileProps {
+  addToCart?: (item: any) => Promise<void>;
+}
+
 interface Toast {
   id: number;
   type: "success" | "error" | "warning";
@@ -19,11 +43,15 @@ interface Toast {
   isExiting?: boolean;
 }
 
-const Profile: React.FC = () => {
+const Profile: React.FC<ProfileProps> = ({ addToCart }) => {
   const navigate = useNavigate();
+  const location = window.location;
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  const [activeTab, setActiveTab] = useState<"profile" | "orders">("profile");
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
@@ -60,7 +88,41 @@ const Profile: React.FC = () => {
 
   useEffect(() => {
     fetchProfile();
+    // Check URL for tab param
+    const params = new URLSearchParams(window.location.hash.split('?')[1]);
+    if (params.get('tab') === 'orders') {
+      setActiveTab('orders');
+    }
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'orders') {
+      fetchOrders();
+    }
+  }, [activeTab]);
+
+  const fetchOrders = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    setOrdersLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/user-orders/my-orders`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch orders:", err);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
 
   const fetchProfile = async () => {
     const token = localStorage.getItem("token");
@@ -177,6 +239,25 @@ const Profile: React.FC = () => {
     return name?.charAt(0)?.toUpperCase() || "U";
   };
 
+  const handleBuyAgain = async (item: OrderItem) => {
+    if (addToCart) {
+      try {
+        await addToCart({
+          id: item.badgeId,
+          name: item.name,
+          price: item.price,
+          image: item.image,
+          printImage: item.printImage,
+          quantity: item.quantity,
+          category: "Reorder" 
+        });
+        showToast("success", `✅ Added ${item.name} to cart!`);
+      } catch (err) {
+        showToast("error", "❌ Failed to add item to cart.");
+      }
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-IN", {
       day: "numeric",
@@ -204,85 +285,200 @@ const Profile: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 py-8 px-4">
       <div className="max-w-2xl mx-auto">
-        {/* Profile Card */}
-        <div className="bg-slate-800/50 backdrop-blur-sm rounded-3xl border border-slate-700 p-8">
-          {/* Avatar Section */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="relative group">
-              {profile.avatar && (profile.avatar.startsWith('http') || profile.avatar.startsWith('data:')) ? (
-                <img
-                  src={profile.avatar}
-                  alt={profile.name}
-                  className="w-28 h-28 rounded-full object-cover border-4 border-purple-500 shadow-lg"
-                />
-              ) : (
-                <div className="w-28 h-28 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-4xl font-bold border-4 border-purple-500 shadow-lg">
-                  {profile.avatar || getInitial(profile.name)}
-                </div>
-              )}
+        {/* Tab Switcher */}
+        <div className="flex bg-slate-800/50 backdrop-blur-sm rounded-2xl p-1 mb-6 border border-slate-700">
+          <button
+            onClick={() => setActiveTab("profile")}
+            className={`flex-1 py-3 px-6 rounded-xl font-bold transition-all ${
+              activeTab === "profile" 
+                ? "bg-purple-600 text-white shadow-lg" 
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            Profile Info
+          </button>
+          <button
+            onClick={() => setActiveTab("orders")}
+            className={`flex-1 py-3 px-6 rounded-xl font-bold transition-all ${
+              activeTab === "orders" 
+                ? "bg-purple-600 text-white shadow-lg" 
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            My Orders
+          </button>
+        </div>
+
+        {activeTab === "profile" ? (
+          /* Profile Card */
+          <div className="bg-slate-800/50 backdrop-blur-sm rounded-3xl border border-slate-700 p-8 animate-fadeIn">
+            {/* Avatar Section */}
+            <div className="flex flex-col items-center mb-8">
+              <div className="relative group">
+                {profile.avatar && (profile.avatar.startsWith('http') || profile.avatar.startsWith('data:')) ? (
+                  <img
+                    src={profile.avatar}
+                    alt={profile.name}
+                    className="w-28 h-28 rounded-full object-cover border-4 border-purple-500 shadow-lg"
+                  />
+                ) : (
+                  <div className="w-28 h-28 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-4xl font-bold border-4 border-purple-500 shadow-lg">
+                    {profile.avatar || getInitial(profile.name)}
+                  </div>
+                )}
+                
+                {/* Edit Button Overlay */}
+                <button
+                  onClick={() => setShowEditModal(true)}
+                  className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                >
+                  <Camera className="w-6 h-6 text-white" />
+                </button>
+              </div>
               
-              {/* Edit Button Overlay */}
+              <h1 className="text-2xl font-bold text-white mt-4">{profile.name}</h1>
+              <p className="text-slate-400">{profile.email}</p>
+              
+              {profile.role !== "user" && (
+                <span className="mt-2 px-3 py-1 bg-purple-500/20 text-purple-400 text-sm rounded-full capitalize">
+                  {profile.role}
+                </span>
+              )}
+            </div>
+
+            {/* Info Cards */}
+            <div className="grid gap-4 mb-8">
+              <div className="flex items-center gap-4 bg-slate-700/30 rounded-xl p-4">
+                <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
+                  <Mail className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-slate-400 text-sm">Email</p>
+                  <p className="text-white">{profile.email}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 bg-slate-700/30 rounded-xl p-4">
+                <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-green-400" />
+                </div>
+                <div>
+                  <p className="text-slate-400 text-sm">Member Since</p>
+                  <p className="text-white">{formatDate(profile.createdAt)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-4">
               <button
                 onClick={() => setShowEditModal(true)}
-                className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 px-6 rounded-xl font-bold flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-purple-500/20"
               >
-                <Camera className="w-6 h-6 text-white" />
+                <User className="w-5 h-5" />
+                Edit Profile
+              </button>
+
+              <button
+                onClick={() => setActiveTab("orders")}
+                className="w-full bg-slate-700 hover:bg-slate-600 text-white py-4 px-6 rounded-xl font-bold flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] border border-slate-600"
+              >
+                <ShoppingBag className="w-5 h-5" />
+                My Orders
+              </button>
+              
+              <button
+                onClick={handleLogout}
+                className="w-full bg-red-600/10 hover:bg-red-600/20 text-red-500 py-4 px-6 rounded-xl font-bold flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] border border-red-500/20"
+              >
+                <LogOut className="w-5 h-5" />
+                Logout
               </button>
             </div>
-            
-            <h1 className="text-2xl font-bold text-white mt-4">{profile.name}</h1>
-            <p className="text-slate-400">{profile.email}</p>
-            
-            {profile.role !== "user" && (
-              <span className="mt-2 px-3 py-1 bg-purple-500/20 text-purple-400 text-sm rounded-full capitalize">
-                {profile.role}
-              </span>
+          </div>
+        ) : (
+          /* Orders Section */
+          <div className="space-y-6 animate-fadeIn">
+            {ordersLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-slate-800/50 rounded-3xl border border-slate-700 text-center">
+                <div className="animate-spin w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full mb-4" />
+                <p className="text-slate-400 font-medium tracking-wide">Fetching your order history...</p>
+              </div>
+            ) : orders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-slate-800/50 rounded-3xl border border-slate-700 text-center p-8">
+                <div className="w-20 h-20 bg-slate-700/50 rounded-full flex items-center justify-center mb-6">
+                  <ShoppingBag className="w-10 h-10 text-slate-500" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2 tracking-tight">No orders yet</h3>
+                <p className="text-slate-400 mb-8 max-w-xs mx-auto">Looks like you haven't placed any orders yet. Start your collection today!</p>
+                <button
+                  onClick={() => navigate("/categories")}
+                  className="bg-purple-600 hover:bg-purple-700 text-white py-3 px-8 rounded-xl font-bold transition-all hover:scale-[1.05]"
+                >
+                  Start Shopping
+                </button>
+              </div>
+            ) : (
+              orders.map((order) => (
+                <div key={order._id} className="bg-slate-800/50 backdrop-blur-sm rounded-3xl border border-slate-700 overflow-hidden shadow-xl hover:shadow-purple-500/5 transition-all">
+                  {/* Order Header */}
+                  <div className="p-6 bg-slate-700/30 flex flex-wrap items-center justify-between gap-4 border-b border-slate-700">
+                    <div>
+                      <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Order Date</p>
+                      <p className="text-white font-bold">{formatDate(order.createdAt)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Status</p>
+                      <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-tighter shadow-sm ${
+                        order.status === "SUCCESS" ? "bg-green-500/20 text-green-400" :
+                        order.status === "FAILED" ? "bg-red-500/20 text-red-400" :
+                        "bg-yellow-500/20 text-yellow-400"
+                      }`}>
+                        {order.status}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Total</p>
+                      <p className="text-purple-400 font-black text-lg">₹{order.amount}</p>
+                    </div>
+                    {order.invoiceId && (
+                      <div className="text-right">
+                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Invoice</p>
+                        <p className="text-white font-mono text-sm">#{order.invoiceId.invoiceNumber}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Order Items */}
+                  <div className="p-6 space-y-4">
+                    {order.items.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-4 py-3 border-b border-slate-700/50 last:border-0 group">
+                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-slate-700/50 flex-shrink-0">
+                          <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                        </div>
+                        <div className="flex-grow min-w-0">
+                          <h4 className="text-white font-bold truncate tracking-tight">{item.name}</h4>
+                          <p className="text-slate-400 text-sm">₹{item.price} • Qty: {item.quantity}</p>
+                        </div>
+                        <button
+                          onClick={() => handleBuyAgain(item)}
+                          className="px-4 py-2 bg-purple-600/10 hover:bg-purple-600 text-purple-400 hover:text-white rounded-lg text-xs font-black uppercase tracking-widest transition-all hover:scale-105 border border-purple-500/20 hover:border-purple-500"
+                        >
+                          Buy Again
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Order Footer */}
+                  <div className="px-6 py-4 bg-slate-900/40 text-right">
+                    <p className="text-[10px] text-slate-600 font-mono tracking-tighter">ORDER ID: {order._id}</p>
+                  </div>
+                </div>
+              ))
             )}
           </div>
-
-          {/* Info Cards */}
-          <div className="grid gap-4 mb-8">
-            <div className="flex items-center gap-4 bg-slate-700/30 rounded-xl p-4">
-              <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
-                <Mail className="w-5 h-5 text-purple-400" />
-              </div>
-              <div>
-                <p className="text-slate-400 text-sm">Email</p>
-                <p className="text-white">{profile.email}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 bg-slate-700/30 rounded-xl p-4">
-              <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-green-400" />
-              </div>
-              <div>
-                <p className="text-slate-400 text-sm">Member Since</p>
-                <p className="text-white">{formatDate(profile.createdAt)}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <button
-              onClick={() => setShowEditModal(true)}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 px-6 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors"
-            >
-              <User className="w-5 h-5" />
-              Edit Profile
-            </button>
-            
-            <button
-              onClick={handleLogout}
-              className="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 py-3 px-6 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors border border-red-500/30"
-            >
-              <LogOut className="w-5 h-5" />
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
+        )}
 
       {/* Edit Profile Modal */}
       {showEditModal && (
@@ -416,7 +612,8 @@ const Profile: React.FC = () => {
         })}
       </div>
     </div>
-  );
+  </div>
+);
 };
 
 export default Profile;
