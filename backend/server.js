@@ -171,7 +171,7 @@ if (process.env.RENDER || process.env.NODE_ENV === "production") {
     }).on("error", (err) => {
       console.error("[Self-Ping] Error:", err.message);
     });
-  }, 14 * 60 * 1000); // 14 Minutes
+  }, 10 * 60 * 1000); // 10 Minutes
 }
 
 // Friendly root route
