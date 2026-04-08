@@ -19,6 +19,7 @@ import LocalOfferRoundedIcon from "@mui/icons-material/LocalOfferRounded";
 import {
   Eye,
   EyeOff,
+  Menu,
   LogOut,
   Users,
   AlertCircle,
@@ -768,6 +769,7 @@ const Admin: React.FC = () => {
     | "reports"
     | "profile"
   >("login");
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Login state
   const [loginEmail, setLoginEmail] = useState("");
@@ -2426,6 +2428,22 @@ const Admin: React.FC = () => {
     }
   }, [currentView, isAuthenticated]);
 
+  // Auto-close mobile navigation on view changes.
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [currentView]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setMobileSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // Toast notification functions
   const showToast = (
     type: "success" | "error" | "info" | "warning",
@@ -3954,8 +3972,21 @@ const Admin: React.FC = () => {
   =========================== */
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 admin-zoho flex overflow-x-hidden relative">
+      {mobileSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close sidebar"
+          onClick={() => setMobileSidebarOpen(false)}
+          className="fixed inset-0 top-[80px] bg-black/45 z-30 lg:hidden"
+        />
+      )}
+
       {/* Left Sidebar Navigation */}
-      <aside className="w-64 shrink-0 bg-slate-950 border-r border-slate-800 h-[calc(100vh-80px)] fixed left-0 top-[80px] z-30 overflow-y-auto">
+      <aside
+        className={`w-64 shrink-0 bg-slate-950 border-r border-slate-800 h-[calc(100vh-80px)] fixed left-0 top-[80px] z-40 overflow-y-auto transform transition-transform duration-300 ${
+          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } lg:translate-x-0 lg:z-30`}
+      >
         <div className="p-6">
           <div className="mb-8">
             <h1 className="text-xl font-black text-white admin-zoho-keep-white">
@@ -4089,12 +4120,19 @@ const Admin: React.FC = () => {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 min-w-0 ml-64">
+      <div className="flex-1 min-w-0 lg:ml-64">
         {/* Header */}
         <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-          <div className="px-8 py-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-black text-slate-900">
+          <div className="px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-3">
+            <div className="min-w-0 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setMobileSidebarOpen((prev) => !prev)}
+                className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg border border-slate-300 bg-white text-slate-700"
+              >
+                {mobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-900 truncate">
                 {currentView === "dashboard" && "Dashboard"}
                 {currentView === "notifications" && "Notifications"}
                 {currentView === "leads" && "Leads"}
@@ -4113,7 +4151,7 @@ const Admin: React.FC = () => {
                 {currentView === "profile" && "Edit Profile"}
               </h2>
             </div>
-            <div className="text-sm text-slate-500">
+            <div className="hidden sm:block text-sm text-slate-500 whitespace-nowrap">
               {new Date().toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
@@ -4124,7 +4162,7 @@ const Admin: React.FC = () => {
         </header>
 
         {/* Content */}
-        <div className="p-8 min-w-0 overflow-x-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 min-w-0 overflow-x-hidden">
           {/* DASHBOARD VIEW */}
           {currentView === "dashboard" && (
             <div className="space-y-6">
@@ -4374,9 +4412,9 @@ const Admin: React.FC = () => {
 
           {/* ================= LEADS VIEW ================= */}
           {currentView === "leads" && (
-            <div className="flex gap-6 min-w-0">
+            <div className="flex flex-col xl:flex-row gap-4 xl:gap-6 min-w-0">
               {/* ================= SIDEBAR ================= */}
-              <aside className="w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
+              <aside className="w-full xl:w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
                 <h3 className="font-black text-sm">Filters</h3>
 
                 {/* Search */}
@@ -4450,7 +4488,7 @@ const Admin: React.FC = () => {
               {/* ================= MAIN CONTENT ================= */}
               <div className="flex-1 min-w-0 flex flex-col gap-6">
                 {/* HEADER */}
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                   <h2 className="text-2xl font-black">
                     Leads ({filteredLeads.length})
                   </h2>
@@ -4465,29 +4503,31 @@ const Admin: React.FC = () => {
 
                 {/* TABLE */}
                 <div className="bg-white border rounded-xl overflow-hidden">
-                  <div className="grid grid-cols-10 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left">
-                    <span>Name</span>
-                    <span>Company</span>
-                    <span>Email</span>
-                    <span>Phone</span>
-                    <span>Status</span>
-                    <span>Date</span>
-                    <span>Next Follow Up</span>
-                    <span>Mail</span>
-                    <span>Send</span>
-                    <span>Delete</span>
-                  </div>
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[980px]">
+                      <div className="grid grid-cols-10 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left">
+                        <span>Name</span>
+                        <span>Company</span>
+                        <span>Email</span>
+                        <span>Phone</span>
+                        <span>Status</span>
+                        <span>Date</span>
+                        <span>Next Follow Up</span>
+                        <span>Mail</span>
+                        <span>Send</span>
+                        <span>Delete</span>
+                      </div>
 
-                  {leads.length === 0 ? (
-                    <div className="p-10 text-center text-slate-400">
-                      No leads found
-                    </div>
-                  ) : (
-                    filteredLeads.map((lead) => (
-                      <div
-                        key={lead._id}
-                        className="grid grid-cols-10 px-6 py-4 text-sm border-b hover:bg-slate-50 text-left"
-                      >
+                      {leads.length === 0 ? (
+                        <div className="p-10 text-center text-slate-400">
+                          No leads found
+                        </div>
+                      ) : (
+                        filteredLeads.map((lead) => (
+                          <div
+                            key={lead._id}
+                            className="grid grid-cols-10 px-6 py-4 text-sm border-b hover:bg-slate-50 text-left"
+                          >
                         <span className="font-semibold">
                           {lead.firstName} {lead.lastName}
                         </span>
@@ -4592,15 +4632,17 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                             Delete
                           </button>
                         </span>
-                      </div>
-                    ))
-                  )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* CREATE LEAD MODAL */}
                 {showCreateLead && (
                   <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                    <div className="bg-white w-[700px] rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white w-full max-w-[700px] mx-4 rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
                       <div className="flex justify-between items-center">
                         <h3 className="text-xl font-bold">Create Lead</h3>
                         <button
@@ -4612,7 +4654,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       </div>
 
                       {/* FORM GRID */}
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <input
                           placeholder="First Name"
                           value={newLead.firstName}
@@ -4688,7 +4730,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
                 {showDeleteModal && (
                   <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                    <div className="bg-white border-2 border-black-500 w-[420px] rounded-xl p-6 space-y-5 shadow-xl">
+                    <div className="bg-white border-2 border-black-500 w-full max-w-[420px] mx-4 rounded-xl p-6 space-y-5 shadow-xl">
                       <h3 className="text-lg font-bold text-red-600">
                         Delete Lead
                       </h3>
@@ -4944,8 +4986,8 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
           {/* ================= SUPPORT VIEW ================= */}
           {currentView === "support" && (
-            <div className="flex gap-6 min-w-0">
-              <aside className="w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
+            <div className="flex flex-col xl:flex-row gap-4 xl:gap-6 min-w-0">
+              <aside className="w-full xl:w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
                 <h3 className="font-black text-sm">Filters</h3>
 
                 <div className="space-y-2 text-sm">
@@ -5269,8 +5311,8 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
           {/* ================= TASKS VIEW ================= */}
           {currentView === "tasks" && (
-            <div className="flex gap-6 min-w-0">
-              <aside className="w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
+            <div className="flex flex-col xl:flex-row gap-4 xl:gap-6 min-w-0">
+              <aside className="w-full xl:w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
                 <h3 className="font-black text-sm">Filters</h3>
 
                 <div className="space-y-2 text-sm">
@@ -5319,7 +5361,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
               </aside>
 
               <div className="flex-1 min-w-0 flex flex-col gap-6">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                   <h2 className="text-2xl font-black">Tasks ({filteredTasks.length})</h2>
                   <button
                     onClick={() => {
@@ -5662,7 +5704,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
               {showDeleteTaskModal && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                  <div className="bg-white rounded-xl p-6 w-[400px] space-y-4 shadow-xl">
+                  <div className="bg-white rounded-xl p-6 w-full max-w-[400px] mx-4 space-y-4 shadow-xl">
                     <h3 className="text-lg font-bold text-red-600">Delete Task?</h3>
                     <p className="text-sm text-slate-600">
                       Are you sure you want to delete this task?
@@ -6698,9 +6740,9 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
           {/* ALL USERS VIEW */}
           {currentView === "users" && (
-            <div className="flex gap-6">
+            <div className="flex flex-col xl:flex-row gap-4 xl:gap-6">
               {/* ================= SIDEBAR FILTERS ================= */}
-              <aside className="w-[280px] shrink-0 bg-white rounded-xl border p-5 space-y-6">
+              <aside className="w-full xl:w-[280px] shrink-0 bg-white rounded-xl border p-5 space-y-6">
                 <h3 className="font-black text-sm flex items-center gap-2">
                   Filters
                 </h3>
@@ -6809,11 +6851,12 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
               {/* ================= USERS TABLE ================= */}
               <section className="flex-1 bg-white rounded-xl border overflow-hidden">
-                <div className="px-6 py-4 border-b font-black">
+                <div className="px-4 sm:px-6 py-4 border-b font-black">
                   Users ({filteredUsers.length})
                 </div>
 
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-sm">
                   <thead className="bg-slate-50">
                     <tr>
                       <th className="p-3 text-left">#</th>
@@ -6871,7 +6914,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     {filteredUsers.length === 0 && (
                       <tr>
                         <td
-                          colSpan={6}
+                          colSpan={7}
                           className="p-6 text-center text-slate-400"
                         >
                           No users match filters
@@ -6880,6 +6923,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     )}
                   </tbody>
                 </table>
+                </div>
               </section>
             </div>
           )}
@@ -6887,9 +6931,9 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
           {/* ALL INFLUENCERS VIEW */}
           {/* ================= ALL INFLUENCERS VIEW ================= */}
           {currentView === "all-influencers" && (
-            <div className="flex gap-8">
+            <div className="flex flex-col xl:flex-row gap-4 xl:gap-8">
               {/* ================= SIDEBAR ================= */}
-              <aside className="w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
+              <aside className="w-full xl:w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
                 <h3 className="font-black text-sm">Filters</h3>
 
                 {/* STATUS */}
@@ -7063,9 +7107,9 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
           {/* ================= ORDERS VIEW ================= */}
           {currentView === "orders" && (
-            <div className="flex gap-6">
+            <div className="flex flex-col xl:flex-row gap-4 xl:gap-6">
               {/* ================= FILTER SIDEBAR ================= */}
-              <aside className="w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
+              <aside className="w-full xl:w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
                 <h3 className="font-black text-sm">Filters</h3>
 
                 {/* PAYMENT STATUS */}
@@ -7132,13 +7176,13 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
               {/* ================= MAIN CONTENT ================= */}
               <section className="flex-1 flex flex-col gap-6">
                 {/* HEADER */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <h2 className="text-2xl font-black">
                     All Orders ({orders.length})
                   </h2>
 
                   {orders.length > 0 && (
-                    <div className="text-sm text-slate-500 flex gap-4">
+                    <div className="text-sm text-slate-500 flex flex-wrap gap-3">
                       <span>
                         ✅ Success:{" "}
                         {orders.filter((o) => o.status === "SUCCESS").length}
@@ -8867,7 +8911,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
       </div>
 
       {/* Toast Notifications Container */}
-      <div className="fixed top-6 right-6 z-[9999] space-y-3 max-w-md">
+      <div className="fixed top-4 left-3 right-3 sm:top-6 sm:left-auto sm:right-6 z-[9999] space-y-3 max-w-md sm:w-full">
         {toasts.map((toast) => {
           const icons = {
             success: <CheckCircle className="w-6 h-6 text-green-400" />,
