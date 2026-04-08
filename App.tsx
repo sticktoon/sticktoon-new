@@ -49,6 +49,7 @@ import Influencer from "./pages/Influencer";
 import Admin from "./pages/Admin";
 import OrderSuccess from "./pages/OrderSuccess";
 import Profile from "./pages/Profile";
+import { API_BASE_URL } from "./config/api";
 
 
 
@@ -790,8 +791,6 @@ const Footer: React.FC = () => (
 /* =======================
    APP
 ======================= */
-const API_BASE_URL = import.meta.env.VITE_API_URL;
-
 export default function App() {
   // Load cart from localStorage on initial load (for guests)
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -886,8 +885,13 @@ export default function App() {
     }
   }, [cartLoaded]);
 
- const addToCart = async (badge: any) => {
-  const qty = badge.quantity || 10;
+ const addToCart = async (badge: any, quantity?: number) => {
+  const qty = Number(quantity ?? badge.quantity ?? 1);
+
+    if (!Number.isFinite(qty) || qty === 0) {
+      console.error("Invalid cart quantity", { badgeId: badge?.id, quantity: qty });
+      return;
+    }
 
     const token = localStorage.getItem("token");
     if (!token) {
