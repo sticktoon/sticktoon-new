@@ -20,6 +20,21 @@ interface CustomOrderProps {
   addToCart: (badge: Badge, quantity?: number) => void;
 }
 
+interface CustomOrderDraft {
+  fastener: string;
+  quantity: number;
+  prompt: string;
+  zoom: number;
+  rotation: number;
+  bgColor: string;
+  imageSrc?: string;
+  imageX?: number;
+  imageY?: number;
+}
+
+const CUSTOM_ORDER_DRAFT_KEY = 'sticktoon-custom-order-draft-v1';
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
 export default function CustomOrder({ addToCart }: CustomOrderProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -40,6 +55,7 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
   const [downloading, setDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
 
   const backgroundPresets = [
     '#FFFFFF', '#000000', '#E5E7EB', '#C7D2FE', '#B11494', '#6D28D9',
@@ -61,6 +77,82 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
   const CANVAS_SIZE = Math.round((BADGE_MM * PRINT_DPI) / MM_TO_INCH);
   const OUTER_CANVAS_SIZE = Math.round((OUTER_BADGE_MM * PRINT_DPI) / MM_TO_INCH);
   const BASE_PRICE = 69;
+
+  useEffect(() => {
+    try {
+      const savedDraft = localStorage.getItem(CUSTOM_ORDER_DRAFT_KEY);
+      if (!savedDraft) {
+        setDraftReady(true);
+        return;
+      }
+
+      const draft = JSON.parse(savedDraft) as Partial<CustomOrderDraft>;
+      const restoredFastener = typeof draft.fastener === 'string' ? draft.fastener : 'Pin-Badge';
+      const restoredQuantity = clamp(Number(draft.quantity) || 1, 1, 999);
+      const restoredPrompt = typeof draft.prompt === 'string' ? draft.prompt : '';
+      const restoredZoom = clamp(Number(draft.zoom) || 1, 0.2, 5);
+      const restoredRotation = clamp(Number(draft.rotation) || 0, -180, 180);
+      const restoredBgColor = typeof draft.bgColor === 'string' ? draft.bgColor : '#FFFFFF';
+
+      setFastener(restoredFastener);
+      setQuantity(restoredQuantity);
+      setPrompt(restoredPrompt);
+      setZoom(restoredZoom);
+      setRotation(restoredRotation);
+      setBgColor(restoredBgColor);
+
+      const imageSrc = typeof draft.imageSrc === 'string' ? draft.imageSrc : '';
+      if (imageSrc) {
+        const img = new Image();
+        img.onload = () => {
+          const fitScale = Math.max(CANVAS_PX / img.width, CANVAS_PX / img.height);
+          setImageState({
+            img,
+            x: Number(draft.imageX) || 0,
+            y: Number(draft.imageY) || 0,
+            scale: fitScale * restoredZoom,
+            rotation: restoredRotation,
+          });
+          setDraftReady(true);
+        };
+        img.onerror = () => {
+          setDraftReady(true);
+        };
+        img.src = imageSrc;
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to restore custom order draft', error);
+      localStorage.removeItem(CUSTOM_ORDER_DRAFT_KEY);
+    }
+
+    setDraftReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!draftReady) return;
+
+    const timer = window.setTimeout(() => {
+      const draft: CustomOrderDraft = {
+        fastener,
+        quantity,
+        prompt,
+        zoom,
+        rotation,
+        bgColor,
+      };
+
+      if (imageState?.img?.src) {
+        draft.imageSrc = imageState.img.src;
+        draft.imageX = imageState.x;
+        draft.imageY = imageState.y;
+      }
+
+      localStorage.setItem(CUSTOM_ORDER_DRAFT_KEY, JSON.stringify(draft));
+    }, 180);
+
+    return () => window.clearTimeout(timer);
+  }, [draftReady, fastener, quantity, prompt, zoom, rotation, bgColor, imageState]);
 
   useEffect(() => {
     if (!imageState) return;
@@ -348,19 +440,9 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
             </p>
           </div>
           {/* Price Tag in Header */}
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-xs text-slate-500">Total</p>
-              <p className="text-xl font-bold text-white">{formatPrice(BASE_PRICE * quantity)}</p>
-            </div>
-            <button
-              onClick={handleAddToCart}
-              disabled={loading || !imageState}
-              className="h-11 px-5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30"
-            >
-              <ShoppingCart className="w-4 h-4" />
-              Add to Cart
-            </button>
+          <div className="text-right">
+            <p className="text-xs text-slate-500">Total</p>
+            <p className="text-xl font-bold text-white">{formatPrice(BASE_PRICE * quantity)}</p>
           </div>
         </div>
       </header>

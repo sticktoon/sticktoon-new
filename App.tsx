@@ -898,32 +898,90 @@ export default function App() {
       setShowLoginPrompt(true);
       return;
     }
+
+    const cartItem = {
+      id: badge.id,
+      name: badge.name,
+      price: badge.price,
+      image: badge.image,
+      printImage: badge.printImage,
+      category: badge.category,
+    };
+
+    const existingItem = cart.find((item) => item.id === cartItem.id);
+
+    if (qty < 0 && !existingItem) {
+      return;
+    }
+
+    // Optimistic update so cart badge/count feels instant.
+    setCart((prev) => {
+      const index = prev.findIndex((item) => item.id === cartItem.id);
+
+      if (index < 0) {
+        if (qty < 0) return prev;
+        return [...prev, { ...cartItem, quantity: qty } as CartItem];
+      }
+
+      const next = [...prev];
+      const nextQty = next[index].quantity + qty;
+
+      if (nextQty <= 0) {
+        next.splice(index, 1);
+      } else {
+        next[index] = { ...next[index], quantity: nextQty };
+      }
+
+      return next;
+    });
+
     try {
-      const res = await fetch(`${API_BASE_URL}/api/cart/add`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          item: {
-            id: badge.id,
-            name: badge.name,
-            price: badge.price,
-            image: badge.image,
-            printImage: badge.printImage,
-            category: badge.category,
+      let res: Response;
+
+      if (qty < 0 && existingItem) {
+        const nextQty = existingItem.quantity + qty;
+
+        if (nextQty <= 0) {
+          res = await fetch(`${API_BASE_URL}/api/cart/remove/${cartItem.id}`, {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+        } else {
+          res = await fetch(`${API_BASE_URL}/api/cart/update/${cartItem.id}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ quantity: nextQty }),
+          });
+        }
+      } else {
+        res = await fetch(`${API_BASE_URL}/api/cart/add`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
-          quantity: qty,
-        }),
-      });
+          body: JSON.stringify({
+            item: cartItem,
+            quantity: qty,
+          }),
+        });
+      }
+
       if (res.ok) {
-        await syncCartWithDatabase();
+        const data = await res.json();
+        setCart(data.items || []);
       } else {
         console.error("Failed to add to cart", await res.json());
+        await syncCartWithDatabase();
       }
     } catch (err) {
       console.error("Error adding to cart", err);
+      await syncCartWithDatabase();
     }
   };
 
