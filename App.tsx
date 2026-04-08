@@ -125,7 +125,7 @@ style={{ transform: `scale(${scale})` }}>
 
         
         {/* Blinking Eyes Overlay - Adjusted to cover original eyes */}
-        <div className="absolute top-[57.6%] sm:top-[58%] left-[58.6%] sm:left-[60.9%] -translate-y-1/2 flex gap-[0.5px] sm:gap-[0.5px]">
+        <div className="absolute top-[57.6%] sm:top-[58%] left-[59.8%] sm:left-[60.9%] -translate-y-1/2 flex gap-[0.5px] sm:gap-[0.5px]">
           {[1, 2].map((i) => (
             <div key={i} className="w-[17px] h-[17.5px] sm:w-[19.5px] sm:h-[20px] rounded-full bg-white flex items-center justify-end overflow-hidden shadow-inner pr-[1px]">
               <div className="eye-blink w-[7.5px] h-[9px] sm:w-[9px] sm:h-[11px] bg-black rounded-full"></div>
