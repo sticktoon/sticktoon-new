@@ -12,6 +12,10 @@ interface CategoriesProps {
 }
 
 const PRODUCTS_FETCH_VERSION = 'subcat-v1';
+const PRODUCTS_CACHE_KEY = `sticktoon-products-cache-${PRODUCTS_FETCH_VERSION}`;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+type ProductsCacheRecord = { data: Badge[]; timestamp: number };
+let productsMemoryCache: ProductsCacheRecord | null = null;
 
 const normalizeCategoryId = (value?: string) => {
   if (!value) return '';
@@ -312,10 +316,6 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
   // Check if user is admin
   const isAdmin = user?.role === 'admin';
 
-  // Simple product cache to avoid refetching on every navigation
-  const productCacheRef = useRef<{ data: Badge[]; timestamp: number } | null>(null);
-  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
   const normalizeImagePath = (path?: string) => {
     if (!path) return undefined;
 
@@ -410,12 +410,28 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
   // Fetch products from API with caching
   useEffect(() => {
     const fetchProducts = async () => {
+      const now = Date.now();
+
       // Check cache first
-      const cached = productCacheRef.current;
-      if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-        setProducts(cached.data);
+      if (productsMemoryCache && now - productsMemoryCache.timestamp < CACHE_TTL) {
+        setProducts(productsMemoryCache.data);
         setLoading(false);
         return;
+      }
+
+      try {
+        const cachedSessionData = sessionStorage.getItem(PRODUCTS_CACHE_KEY);
+        if (cachedSessionData) {
+          const parsedCache = JSON.parse(cachedSessionData) as ProductsCacheRecord;
+          if (parsedCache?.data?.length && now - parsedCache.timestamp < CACHE_TTL) {
+            productsMemoryCache = parsedCache;
+            setProducts(parsedCache.data);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Failed to read product cache', error);
       }
 
       // Show static badges immediately while fetching from API
@@ -435,8 +451,13 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
           const mappedProducts = mapApiProductsToBadges(apiItems);
           const finalProducts = ensureMinimumPerCategory(mappedProducts);
           setProducts(finalProducts);
-          // Cache the result
-          productCacheRef.current = { data: finalProducts, timestamp: Date.now() };
+          // Cache result for fast revisits.
+          const nextCache: ProductsCacheRecord = {
+            data: finalProducts,
+            timestamp: Date.now(),
+          };
+          productsMemoryCache = nextCache;
+          sessionStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify(nextCache));
         } else {
           setProducts(ensureMinimumPerCategory(BADGES));
         }
@@ -715,7 +736,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
             </div>
           </div>
 
-          {loading ? (
+          {loading && products.length === 0 ? (
             <div className="text-center py-24">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
               <p className="mt-6 text-slate-500 font-semibold text-sm">Loading products...</p>

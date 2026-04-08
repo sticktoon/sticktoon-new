@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from "react-router-dom";
 import { 
   ShoppingCart, 
@@ -20,36 +20,37 @@ import {
 
 import { Badge, CartItem, User as UserType } from './types.ts';
 import { CATEGORIES, STICKER_CATEGORIES } from "./constants";
-import Home from "./pages/Home";
-import Categories from "./pages/Categories";
-import BadgeDetail from "./pages/BadgeDetail";
-import Checkout from "./pages/Checkout";
-import Login from "./pages/Login";
-import CustomOrder from "./pages/CustomOrder";
-import Contact from "./pages/Contact";
-import About from "./pages/About";
-import Stickers from "./pages/Stickers";
-import StickerDetail from "./pages/StickerDetail";
-import ResetPassword from "./pages/ResetPassword";
-import AdminDashboard from "./pages/AdminDashboard";
-import AdminUsers from "./pages/AdminUsers";
-import AdminOrders from "./pages/AdminOrders";
-import AdminRevenue from "./pages/AdminRevenue";
-import AdminUserOrders from "./pages/AdminUserOrders";
-import AdminInvoice from "./pages/AdminInvoice";
-import AdminDealConvert from "./pages/AdminDealConvert";
-import AdminDealSend from "./pages/AdminDealSend";
-import AdminPromo from "./pages/AdminPromo";
-import AdminInfluencerManage from "./pages/AdminInfluencerManage";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import TermsConditions from "./pages/TermsConditions";
-import RefundCancellation from "./pages/RefundCancellation";
-import Faq from "./pages/Faq";
-import Influencer from "./pages/Influencer";
-import Admin from "./pages/Admin";
-import OrderSuccess from "./pages/OrderSuccess";
-import Profile from "./pages/Profile";
 import { API_BASE_URL } from "./config/api";
+
+const Home = lazy(() => import("./pages/Home"));
+const Categories = lazy(() => import("./pages/Categories"));
+const BadgeDetail = lazy(() => import("./pages/BadgeDetail"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const Login = lazy(() => import("./pages/Login"));
+const CustomOrder = lazy(() => import("./pages/CustomOrder"));
+const Contact = lazy(() => import("./pages/Contact"));
+const About = lazy(() => import("./pages/About"));
+const Stickers = lazy(() => import("./pages/Stickers"));
+const StickerDetail = lazy(() => import("./pages/StickerDetail"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminUsers = lazy(() => import("./pages/AdminUsers"));
+const AdminOrders = lazy(() => import("./pages/AdminOrders"));
+const AdminRevenue = lazy(() => import("./pages/AdminRevenue"));
+const AdminUserOrders = lazy(() => import("./pages/AdminUserOrders"));
+const AdminInvoice = lazy(() => import("./pages/AdminInvoice"));
+const AdminDealConvert = lazy(() => import("./pages/AdminDealConvert"));
+const AdminDealSend = lazy(() => import("./pages/AdminDealSend"));
+const AdminPromo = lazy(() => import("./pages/AdminPromo"));
+const AdminInfluencerManage = lazy(() => import("./pages/AdminInfluencerManage"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsConditions = lazy(() => import("./pages/TermsConditions"));
+const RefundCancellation = lazy(() => import("./pages/RefundCancellation"));
+const Faq = lazy(() => import("./pages/Faq"));
+const Influencer = lazy(() => import("./pages/Influencer"));
+const Admin = lazy(() => import("./pages/Admin"));
+const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
+const Profile = lazy(() => import("./pages/Profile"));
 
 
 
@@ -1246,7 +1247,17 @@ export default function App() {
       )}
 
       <main className="flex-grow pt-[80px]">
-        <Routes>
+        <Suspense
+          fallback={
+            <div className="min-h-[calc(100vh-80px)] flex items-center justify-center">
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-yellow-500" />
+                <p className="mt-3 text-sm font-semibold text-slate-500">Loading...</p>
+              </div>
+            </div>
+          }
+        >
+          <Routes>
           <Route path="/" element={<Home addToCart={addToCart} />} />
           <Route path="/categories/:categoryId/:subcategory" element={<Categories addToCart={addToCart} user={user} />} />
           <Route path="/categories" element={<Categories addToCart={addToCart} user={user} />} />
@@ -1299,7 +1310,8 @@ export default function App() {
           <Route path="/refund-cancellation" element={<RefundCancellation />} />
           <Route path="/order-success" element={<OrderSuccess />} />
           <Route path="/profile" element={<Profile addToCart={addToCart} />} />
-        </Routes>
+          </Routes>
+        </Suspense>
       </main>
       <Footer />
     </BrowserRouter>
