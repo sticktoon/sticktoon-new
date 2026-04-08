@@ -160,6 +160,20 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// ⚡ SELF-PING: Pings itself every 14 mins to stay awake on Render
+if (process.env.RENDER || process.env.NODE_ENV === "production") {
+  const https = require("https");
+  const SELF_PING_URL = "https://sticktoon-website.onrender.com/api/health";
+  
+  setInterval(() => {
+    https.get(SELF_PING_URL, (res) => {
+      console.log(`[Self-Ping] Status: ${res.statusCode} at ${new Date().toISOString()}`);
+    }).on("error", (err) => {
+      console.error("[Self-Ping] Error:", err.message);
+    });
+  }, 14 * 60 * 1000); // 14 Minutes
+}
+
 // Friendly root route
 app.get("/", (req, res) => {
   res.send("StickToon API is running 🚀");
