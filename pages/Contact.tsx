@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Mail, Send, Loader2, CheckCircle2, Sparkle, MessageCircle } from 'lucide-react';
+import { Mail, Send, Loader2, CheckCircle2, MessageCircle, Phone, MapPin, Clock, ArrowRight, Sparkles, X } from 'lucide-react';
 import { Instagram } from "lucide-react";
 import { API_BASE_URL } from '../config/api';
 
@@ -16,6 +16,7 @@ export default function Contact() {
   const [submitted, setSubmitted] = useState(false);
   const [submittedTicketId, setSubmittedTicketId] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const inquiryOptions = [
     'Customer Support (Existing Order Issue)',
@@ -32,9 +33,7 @@ export default function Contact() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/contact`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
       const data = await res.json().catch(() => ({}));
@@ -53,196 +52,290 @@ export default function Contact() {
     }
   };
 
-  const infoCards = [
-    {
-      title: 'Email Us',
-      value: 'sticktoon.xyz@gmail.com',
-      icon: <Mail className="w-7 h-7" />,
-      color: 'bg-yellow-100 text-yellow-700',
-      action: 'mailto:sticktoon.xyz@gmail.com'
-    },
-    {
-      title: 'Instagram',
-      value: '@sticktoon.shop',
-      icon: <Instagram className="w-7 h-7" />,
-      color: 'bg-pink-100 text-pink-700',
-      action: 'https://www.instagram.com/sticktoon.shop'
-    }
-  ];
-
   return (
-    <div className="relative min-h-screen bg-white pt-20 pb-8 px-4 sm:px-6 lg:px-8 overflow-hidden">
-      
-      {/* Premium background glow - Hot Drops Theme */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-64 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px]" />
-        <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-orange-400/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
+    <div className="min-h-screen bg-slate-950 relative overflow-hidden">
+      {/* Ambient Background */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/3 w-[700px] h-[700px] bg-purple-600/[0.07] rounded-full blur-[150px]" />
+        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-indigo-600/[0.05] rounded-full blur-[130px]" />
+        <div className="absolute top-1/2 left-0 w-[400px] h-[400px] bg-fuchsia-600/[0.04] rounded-full blur-[120px]" />
       </div>
 
-      {/* Funny Floating Circles - Outer Edges Only */}
-      <div className="absolute top-32 -left-8 w-24 h-24 rounded-full border-[8px] border-yellow-400/30 animate-bounce" style={{ animationDuration: '4s' }} />
-      <div className="absolute top-64 -right-12 w-32 h-32 rounded-full border-[10px] border-orange-400/25 animate-pulse" style={{ animationDuration: '3s' }} />
-      <div className="absolute bottom-40 -left-16 w-28 h-28 rounded-full border-[8px] border-red-400/20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }} />
-      <div className="absolute bottom-72 -right-8 w-20 h-20 rounded-full border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
-      
-      <div className="relative z-10 max-w-7xl mx-auto w-full">
+      {/* Grid Pattern Overlay */}
+      <div className="fixed inset-0 pointer-events-none opacity-[0.02]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+          backgroundSize: '60px 60px'
+        }}
+      />
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
+        {/* Page Header - Compact */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-6 py-3 rounded-full mb-4 border-2 border-yellow-500/30">
-            <span className="text-[11px] font-black text-yellow-700 uppercase tracking-widest">Get In Touch</span>
+          <div className="inline-flex items-center gap-2 bg-purple-500/10 px-3 py-1.5 rounded-full border border-purple-500/20 mb-3">
+            <MessageCircle className="w-3.5 h-3.5 text-purple-400" />
+            <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-widest">Get In Touch</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-slate-900 via-yellow-700 to-orange-700 bg-clip-text text-transparent mb-2">Contact Us</h1>
-          <p className="text-slate-600 text-sm md:text-base max-w-2xl mx-auto">Got a question? We'd love to hear from you!</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight mb-2">
+            Contact Us
+          </h1>
+          <p className="text-slate-500 text-sm max-w-md mx-auto">
+            Have a question or feedback? We'll get back to you within 24 hours.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8 items-start max-w-5xl mx-auto lg:mx-auto">
-          {/* Form - Left */}
-          <div className="bg-gradient-to-br from-white to-yellow-50/50 backdrop-blur border-2 border-yellow-500/20 rounded-2xl shadow-sm hover:shadow-2xl hover:shadow-yellow-500/20 hover:border-yellow-500/60 transition-all duration-300 p-6 h-fit">{submitted ? (
-              <div className="text-center py-8 space-y-4">
-                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3 border-2 border-green-500/30">
-                  <CheckCircle2 className="w-8 h-8" />
-                </div>
-                <h3 className="text-lg font-black text-slate-900">Message Sent! ✨</h3>
-                <p className="text-slate-600 font-semibold text-sm">Our crew will get back to you within 24 hours.</p>
-                {submittedTicketId && (
-                  <p className="text-sm font-bold text-indigo-700">
-                    Ticket ID: {submittedTicketId}
-                  </p>
-                )}
-                <button 
-                  onClick={() => {
-                    setSubmitted(false);
-                    setSubmittedTicketId('');
-                  }}
-                  className="px-6 py-2 bg-yellow-500 text-white font-bold rounded-lg hover:bg-yellow-600 transition-all"
-                >
-                  Send Another
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <h2 className="text-xl font-black text-slate-900 mb-6 tracking-tight">
-                  Get In Touch 💬
-                </h2>
-
-                {submitError && (
-                  <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
-                    {submitError}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12 max-w-6xl mx-auto">
+          {/* ===== FORM (3 cols) ===== */}
+          <div className="lg:col-span-3">
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06] overflow-hidden">
+              {submitted ? (
+                /* Success State */
+                <div className="p-10 text-center">
+                  <div className="w-20 h-20 bg-emerald-500/15 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-emerald-500/20">
+                    <CheckCircle2 className="w-10 h-10 text-emerald-400" />
                   </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-bold text-slate-900 mb-2">Your Name</label>
-                  <input 
-                    required
-                    type="text" 
-                    placeholder="Name" 
-                    value={formData.name}
-                    onChange={e => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-4 py-3 bg-white border-2 border-yellow-500/20 rounded-xl focus:border-yellow-500 focus:outline-none transition-all text-slate-900 placeholder:text-slate-400"
-                  />
+                  <h3 className="text-2xl font-bold text-white mb-2">Message Sent!</h3>
+                  <p className="text-slate-400 mb-2">Our team will get back to you within 24 hours.</p>
+                  {submittedTicketId && (
+                    <div className="inline-flex items-center gap-2 bg-indigo-500/10 px-4 py-2 rounded-lg border border-indigo-500/20 mb-6">
+                      <span className="text-indigo-400 text-sm font-medium">Ticket ID:</span>
+                      <span className="text-white font-mono text-sm font-bold">{submittedTicketId}</span>
+                    </div>
+                  )}
+                  <div className="mt-4">
+                    <button
+                      onClick={() => { setSubmitted(false); setSubmittedTicketId(''); }}
+                      className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl transition-all hover:scale-105 shadow-lg shadow-purple-500/20"
+                    >
+                      Send Another Message
+                    </button>
+                  </div>
                 </div>
+              ) : (
+                /* Form */
+                <form onSubmit={handleSubmit}>
+                  <div className="p-6 lg:p-8 border-b border-white/[0.04]">
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-purple-400" />
+                      Send us a message
+                    </h2>
+                    <p className="text-slate-500 text-sm mt-1">Fill out the form below and we'll respond quickly.</p>
+                  </div>
 
-                <div>
-                <label className="block text-sm font-bold text-slate-900 mb-2">Phone</label>
-                <input
-                  required
-                  type="tel"
-                  placeholder="Phone"
-                  value={formData.phone}
-                  onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-4 py-3 bg-white border-2 border-yellow-500/20 rounded-xl focus:border-yellow-500 focus:outline-none transition-all text-slate-900 placeholder:text-slate-400"
-                />
-              </div>
+                  <div className="p-6 lg:p-8 space-y-5">
+                    {submitError && (
+                      <div className="flex items-center gap-3 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3">
+                        <X className="w-4 h-4 text-red-400 flex-shrink-0" />
+                        <p className="text-red-400 text-sm font-medium">{submitError}</p>
+                      </div>
+                    )}
 
-                <div>
-                  <label className="block text-sm font-bold text-slate-900 mb-2">Email</label>
-                  <input 
-                    required
-                    type="email" 
-                    placeholder="Email" 
-                    value={formData.email}
-                    onChange={e => setFormData({...formData, email: e.target.value})}
-                    className="w-full px-4 py-3 bg-white border-2 border-yellow-500/20 rounded-xl focus:border-yellow-500 focus:outline-none transition-all text-slate-900 placeholder:text-slate-400"
-                  />
-                </div>
+                    {/* Name & Phone Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-slate-500 text-xs font-medium uppercase tracking-wider mb-2">Your Name</label>
+                        <input
+                          required
+                          type="text"
+                          placeholder="John Doe"
+                          value={formData.name}
+                          onFocus={() => setFocusedField('name')}
+                          onBlur={() => setFocusedField(null)}
+                          onChange={e => setFormData({...formData, name: e.target.value})}
+                          className={`w-full px-4 py-3 bg-white/[0.04] border rounded-xl text-white placeholder:text-slate-600 focus:outline-none transition-all duration-300 ${
+                            focusedField === 'name' ? 'border-purple-500/50 ring-1 ring-purple-500/20 bg-white/[0.06]' : 'border-white/[0.08]'
+                          }`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-500 text-xs font-medium uppercase tracking-wider mb-2">Phone</label>
+                        <input
+                          required
+                          type="tel"
+                          placeholder="+91 98765 43210"
+                          value={formData.phone}
+                          onFocus={() => setFocusedField('phone')}
+                          onBlur={() => setFocusedField(null)}
+                          onChange={e => setFormData({...formData, phone: e.target.value})}
+                          className={`w-full px-4 py-3 bg-white/[0.04] border rounded-xl text-white placeholder:text-slate-600 focus:outline-none transition-all duration-300 ${
+                            focusedField === 'phone' ? 'border-purple-500/50 ring-1 ring-purple-500/20 bg-white/[0.06]' : 'border-white/[0.08]'
+                          }`}
+                        />
+                      </div>
+                    </div>
 
-                <div>
-                  <label className="block text-sm font-bold text-slate-900 mb-2">Inquiry Type</label>
-                  <select
-                    required
-                    value={formData.inquiryType}
-                    onChange={e => setFormData({ ...formData, inquiryType: e.target.value })}
-                    className="w-full px-4 py-3 bg-white border-2 border-yellow-500/20 rounded-xl focus:border-yellow-500 focus:outline-none transition-all text-slate-900"
-                  >
-                    <option value="" disabled>Select an inquiry type</option>
-                    {inquiryOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    {/* Email */}
+                    <div>
+                      <label className="block text-slate-500 text-xs font-medium uppercase tracking-wider mb-2">Email Address</label>
+                      <input
+                        required
+                        type="email"
+                        placeholder="you@example.com"
+                        value={formData.email}
+                        onFocus={() => setFocusedField('email')}
+                        onBlur={() => setFocusedField(null)}
+                        onChange={e => setFormData({...formData, email: e.target.value})}
+                        className={`w-full px-4 py-3 bg-white/[0.04] border rounded-xl text-white placeholder:text-slate-600 focus:outline-none transition-all duration-300 ${
+                          focusedField === 'email' ? 'border-purple-500/50 ring-1 ring-purple-500/20 bg-white/[0.06]' : 'border-white/[0.08]'
+                        }`}
+                      />
+                    </div>
 
-                <div>
-                  <label className="block text-sm font-bold text-slate-900 mb-2">Message</label>
-                  <textarea 
-                    required
-                    placeholder="Message" 
-                    rows={3}
-                    value={formData.message}
-                    onChange={e => setFormData({...formData, message: e.target.value})}
-                    className="w-full px-4 py-3 bg-white border-2 border-yellow-500/20 rounded-xl focus:border-yellow-500 focus:outline-none transition-all text-slate-900 placeholder:text-slate-400 resize-none"
-                  />
-                </div>
+                    {/* Inquiry Type */}
+                    <div>
+                      <label className="block text-slate-500 text-xs font-medium uppercase tracking-wider mb-2">Inquiry Type</label>
+                      <select
+                        required
+                        value={formData.inquiryType}
+                        onFocus={() => setFocusedField('type')}
+                        onBlur={() => setFocusedField(null)}
+                        onChange={e => setFormData({ ...formData, inquiryType: e.target.value })}
+                        className={`w-full px-4 py-3 bg-white/[0.04] border rounded-xl text-white focus:outline-none transition-all duration-300 ${
+                          focusedField === 'type' ? 'border-purple-500/50 ring-1 ring-purple-500/20 bg-white/[0.06]' : 'border-white/[0.08]'
+                        } ${!formData.inquiryType ? 'text-slate-600' : 'text-white'}`}
+                        style={{ colorScheme: 'dark' }}
+                      >
+                        <option value="" disabled>Select an inquiry type</option>
+                        {inquiryOptions.map((option) => (
+                          <option key={option} value={option} className="bg-slate-900 text-white">{option}</option>
+                        ))}
+                      </select>
+                    </div>
 
-                <button 
-                  disabled={isSubmitting}
-                  className="w-full py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold rounded-xl hover:from-yellow-600 hover:to-orange-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                  Send
-                </button>
-              </form>
-            )}
+                    {/* Message */}
+                    <div>
+                      <label className="block text-slate-500 text-xs font-medium uppercase tracking-wider mb-2">Message</label>
+                      <textarea
+                        required
+                        placeholder="Tell us what's on your mind..."
+                        rows={4}
+                        value={formData.message}
+                        onFocus={() => setFocusedField('message')}
+                        onBlur={() => setFocusedField(null)}
+                        onChange={e => setFormData({...formData, message: e.target.value})}
+                        className={`w-full px-4 py-3 bg-white/[0.04] border rounded-xl text-white placeholder:text-slate-600 focus:outline-none transition-all duration-300 resize-none ${
+                          focusedField === 'message' ? 'border-purple-500/50 ring-1 ring-purple-500/20 bg-white/[0.06]' : 'border-white/[0.08]'
+                        }`}
+                      />
+                    </div>
+
+                    {/* Submit Button */}
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="w-full py-3.5 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 hover:scale-[1.01] active:scale-[0.99] group"
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                          Send Message
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
 
-          {/* Info Cards + Our Vibes - Right */}
-          <div className="space-y-4">
-            {infoCards.map((card, idx) => (
-              <a 
-                key={idx}
-                href={card.action}
-                target={card.action?.startsWith('http') ? '_blank' : undefined}
-                rel={card.action?.startsWith('http') ? 'noopener noreferrer' : undefined}
-                className="flex items-center gap-3 p-4 bg-gradient-to-br from-white to-yellow-50/50 backdrop-blur border-2 border-yellow-500/20 rounded-2xl hover:shadow-2xl hover:shadow-yellow-500/20 hover:border-yellow-500/60 transition-all duration-300 cursor-pointer"
-              >
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${card.color} border-2 border-yellow-500/30`}>
-                  {card.icon}
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">{card.title}</h3>
-                  <p className="text-sm font-semibold text-slate-700 truncate hover:text-clip">
-                    {card.value}
-                  </p>
-                </div>
-              </a>
-            ))}
+          {/* ===== RIGHT SIDEBAR (2 cols) ===== */}
+          <div className="lg:col-span-2 space-y-5">
+            {/* Contact Cards */}
+            <a
+              href="mailto:sticktoon.xyz@gmail.com"
+              className="group flex items-center gap-4 p-5 bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06] hover:border-purple-500/30 transition-all duration-300"
+            >
+              <div className="w-12 h-12 bg-purple-500/15 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                <Mail className="w-5 h-5 text-purple-400" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-slate-500 text-xs font-medium uppercase tracking-wider mb-0.5">Email Us</p>
+                <p className="text-white font-medium text-sm truncate">sticktoon.xyz@gmail.com</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-purple-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
+            </a>
 
-            {/* Logo + Quote Section */}
-            <div className="p-6 bg-gradient-to-br from-white to-yellow-50/50 backdrop-blur border-2 border-yellow-500/20 rounded-2xl text-slate-900 relative overflow-hidden hover:shadow-2xl hover:shadow-yellow-500/20 hover:border-yellow-500/60 transition-all duration-300">
-              <div className="relative z-10 text-center space-y-5">
-                {/* Logo */}
-                <img 
-                  src="/images/STICKTOON_LONG.jpeg" 
-                  alt="STICKTOON" 
-                  className="h-16 w-auto mx-auto drop-shadow-xl filter contrast-125 brightness-105"
+            <a
+              href="https://www.instagram.com/sticktoon.shop"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-4 p-5 bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06] hover:border-pink-500/30 transition-all duration-300"
+            >
+              <div className="w-12 h-12 bg-pink-500/15 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                <Instagram className="w-5 h-5 text-pink-400" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-slate-500 text-xs font-medium uppercase tracking-wider mb-0.5">Instagram</p>
+                <p className="text-white font-medium text-sm truncate">@sticktoon.shop</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-pink-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
+            </a>
+
+            {/* Response Time Card */}
+            {/* <div className="p-5 bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06]">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-emerald-500/15 rounded-xl flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-white font-semibold text-sm">Quick Response</p>
+                  <p className="text-slate-500 text-xs">Usually within 24 hours</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+                  <div key={day} className="flex-1 text-center">
+                    <div className={`h-2 rounded-full mb-1 ${day === 'Sun' ? 'bg-slate-800' : 'bg-emerald-500/30'}`} />
+                    <span className={`text-[10px] font-medium ${day === 'Sun' ? 'text-slate-700' : 'text-slate-500'}`}>{day}</span>
+                  </div>
+                ))}
+              </div>
+            </div> */}
+
+            {/* Brand Card */}
+            <div className="p-6 bg-gradient-to-br from-purple-500/10 via-slate-900/60 to-indigo-500/10 backdrop-blur-xl rounded-2xl border border-white/[0.06] overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-[60px]" />
+              <div className="relative z-10 text-center space-y-4">
+                <img
+                  src="/images/STICKTOON_LONG.jpeg"
+                  alt="STICKTOON"
+                  className="h-14 w-auto mx-auto rounded-lg opacity-90"
                 />
-                
-                {/* Quote */}
-                <p className="text-sm font-bold text-slate-900 italic leading-relaxed">
-                  "Express yourself with badges that tell your story! 🎨"
+                <p className="text-slate-400 text-sm italic leading-relaxed">
+                  "Express yourself with badges that tell your story!"
                 </p>
+                <div className="flex items-center justify-center gap-2 text-slate-600 text-xs">
+                  <Sparkles className="w-3 h-3" />
+                  <span>Premium Stickers & Badges</span>
+                  <Sparkles className="w-3 h-3" />
+                </div>
+              </div>
+            </div>
+
+            {/* FAQ Quick Links */}
+            <div className="p-5 bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06]">
+              <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-purple-400" />
+                Common Questions
+              </h3>
+              <div className="space-y-2">
+                {[
+                  "Where is my order?",
+                  "How do I request a refund?",
+                  "Can I customize my stickers?",
+                  "What are the shipping charges?"
+                ].map((q, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setFormData({ ...formData, inquiryType: 'Customer Support (Existing Order Issue)', message: q })}
+                    className="w-full text-left px-4 py-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.04] hover:border-white/[0.1] text-slate-400 hover:text-white text-sm transition-all duration-200 group flex items-center justify-between"
+                  >
+                    <span>{q}</span>
+                    <ArrowRight className="w-3 h-3 text-slate-700 group-hover:text-purple-400 group-hover:translate-x-1 transition-all" />
+                  </button>
+                ))}
               </div>
             </div>
           </div>

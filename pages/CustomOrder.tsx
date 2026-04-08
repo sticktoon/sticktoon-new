@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { generateBadgeMockup } from '../geminiService.ts';
 import { 
   Upload, Wand2, Loader2, ShoppingCart, Download, RotateCcw, RotateCw,
-  Plus, Minus, X, Info, CheckCircle2
+  Plus, Minus, X, Info, CheckCircle2, Sparkles, Eye, Palette, Settings2, ZoomIn
 } from 'lucide-react';
 import { API_BASE_URL } from '../config/api.ts';
 import { formatPrice } from '../constants.tsx';
@@ -25,12 +25,10 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Badge Configuration
   const [fastener, setFastener] = useState('Pin-Badge');
   const [quantity, setQuantity] = useState(1);
   const [prompt, setPrompt] = useState('');
   
-  // Image State
   const [imageState, setImageState] = useState<ImageState | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, imgX: 0, imgY: 0 });
@@ -38,7 +36,6 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
   const [rotation, setRotation] = useState(0);
   const [bgColor, setBgColor] = useState('#FFFFFF');
   
-  // UI State
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -55,26 +52,22 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
     { id: 'Fridge Magnetic-Badge', label: 'Fridge Magnetic-Badge' }
   ];
 
-  // Constants
-  const CANVAS_PX = 400; // Display size
+  const CANVAS_PX = 400;
   const BADGE_MM = 58;
   const OUTER_BADGE_MM = 70;
   const PRINT_DPI = 300;
   const MM_TO_INCH = 25.4;
   
-  const CANVAS_SIZE = Math.round((BADGE_MM * PRINT_DPI) / MM_TO_INCH); // 68 5px - 58mm print
-  const OUTER_CANVAS_SIZE = Math.round((OUTER_BADGE_MM * PRINT_DPI) / MM_TO_INCH); // 827px - 70mm print
+  const CANVAS_SIZE = Math.round((BADGE_MM * PRINT_DPI) / MM_TO_INCH);
+  const OUTER_CANVAS_SIZE = Math.round((OUTER_BADGE_MM * PRINT_DPI) / MM_TO_INCH);
   const BASE_PRICE = 69;
 
-  // Re-fit image when badge size changes
   useEffect(() => {
     if (!imageState) return;
     const baseScale = Math.max(CANVAS_PX / imageState.img.width, CANVAS_PX / imageState.img.height);
     setImageState(prev => prev ? { ...prev, scale: baseScale * zoom } : prev);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Draw everything
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const preview = previewCanvasRef.current;
@@ -86,10 +79,9 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
     const INNER_PX = (BADGE_MM / OUTER_BADGE_MM) * CANVAS_PX;
 
     ctx.clearRect(0, 0, CANVAS_PX, CANVAS_PX);
-    ctx.fillStyle = "hsl(210, 14%, 91%)";
+    ctx.fillStyle = "hsl(222, 47%, 8%)";
     ctx.fillRect(0, 0, CANVAS_PX, CANVAS_PX);
 
-    // Clip to outer circle and draw image
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, OUTER_PX / 2, 0, Math.PI * 2);
@@ -107,14 +99,12 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
     }
     ctx.restore();
 
-    // Outer circle (solid black)
     ctx.beginPath();
     ctx.arc(cx, cy, OUTER_PX / 2, 0, Math.PI * 2);
-    ctx.strokeStyle = "#000000";
+    ctx.strokeStyle = "rgba(168,85,247,0.5)";
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Inner guide circle (dashed green)
     ctx.beginPath();
     ctx.arc(cx, cy, INNER_PX / 2, 0, Math.PI * 2);
     ctx.setLineDash([6, 4]);
@@ -123,7 +113,6 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Inner preview canvas
     if (preview) {
       const pCtx = preview.getContext("2d")!;
       const pSize = preview.width;
@@ -156,11 +145,8 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
     }
   }, [imageState, bgColor, CANVAS_PX, BADGE_MM, OUTER_BADGE_MM]);
 
-  useEffect(() => {
-    draw();
-  }, [draw]);
+  useEffect(() => { draw(); }, [draw]);
 
-  // Load image from AI generation
   const handleGenerateImage = async () => {
     if (!prompt.trim()) return;
     setLoading(true);
@@ -169,21 +155,16 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
       const img = new Image();
       img.onload = () => {
         const fitScale = Math.max(CANVAS_PX / img.width, CANVAS_PX / img.height);
-        setZoom(1);
-        setRotation(0);
+        setZoom(1); setRotation(0);
         setImageState({ img, x: 0, y: 0, scale: fitScale, rotation: 0 });
       };
       img.src = imageUrl;
     } catch (error) {
-      console.error('AI generation error:', error);
       setErrorMessage('Failed to generate badge design');
       setTimeout(() => setErrorMessage(null), 3000);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  // Load image from file
   const handleFile = (file: File) => {
     if (!file.type.startsWith("image/")) return;
     const reader = new FileReader();
@@ -191,8 +172,7 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
       const img = new Image();
       img.onload = () => {
         const fitScale = Math.max(CANVAS_PX / img.width, CANVAS_PX / img.height);
-        setZoom(1);
-        setRotation(0);
+        setZoom(1); setRotation(0);
         setImageState({ img, x: 0, y: 0, scale: fitScale, rotation: 0 });
       };
       img.src = e.target?.result as string;
@@ -200,27 +180,14 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
     reader.readAsDataURL(file);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  };
+  const handleDrop = (e: React.DragEvent) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleFile(file); };
 
-  // Pan handlers
   const getCanvasCoords = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
     const scaleRatio = CANVAS_PX / rect.width;
-    if ("touches" in e) {
-      return {
-        x: (e.touches[0].clientX - rect.left) * scaleRatio,
-        y: (e.touches[0].clientY - rect.top) * scaleRatio,
-      };
-    }
-    return {
-      x: (e.clientX - rect.left) * scaleRatio,
-      y: (e.clientY - rect.top) * scaleRatio,
-    };
+    if ("touches" in e) return { x: (e.touches[0].clientX - rect.left) * scaleRatio, y: (e.touches[0].clientY - rect.top) * scaleRatio };
+    return { x: (e.clientX - rect.left) * scaleRatio, y: (e.clientY - rect.top) * scaleRatio };
   };
 
   const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
@@ -233,16 +200,11 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
   const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDragging || !imageState) return;
     const coords = getCanvasCoords(e);
-    const dx = coords.x - dragStart.current.x;
-    const dy = coords.y - dragStart.current.y;
-    setImageState((prev) =>
-      prev ? { ...prev, x: dragStart.current.imgX + dx, y: dragStart.current.imgY + dy } : prev
-    );
+    setImageState((prev) => prev ? { ...prev, x: dragStart.current.imgX + coords.x - dragStart.current.x, y: dragStart.current.imgY + coords.y - dragStart.current.y } : prev);
   };
 
   const handlePointerUp = () => setIsDragging(false);
 
-  // Zoom
   const handleZoomChange = (newZoom: number) => {
     setZoom(newZoom);
     setImageState((prev) => {
@@ -252,37 +214,27 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
     });
   };
 
-  // Rotation
   const handleRotationChange = (newRot: number) => {
     setRotation(newRot);
     setImageState((prev) => (prev ? { ...prev, rotation: newRot } : prev));
   };
 
-  // Wheel zoom
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.05 : 0.05;
-    const newZoom = Math.max(0.2, Math.min(5, zoom + delta));
-    handleZoomChange(newZoom);
+    handleZoomChange(Math.max(0.2, Math.min(5, zoom + delta)));
   };
 
-  // Export functions
   const getFullCircleBlob = (): Promise<string> => {
     return new Promise((resolve) => {
-      const EXPORT_OUTER = OUTER_CANVAS_SIZE; // 827px - 70mm
+      const EXPORT_OUTER = OUTER_CANVAS_SIZE;
       const offCanvas = document.createElement("canvas");
-      offCanvas.width = EXPORT_OUTER;
-      offCanvas.height = EXPORT_OUTER;
+      offCanvas.width = EXPORT_OUTER; offCanvas.height = EXPORT_OUTER;
       const ctx = offCanvas.getContext("2d")!;
       const cx = EXPORT_OUTER / 2;
       const scale = EXPORT_OUTER / CANVAS_PX;
-
-      ctx.beginPath();
-      ctx.arc(cx, cx, EXPORT_OUTER / 2, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor;
-      ctx.fill();
-
+      ctx.beginPath(); ctx.arc(cx, cx, EXPORT_OUTER / 2, 0, Math.PI * 2); ctx.clip();
+      ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor; ctx.fill();
       if (imageState) {
         ctx.save();
         ctx.translate(cx + imageState.x * scale, cx + imageState.y * scale);
@@ -297,27 +249,17 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
 
   const getInnerCircleBlob = (): Promise<string> => {
     return new Promise((resolve) => {
-      const INNER_PX = (BADGE_MM / OUTER_BADGE_MM) * CANVAS_PX; // Inner circle size on display canvas
-      const EXPORT_SIZE = CANVAS_SIZE; // 685px - 58mm export
-      
+      const INNER_PX = (BADGE_MM / OUTER_BADGE_MM) * CANVAS_PX;
+      const EXPORT_SIZE = CANVAS_SIZE;
       const offCanvas = document.createElement("canvas");
-      offCanvas.width = EXPORT_SIZE;
-      offCanvas.height = EXPORT_SIZE;
+      offCanvas.width = EXPORT_SIZE; offCanvas.height = EXPORT_SIZE;
       const ctx = offCanvas.getContext("2d")!;
       const cx = EXPORT_SIZE / 2;
-
-      ctx.beginPath();
-      ctx.arc(cx, cx, EXPORT_SIZE / 2, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor;
-      ctx.fill();
-
+      ctx.beginPath(); ctx.arc(cx, cx, EXPORT_SIZE / 2, 0, Math.PI * 2); ctx.clip();
+      ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor; ctx.fill();
       if (imageState) {
-        // Scale from inner display circle to inner export size
         const previewScale = EXPORT_SIZE / INNER_PX;
-        ctx.save();
-        ctx.translate(cx, cx);
-        ctx.scale(previewScale, previewScale);
+        ctx.save(); ctx.translate(cx, cx); ctx.scale(previewScale, previewScale);
         ctx.translate(imageState.x, imageState.y);
         ctx.rotate((imageState.rotation * Math.PI) / 180);
         ctx.scale(imageState.scale, imageState.scale);
@@ -329,647 +271,401 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
   };
 
   const handleDownloadPrintFile = async () => {
-    if (!imageState) {
-      setErrorMessage('Please upload or generate an image first');
-      setTimeout(() => setErrorMessage(null), 3000);
-      return;
-    }
-
+    if (!imageState) { setErrorMessage('Please upload or generate an image first'); setTimeout(() => setErrorMessage(null), 3000); return; }
     setDownloading(true);
     try {
       const [outerDataUrl, innerDataUrl] = await Promise.all([getFullCircleBlob(), getInnerCircleBlob()]);
-
       const response = await fetch(`${API_BASE_URL}/api/badge-doc/download`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image: innerDataUrl,
-          printImage: outerDataUrl,
-          name: `Custom ${fastener}`,
-          quantity,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: innerDataUrl, printImage: outerDataUrl, name: `Custom ${fastener}`, quantity }),
       });
       if (!response.ok) throw new Error('Download failed');
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'StickToon-Badge-Print.docx';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error('Print file download error:', e);
-      setErrorMessage('Failed to download print file');
-      setTimeout(() => setErrorMessage(null), 3000);
-    } finally {
-      setDownloading(false);
-    }
+      const a = document.createElement('a'); a.href = url; a.download = 'StickToon-Badge-Print.docx';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url);
+    } catch (e) { setErrorMessage('Failed to download print file'); setTimeout(() => setErrorMessage(null), 3000); }
+    finally { setDownloading(false); }
   };
 
   const handleAddToCart = async () => {
-    if (!imageState) {
-      setErrorMessage('Please upload or generate an image first');
-      setTimeout(() => setErrorMessage(null), 3000);
-      return;
-    }
-
+    if (!imageState) { setErrorMessage('Please upload or generate an image first'); setTimeout(() => setErrorMessage(null), 3000); return; }
     setLoading(true);
     try {
       const [outerDataUrl, innerDataUrl] = await Promise.all([getFullCircleBlob(), getInnerCircleBlob()]);
-
       const customBadge: Badge = {
-        id: `custom-${Date.now()}`,
-        name: `CUSTOM ${fastener.toUpperCase()}`,
-        price: BASE_PRICE,
-        category: Category.CUSTOM,
-        image: innerDataUrl,
-        printImage: outerDataUrl,
-        details: `Custom designed ${fastener} badge.`,
-        color: 'bg-white'
+        id: `custom-${Date.now()}`, name: `CUSTOM ${fastener.toUpperCase()}`, price: BASE_PRICE,
+        category: Category.CUSTOM, image: innerDataUrl, printImage: outerDataUrl,
+        details: `Custom designed ${fastener} badge.`, color: 'bg-white'
       };
       addToCart(customBadge, quantity);
-    } catch (e) {
-      console.error(e);
-      setErrorMessage('Failed to add badge to cart');
-      setTimeout(() => setErrorMessage(null), 3000);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { setErrorMessage('Failed to add badge to cart'); setTimeout(() => setErrorMessage(null), 3000); }
+    finally { setLoading(false); }
   };
 
-  const handleReset = () => {
-    setImageState(prev => prev ? { ...prev, x: 0, y: 0 } : prev);
-    setZoom(1);
-    setRotation(0);
-  };
+  const handleReset = () => { setImageState(prev => prev ? { ...prev, x: 0, y: 0 } : prev); setZoom(1); setRotation(0); };
 
   const handleDownloadPreview = async () => {
     if (!imageState) return;
-    try {
-      const dataUrl = await getInnerCircleBlob();
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = `badge-preview-58mm-${Date.now()}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch (e) {
-      console.error('Download preview error:', e);
-    }
+    const dataUrl = await getInnerCircleBlob();
+    const a = document.createElement('a'); a.href = dataUrl; a.download = `badge-preview-58mm-${Date.now()}.png`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
   const handleDownloadTemplate = async () => {
     if (!imageState) return;
-    try {
-      const dataUrl = await getFullCircleBlob();
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = `badge-template-70mm-${Date.now()}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch (e) {
-      console.error('Download template error:', e);
-    }
+    const dataUrl = await getFullCircleBlob();
+    const a = document.createElement('a'); a.href = dataUrl; a.download = `badge-template-70mm-${Date.now()}.png`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Error Message */}
+    <div className="min-h-screen bg-slate-950 relative">
+      {/* Ambient Background */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-purple-600/[0.06] rounded-full blur-[150px]" />
+        <div className="absolute bottom-0 left-1/3 w-[500px] h-[500px] bg-indigo-600/[0.04] rounded-full blur-[120px]" />
+      </div>
+
+      {/* Error Toast */}
       {errorMessage && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-slide-down">
-          <X className="w-5 h-5" />
-          <span className="font-semibold">{errorMessage}</span>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 backdrop-blur-xl text-white px-5 py-3 rounded-xl shadow-2xl shadow-red-500/30 flex items-center gap-2 border border-red-400/30">
+          <X className="w-4 h-4" />
+          <span className="font-medium text-sm">{errorMessage}</span>
         </div>
       )}
 
       {/* Header */}
-      <header className="border-b border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-6">
+      <header className="relative z-10 border-b border-white/[0.06] bg-slate-900/60 backdrop-blur-xl px-4 py-4 sm:px-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-xl font-black text-slate-900 sm:text-2xl">
-              Custom Badge Designer
+            <h1 className="text-xl font-bold text-white sm:text-2xl flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-400" />
+              Badge Designer
             </h1>
-            <p className="text-sm text-slate-600 font-medium mt-1">
-              Button Badge Template: <span className="font-mono text-yellow-600">{OUTER_BADGE_MM}mm / {BADGE_MM}mm</span>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Template: <span className="font-mono text-purple-400">{OUTER_BADGE_MM}mm / {BADGE_MM}mm</span>
             </p>
+          </div>
+          {/* Price Tag in Header */}
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-xs text-slate-500">Total</p>
+              <p className="text-xl font-bold text-white">{formatPrice(BASE_PRICE * quantity)}</p>
+            </div>
+            <button
+              onClick={handleAddToCart}
+              disabled={loading || !imageState}
+              className="h-11 px-5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Add to Cart
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-3 py-6 pb-24 sm:px-4 sm:py-8 lg:pb-8">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/gif"
-          className="hidden"
-          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-        />
+      <main className="relative z-10 mx-auto max-w-7xl px-3 py-4 pb-20 sm:px-4 sm:py-5 lg:pb-5 lg:h-[calc(100vh-73px)] lg:overflow-hidden">
+        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/gif" className="hidden"
+          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
 
-        <div className="flex flex-col lg:flex-row gap-5 sm:gap-6 lg:gap-8 items-start">
-          {/* Left: Control Panel */}
-          <div className="hidden w-full lg:block lg:w-80 bg-gradient-to-b from-slate-900 to-slate-800 rounded-2xl shadow-2xl transition-all duration-300">
-            <div className="p-6 space-y-6">
-              {/* Badge Configuration */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">Badge Configuration</h3>
-                <div>
-                  <label className="text-xs font-semibold text-slate-300">Fastener Type:</label>
-                  <select 
-                    value={fastener} 
-                    onChange={(e) => setFastener(e.target.value)} 
-                    className="w-full mt-1 h-10 px-3 bg-slate-700 border border-yellow-500/30 rounded-xl text-sm font-semibold text-white"
-                  >
-                    {fasteners.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-300">Quantity:</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <button 
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))} 
-                      className="w-10 h-10 rounded-lg bg-slate-700 hover:bg-yellow-500/20 font-black text-lg text-white transition-colors"
-                    >
-                      -
-                    </button>
-                    <input 
-                      type="number" 
-                      value={quantity} 
-                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} 
-                      className="flex-1 h-10 px-3 bg-slate-700 border border-yellow-500/30 rounded-xl text-center font-bold text-white" 
-                    />
-                    <button 
-                      onClick={() => setQuantity(quantity + 1)} 
-                      className="w-10 h-10 rounded-lg bg-slate-700 hover:bg-yellow-500/20 font-black text-lg text-white transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
+        <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 items-start lg:h-full">
+          {/* ===== LEFT PANEL: Config + Controls ===== */}
+          <div className="hidden lg:block lg:w-64 flex-shrink-0">
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06] p-4 space-y-4">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <Settings2 className="w-3.5 h-3.5" /> Configuration
+              </h3>
+
+              {/* Fastener */}
+              <div>
+                <label className="text-xs font-medium text-slate-400 mb-1 block">Fastener Type</label>
+                <select value={fastener} onChange={(e) => setFastener(e.target.value)}
+                  className="w-full h-9 px-3 bg-white/[0.04] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/50" style={{ colorScheme: 'dark' }}>
+                  {fasteners.map(f => <option key={f.id} value={f.id} className="bg-slate-900">{f.label}</option>)}
+                </select>
               </div>
 
-              {/* Divider */}
-              <div className="h-px bg-slate-700"></div>
+              <div className="h-px bg-white/[0.06]" />
 
               {/* Image Upload */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">Image Upload</h3>
-                <button 
-                  onClick={() => fileInputRef.current?.click()} 
-                  className="w-full h-16 rounded-xl border-2 border-dashed border-yellow-500/30 text-slate-300 font-bold text-xs flex flex-col items-center justify-center gap-1.5 hover:border-yellow-500/60 hover:text-yellow-400 hover:bg-slate-700/30 transition-all sm:h-20 sm:text-sm"
-                >
-                  <Upload className="h-5 w-5 sm:h-6 sm:w-6" />
-                  <span>Upload Image</span>
-                  <span className="text-[10px] font-normal text-slate-500">or drag and drop</span>
+              <div className="space-y-2">
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                  <Upload className="w-3.5 h-3.5" /> Image
+                </h3>
+                <button onClick={() => fileInputRef.current?.click()}
+                  className="w-full h-12 rounded-xl border-2 border-dashed border-white/[0.1] text-slate-400 font-medium text-xs flex items-center justify-center gap-2 hover:border-purple-500/40 hover:text-purple-400 hover:bg-purple-500/5 transition-all">
+                  <Upload className="h-3.5 w-3.5" /> Upload Image
                 </button>
                 {imageState && (
-                  <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                    <p className="text-xs font-semibold text-green-400 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Image loaded successfully
+                  <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                    <p className="text-[11px] font-medium text-emerald-400 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3 h-3" /> Image loaded
                     </p>
                   </div>
                 )}
               </div>
 
-              {/* Divider */}
-              <div className="h-px bg-slate-700"></div>
+              <div className="h-px bg-white/[0.06]" />
 
-              {/* AI Generator */}
+              {/* Canvas Controls */}
               <div className="space-y-3">
-                <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">AI Generator</h3>
-                <textarea 
-                  value={prompt} 
-                  onChange={(e) => setPrompt(e.target.value)} 
-                  placeholder="Describe your badge design..." 
-                  className="w-full h-20 px-3 py-2 bg-slate-700 border border-yellow-500/30 rounded-xl text-sm text-white placeholder-slate-400 resize-none focus:border-yellow-500 focus:outline-none" 
-                />
-                <button 
-                  onClick={handleGenerateImage} 
-                  disabled={loading || !prompt.trim()} 
-                  className="w-full h-10 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-purple-500/30 disabled:opacity-50 transition-all"
-                >
-                  {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</> : <><Wand2 className="w-4 h-4" /> Generate</>}
-                </button>
-              </div>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                  <ZoomIn className="w-3.5 h-3.5" /> Controls
+                </h3>
 
-
-            </div>
-          </div>
-
-          {/* Center: Main Canvas */}
-          <div className="flex-1 space-y-6">
-            {!imageState && (
-              <div
-                className="mb-6 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-white p-5 text-center cursor-pointer transition-all hover:border-yellow-500 hover:bg-yellow-50/50 sm:p-8 md:p-10"
-                onDrop={handleDrop}
-                onDragOver={(e) => e.preventDefault()}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="mb-3 h-10 w-10 text-slate-400 sm:h-12 sm:w-12" />
-                <p className="text-sm font-bold text-slate-700 sm:text-base">Drop an image here or click to upload</p>
-                <p className="mt-1 text-xs text-slate-500 sm:text-sm">JPG, PNG, GIF supported</p>
-              </div>
-            )}
-
-            {/* Canvas */}
-            <div className="rounded-2xl border-2 border-slate-300 bg-white p-4 shadow-xl sm:p-6">
-              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                  <Info className="w-4 h-4 text-blue-500" />
-                  {OUTER_BADGE_MM}mm Artwork Canvas
-                </p>
-                <p className="text-xs text-slate-500">Drag image to position • Scroll to zoom</p>
-              </div>
-              <canvas
-                ref={canvasRef}
-                width={CANVAS_PX}
-                height={CANVAS_PX}
-                className="max-w-full rounded-lg cursor-grab active:cursor-grabbing touch-none mx-auto shadow-lg"
-                style={{ aspectRatio: "1/1", width: "100%", maxWidth: CANVAS_PX }}
-                onMouseDown={handlePointerDown}
-                onMouseMove={handlePointerMove}
-                onMouseUp={handlePointerUp}
-                onMouseLeave={handlePointerUp}
-                onTouchStart={handlePointerDown}
-                onTouchMove={handlePointerMove}
-                onTouchEnd={handlePointerUp}
-                onWheel={handleWheel}
-                onDrop={handleDrop}
-                onDragOver={(e) => e.preventDefault()}
-              />
-            </div>
-
-            {/* Guide Legend */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Guide</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="h-0.5 w-8 bg-black" />
-                  <span className="text-sm text-slate-700 font-medium">{OUTER_BADGE_MM}mm – Cut boundary</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-0.5 w-8 border-t-2 border-dashed border-green-600" />
-                  <span className="text-sm text-slate-700 font-medium">{BADGE_MM}mm – Visible area</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Order Actions & Downloads */}
-            <div className="rounded-2xl bg-gradient-to-b from-slate-900 to-slate-800 p-4 shadow-xl sm:p-5">
-              <div className="flex flex-col sm:flex-row gap-4">
-                {/* Price & Cart */}
-                <div className="flex-1 space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-slate-700/50 border border-yellow-500/20 rounded-xl">
-                    <span className="text-xs font-bold text-yellow-400 uppercase">Total Price:</span>
-                    <span className="text-lg font-black text-white">{formatPrice(BASE_PRICE * quantity)}</span>
-                  </div>
-                  <button 
-                    onClick={handleAddToCart} 
-                    disabled={loading || !imageState} 
-                    className="w-full h-12 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-yellow-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ShoppingCart className="w-4 h-4" /> Add to Cart
-                  </button>
-                  <button 
-                    onClick={handleDownloadPrintFile} 
-                    disabled={downloading || !imageState} 
-                    className="w-full h-10 rounded-xl border-2 border-yellow-500/40 text-yellow-400 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-yellow-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} {downloading ? 'Generating...' : 'Download Word File'}
-                  </button>
-                </div>
-
-                {/* Download Images */}
-                {imageState && (
-                  <div className="flex-1 space-y-3">
-                    <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">Download Images</h3>
-                    <button 
-                      onClick={handleDownloadPreview}
-                      className="w-full h-10 rounded-xl bg-green-600 text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-green-500 transition-all"
-                    >
-                      <Download className="w-4 h-4" /> Preview (58mm)
-                    </button>
-                    <button 
-                      onClick={handleDownloadTemplate}
-                      className="w-full h-10 rounded-xl bg-blue-600 text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-500 transition-all"
-                    >
-                      <Download className="w-4 h-4" /> Template (70mm)
-                    </button>
-                    <button 
-                      onClick={async () => {
-                        if (!imageState) return;
-                        try {
-                          const [outerDataUrl, innerDataUrl] = await Promise.all([getFullCircleBlob(), getInnerCircleBlob()]);
-                          const response = await fetch(`${API_BASE_URL}/api/badge-doc/download`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ image: innerDataUrl, printImage: outerDataUrl, name: `Custom ${fastener}`, quantity }),
-                          });
-                          if (!response.ok) throw new Error('Save failed');
-                          const blob = await response.blob();
-                          const url = window.URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = `StickToon-Badge-${Date.now()}.docx`;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          window.URL.revokeObjectURL(url);
-                        } catch (e) {
-                          console.error('Save error:', e);
-                        }
-                      }}
-                      className="w-full h-10 rounded-xl bg-yellow-500 text-slate-900 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-yellow-400 transition-all"
-                    >
-                      <Download className="w-4 h-4" /> Save
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Preview & Controls */}
-          <div className="w-full lg:w-80 space-y-6">
-            <div className="rounded-2xl border-2 border-slate-300 bg-white p-4 shadow-xl sm:p-6">
-              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 text-center">
-                Final Badge Preview ({BADGE_MM}mm)
-              </h3>
-              <div className="flex justify-center">
-                <canvas 
-                  ref={previewCanvasRef} 
-                  width={250} 
-                  height={250} 
-                  className="rounded-full shadow-2xl w-full max-w-[250px] h-auto" 
-                  style={{ aspectRatio: '1 / 1' }} 
-                />
-              </div>
-              <p className="text-xs text-slate-500 text-center mt-4">
-                This is what your customer will see on the finished badge
-              </p>
-            </div>
-
-            {/* Canvas Controls - shown when image is loaded */}
-            {imageState && (
-              <div className="rounded-2xl bg-gradient-to-b from-slate-900 to-slate-800 p-5 shadow-xl space-y-4">
-                <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider">Canvas Controls</h3>
-                  
-                {/* Zoom Slider */}
+                {/* Zoom */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-semibold text-slate-300">Zoom</label>
-                    <span className="text-xs font-mono text-yellow-400">{Math.round(zoom * 100)}%</span>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-medium text-slate-400">Zoom</label>
+                    <span className="text-[11px] font-mono text-purple-400">{Math.round(zoom * 100)}%</span>
                   </div>
-                  <input 
-                    type="range" 
-                    min="0.2" 
-                    max="5" 
-                    step="0.01" 
-                    value={zoom} 
-                    onChange={(e) => handleZoomChange(parseFloat(e.target.value))} 
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
-                  />
-                  <div className="flex justify-between mt-1">
-                    <span className="text-[10px] text-slate-500">20%</span>
-                    <span className="text-[10px] text-slate-500">500%</span>
-                  </div>
+                  <input type="range" min="0.2" max="5" step="0.01" value={zoom}
+                    onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500" />
                 </div>
 
-                {/* Rotation Slider */}
+                {/* Rotation */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-semibold text-slate-300">Rotate</label>
-                    <span className="text-xs font-mono text-yellow-400">{rotation}°</span>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-medium text-slate-400">Rotate</label>
+                    <span className="text-[11px] font-mono text-purple-400">{rotation}°</span>
                   </div>
-                  <input 
-                    type="range" 
-                    min="-180" 
-                    max="180" 
-                    step="1" 
-                    value={rotation} 
-                    onChange={(e) => handleRotationChange(parseInt(e.target.value))} 
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
-                  />
-                  <div className="flex justify-between mt-1">
-                    <span className="text-[10px] text-slate-500">-180°</span>
-                    <span className="text-[10px] text-slate-500">180°</span>
-                  </div>
+                  <input type="range" min="-180" max="180" step="1" value={rotation}
+                    onChange={(e) => handleRotationChange(parseInt(e.target.value))}
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500" />
                 </div>
 
-                {/* Background Color */}
+                {/* Background */}
                 <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-2">Background:</label>
-                  <div className="grid grid-cols-7 gap-2">
+                  <label className="text-[11px] font-medium text-slate-400 mb-1.5 block flex items-center gap-1">
+                    <Palette className="w-3 h-3" /> Background
+                  </label>
+                  <div className="grid grid-cols-7 gap-1">
                     {backgroundPresets.map(color => (
-                      <button 
-                        key={color} 
-                        onClick={() => setBgColor(color)} 
-                        className={`w-full aspect-square rounded-lg border-2 transition-all ${bgColor === color ? 'border-yellow-500 scale-110' : 'border-slate-600 hover:border-slate-500'}`} 
-                        style={{ backgroundColor: color }}
-                        title={color}
-                      />
+                      <button key={color} onClick={() => setBgColor(color)}
+                        className={`w-full aspect-square rounded-md border-2 transition-all ${bgColor === color ? 'border-purple-500 scale-110' : 'border-white/[0.08] hover:border-white/[0.2]'}`}
+                        style={{ backgroundColor: color }} title={color} />
                     ))}
                   </div>
                 </div>
 
                 {/* Quick Actions */}
                 <div className="grid grid-cols-2 gap-2">
-                  <button 
-                    onClick={handleReset}
-                    className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-600 transition-colors flex items-center justify-center gap-1"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    Reset
+                  <button onClick={handleReset}
+                    className="px-2 py-1.5 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-slate-300 rounded-lg text-[11px] font-medium transition-colors flex items-center justify-center gap-1">
+                    <RotateCcw className="w-3 h-3" /> Reset
                   </button>
-                  <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-600 transition-colors flex items-center justify-center gap-1"
-                  >
-                    <Upload className="w-3 h-3" />
-                    Replace
+                  <button onClick={() => fileInputRef.current?.click()}
+                    className="px-2 py-1.5 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-slate-300 rounded-lg text-[11px] font-medium transition-colors flex items-center justify-center gap-1">
+                    <Upload className="w-3 h-3" /> Replace
                   </button>
-                </div>
-              </div>
-            )}
-
-            {/* Info Panel */}
-            <div className="rounded-xl border-2 border-green-200 bg-green-50 p-4">
-              <div className="flex items-start gap-3">
-                <div className="bg-green-500 rounded-full p-2">
-                  <CheckCircle2 className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-xs font-black text-green-800 uppercase tracking-wide mb-2">Manufacturing Info</h4>
-                  <p className="text-[11px] font-semibold text-green-700 leading-relaxed">
-                    The {OUTER_BADGE_MM}mm design wraps around the badge. Only the center {BADGE_MM}mm is visible to customers.
-                  </p>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Mobile Bottom Tools Bar */}
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-3 backdrop-blur lg:hidden">
-          <button
-            onClick={() => setMobileToolsOpen(true)}
-            className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-yellow-400"
-          >
-            Open Design Tools
-          </button>
-        </div>
+          {/* ===== CENTER: Canvas ===== */}
+          <div className="flex-1 min-w-0 flex flex-col gap-3">
+            {/* Canvas Area */}
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06] p-4 flex-1 flex flex-col"
+              onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-xs font-medium text-slate-400 flex items-center gap-2">
+                  <Info className="w-3.5 h-3.5 text-purple-400" />
+                  {OUTER_BADGE_MM}mm Canvas
+                </p>
+                <p className="text-[10px] text-slate-600">Drag • Scroll to zoom</p>
+              </div>
+              <div className="flex-1 flex items-center justify-center">
+                <canvas
+                  ref={canvasRef} width={CANVAS_PX} height={CANVAS_PX}
+                  className="max-w-full max-h-full rounded-xl cursor-grab active:cursor-grabbing touch-none shadow-2xl shadow-black/40 ring-1 ring-white/[0.06]"
+                  style={{ aspectRatio: "1/1", width: "100%", maxWidth: "min(100%, 420px)" }}
+                  onMouseDown={handlePointerDown} onMouseMove={handlePointerMove} onMouseUp={handlePointerUp}
+                  onMouseLeave={handlePointerUp} onTouchStart={handlePointerDown} onTouchMove={handlePointerMove}
+                  onTouchEnd={handlePointerUp} onWheel={handleWheel} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
+                />
+              </div>
+            </div>
 
-        {/* Mobile Tools Drawer */}
-        {mobileToolsOpen && (
-          <div className="fixed inset-0 z-50 bg-black/50 lg:hidden" onClick={() => setMobileToolsOpen(false)}>
-            <div
-              className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-slate-900 p-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-yellow-400">Design Tools</h3>
-                <button
-                  onClick={() => setMobileToolsOpen(false)}
-                  className="rounded-lg bg-slate-700 p-2 text-slate-200"
-                  aria-label="Close tools"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+            {/* Guide Legend */}
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-xl border border-white/[0.06] px-4 py-2.5">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <div className="h-0.5 w-6 bg-purple-400/50 rounded" />
+                  <span className="text-[10px] text-slate-500">{OUTER_BADGE_MM}mm Cut</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-0.5 w-6 border-t-2 border-dashed border-green-500" />
+                  <span className="text-[10px] text-slate-500">{BADGE_MM}mm Visible</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ===== RIGHT PANEL: Preview & Price ===== */}
+          <div className="w-full lg:w-64 flex-shrink-0">
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06] p-4 space-y-4">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-center flex items-center justify-center gap-2">
+                <Eye className="w-3.5 h-3.5" /> Final Preview
+              </h3>
+              <div className="flex justify-center">
+                <canvas ref={previewCanvasRef} width={250} height={250}
+                  className="rounded-full shadow-2xl shadow-black/40 w-full max-w-[180px] h-auto ring-2 ring-white/[0.06]"
+                  style={{ aspectRatio: '1 / 1' }} />
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-semibold text-slate-300">Fastener Type:</label>
-                  <select
-                    value={fastener}
-                    onChange={(e) => setFastener(e.target.value)}
-                    className="mt-1 h-10 w-full rounded-xl border border-yellow-500/30 bg-slate-700 px-3 text-sm font-semibold text-white"
-                  >
-                    {fasteners.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-slate-300">Quantity:</label>
-                  <div className="mt-1 flex items-center gap-2">
-                    <button
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="h-10 w-10 rounded-lg bg-slate-700 text-lg font-black text-white"
-                    >
-                      -
+              {/* Qty + Price */}
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center bg-white/[0.04] border border-white/[0.08] rounded-lg overflow-hidden h-8 flex-shrink-0">
+                    <button onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="w-7 h-full flex-shrink-0 text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors flex items-center justify-center border-r border-white/[0.06]">
+                      <Minus className="w-3 h-3" />
                     </button>
-                    <input
-                      type="number"
-                      value={quantity}
-                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="h-10 flex-1 rounded-xl border border-yellow-500/30 bg-slate-700 px-3 text-center font-bold text-white"
-                    />
-                    <button
-                      onClick={() => setQuantity(quantity + 1)}
-                      className="h-10 w-10 rounded-lg bg-slate-700 text-lg font-black text-white"
-                    >
-                      +
+                    <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-8 min-w-0 h-full bg-transparent text-center font-bold text-white focus:outline-none text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                    <button onClick={() => setQuantity(quantity + 1)}
+                      className="w-7 h-full flex-shrink-0 text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors flex items-center justify-center border-l border-white/[0.06]">
+                      <Plus className="w-3 h-3" />
                     </button>
                   </div>
+                  <div className="flex-1 text-right">
+                    <span className="text-lg font-bold text-white">{formatPrice(BASE_PRICE * quantity)}</span>
+                  </div>
                 </div>
-
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-yellow-500/30 text-sm font-bold text-slate-300"
-                >
-                  <Upload className="h-5 w-5" /> Upload Image
+                <button onClick={handleAddToCart} disabled={loading || !imageState}
+                  className="w-full h-10 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20">
+                  <ShoppingCart className="w-4 h-4" /> Add to Cart
                 </button>
-
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Describe your badge design..."
-                  className="h-20 w-full resize-none rounded-xl border border-yellow-500/30 bg-slate-700 px-3 py-2 text-sm text-white placeholder-slate-400"
-                />
-
-                <button
-                  onClick={handleGenerateImage}
-                  disabled={loading || !prompt.trim()}
-                  className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-xs font-bold uppercase tracking-widest text-white disabled:opacity-50"
-                >
-                  {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Wand2 className="h-4 w-4" /> Generate</>}
+                <button onClick={handleDownloadPrintFile} disabled={downloading || !imageState}
+                  className="w-full h-8 rounded-lg border border-white/[0.08] text-slate-400 font-medium text-[11px] flex items-center justify-center gap-1.5 hover:bg-white/[0.04] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                  {downloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />} {downloading ? 'Generating...' : 'Print File'}
                 </button>
-
                 {imageState && (
-                  <div className="space-y-3 rounded-xl border border-yellow-500/20 bg-slate-800/60 p-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-yellow-400">Canvas Controls</h4>
-
-                    <div>
-                      <div className="mb-2 flex items-center justify-between">
-                        <label className="text-xs font-semibold text-slate-300">Zoom</label>
-                        <span className="text-xs font-mono text-yellow-400">{Math.round(zoom * 100)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.2"
-                        max="5"
-                        step="0.01"
-                        value={zoom}
-                        onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-                        className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-700 accent-yellow-500"
-                      />
-                    </div>
-
-                    <div>
-                      <div className="mb-2 flex items-center justify-between">
-                        <label className="text-xs font-semibold text-slate-300">Rotate</label>
-                        <span className="text-xs font-mono text-yellow-400">{rotation}°</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="-180"
-                        max="180"
-                        step="1"
-                        value={rotation}
-                        onChange={(e) => handleRotationChange(parseInt(e.target.value))}
-                        className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-700 accent-yellow-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-xs font-semibold text-slate-300">Background:</label>
-                      <div className="grid grid-cols-7 gap-2">
-                        {backgroundPresets.map(color => (
-                          <button
-                            key={color}
-                            onClick={() => setBgColor(color)}
-                            className={`aspect-square w-full rounded-lg border-2 transition-all ${bgColor === color ? 'scale-110 border-yellow-500' : 'border-slate-600 hover:border-slate-500'}`}
-                            style={{ backgroundColor: color }}
-                            title={color}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={handleReset}
-                        className="flex items-center justify-center gap-1 rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-300"
-                      >
-                        <RotateCcw className="h-3 w-3" /> Reset
-                      </button>
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center justify-center gap-1 rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-300"
-                      >
-                        <Upload className="h-3 w-3" /> Replace
-                      </button>
-                    </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={handleDownloadPreview}
+                      className="h-7 rounded-md bg-emerald-600/10 text-emerald-400 border border-emerald-500/15 text-[10px] font-medium flex items-center justify-center gap-1 hover:bg-emerald-600/20 transition-all">
+                      <Download className="w-2.5 h-2.5" /> Preview
+                    </button>
+                    <button onClick={handleDownloadTemplate}
+                      className="h-7 rounded-md bg-indigo-600/10 text-indigo-400 border border-indigo-500/15 text-[10px] font-medium flex items-center justify-center gap-1 hover:bg-indigo-600/20 transition-all">
+                      <Download className="w-2.5 h-2.5" /> Template
+                    </button>
                   </div>
                 )}
               </div>
             </div>
           </div>
-        )}
+        </div>
       </main>
+
+      {/* Mobile Bottom Bar */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.06] bg-slate-900/95 backdrop-blur-xl p-3 lg:hidden">
+        <button onClick={() => setMobileToolsOpen(true)}
+          className="w-full rounded-xl bg-purple-600 px-4 py-3 text-sm font-semibold text-white flex items-center justify-center gap-2">
+          <Settings2 className="w-4 h-4" /> Open Design Tools
+        </button>
+      </div>
+
+      {/* Mobile Tools Drawer */}
+      {mobileToolsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm lg:hidden" onClick={() => setMobileToolsOpen(false)}>
+          <div className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-slate-900 border-t border-white/[0.06] p-5"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-white">Design Tools</h3>
+              <button onClick={() => setMobileToolsOpen(false)} className="w-8 h-8 rounded-lg bg-white/[0.06] flex items-center justify-center text-slate-400">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-slate-400 mb-1.5 block">Fastener Type</label>
+                <select value={fastener} onChange={(e) => setFastener(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-sm text-white" style={{ colorScheme: 'dark' }}>
+                  {fasteners.map((f) => <option key={f.id} value={f.id} className="bg-slate-900">{f.label}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-400 mb-1.5 block">Quantity</label>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="h-10 w-10 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white font-bold flex items-center justify-center">
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="h-10 flex-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-center font-bold text-white" />
+                  <button onClick={() => setQuantity(quantity + 1)}
+                    className="h-10 w-10 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white font-bold flex items-center justify-center">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <button onClick={() => fileInputRef.current?.click()}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/[0.1] text-sm font-medium text-slate-300 hover:border-purple-500/40 transition-all">
+                <Upload className="h-5 w-5" /> Upload Image
+              </button>
+
+              <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Describe your badge design..."
+                className="h-20 w-full resize-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder-slate-600" />
+
+              <button onClick={handleGenerateImage} disabled={loading || !prompt.trim()}
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-sm font-semibold text-white disabled:opacity-40">
+                {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Wand2 className="h-4 w-4" /> Generate</>}
+              </button>
+
+              {imageState && (
+                <div className="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Canvas Controls</h4>
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <label className="text-xs font-medium text-slate-400">Zoom</label>
+                      <span className="text-xs font-mono text-purple-400">{Math.round(zoom * 100)}%</span>
+                    </div>
+                    <input type="range" min="0.2" max="5" step="0.01" value={zoom}
+                      onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
+                      className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-800 accent-purple-500" />
+                  </div>
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <label className="text-xs font-medium text-slate-400">Rotate</label>
+                      <span className="text-xs font-mono text-purple-400">{rotation}°</span>
+                    </div>
+                    <input type="range" min="-180" max="180" step="1" value={rotation}
+                      onChange={(e) => handleRotationChange(parseInt(e.target.value))}
+                      className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-800 accent-purple-500" />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-medium text-slate-400">Background</label>
+                    <div className="grid grid-cols-7 gap-1.5">
+                      {backgroundPresets.map(color => (
+                        <button key={color} onClick={() => setBgColor(color)}
+                          className={`aspect-square w-full rounded-lg border-2 transition-all ${bgColor === color ? 'scale-110 border-purple-500' : 'border-white/[0.08] hover:border-white/[0.2]'}`}
+                          style={{ backgroundColor: color }} title={color} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={handleReset}
+                      className="flex items-center justify-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06] px-3 py-2 text-xs font-medium text-slate-300">
+                      <RotateCcw className="h-3 w-3" /> Reset
+                    </button>
+                    <button onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center justify-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06] px-3 py-2 text-xs font-medium text-slate-300">
+                      <Upload className="h-3 w-3" /> Replace
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
