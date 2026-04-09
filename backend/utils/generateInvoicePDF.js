@@ -27,7 +27,9 @@ function dataUriToBuffer(value) {
 function resolveLocalItemImagePath(imagePath) {
   if (typeof imagePath !== "string" || !imagePath) return null;
   if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) return null;
-  if (path.isAbsolute(imagePath)) return fs.existsSync(imagePath) ? imagePath : null;
+
+  // Keep true absolute filesystem paths when they exist.
+  if (path.isAbsolute(imagePath) && fs.existsSync(imagePath)) return imagePath;
 
   const clean = imagePath.replace(/^\/+/, "");
   const publicPath = path.resolve(__dirname, "../../public", clean);
@@ -171,7 +173,7 @@ module.exports = ({ invoice, order }) =>
       doc.font("Helvetica-Bold").fontSize(8.5).fillColor("#0f172a").text(textOrDash(value), x + 6, y + 14, { width: w - 12 });
     }
 
-    doc.rect(left, 22, pageW, 38).fill("#111827");
+    doc.rect(left, 22, pageW, 38).fill("#000000");
     const headerLogoPath = getExistingFile(HEADER_LOGO_CANDIDATES);
     if (headerLogoPath) {
       try {
