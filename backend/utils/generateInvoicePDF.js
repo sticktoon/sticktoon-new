@@ -354,19 +354,20 @@ module.exports = ({ invoice, order }) =>
     const bankW = Math.max(sumX - bankX - bankGap, 220);
     const bankH = Math.max(summaryY - sectionY, 56);
 
-    doc.rect(bankX, sectionY, bankW, bankH).stroke("#d1d5db");
-    doc.font("Helvetica-Bold").fontSize(8.5).fillColor("#0f172a").text("Bank Details", bankX + 8, sectionY + 6);
-
-    const bankColGap = 12;
-    const bankTextTop = sectionY + 20;
-    const bankTextW = (bankW - 16 - bankColGap) / 2;
-    const bankRightX = bankX + 8 + bankTextW + bankColGap;
-
-    doc.font("Helvetica").fontSize(7.5).fillColor("#334155")
-      .text(`Account Name: ${bank.accountName}`, bankX + 8, bankTextTop, { width: bankTextW })
-      .text(`IFSC: ${bank.ifsc}`, bankX + 8, bankTextTop + 13, { width: bankTextW })
-      .text(`Account No: ${bank.accountNumber}`, bankRightX, bankTextTop, { width: bankTextW })
-      .text(`Bank: ${bank.bankName}, ${bank.branch}`, bankRightX, bankTextTop + 13, { width: bankTextW });
+    // Temporarily hidden: Bank details section from invoice output.
+    // doc.rect(bankX, sectionY, bankW, bankH).stroke("#d1d5db");
+    // doc.font("Helvetica-Bold").fontSize(8.5).fillColor("#0f172a").text("Bank Details", bankX + 8, sectionY + 6);
+    //
+    // const bankColGap = 12;
+    // const bankTextTop = sectionY + 20;
+    // const bankTextW = (bankW - 16 - bankColGap) / 2;
+    // const bankRightX = bankX + 8 + bankTextW + bankColGap;
+    //
+    // doc.font("Helvetica").fontSize(7.5).fillColor("#334155")
+    //   .text(`Account Name: ${bank.accountName}`, bankX + 8, bankTextTop, { width: bankTextW })
+    //   .text(`IFSC: ${bank.ifsc}`, bankX + 8, bankTextTop + 13, { width: bankTextW })
+    //   .text(`Account No: ${bank.accountNumber}`, bankRightX, bankTextTop, { width: bankTextW })
+    //   .text(`Bank: ${bank.bankName}, ${bank.branch}`, bankRightX, bankTextTop + 13, { width: bankTextW });
 
     y = sectionY + Math.max(bankH, summaryY - sectionY) + 12;
 
