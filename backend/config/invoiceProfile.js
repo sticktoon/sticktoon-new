@@ -24,14 +24,6 @@ module.exports = {
   invoice: {
     defaultHsn: "4911",
     gstRatePercent: 12,
-    defaultItemGstRatePercent: 12,
-    taxDeliveryCharges: true,
-    deliveryGstRatePercent: 12,
-    hsnKeywordMap: {
-      STICKER: "3919",
-      BADGE: "3926",
-      PIN: "8310",
-    },
     placeOfSupplyDefault: "Maharashtra",
   },
   terms: [

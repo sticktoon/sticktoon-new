@@ -98,72 +98,6 @@ function toNum(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function round2(value) {
-  return Math.round((toNum(value) + Number.EPSILON) * 100) / 100;
-}
-
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function normalizeStateName(value) {
-  if (!value) return "";
-  return String(value)
-    .toLowerCase()
-    .replace(/\([^)]*\)/g, "")
-    .replace(/[^a-z]/g, "");
-}
-
-function splitProportionally(total, parts) {
-  const safeParts = Array.isArray(parts) ? parts.map((p) => Math.max(0, toNum(p))) : [];
-  if (!safeParts.length) return [];
-
-  const safeTotal = round2(total);
-  if (safeTotal <= 0) return safeParts.map(() => 0);
-
-  const basis = safeParts.reduce((sum, p) => sum + p, 0);
-  if (basis <= 0) return safeParts.map(() => 0);
-
-  const shares = safeParts.map((p) => round2((safeTotal * p) / basis));
-  const diff = round2(safeTotal - shares.reduce((sum, s) => sum + s, 0));
-
-  if (Math.abs(diff) >= 0.01) {
-    const targetIndex = safeParts.reduce(
-      (maxIndex, val, idx, arr) => (val > arr[maxIndex] ? idx : maxIndex),
-      0
-    );
-    shares[targetIndex] = round2(shares[targetIndex] + diff);
-  }
-
-  return shares;
-}
-
-function resolveItemHsn(item, cfg) {
-  const explicit = typeof item?.hsn === "string" ? item.hsn.trim() : "";
-  if (explicit) return explicit;
-
-  const keywordMap = cfg?.hsnKeywordMap || {};
-  const itemName = String(item?.name || "").toUpperCase();
-  for (const [keyword, hsn] of Object.entries(keywordMap)) {
-    if (!keyword || !hsn) continue;
-    if (itemName.includes(String(keyword).toUpperCase())) {
-      return String(hsn);
-    }
-  }
-
-  return textOrDash(cfg?.defaultHsn);
-}
-
-function resolveItemGstRatePercent(item, cfg) {
-  const explicit = toNum(item?.gstRatePercent);
-  if (explicit > 0) return explicit;
-
-  const defaultItemRate = toNum(cfg?.defaultItemGstRatePercent);
-  if (defaultItemRate > 0) return defaultItemRate;
-
-  return toNum(cfg?.gstRatePercent);
-}
-
 function inr(value) {
   return `Rs ${toNum(value).toFixed(2)}`;
 }
@@ -228,74 +162,28 @@ module.exports = ({ invoice, order }) =>
     const left = doc.page.margins.left;
     const right = left + pageW;
 
-    const rawItems = Array.isArray(order?.items) ? order.items : [];
-    const items = rawItems.map((item) => {
-      const quantity = Math.max(1, Math.floor(toNum(item?.quantity || 1)));
-      const unitPrice = round2(toNum(item?.price));
-      const lineAmount = round2(unitPrice * quantity);
+    const items = Array.isArray(order?.items) ? order.items : [];
+    const subtotal = items.reduce((sum, it) => sum + toNum(it.price) * toNum(it.quantity || 1), 0);
+    const delivery = toNum(order?.deliveryCharges || order?.shippingCost || 0);
+    const discount = toNum(invoice?.discount || order?.discount || 0);
+    const taxable = Math.max(subtotal + delivery - discount, 0);
 
-      return {
-        ...item,
-        quantity,
-        unitPrice,
-        lineAmount,
-        hsn: resolveItemHsn(item, cfg),
-        gstRatePercent: resolveItemGstRatePercent(item, cfg),
-      };
-    });
-
-    const subtotal = round2(items.reduce((sum, it) => sum + it.lineAmount, 0));
-    const delivery = round2(toNum(order?.deliveryCharges || order?.shippingCost || 0));
-    const grossBeforeDiscount = round2(subtotal + delivery);
-    const requestedDiscount = round2(toNum(invoice?.discount ?? order?.discount ?? 0));
-    const discount = round2(clamp(requestedDiscount, 0, grossBeforeDiscount));
-    const taxable = round2(Math.max(grossBeforeDiscount - discount, 0));
-
-    const discountShares = splitProportionally(discount, [...items.map((it) => it.lineAmount), delivery]);
-
-    const lineItems = items.map((item, idx) => {
-      const discountShare = round2(discountShares[idx] || 0);
-      const taxableValue = round2(Math.max(item.lineAmount - discountShare, 0));
-      const taxValue = round2(taxableValue * (toNum(item.gstRatePercent) / 100));
-      return {
-        ...item,
-        discountShare,
-        taxableValue,
-        taxValue,
-      };
-    });
-
-    const deliveryDiscountShare = round2(discountShares[lineItems.length] || 0);
-    const deliveryTaxable = round2(Math.max(delivery - deliveryDiscountShare, 0));
-    const taxDeliveryCharges = cfg.taxDeliveryCharges !== false;
-    const deliveryGstRatePercent = toNum(cfg.deliveryGstRatePercent || cfg.gstRatePercent);
-
-    const itemTaxTotal = round2(lineItems.reduce((sum, it) => sum + it.taxValue, 0));
-    const deliveryTax = taxDeliveryCharges
-      ? round2(deliveryTaxable * (deliveryGstRatePercent / 100))
-      : 0;
-
+    const gstRate = toNum(cfg.gstRatePercent) / 100;
     const sellerState = seller.stateName;
-    const buyerState =
-      invoice?.address?.state ||
-      order?.address?.state ||
-      cfg.placeOfSupplyDefault ||
-      sellerState;
-    const isIntraState = normalizeStateName(sellerState) === normalizeStateName(buyerState);
+    const buyerState = invoice?.address?.state || order?.address?.state || sellerState;
+    const isIntraState = String(sellerState).toLowerCase() === String(buyerState).toLowerCase();
 
     let cgst = 0;
     let sgst = 0;
     let igst = 0;
-    const totalTax = round2(itemTaxTotal + deliveryTax);
     if (isIntraState) {
-      cgst = round2(totalTax / 2);
-      sgst = round2(totalTax - cgst);
+      cgst = taxable * gstRate * 0.5;
+      sgst = taxable * gstRate * 0.5;
     } else {
-      igst = totalTax;
+      igst = taxable * gstRate;
     }
-    const baseGstRatePercent = toNum(cfg.gstRatePercent);
-    const halfRatePercent = round2(baseGstRatePercent / 2);
-    const grandTotal = round2(taxable + totalTax);
+    const totalTax = cgst + sgst + igst;
+    const grandTotal = taxable + totalTax;
 
     const amountWords = `${numberToWords(Math.floor(grandTotal))} Rupees Only`;
 
@@ -362,7 +250,7 @@ module.exports = ({ invoice, order }) =>
 
     const tableHeaderH = 20;
     const summaryRowH = 18;
-    const summaryRows = 3 + (delivery > 0 ? 1 : 0) + (discount > 0 ? 1 : 0) + (isIntraState ? 2 : 1);
+    const summaryRows = 2 + (delivery > 0 ? 1 : 0) + (discount > 0 ? 1 : 0) + (isIntraState ? 2 : 1);
     const rowsCount = Math.max(items.length, 1);
     const postTableEstimate = summaryRows * summaryRowH + 96;
     const availableRowsHeight = doc.page.height - 110 - (y + tableHeaderH + postTableEstimate);
@@ -398,10 +286,10 @@ module.exports = ({ invoice, order }) =>
     doc.text("Amount", xAmount, y + 6, { width: colAmount, align: "right" });
     y += tableHeaderH;
 
-    lineItems.forEach((item, idx) => {
+    items.forEach((item, idx) => {
       const rowY = y + idx * rowHeight;
       doc.rect(left, rowY, pageW, rowHeight).stroke("#e2e8f0");
-      const amount = round2(item.lineAmount);
+      const amount = toNum(item.price) * toNum(item.quantity || 1);
       doc.font("Helvetica").fontSize(8).fillColor("#334155");
       doc.text(String(idx + 1), xSr, rowY + (rowHeight - 8) / 2, { width: colSr, align: "left" });
 
@@ -418,22 +306,11 @@ module.exports = ({ invoice, order }) =>
         width: colDesc - 6,
         ellipsis: true,
       });
-
-      doc
-        .font("Helvetica")
-        .fontSize(6.4)
-        .fillColor("#64748b")
-        .text(`HSN: ${textOrDash(item.hsn)} | GST: ${round2(item.gstRatePercent)}%`, xDesc + 2, rowY + rowHeight - 10, {
-          width: colDesc - 6,
-          ellipsis: true,
-        });
-
-      doc.font("Helvetica").fontSize(8).fillColor("#334155");
       doc.text(String(toNum(item.quantity || 1)), xQty, rowY + (rowHeight - 8) / 2, { width: colQty, align: "center" });
-      doc.text(toNum(item.unitPrice).toFixed(2), xRate, rowY + (rowHeight - 8) / 2, { width: colRate, align: "right" });
+      doc.text(toNum(item.price).toFixed(2), xRate, rowY + (rowHeight - 8) / 2, { width: colRate, align: "right" });
       doc.text(toNum(amount).toFixed(2), xAmount, rowY + (rowHeight - 8) / 2, { width: colAmount, align: "right" });
     });
-    y += Math.max(lineItems.length, 1) * rowHeight + 8;
+    y += Math.max(items.length, 1) * rowHeight + 8;
 
     const sectionY = y;
     const sumX = right - 220;
@@ -460,15 +337,13 @@ module.exports = ({ invoice, order }) =>
       summaryRow(`Discount${invoice?.promoCode ? ` (${invoice.promoCode})` : ""}`, -discount, false, summaryY);
       summaryY += summaryRowH;
     }
-    summaryRow("Taxable Value", taxable, false, summaryY);
-    summaryY += summaryRowH;
     if (isIntraState) {
-      summaryRow(`CGST @${halfRatePercent}%`, cgst, false, summaryY);
+      summaryRow("CGST", cgst, false, summaryY);
       summaryY += summaryRowH;
-      summaryRow(`SGST @${halfRatePercent}%`, sgst, false, summaryY);
+      summaryRow("SGST", sgst, false, summaryY);
       summaryY += summaryRowH;
     } else {
-      summaryRow(`IGST @${baseGstRatePercent}%`, igst, false, summaryY);
+      summaryRow("IGST", igst, false, summaryY);
       summaryY += summaryRowH;
     }
     summaryRow("Grand Total", grandTotal, true, summaryY);

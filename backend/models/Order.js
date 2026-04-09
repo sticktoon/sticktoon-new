@@ -119,7 +119,6 @@ const orderSchema = new mongoose.Schema(
       name: { type: String, default: null },
       street: { type: String, default: null },
       phone: { type: String, default: null },
-      state: { type: String, default: null },
     },
 
     gatewayPaymentId: {
