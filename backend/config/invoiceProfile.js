@@ -18,13 +18,21 @@ module.exports = {
     accountName: "StickToon",
     accountNumber: "XXXX XXXX XXXX",
     ifsc: "XXXX0000000",
-    bankName: "Your Bank Name",
+    bankName: "State Bank of India",
     branch: "Nagpur",
   },
   invoice: {
     defaultHsn: "4911",
     gstRatePercent: 12,
-    placeOfSupplyDefault: "Maharashtra (27)",
+    defaultItemGstRatePercent: 12,
+    taxDeliveryCharges: true,
+    deliveryGstRatePercent: 12,
+    hsnKeywordMap: {
+      STICKER: "3919",
+      BADGE: "3926",
+      PIN: "8310",
+    },
+    placeOfSupplyDefault: "Maharashtra",
   },
   terms: [
     "This is a computer-generated invoice and does not require a physical signature.",

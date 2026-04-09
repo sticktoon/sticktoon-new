@@ -15,6 +15,13 @@ exports.createOrder = async (req, res) => {
     const { address, items, promoCode } = req.body;
     const userId = req.user.id;
 
+    const normalizedAddress = {
+      name: String(address?.name || "").trim(),
+      street: String(address?.street || "").trim(),
+      phone: String(address?.phone || "").trim(),
+      state: String(address?.state || "").trim(),
+    };
+
     // SAFETY: ensure items is always an array
     const safeItems = Array.isArray(items) ? items : [];
 
@@ -22,12 +29,12 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ message: "Items required" });
     }
 
-    if (!address?.name || !address?.street || !address?.phone) {
+    if (!normalizedAddress.name || !normalizedAddress.street || !normalizedAddress.phone || !normalizedAddress.state) {
       return res.status(400).json({ message: "Address required" });
     }
 
     // Validate phone number
-    if (!/^\d{10,15}$/.test(address.phone)) {
+    if (!/^\d{10,15}$/.test(normalizedAddress.phone)) {
       return res.status(400).json({ message: "Invalid phone number" });
     }
 
@@ -40,7 +47,7 @@ exports.createOrder = async (req, res) => {
     }
 
     const email = user.email;
-    const phone = address.phone;
+    const phone = normalizedAddress.phone;
 
     // Calculate subtotal safely
     const subtotal = safeItems.reduce(
@@ -108,7 +115,7 @@ exports.createOrder = async (req, res) => {
       promoCode: appliedPromoCode,
       amount: totalAmount,
       gatewayOrderId,
-      address,
+      address: normalizedAddress,
       status: "PENDING",
     });
 
@@ -175,7 +182,7 @@ exports.createOrder = async (req, res) => {
           promoCode: promoForNotification.code,
           discountApplied: discount,
           orderAmount: totalAmount,
-          customerName: address.name,
+          customerName: normalizedAddress.name,
           customerEmail: email,
           usedCount: promoForNotification.usedCount,
           usageLimit: promoForNotification.usageLimit,

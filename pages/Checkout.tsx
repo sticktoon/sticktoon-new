@@ -65,12 +65,14 @@ export default function Checkout({
     name: "",
     street: "",
     phone: "",
+    state: "",
   });
 
   const [errors, setErrors] = useState({
     name: "",
     street: "",
     phone: "",
+    state: "",
   });
 
   const [paymentError, setPaymentError] = useState("");
@@ -211,7 +213,7 @@ export default function Checkout({
   };
 
   const validate = () => {
-    const e = { name: "", street: "", phone: "" };
+    const e = { name: "", street: "", phone: "", state: "" };
 
     if (!address.name.trim()) e.name = "Name is required";
     else if (/\d/.test(address.name))
@@ -225,8 +227,10 @@ export default function Checkout({
     else if (address.phone.length < 10)
       e.phone = "Phone must be at least 10 digits";
 
+    if (!address.state.trim()) e.state = "State is required";
+
     setErrors(e);
-    return !e.name && !e.street && !e.phone;
+    return !e.name && !e.street && !e.phone && !e.state;
   };
 
   const handlePlaceOrder = async () => {
@@ -527,7 +531,7 @@ export default function Checkout({
                 Shipping Details <span className="text-red-500 text-xs font-bold uppercase tracking-tighter">(All Fields Required)</span>
               </h3>
 
-              {(["name", "street", "phone"] as const).map(
+              {(["name", "street", "phone", "state"] as const).map(
                 (field) => (
                   <div key={field} className="mb-4">
                     <input
@@ -539,6 +543,8 @@ export default function Checkout({
                           ? "Full Name"
                           : field === "street"
                           ? "Street Address"
+                          : field === "state"
+                          ? "State"
                           : "Phone Number"
                       }
                       value={address[field]}

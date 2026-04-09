@@ -44,6 +44,7 @@ const invoiceSchema = new mongoose.Schema(
       name: String,
       street: String,
       phone: String,
+      state: String,
     },
 
     discount: {

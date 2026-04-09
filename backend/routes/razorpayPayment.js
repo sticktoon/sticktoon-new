@@ -30,17 +30,24 @@ router.post("/create-order", auth, async (req, res) => {
     const { address, items, promoCode } = req.body;
     const userId = req.user.id;
 
+    const normalizedAddress = {
+      name: String(address?.name || "").trim(),
+      street: String(address?.street || "").trim(),
+      phone: String(address?.phone || "").trim(),
+      state: String(address?.state || "").trim(),
+    };
+
     const safeItems = Array.isArray(items) ? items : [];
 
     if (safeItems.length === 0) {
       return res.status(400).json({ message: "Items required" });
     }
 
-    if (!address?.name || !address?.street || !address?.phone) {
+    if (!normalizedAddress.name || !normalizedAddress.street || !normalizedAddress.phone || !normalizedAddress.state) {
       return res.status(400).json({ message: "Address required" });
     }
 
-    if (!/^\d{10,15}$/.test(address.phone)) {
+    if (!/^\d{10,15}$/.test(normalizedAddress.phone)) {
       return res.status(400).json({ message: "Invalid phone number" });
     }
 
@@ -193,7 +200,7 @@ router.post("/create-order", auth, async (req, res) => {
       notes: {
         userId: userId,
         customerEmail: email,
-        customerName: address.name,
+        customerName: normalizedAddress.name,
       },
     });
 
@@ -207,7 +214,7 @@ router.post("/create-order", auth, async (req, res) => {
       promoCode: appliedPromoCode,
       amount: totalAmount,
       gatewayOrderId: razorpayOrder.id,
-      address,
+      address: normalizedAddress,
       status: "PENDING",
       paymentGateway: "razorpay",
     });
@@ -266,7 +273,7 @@ router.post("/create-order", auth, async (req, res) => {
           promoCode: promoForNotification.code,
           discountApplied: discount,
           orderAmount: totalAmount,
-          customerName: address.name,
+          customerName: normalizedAddress.name,
           customerEmail: email,
           usedCount: promoForNotification.usedCount,
           usageLimit: promoForNotification.usageLimit,
