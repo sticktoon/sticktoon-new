@@ -166,7 +166,10 @@ module.exports = ({ invoice, order }) =>
     const subtotal = items.reduce((sum, it) => sum + toNum(it.price) * toNum(it.quantity || 1), 0);
     const delivery = toNum(order?.deliveryCharges || order?.shippingCost || 0);
     const discount = toNum(invoice?.discount || order?.discount || 0);
-    const taxable = Math.max(subtotal + delivery - discount, 0);
+
+    // Delivery is non-taxable: GST applies only on item amount after discount.
+    const taxableItems = Math.max(subtotal - discount, 0);
+    const preTaxTotal = Math.max(subtotal + delivery - discount, 0);
 
     const gstRate = toNum(cfg.gstRatePercent) / 100;
     const sellerState = seller.stateName;
@@ -177,13 +180,13 @@ module.exports = ({ invoice, order }) =>
     let sgst = 0;
     let igst = 0;
     if (isIntraState) {
-      cgst = taxable * gstRate * 0.5;
-      sgst = taxable * gstRate * 0.5;
+      cgst = taxableItems * gstRate * 0.5;
+      sgst = taxableItems * gstRate * 0.5;
     } else {
-      igst = taxable * gstRate;
+      igst = taxableItems * gstRate;
     }
     const totalTax = cgst + sgst + igst;
-    const grandTotal = taxable + totalTax;
+    const grandTotal = preTaxTotal + totalTax;
 
     const amountWords = `${numberToWords(Math.floor(grandTotal))} Rupees Only`;
 
