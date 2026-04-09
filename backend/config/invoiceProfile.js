@@ -1,7 +1,8 @@
 module.exports = {
   seller: {
-    legalName: "StickToon",
+    legalName: "STICKTOON",
     brandName: "StickToon",
+    signatureImage: "/images/STICKTOON SIGN.png",
     addressLines: [
       "TBI, Ramdeobaba College",
       "Nagpur, Maharashtra - 440013, India",

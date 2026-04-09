@@ -1,6 +1,7 @@
 const PDFDocument = require("pdfkit");
 const fs = require("fs");
 const path = require("path");
+const sharp = require("sharp");
 const invoiceProfile = require("../config/invoiceProfile");
 
 const HEADER_LOGO_CANDIDATES = [
@@ -41,18 +42,37 @@ function resolveLocalItemImagePath(imagePath) {
   return null;
 }
 
-function drawItemImage(doc, imageValue, x, y, width, height) {
-  const boxPadding = 3;
-  const imgX = x + boxPadding;
-  const imgY = y + boxPadding;
-  const imgW = Math.max(width - boxPadding * 2, 10);
-  const imgH = Math.max(height - boxPadding * 2, 10);
-
-  doc.rect(imgX, imgY, imgW, imgH).stroke("#cbd5e1");
-
+function resolveImageSource(imageValue) {
   const inlineBuffer = dataUriToBuffer(imageValue);
-  const filePath = inlineBuffer ? null : resolveLocalItemImagePath(imageValue);
-  const imageSource = inlineBuffer || filePath;
+  if (inlineBuffer) return inlineBuffer;
+  return resolveLocalItemImagePath(imageValue);
+}
+
+async function prepareSignatureImage(imageSource) {
+  if (!imageSource) return null;
+
+  try {
+    const input = Buffer.isBuffer(imageSource) ? imageSource : fs.readFileSync(imageSource);
+
+    // Trim transparent/white padding around signature so it appears at practical size.
+    const trimmed = await sharp(input)
+      .trim({ threshold: 12 })
+      .png()
+      .toBuffer();
+
+    return trimmed;
+  } catch {
+    return imageSource;
+  }
+}
+
+function drawItemImage(doc, imageValue, x, y, width, height) {
+  const imgX = x;
+  const imgY = y;
+  const imgW = Math.max(width, 10);
+  const imgH = Math.max(height, 10);
+
+  const imageSource = resolveImageSource(imageValue);
 
   if (imageSource) {
     try {
@@ -234,16 +254,16 @@ module.exports = ({ invoice, order }) =>
     const rowsCount = Math.max(items.length, 1);
     const postTableEstimate = summaryRows * summaryRowH + 96;
     const availableRowsHeight = doc.page.height - 110 - (y + tableHeaderH + postTableEstimate);
-    const minRowH = 24;
-    const maxRowH = 34;
+    const minRowH = 30;
+    const maxRowH = 42;
     const dynamicRowH = Math.floor(availableRowsHeight / rowsCount);
     const rowHeight = Math.max(minRowH, Math.min(maxRowH, Number.isFinite(dynamicRowH) ? dynamicRowH : maxRowH));
-    const thumbSize = Math.max(16, rowHeight - 8);
+    const thumbSize = Math.max(22, rowHeight - 4);
 
     const tablePad = 6;
     const tableInnerW = pageW - tablePad * 2;
     const colSr = 24;
-    const colImg = 58;
+    const colImg = 72;
     const colQty = 42;
     const colRate = 62;
     const colAmount = 72;
@@ -292,6 +312,7 @@ module.exports = ({ invoice, order }) =>
     });
     y += Math.max(items.length, 1) * rowHeight + 8;
 
+    const sectionY = y;
     const sumX = right - 220;
     const labelW = 130;
     const valueW = 90;
@@ -305,43 +326,56 @@ module.exports = ({ invoice, order }) =>
       });
     }
 
-    summaryRow("Subtotal", subtotal, false, y);
-    y += summaryRowH;
+    let summaryY = sectionY;
+    summaryRow("Subtotal", subtotal, false, summaryY);
+    summaryY += summaryRowH;
     if (delivery > 0) {
-      summaryRow("Delivery", delivery, false, y);
-      y += summaryRowH;
+      summaryRow("Delivery", delivery, false, summaryY);
+      summaryY += summaryRowH;
     }
     if (discount > 0) {
-      summaryRow(`Discount${invoice?.promoCode ? ` (${invoice.promoCode})` : ""}`, -discount, false, y);
-      y += summaryRowH;
+      summaryRow(`Discount${invoice?.promoCode ? ` (${invoice.promoCode})` : ""}`, -discount, false, summaryY);
+      summaryY += summaryRowH;
     }
     if (isIntraState) {
-      summaryRow("CGST", cgst, false, y);
-      y += summaryRowH;
-      summaryRow("SGST", sgst, false, y);
-      y += summaryRowH;
+      summaryRow("CGST", cgst, false, summaryY);
+      summaryY += summaryRowH;
+      summaryRow("SGST", sgst, false, summaryY);
+      summaryY += summaryRowH;
     } else {
-      summaryRow("IGST", igst, false, y);
-      y += summaryRowH;
+      summaryRow("IGST", igst, false, summaryY);
+      summaryY += summaryRowH;
     }
-    summaryRow("Grand Total", grandTotal, true, y);
-    y += 24;
+    summaryRow("Grand Total", grandTotal, true, summaryY);
+    summaryY += summaryRowH;
+
+    const bankGap = 10;
+    const bankX = left;
+    const bankW = Math.max(sumX - bankX - bankGap, 220);
+    const bankH = Math.max(summaryY - sectionY, 56);
+
+    doc.rect(bankX, sectionY, bankW, bankH).stroke("#d1d5db");
+    doc.font("Helvetica-Bold").fontSize(8.5).fillColor("#0f172a").text("Bank Details", bankX + 8, sectionY + 6);
+
+    const bankColGap = 12;
+    const bankTextTop = sectionY + 20;
+    const bankTextW = (bankW - 16 - bankColGap) / 2;
+    const bankRightX = bankX + 8 + bankTextW + bankColGap;
+
+    doc.font("Helvetica").fontSize(7.5).fillColor("#334155")
+      .text(`Account Name: ${bank.accountName}`, bankX + 8, bankTextTop, { width: bankTextW })
+      .text(`IFSC: ${bank.ifsc}`, bankX + 8, bankTextTop + 13, { width: bankTextW })
+      .text(`Account No: ${bank.accountNumber}`, bankRightX, bankTextTop, { width: bankTextW })
+      .text(`Bank: ${bank.bankName}, ${bank.branch}`, bankRightX, bankTextTop + 13, { width: bankTextW });
+
+    y = sectionY + Math.max(bankH, summaryY - sectionY) + 12;
 
     doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#0f172a").text("Amount In Words:", left, y, { continued: true });
     doc.font("Helvetica").fontSize(7.5).fillColor("#334155").text(` ${amountWords}`);
     y += 16;
 
-    doc.rect(left, y, pageW, 52).stroke("#d1d5db");
-    doc.font("Helvetica-Bold").fontSize(8.5).fillColor("#0f172a").text("Bank Details", left + 8, y + 6);
-    doc.font("Helvetica").fontSize(7.5).fillColor("#334155")
-      .text(`Account Name: ${bank.accountName}`, left + 8, y + 19)
-      .text(`Account No: ${bank.accountNumber}`, left + 210, y + 19)
-      .text(`IFSC: ${bank.ifsc}`, left + 8, y + 31)
-      .text(`Bank: ${bank.bankName}, ${bank.branch}`, left + 210, y + 31);
-    y += 58;
-
     const footerY = doc.page.height - doc.page.margins.bottom - 14;
-    const signBlockHeight = 44;
+    const signBlockHeight = 72;
     let signY = footerY - signBlockHeight - 6;
 
     doc.font("Helvetica-Bold").fontSize(8.5).fillColor("#0f172a").text("Terms", left, y);
@@ -365,23 +399,58 @@ module.exports = ({ invoice, order }) =>
     signY = Math.max(signY, y + 4);
     signY = Math.min(signY, footerY - signBlockHeight - 2);
 
-    doc.font("Helvetica").fontSize(8).fillColor("#334155").text(`For ${seller.legalName}`, right - 150, signY, {
-      width: 140,
-      align: "right",
-    });
-    doc.moveTo(right - 130, signY + 34).lineTo(right - 16, signY + 34).stroke("#94a3b8");
-    doc.font("Helvetica").fontSize(7).fillColor("#64748b").text("Authorized Signatory", right - 140, signY + 38, {
-      width: 130,
-      align: "right",
-    });
+    const signAreaW = 180;
+    const signAreaX = right - signAreaW - 4;
+    const signLineY = signY + 54;
 
-    doc.moveTo(left, footerY).lineTo(right, footerY).stroke("#e2e8f0");
-    doc.font("Helvetica").fontSize(7).fillColor("#94a3b8").text(
-      `${seller.brandName} | ${seller.email} | www.sticktoon.shop`,
-      left,
-      footerY + 4,
-      { width: pageW, align: "center" }
-    );
+    const rawSignatureImage =
+      resolveImageSource(seller.signatureImage) ||
+      resolveImageSource("/images/STICKTOON SIGN.png") ||
+      resolveImageSource("/images/owner-signature.png");
 
-    doc.end();
+    (async () => {
+      const signatureImage = await prepareSignatureImage(rawSignatureImage);
+
+      let signatureDrawn = false;
+      if (signatureImage) {
+        try {
+          const sigBoxW = Math.min(126, signAreaW - 24);
+          const sigBoxH = 22;
+          const sigBoxX = signAreaX + (signAreaW - sigBoxW) / 2;
+          const sigBoxY = signLineY - sigBoxH - 9;
+
+          doc.image(signatureImage, sigBoxX, sigBoxY, {
+            fit: [sigBoxW, sigBoxH],
+            align: "center",
+            valign: "center",
+          });
+          signatureDrawn = true;
+        } catch {
+          // fall through to text fallback
+        }
+      }
+
+      if (!signatureDrawn) {
+        doc.font("Helvetica").fontSize(8).fillColor("#334155").text(seller.legalName, signAreaX, signLineY - 20, {
+          width: signAreaW,
+          align: "center",
+        });
+      }
+
+      doc.moveTo(signAreaX + 12, signLineY).lineTo(signAreaX + signAreaW - 12, signLineY).stroke("#94a3b8");
+      doc.font("Helvetica").fontSize(7).fillColor("#64748b").text("Authorized Signatory", signAreaX, signLineY + 4, {
+        width: signAreaW,
+        align: "center",
+      });
+
+      doc.moveTo(left, footerY).lineTo(right, footerY).stroke("#e2e8f0");
+      doc.font("Helvetica").fontSize(7).fillColor("#94a3b8").text(
+        `${seller.brandName} | ${seller.email} | www.sticktoon.shop`,
+        left,
+        footerY + 4,
+        { width: pageW, align: "center" }
+      );
+
+      doc.end();
+    })().catch(reject);
   });
