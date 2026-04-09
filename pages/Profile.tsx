@@ -27,9 +27,12 @@ interface Order {
   amount: number;
   status: string;
   createdAt: string;
-  invoiceId?: {
-    invoiceNumber: string;
-  };
+  invoiceId?:
+    | string
+    | {
+        _id?: string;
+        invoiceNumber?: string;
+      };
 }
 
 interface ProfileProps {
@@ -51,6 +54,7 @@ const Profile: React.FC<ProfileProps> = ({ addToCart }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [downloadingInvoiceOrderId, setDownloadingInvoiceOrderId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
@@ -217,6 +221,59 @@ const Profile: React.FC<ProfileProps> = ({ addToCart }) => {
       case "SUCCESS": return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
       case "FAILED": return "bg-red-500/15 text-red-400 border-red-500/30";
       default: return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+    }
+  };
+
+  const resolveInvoiceId = (order: Order): string | null => {
+    if (!order.invoiceId) return null;
+    if (typeof order.invoiceId === "string") return order.invoiceId;
+    return order.invoiceId._id || null;
+  };
+
+  const getInvoiceNumber = (order: Order): string | null => {
+    if (!order.invoiceId || typeof order.invoiceId === "string") return null;
+    return order.invoiceId.invoiceNumber || null;
+  };
+
+  const handleDownloadInvoice = async (order: Order) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      showToast("warning", "⚠️ Please login again to download invoice.");
+      return;
+    }
+
+    const invoiceId = resolveInvoiceId(order);
+    if (!invoiceId) {
+      showToast("warning", "⚠️ Invoice is not ready for this order yet.");
+      return;
+    }
+
+    try {
+      setDownloadingInvoiceOrderId(order._id);
+      const res = await fetch(`${API_BASE_URL}/api/invoice/${invoiceId}/download`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || "Failed to download invoice");
+      }
+
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const invoiceNumber = getInvoiceNumber(order) || invoiceId;
+      a.href = downloadUrl;
+      a.download = `invoice-${invoiceNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(downloadUrl);
+      showToast("success", "✅ Invoice downloaded successfully.");
+    } catch (err: any) {
+      showToast("error", `❌ ${err?.message || "Invoice download failed."}`);
+    } finally {
+      setDownloadingInvoiceOrderId(null);
     }
   };
 
@@ -490,14 +547,23 @@ const Profile: React.FC<ProfileProps> = ({ addToCart }) => {
                           {getStatusIcon(order.status)}
                           {order.status}
                         </div>
-                        {order.invoiceId && (
-                          <span className="text-slate-500 text-xs font-mono">INV #{order.invoiceId.invoiceNumber}</span>
+                        {getInvoiceNumber(order) && (
+                          <span className="text-slate-500 text-xs font-mono">INV #{getInvoiceNumber(order)}</span>
                         )}
                         <span className="text-white font-bold ml-auto text-lg">₹{order.amount}</span>
                       </div>
 
                       {/* Order Items */}
                       <div className="p-4">
+                        <div className="mb-3 flex justify-end">
+                          <button
+                            onClick={() => handleDownloadInvoice(order)}
+                            disabled={!resolveInvoiceId(order) || downloadingInvoiceOrderId === order._id}
+                            className="px-3 py-2 rounded-lg text-xs font-semibold transition-all border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {downloadingInvoiceOrderId === order._id ? "Downloading..." : "Download Invoice"}
+                          </button>
+                        </div>
                         {order.items.map((item, idx) => (
                           <div key={idx} className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/[0.03] transition-colors group">
                             <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-800 border border-white/[0.06] flex-shrink-0">
