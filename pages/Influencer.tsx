@@ -70,6 +70,7 @@ interface Withdrawal {
   _id: string;
   amount: number;
   paymentMethod: string;
+  promoCode?: string;
   status: string;
   transactionId?: string;
   adminNote?: string;
@@ -120,6 +121,7 @@ const Influencer: React.FC = () => {
   const [withdrawForm, setWithdrawForm] = useState({
     amount: 0,
     paymentMethod: "upi",
+    promoCode: "",
     upiId: "",
     bankDetails: {
       accountNumber: "",
@@ -147,6 +149,15 @@ const Influencer: React.FC = () => {
   useEffect(() => {
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (!promoCodes.length) return;
+
+    setWithdrawForm((prev) => {
+      if (prev.promoCode) return prev;
+      return { ...prev, promoCode: promoCodes[0].code };
+    });
+  }, [promoCodes]);
 
   useEffect(() => {
     // Parse URL path to determine view
@@ -496,6 +507,7 @@ const Influencer: React.FC = () => {
         body: JSON.stringify({
           amount: withdrawForm.amount,
           paymentMethod: withdrawForm.paymentMethod,
+          promoCode: withdrawForm.promoCode,
           paymentDetails: withdrawForm.paymentMethod === "upi" 
             ? { upiId: withdrawForm.upiId }
             : {
@@ -1107,6 +1119,22 @@ const Influencer: React.FC = () => {
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-gray-300 text-sm mb-2">Promo Code Used</label>
+                  <select
+                    value={withdrawForm.promoCode}
+                    onChange={(e) => setWithdrawForm({ ...withdrawForm, promoCode: e.target.value })}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-500 [&_option]:bg-white [&_option]:text-gray-900"
+                  >
+                    <option value="">-</option>
+                    {promoCodes.map((promo) => (
+                      <option key={promo._id} value={promo.code}>
+                        {promo.code}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 {withdrawForm.paymentMethod === "upi" ? (
                   <div>
                     <label className="block text-gray-300 text-sm mb-2">UPI ID</label>
@@ -1203,6 +1231,7 @@ const Influencer: React.FC = () => {
                         <th className="pb-3 text-gray-400 font-medium text-sm">Date</th>
                         <th className="pb-3 text-gray-400 font-medium text-sm">Amount</th>
                         <th className="pb-3 text-gray-400 font-medium text-sm">Method</th>
+                        <th className="pb-3 text-gray-400 font-medium text-sm">Promo Code</th>
                         <th className="pb-3 text-gray-400 font-medium text-sm">Status</th>
                         <th className="pb-3 text-gray-400 font-medium text-sm">Note</th>
                       </tr>
@@ -1215,6 +1244,7 @@ const Influencer: React.FC = () => {
                           </td>
                           <td className="py-3 text-white font-bold text-sm">₹{withdrawal.amount}</td>
                           <td className="py-3 text-gray-300 text-sm uppercase">{withdrawal.paymentMethod}</td>
+                          <td className="py-3 text-gray-300 text-sm uppercase">{withdrawal.promoCode || "-"}</td>
                           <td className="py-3">
                             <span className={`px-2 py-1 rounded-full text-xs font-bold ${
                               withdrawal.status === "approved" 

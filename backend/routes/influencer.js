@@ -412,7 +412,7 @@ router.get("/earnings", auth, approvedInfluencerOnly, async (req, res) => {
 ========================= */
 router.post("/withdraw", auth, approvedInfluencerOnly, async (req, res) => {
   try {
-    const { amount, paymentMethod, paymentDetails } = req.body;
+    const { amount, paymentMethod, paymentDetails, promoCode } = req.body;
 
     const user = await User.findById(req.user.id);
     const minAmount = user.influencerProfile?.minWithdrawalAmount || 100;
@@ -457,12 +457,27 @@ router.post("/withdraw", auth, approvedInfluencerOnly, async (req, res) => {
       return res.status(400).json({ message: "Payment method required" });
     }
 
+    let normalizedPromoCode = "";
+    if (promoCode && String(promoCode).trim()) {
+      normalizedPromoCode = String(promoCode).toUpperCase().trim();
+
+      const ownedPromo = await PromoCode.findOne({
+        code: normalizedPromoCode,
+        createdBy: req.user.id,
+      });
+
+      if (!ownedPromo) {
+        return res.status(400).json({ message: "Invalid promo code selected for withdrawal" });
+      }
+    }
+
     // Create withdrawal request
     const withdrawal = await WithdrawalRequest.create({
       influencerId: req.user.id,
       amount,
       paymentMethod: normalizedPaymentMethod,
       paymentDetails,
+      promoCode: normalizedPromoCode,
       status: "pending",
     });
 
@@ -478,6 +493,7 @@ router.post("/withdraw", auth, approvedInfluencerOnly, async (req, res) => {
             <p><strong>Influencer:</strong> ${user.name} (${user.email})</p>
             <p><strong>Amount:</strong> ₹${amount}</p>
             <p><strong>Method:</strong> ${normalizedPaymentMethod}</p>
+            <p><strong>Promo Code:</strong> ${normalizedPromoCode || "-"}</p>
             <p><strong>Requested At:</strong> ${new Date().toLocaleString()}</p>
             <h3 style="margin-top: 20px;">Payment Details</h3>
             <pre style="background: #f3f4f6; padding: 12px; border-radius: 8px; overflow-x: auto;">${JSON.stringify(paymentDetails || {}, null, 2)}</pre>

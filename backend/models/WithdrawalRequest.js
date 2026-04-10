@@ -31,6 +31,14 @@ const withdrawalRequestSchema = new mongoose.Schema(
       paytmNumber: String,
     },
 
+    // Promo code selected for this withdrawal request (snapshot)
+    promoCode: {
+      type: String,
+      default: "",
+      trim: true,
+      uppercase: true,
+    },
+
     // Status
     status: {
       type: String,
