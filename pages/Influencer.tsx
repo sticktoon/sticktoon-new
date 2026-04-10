@@ -963,6 +963,27 @@ const Influencer: React.FC = () => {
                     </select>
                   </div>
 
+                  <div>
+                    <label className="block text-gray-300 text-sm mb-2">Minimum Purchase Amount (₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={promoForm.minOrderAmount}
+                      onChange={(e) =>
+                        setPromoForm({
+                          ...promoForm,
+                          minOrderAmount: Number(e.target.value || 0),
+                        })
+                      }
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-gray-400 mt-2">
+                      Customers must have this subtotal or higher to use this promo code.
+                    </p>
+                  </div>
+
                   <button
                     type="submit"
                     disabled={loading}
@@ -1014,27 +1035,6 @@ const Influencer: React.FC = () => {
                         <div>
                           <p className="text-gray-400 text-xs mb-1">Units Sold</p>
                           <p className="text-white font-bold">{promo.totalUnitsSold}</p>
-
-                        <div>
-                          <label className="block text-gray-300 text-sm mb-2">Minimum Purchase Amount (₹)</label>
-                          <input
-                            type="number"
-                            min={0}
-                            step={1}
-                            value={promoForm.minOrderAmount}
-                            onChange={(e) =>
-                              setPromoForm({
-                                ...promoForm,
-                                minOrderAmount: Number(e.target.value || 0),
-                              })
-                            }
-                            className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                            placeholder="0"
-                          />
-                          <p className="text-xs text-gray-400 mt-2">
-                            Customers must have this subtotal or higher to use this promo code.
-                          </p>
-                        </div>
                         </div>
                         <div>
                           <p className="text-gray-400 text-xs mb-1">Total Earned</p>
