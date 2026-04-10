@@ -34,6 +34,7 @@ interface PromoCode {
   code: string;
   discountType: string;
   discountValue: number;
+  minOrderAmount?: number;
   usageCount: number;
   totalUnitsSold: number;
   totalEarnings: number;
@@ -114,6 +115,7 @@ const Influencer: React.FC = () => {
   const [promoForm, setPromoForm] = useState({
     code: "",
     discountValue: 10,
+    minOrderAmount: 0,
   });
   const [withdrawForm, setWithdrawForm] = useState({
     amount: 0,
@@ -364,6 +366,10 @@ const Influencer: React.FC = () => {
       return;
     }
 
+    const normalizedMinOrderAmount = Number.isFinite(promoForm.minOrderAmount)
+      ? Math.max(0, Math.round(promoForm.minOrderAmount))
+      : 0;
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/influencer/create-promo`, {
         method: "POST",
@@ -375,6 +381,7 @@ const Influencer: React.FC = () => {
           code: promoForm.code,
           discountType: "percentage",
           discountValue: promoForm.discountValue,
+          minOrderAmount: normalizedMinOrderAmount,
         }),
       });
 
@@ -385,7 +392,7 @@ const Influencer: React.FC = () => {
       }
 
       setSuccess("Promo code created successfully!");
-      setPromoForm({ code: "", discountValue: 10 });
+      setPromoForm({ code: "", discountValue: 10, minOrderAmount: 0 });
       await fetchAllData(token);
     } catch (err: any) {
       setError(err.message || "Failed to create promo code");
@@ -988,7 +995,7 @@ const Influencer: React.FC = () => {
                             </button>
                           </div>
                           <p className="text-purple-200 text-sm">
-                            Earn ₹{promo.earningPerUnit} per unit • {promo.discountValue}% discount
+                            Earn ₹{promo.earningPerUnit} per unit • {promo.discountValue}% discount • Min order ₹{promo.minOrderAmount ?? 0}
                           </p>
                         </div>
                         <button
@@ -1007,6 +1014,27 @@ const Influencer: React.FC = () => {
                         <div>
                           <p className="text-gray-400 text-xs mb-1">Units Sold</p>
                           <p className="text-white font-bold">{promo.totalUnitsSold}</p>
+
+                        <div>
+                          <label className="block text-gray-300 text-sm mb-2">Minimum Purchase Amount (₹)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={promoForm.minOrderAmount}
+                            onChange={(e) =>
+                              setPromoForm({
+                                ...promoForm,
+                                minOrderAmount: Number(e.target.value || 0),
+                              })
+                            }
+                            className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
+                            placeholder="0"
+                          />
+                          <p className="text-xs text-gray-400 mt-2">
+                            Customers must have this subtotal or higher to use this promo code.
+                          </p>
+                        </div>
                         </div>
                         <div>
                           <p className="text-gray-400 text-xs mb-1">Total Earned</p>

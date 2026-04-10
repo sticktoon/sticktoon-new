@@ -206,7 +206,7 @@ router.put("/payment-details", auth, approvedInfluencerOnly, async (req, res) =>
 ========================= */
 router.post("/create-promo", auth, approvedInfluencerOnly, async (req, res) => {
   try {
-    const { code, discountType, discountValue, description } = req.body;
+    const { code, discountType, discountValue, description, minOrderAmount } = req.body;
 
     const user = await User.findById(req.user.id);
 
@@ -229,6 +229,13 @@ router.post("/create-promo", auth, approvedInfluencerOnly, async (req, res) => {
       return res.status(400).json({ message: "Discount must be 5%, 10%, 15%, or 99%" });
     }
 
+    const parsedMinOrderAmount = Number(minOrderAmount ?? 0);
+    if (!Number.isFinite(parsedMinOrderAmount) || parsedMinOrderAmount < 0) {
+      return res.status(400).json({ message: "Minimum order amount must be a valid non-negative number" });
+    }
+
+    const normalizedMinOrderAmount = Math.round(parsedMinOrderAmount);
+
     // Check if code exists
     const existing = await PromoCode.findOne({ code: code.toUpperCase().trim() });
     if (existing) {
@@ -241,7 +248,7 @@ router.post("/create-promo", auth, approvedInfluencerOnly, async (req, res) => {
       promoType: "influencer",
       discountType: "percentage", // Always percentage for influencers
       discountValue: discount, // Only 5, 10, 15 or 99
-      minOrderAmount: 0,
+      minOrderAmount: normalizedMinOrderAmount,
       maxDiscount: null,
       usageLimit: null,
       validFrom: new Date(),
