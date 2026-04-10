@@ -47,6 +47,7 @@ interface EarningItem {
   _id: string;
   orderId: { _id: string; amount: number; status: string };
   customerId: { name: string };
+  promoCodeId?: { code: string } | null;
   totalUnits: number;
   totalEarning: number;
   status: string;
@@ -908,6 +909,7 @@ const Influencer: React.FC = () => {
                       <tr className="border-b border-white/10">
                         <th className="pb-3 text-gray-400 font-medium text-sm">Date</th>
                         <th className="pb-3 text-gray-400 font-medium text-sm">Customer</th>
+                        <th className="pb-3 text-gray-400 font-medium text-sm">Promo Code</th>
                         <th className="pb-3 text-gray-400 font-medium text-sm">Units</th>
                         <th className="pb-3 text-gray-400 font-medium text-sm">Amount</th>
                         <th className="pb-3 text-gray-400 font-medium text-sm">Status</th>
@@ -920,6 +922,7 @@ const Influencer: React.FC = () => {
                             {new Date(earning.createdAt).toLocaleDateString()}
                           </td>
                           <td className="py-3 text-white text-sm">{earning.customerId?.name || "N/A"}</td>
+                          <td className="py-3 text-gray-300 text-sm uppercase">{earning.promoCodeId?.code || "-"}</td>
                           <td className="py-3 text-gray-300 text-sm">{earning.totalUnits}</td>
                           <td className="py-3 text-green-400 font-bold text-sm">₹{earning.totalEarning}</td>
                           <td className="py-3">

@@ -343,6 +343,7 @@ router.get("/earnings", auth, approvedInfluencerOnly, async (req, res) => {
     const earnings = await InfluencerEarning.find({ influencerId: req.user.id })
       .populate("orderId", "amount status createdAt")
       .populate("customerId", "name email")
+      .populate("promoCodeId", "code")
       .sort({ createdAt: -1 })
       .limit(50);
 
