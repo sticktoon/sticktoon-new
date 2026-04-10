@@ -945,71 +945,69 @@ const Influencer: React.FC = () => {
         {currentView === "promo" && (
           <div className="space-y-6">
             {/* Create Promo Form */}
-            {promoCodes.length < 2 && (
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                <h3 className="text-xl font-bold text-white mb-4">Create New Promo Code</h3>
-                <form onSubmit={handleCreatePromo} className="space-y-4">
-                  <div>
-                    <label className="block text-gray-300 text-sm mb-2">Promo Code</label>
-                    <input
-                      type="text"
-                      value={promoForm.code}
-                      onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })}
-                      required
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                      placeholder="MYCODE"
-                    />
-                  </div>
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+              <h3 className="text-xl font-bold text-white mb-4">Create New Promo Code</h3>
+              <form onSubmit={handleCreatePromo} className="space-y-4">
+                <div>
+                  <label className="block text-gray-300 text-sm mb-2">Promo Code</label>
+                  <input
+                    type="text"
+                    value={promoForm.code}
+                    onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })}
+                    required
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
+                    placeholder="MYCODE"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-gray-300 text-sm mb-2">Discount Value (%)</label>
-                    <select
-                      value={promoForm.discountValue}
-                      onChange={(e) => setPromoForm({ ...promoForm, discountValue: parseInt(e.target.value) })}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-500 [&_option]:bg-white [&_option]:text-gray-900"
-                    >
-                      <option value={5}>5%</option>
-                      <option value={10}>10%</option>
-                      <option value={15}>15%</option>
-                      <option value={99}>99%</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-gray-300 text-sm mb-2">Minimum Purchase Amount (₹)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={promoForm.minOrderAmount}
-                      onChange={(e) =>
-                        setPromoForm({
-                          ...promoForm,
-                          minOrderAmount: Number(e.target.value || 0),
-                        })
-                      }
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                      placeholder="0"
-                    />
-                    <p className="text-xs text-gray-400 mt-2">
-                      Customers must have this subtotal or higher to use this promo code.
-                    </p>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50"
+                <div>
+                  <label className="block text-gray-300 text-sm mb-2">Discount Value (%)</label>
+                  <select
+                    value={promoForm.discountValue}
+                    onChange={(e) => setPromoForm({ ...promoForm, discountValue: parseInt(e.target.value) })}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-500 [&_option]:bg-white [&_option]:text-gray-900"
                   >
-                    {loading ? "Creating..." : "Create Promo Code"}
-                  </button>
-                </form>
-              </div>
-            )}
+                    <option value={5}>5%</option>
+                    <option value={10}>10%</option>
+                    <option value={15}>15%</option>
+                    <option value={99}>99%</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-gray-300 text-sm mb-2">Minimum Purchase Amount (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={promoForm.minOrderAmount}
+                    onChange={(e) =>
+                      setPromoForm({
+                        ...promoForm,
+                        minOrderAmount: Number(e.target.value || 0),
+                      })
+                    }
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
+                    placeholder="0"
+                  />
+                  <p className="text-xs text-gray-400 mt-2">
+                    Customers must have this subtotal or higher to use this promo code.
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50"
+                >
+                  {loading ? "Creating..." : "Create Promo Code"}
+                </button>
+              </form>
+            </div>
 
             {/* Promo List */}
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-              <h3 className="text-xl font-bold text-white mb-4">Your Promo Codes ({promoCodes.length}/2)</h3>
+              <h3 className="text-xl font-bold text-white mb-4">Your Promo Codes ({promoCodes.length})</h3>
               {promoCodes.length === 0 ? (
                 <p className="text-gray-400 text-center py-8">No promo codes yet. Create one above!</p>
               ) : (

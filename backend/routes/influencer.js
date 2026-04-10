@@ -210,14 +210,6 @@ router.post("/create-promo", auth, approvedInfluencerOnly, async (req, res) => {
 
     const user = await User.findById(req.user.id);
 
-    // Check if influencer already has 2 promo codes (limit)
-    const existingPromos = await PromoCode.countDocuments({ createdBy: req.user.id });
-    if (existingPromos >= 2) {
-      return res.status(400).json({
-        message: "You can only have 2 promo codes. Delete an existing one or contact admin.",
-      });
-    }
-
     if (!code) {
       return res.status(400).json({ message: "Promo code is required" });
     }
@@ -287,7 +279,7 @@ router.get("/my-promo", auth, approvedInfluencerOnly, async (req, res) => {
       promo: promos.length > 0 ? promos[0] : null,
       promos: promos,
       count: promos.length,
-      maxAllowed: 2
+      maxAllowed: null
     });
   } catch (err) {
     console.error("Get promo error:", err);
