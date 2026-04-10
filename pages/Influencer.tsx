@@ -947,7 +947,7 @@ const Influencer: React.FC = () => {
                     <select
                       value={promoForm.discountValue}
                       onChange={(e) => setPromoForm({ ...promoForm, discountValue: parseInt(e.target.value) })}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-500 [&_option]:bg-white [&_option]:text-gray-900"
                     >
                       <option value={5}>5%</option>
                       <option value={10}>10%</option>
