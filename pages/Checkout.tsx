@@ -155,6 +155,24 @@ export default function Checkout({
     ? { side: 50, vertical: 34 }
     : { side: 70, vertical: 48 };
 
+  const validatePromoRequest = async (
+    code: string,
+    currentSubtotal: number,
+    token: string
+  ) => {
+    const res = await fetch(`${API_BASE_URL}/api/promo/validate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ code, subtotal: currentSubtotal }),
+    });
+
+    const data = await res.json();
+    return { res, data };
+  };
+
   // Apply promo code
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) {
@@ -172,16 +190,7 @@ export default function Checkout({
     setPromoError("");
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/promo/validate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ code: promoCode, subtotal }),
-      });
-
-      const data = await res.json();
+      const { res, data } = await validatePromoRequest(promoCode, subtotal, token);
 
       if (!res.ok) {
         setPromoError(data.message || "Invalid promo code");
@@ -202,6 +211,55 @@ export default function Checkout({
       setPromoLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!appliedPromo?.code) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    let isCancelled = false;
+
+    const syncPromoWithSubtotal = async () => {
+      try {
+        const { res, data } = await validatePromoRequest(appliedPromo.code, subtotal, token);
+        if (isCancelled) return;
+
+        if (!res.ok) {
+          setAppliedPromo(null);
+          setShowPromoSavePopup(false);
+          setPromoError(data.message || "Promo code is no longer valid for this cart");
+          return;
+        }
+
+        setAppliedPromo((prev) => {
+          if (!prev) return prev;
+          if (
+            prev.code === data.code &&
+            prev.discount === data.discount &&
+            prev.description === data.description
+          ) {
+            return prev;
+          }
+
+          return {
+            code: data.code,
+            discount: data.discount,
+            description: data.description,
+          };
+        });
+        setPromoError("");
+      } catch (err) {
+        if (isCancelled) return;
+      }
+    };
+
+    void syncPromoWithSubtotal();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [subtotal, appliedPromo?.code]);
 
   // Remove promo code
   const handleRemovePromo = () => {
@@ -245,6 +303,32 @@ export default function Checkout({
       return;
     }
 
+    let promoCodeForOrder: string | null = appliedPromo?.code || null;
+
+    if (promoCodeForOrder) {
+      try {
+        const { res, data } = await validatePromoRequest(promoCodeForOrder, subtotal, token);
+
+        if (!res.ok) {
+          setAppliedPromo(null);
+          setShowPromoSavePopup(false);
+          setPromoError(data.message || "Promo code is no longer valid for this cart");
+          setPaymentError("Promo code was removed because cart value is below its minimum requirement.");
+          return;
+        }
+
+        setAppliedPromo({
+          code: data.code,
+          discount: data.discount,
+          description: data.description,
+        });
+        promoCodeForOrder = data.code;
+      } catch (err) {
+        setPaymentError("Failed to validate promo code. Please try again.");
+        return;
+      }
+    }
+
     setIsProcessing(true);
     try {
       const Razorpay = await loadRazorpay();
@@ -261,7 +345,7 @@ export default function Checkout({
           body: JSON.stringify({
             amount: total,
             address,
-            promoCode: appliedPromo?.code || null,
+            promoCode: promoCodeForOrder,
             items: cart.map((item) => ({
               badgeId: item.id,
               name: item.name,
