@@ -18,6 +18,7 @@ interface ImageState {
 
 interface CustomOrderProps {
   addToCart: (badge: Badge, quantity?: number) => void;
+  user?: { role?: string } | null;
 }
 
 interface CustomOrderDraft {
@@ -35,7 +36,18 @@ interface CustomOrderDraft {
 const CUSTOM_ORDER_DRAFT_KEY = 'sticktoon-custom-order-draft-v1';
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-export default function CustomOrder({ addToCart }: CustomOrderProps) {
+type StoredAuthUser = { role?: string };
+
+const readStoredAuthUser = (key: string): StoredAuthUser | null => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as StoredAuthUser) : null;
+  } catch {
+    return null;
+  }
+};
+
+export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -56,6 +68,30 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
+
+  const isAdmin = useCallback(() => {
+    if (user?.role === 'admin') return true;
+    const storefrontToken = localStorage.getItem('token');
+    const adminToken = localStorage.getItem('adminToken');
+    const storefrontUser = readStoredAuthUser('user');
+    const adminUser = readStoredAuthUser('adminUser');
+
+    return Boolean(
+      (storefrontToken && storefrontUser?.role === 'admin') ||
+      (adminToken && adminUser?.role === 'admin')
+    );
+  }, [user?.role]);
+
+  const getAdminAuthToken = useCallback(() => {
+    const adminToken = localStorage.getItem('adminToken');
+    const storefrontToken = localStorage.getItem('token');
+    const adminUser = readStoredAuthUser('adminUser');
+    const storefrontUser = readStoredAuthUser('user');
+
+    if (adminToken && adminUser?.role === 'admin') return adminToken;
+    if (storefrontToken && storefrontUser?.role === 'admin') return storefrontToken;
+    return null;
+  }, []);
 
   const backgroundPresets = [
     '#FFFFFF', '#000000', '#E5E7EB', '#C7D2FE', '#B11494', '#6D28D9',
@@ -364,11 +400,20 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
 
   const handleDownloadPrintFile = async () => {
     if (!imageState) { setErrorMessage('Please upload or generate an image first'); setTimeout(() => setErrorMessage(null), 3000); return; }
+    const adminAuthToken = getAdminAuthToken();
+    if (!adminAuthToken || !isAdmin()) {
+      setErrorMessage('Admin access required');
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
     setDownloading(true);
     try {
       const [outerDataUrl, innerDataUrl] = await Promise.all([getFullCircleBlob(), getInnerCircleBlob()]);
       const response = await fetch(`${API_BASE_URL}/api/badge-doc/download`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminAuthToken}`,
+        },
         body: JSON.stringify({ image: innerDataUrl, printImage: outerDataUrl, name: `Custom ${fastener}`, quantity }),
       });
       if (!response.ok) throw new Error('Download failed');
@@ -621,11 +666,13 @@ export default function CustomOrder({ addToCart }: CustomOrderProps) {
                   className="w-full h-10 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20">
                   <ShoppingCart className="w-4 h-4" /> Add to Cart
                 </button>
-                <button onClick={handleDownloadPrintFile} disabled={downloading || !imageState}
-                  className="w-full h-8 rounded-lg border border-white/[0.08] text-slate-400 font-medium text-[11px] flex items-center justify-center gap-1.5 hover:bg-white/[0.04] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                  {downloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />} {downloading ? 'Generating...' : 'Print File'}
-                </button>
-                {imageState && (
+                {isAdmin() && (
+                  <button onClick={handleDownloadPrintFile} disabled={downloading || !imageState}
+                    className="w-full h-8 rounded-lg border border-white/[0.08] text-slate-400 font-medium text-[11px] flex items-center justify-center gap-1.5 hover:bg-white/[0.04] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                    {downloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />} {downloading ? 'Generating...' : 'Print File'}
+                  </button>
+                )}
+                {isAdmin() && imageState && (
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={handleDownloadPreview}
                       className="h-7 rounded-md bg-emerald-600/10 text-emerald-400 border border-emerald-500/15 text-[10px] font-medium flex items-center justify-center gap-1 hover:bg-emerald-600/20 transition-all">

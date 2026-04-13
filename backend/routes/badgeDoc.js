@@ -1,10 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const generateBadgeDoc = require("../utils/generateBadgeDoc");
+const auth = require("../middleware/auth");
+const { adminOnly } = require("../middleware/roleMiddleware");
 
 // POST /api/badge-doc/download
 // Accepts badge image data and returns a Word document for download
-router.post("/download", async (req, res) => {
+router.post("/download", auth, adminOnly, async (req, res) => {
   try {
     const { image, printImage, name, quantity } = req.body;
 

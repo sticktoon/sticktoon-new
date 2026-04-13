@@ -1306,7 +1306,7 @@ export default function App() {
             }
           />
           <Route path="/login" element={<Login />} />
-          <Route path="/custom-order" element={<CustomOrder addToCart={addToCart} />} />
+          <Route path="/custom-order" element={<CustomOrder addToCart={addToCart} user={user} />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/Faq" element={< Faq/>} />
           <Route path="/privacypolicy" element={<PrivacyPolicy />} />
