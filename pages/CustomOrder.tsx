@@ -51,25 +51,6 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  let storefrontUser: { role?: string } | null = null;
-  let adminUser: { role?: string } | null = null;
-
-  try {
-    const rawStorefrontUser = localStorage.getItem('user');
-    storefrontUser = rawStorefrontUser ? JSON.parse(rawStorefrontUser) : null;
-  } catch {}
-
-  try {
-    const rawAdminUser = localStorage.getItem('adminUser');
-    adminUser = rawAdminUser ? JSON.parse(rawAdminUser) : null;
-  } catch {}
-
-  const isAdmin = Boolean(
-    storefrontUser?.role === 'admin' ||
-    adminUser?.role === 'admin' ||
-    localStorage.getItem('adminToken')
-  );
   
   const [fastener, setFastener] = useState('Pin-Badge');
   const [quantity, setQuantity] = useState(1);
@@ -685,21 +666,13 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                   className="w-full h-10 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20">
                   <ShoppingCart className="w-4 h-4" /> Add to Cart
                 </button>
-<<<<<<< HEAD
                 {isAdmin() && (
-=======
-                {isAdmin && (
->>>>>>> 7f41142 (made  print file, preview and template options available to only admins)
                   <button onClick={handleDownloadPrintFile} disabled={downloading || !imageState}
                     className="w-full h-8 rounded-lg border border-white/[0.08] text-slate-400 font-medium text-[11px] flex items-center justify-center gap-1.5 hover:bg-white/[0.04] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                     {downloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />} {downloading ? 'Generating...' : 'Print File'}
                   </button>
                 )}
-<<<<<<< HEAD
                 {isAdmin() && imageState && (
-=======
-                {isAdmin && imageState && (
->>>>>>> 7f41142 (made  print file, preview and template options available to only admins)
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={handleDownloadPreview}
                       className="h-7 rounded-md bg-emerald-600/10 text-emerald-400 border border-emerald-500/15 text-[10px] font-medium flex items-center justify-center gap-1 hover:bg-emerald-600/20 transition-all">
