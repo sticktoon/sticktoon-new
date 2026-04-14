@@ -123,6 +123,15 @@ export default function AdminDealConvert() {
   const [isPrinting, setIsPrinting] = useState(false);
   const isStaticPreview = isExporting || isPrinting;
 
+  const termLines = useMemo(
+    () =>
+      termsText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean),
+    [termsText],
+  );
+
   const totals = useMemo(() => {
     const computed = items.reduce(
       (sum, item) => {
@@ -808,7 +817,23 @@ export default function AdminDealConvert() {
             <div className="grid grid-cols-2 gap-8">
               <div>
                 <p className="mb-2 font-black uppercase">Terms & Conditions:</p>
-                <div className="whitespace-pre-line text-slate-700">{termsText}</div>
+                <div className="space-y-1 text-slate-700">
+                  {termLines.map((line, index) => {
+                    const match = line.match(/^(\d+\.\s*)?([^:]+):\s*(.*)$/);
+                    if (!match) {
+                      return <p key={`${index}-${line}`}>{line}</p>;
+                    }
+
+                    const [, prefix = "", label, value = ""] = match;
+                    return (
+                      <p key={`${index}-${line}`}>
+                        {prefix}
+                        <span className="font-black">{label.trim()}:</span>
+                        {value ? ` ${value}` : ""}
+                      </p>
+                    );
+                  })}
+                </div>
               </div>
               <div>
                 <p className="mb-2 font-black uppercase">Bank Account Details:</p>
