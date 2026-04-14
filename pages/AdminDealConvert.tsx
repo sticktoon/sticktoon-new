@@ -36,6 +36,27 @@ const makeQuoteNumber = () => {
   ).padStart(2, "0")}`;
 };
 
+const formatDateDdMmYyyy = (date: Date) => {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = String(date.getFullYear());
+  return `${day}-${month}-${year}`;
+};
+
+const normalizeDateInputDdMmYyyy = (value: string) => {
+  const trimmed = value.trim();
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return `${day}-${month}-${year}`;
+  }
+
+  const digits = trimmed.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
+};
+
 const waitForImages = async (root: ParentNode) => {
   const images = Array.from(root.querySelectorAll<HTMLImageElement>("img"));
 
@@ -80,7 +101,7 @@ export default function AdminDealConvert() {
   const [address, setAddress] = useState("");
   const [quotationNo, setQuotationNo] = useState(makeQuoteNumber());
   const [quotationDate, setQuotationDate] = useState(
-    new Date().toISOString().slice(0, 10),
+    formatDateDdMmYyyy(new Date()),
   );
   const [validityDays, setValidityDays] = useState(30);
   const [subject, setSubject] = useState(
@@ -527,7 +548,15 @@ export default function AdminDealConvert() {
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-black uppercase text-slate-500">Date</span>
-                <input type="date" value={quotationDate} onChange={(e) => setQuotationDate(e.target.value)} className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD-MM-YYYY"
+                  value={quotationDate}
+                  onChange={(e) => setQuotationDate(normalizeDateInputDdMmYyyy(e.target.value))}
+                  className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`}
+                />
               </label>
             </div>
 
