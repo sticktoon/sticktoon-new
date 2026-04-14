@@ -816,6 +816,7 @@ export default function AdminDealConvert() {
                   <p><span className="font-black">Account Name:</span> {accountName}</p>
                   <p><span className="font-black">Bank Name:</span> {bankName}</p>
                   <p><span className="font-black">Account No:</span> {accountNumber}</p>
+                  <p><span className="font-black">SWIFT Code:</span> SBININBBXXX</p>
                   <p><span className="font-black">IFSC Code:</span> {ifsc}</p>
                   <p><span className="font-black">Branch:</span> {branch}</p>
                 </div>
