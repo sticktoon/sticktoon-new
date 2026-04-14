@@ -100,9 +100,12 @@ export default function AdminDealConvert() {
   const [termsText, setTermsText] = useState(
     [
       "1. Currency: All prices are in Indian Rupees (INR).",
-      "2. Taxes: Rates are inclusive of applicable GST unless stated otherwise.",
-      "3. Lead time depends on artwork approval and order confirmation.",
-      "4. Validity: This quotation is valid for 30 days.",
+      "2. Taxes: Rates are inclusive of 18% IGST.",
+      "3. International Shipping: Delivery will be managed by Sticktoon, with no charges applied to the customer.",
+      "4. Lead Time: 20-25 working days from the date of Purchase Order and advance payment.",
+      "5. Payment Terms: 100% Advance payment required for international orders.",
+      "6. Validity: This quotation is valid for 10 days.",
+      "7. Jurisdiction: Subject to Nagpur Jurisdiction.",
     ].join("\n"),
   );
   const [accountName, setAccountName] = useState("Anish Patankar (Stick Toon)");
