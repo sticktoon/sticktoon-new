@@ -82,6 +82,47 @@ const waitForImages = async (root: ParentNode) => {
   );
 };
 
+type PdfLinkRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  url: string;
+};
+
+const getPdfLinkRects = (
+  container: HTMLElement,
+  pageWidth: number,
+  renderedPageHeight: number,
+  yOffset: number,
+): PdfLinkRect[] => {
+  const containerRect = container.getBoundingClientRect();
+  if (containerRect.width <= 0 || containerRect.height <= 0) return [];
+
+  const scaleX = pageWidth / containerRect.width;
+  const scaleY = renderedPageHeight / containerRect.height;
+
+  return Array.from(container.querySelectorAll<HTMLAnchorElement>("a[href]"))
+    .map((anchor) => {
+      const url = anchor.getAttribute("href")?.trim();
+      if (!url) return null;
+
+      const rect = anchor.getBoundingClientRect();
+      const width = rect.width * scaleX;
+      const height = rect.height * scaleY;
+      if (width <= 0 || height <= 0) return null;
+
+      return {
+        x: (rect.left - containerRect.left) * scaleX,
+        y: yOffset + (rect.top - containerRect.top) * scaleY,
+        width,
+        height,
+        url,
+      };
+    })
+    .filter((link): link is PdfLinkRect => Boolean(link));
+};
+
 export default function AdminDealConvert() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -106,9 +147,6 @@ export default function AdminDealConvert() {
   const [validityDays, setValidityDays] = useState(30);
   const [subject, setSubject] = useState(
     "Quotation for manufacturing & printing",
-  );
-  const [introMessage, setIntroMessage] = useState(
-    "Dear Sir/Ma'am, thank you for your interest in Stick Toon. Please find below the quotation details prepared for your requirement.",
   );
   const [items, setItems] = useState<QuoteItem[]>([
     {
@@ -267,6 +305,16 @@ export default function AdminDealConvert() {
       const finalH = (finalCanvas.height * pageWidth) / finalCanvas.width;
       const finalYOffset = finalH < pageHeight ? (pageHeight - finalH) / 2 : 0;
       pdf.addImage(finalImgData, "PNG", 0, finalYOffset, pageWidth, finalH);
+
+      const footerLinks = getPdfLinkRects(
+        finalElement,
+        pageWidth,
+        finalH,
+        finalYOffset,
+      );
+      footerLinks.forEach((link) => {
+        pdf.link(link.x, link.y, link.width, link.height, { url: link.url });
+      });
 
       return pdf;
     } finally {
@@ -579,16 +627,6 @@ export default function AdminDealConvert() {
               <input value={subject} onChange={(e) => setSubject(e.target.value)} className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
             </label>
 
-            <label className="block">
-              <span className="mb-1 block text-xs font-black uppercase text-slate-500">Intro Message</span>
-              <textarea
-                value={introMessage}
-                onChange={(e) => setIntroMessage(e.target.value)}
-                rows={3}
-                className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`}
-              />
-            </label>
-
             <div className="rounded-xl border p-4">
               <h2 className="mb-3 text-sm font-black uppercase text-slate-700">Terms & Conditions</h2>
               <textarea
@@ -688,8 +726,9 @@ export default function AdminDealConvert() {
 
                     <div className="mt-6">
                       <p className="text-sm font-black uppercase underline">{subject}</p>
-                      <p className="mt-4 whitespace-pre-line text-sm leading-7 text-slate-700">
-                        {introMessage.trim() || "-"}
+                      <p className="mt-4 text-sm leading-7 text-slate-700">
+                        Dear Sir/Ma'am, thank you for your interest in Stick Toon. Please find below the
+                        quotation details prepared for your requirement.
                       </p>
                     </div>
                   </>
