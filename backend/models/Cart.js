@@ -31,6 +31,26 @@ const cartItemSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    comboItems: {
+      type: [
+        {
+          _id: false,
+          id: {
+            type: String,
+            required: true,
+          },
+          name: {
+            type: String,
+            required: true,
+          },
+          image: {
+            type: String,
+            default: null,
+          },
+        },
+      ],
+      default: undefined,
+    },
   },
   { _id: false }
 );

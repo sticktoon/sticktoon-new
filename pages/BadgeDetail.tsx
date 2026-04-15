@@ -378,6 +378,11 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
       price: CUSTOM_COMBO_PRICE,
       category: badge.category,
       image: selectedBadges[0]?.image || badge.image,
+      comboItems: selectedBadges.map((item) => ({
+        id: item.id,
+        name: item.name,
+        image: item.image,
+      })),
       details: `Custom combo: ${badgeNames.join(', ')}`,
       tagline: 'Built by you',
       color: 'bg-transparent',

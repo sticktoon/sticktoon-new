@@ -917,6 +917,16 @@ export default function App() {
       return;
     }
 
+    const comboItems = Array.isArray(badge?.comboItems)
+      ? badge.comboItems
+          .filter((item: any) => item?.id && item?.name)
+          .map((item: any) => ({
+            id: String(item.id),
+            name: String(item.name),
+            image: item?.image ? String(item.image) : null,
+          }))
+      : undefined;
+
     const cartItem = {
       id: badge.id,
       name: badge.name,
@@ -924,6 +934,7 @@ export default function App() {
       image: badge.image,
       printImage: badge.printImage,
       category: badge.category,
+      comboItems,
     };
 
     const existingItem = cart.find((item) => item.id === cartItem.id);

@@ -1,8 +1,8 @@
 import { Fragment, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Trash2, ShoppingCart, Tag, X, CheckCircle, Sparkles } from "lucide-react";
-import { CartItem } from "../types";
-import { formatPrice } from "../constants";
+import { CartItem, ComboItemPreview } from "../types";
+import { BADGES, formatPrice } from "../constants";
 import { API_BASE_URL } from "../config/api";
 
 /* =========================
@@ -24,6 +24,118 @@ const loadRazorpay = (): Promise<any> => {
 
     document.body.appendChild(script);
   });
+};
+
+const normalizeCategoryKey = (value?: string) => {
+  if (!value) return "";
+
+  const normalized = String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  if (normalized === "animal") return "pet";
+  if (normalized === "positive-vibe") return "positive-vibes";
+
+  return normalized;
+};
+
+const sanitizeComboItems = (items?: ComboItemPreview[]) => {
+  if (!Array.isArray(items)) return [];
+
+  return items
+    .filter((item) => item?.id && item?.name)
+    .map((item) => ({
+      id: String(item.id),
+      name: String(item.name),
+      image: item?.image ? String(item.image) : undefined,
+    }));
+};
+
+const parseComboId = (comboId: string) => {
+  const trimmed = String(comboId || "");
+  const knownPrefixes = ["custom-combo-", "local-combo-"];
+  const matchedPrefix = knownPrefixes.find((prefix) => trimmed.startsWith(prefix));
+  if (!matchedPrefix) return null;
+
+  const remainder = trimmed.slice(matchedPrefix.length);
+  if (!remainder) return null;
+
+  const categoryKeys = Array.from(
+    new Set(
+      BADGES.filter((badge) => !badge.isCombo)
+        .map((badge) => normalizeCategoryKey(String(badge.category)))
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => b.length - a.length);
+
+  for (const categoryKey of categoryKeys) {
+    const categoryPrefix = `${categoryKey}-`;
+    if (remainder.startsWith(categoryPrefix)) {
+      return {
+        categoryKey,
+        encodedSeed: remainder.slice(categoryPrefix.length),
+      };
+    }
+  }
+
+  const firstDashIndex = remainder.indexOf("-");
+  if (firstDashIndex <= 0) return null;
+
+  return {
+    categoryKey: normalizeCategoryKey(remainder.slice(0, firstDashIndex)),
+    encodedSeed: remainder.slice(firstDashIndex + 1),
+  };
+};
+
+const decodeComboItemsFromCartId = (item: CartItem) => {
+  const parsedComboId = parseComboId(String(item?.id || ""));
+  if (!parsedComboId) return [];
+
+  const idCategoryKey = normalizeCategoryKey(parsedComboId.categoryKey);
+  const encodedSeed = String(parsedComboId.encodedSeed || "").toLowerCase();
+  const categoryKey = idCategoryKey || normalizeCategoryKey(String(item?.category || ""));
+  if (!categoryKey) return [];
+
+  const candidates = BADGES.filter(
+    (badge) => !badge.isCombo && normalizeCategoryKey(String(badge.category)) === categoryKey,
+  ).sort((a, b) => a.id.localeCompare(b.id));
+
+  if (candidates.length < 4) return [];
+
+  for (let i = 0; i < candidates.length - 3; i += 1) {
+    for (let j = i + 1; j < candidates.length - 2; j += 1) {
+      for (let k = j + 1; k < candidates.length - 1; k += 1) {
+        for (let l = k + 1; l < candidates.length; l += 1) {
+          const comboSet = [candidates[i], candidates[j], candidates[k], candidates[l]];
+          const seed = comboSet
+            .map((badge) => badge.id)
+            .sort()
+            .join("-")
+            .toLowerCase()
+            .replace(/[^a-z0-9-]/g, "");
+
+          if (seed === encodedSeed) {
+            return comboSet.map((badge) => ({
+              id: badge.id,
+              name: badge.name,
+              image: badge.image,
+            }));
+          }
+        }
+      }
+    }
+  }
+
+  return [];
+};
+
+const getComboItemsForDisplay = (item: CartItem) => {
+  const directItems = sanitizeComboItems(item.comboItems);
+  if (directItems.length > 0) return directItems;
+
+  return decodeComboItemsFromCartId(item);
 };
 
 interface CheckoutProps {
@@ -726,74 +838,103 @@ export default function Checkout({
   </div>
 
   {/* ITEMS LIST */}
-  {cart.map((item) => (
-    <div
-      key={item.id}
-      className="border-b pb-5 last:border-b-0"
-    >
-      <div className="flex items-start gap-3">
-        <img
-          src={item.image}
-          alt={item.name}
-          className="w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-lg shrink-0"
-        />
+  {cart.map((item) => {
+    const comboItems = getComboItemsForDisplay(item);
 
-        <div className="flex-1 min-w-0">
-          <p className="font-black truncate">{item.name}</p>
-          <p className="text-sm text-gray-500">
-            ₹{item.price} × {item.quantity}
+    return (
+      <div
+        key={item.id}
+        className="border-b pb-5 last:border-b-0"
+      >
+        <div className="flex items-start gap-3">
+          <img
+            src={item.image}
+            alt={item.name}
+            className="w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-lg shrink-0"
+          />
+
+          <div className="flex-1 min-w-0">
+            <p className="font-black truncate">{item.name}</p>
+            <p className="text-sm text-gray-500">
+              ₹{item.price} × {item.quantity}
+            </p>
+          </div>
+
+          <button
+            onClick={() => removeFromCart(item.id)}
+            className="shrink-0 p-1"
+            aria-label="Remove item"
+          >
+            <Trash2 className="text-rose-500 w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            onClick={() => handleDecrement(item)}
+              className="w-8 h-8 rounded-full border"
+          >
+            −
+          </button>
+
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={quantityInputs[item.id] ?? String(item.quantity)}
+            onChange={(e) => handleQuantityInputChange(item.id, e.target.value)}
+            onBlur={() => commitQuantity(item.id, item.quantity)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+              className="w-14 sm:w-16 h-8 rounded-md border text-center font-bold"
+            inputMode="numeric"
+            aria-label="Item quantity"
+          />
+
+          <button
+            onClick={() => handleIncrement(item)}
+              className="w-8 h-8 rounded-full border"
+          >
+            +
+          </button>
+          </div>
+
+          <p className="font-bold text-sm sm:text-base whitespace-nowrap">
+            ₹{item.price * item.quantity}
           </p>
         </div>
 
-        <button
-          onClick={() => removeFromCart(item.id)}
-          className="shrink-0 p-1"
-          aria-label="Remove item"
-        >
-          <Trash2 className="text-rose-500 w-4 h-4 sm:w-5 sm:h-5" />
-        </button>
+        {comboItems.length > 0 && (
+          <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50/80 p-2.5">
+            <summary className="cursor-pointer select-none text-xs font-black uppercase tracking-wide text-slate-700">
+              View combo badges ({comboItems.length})
+            </summary>
+            <div className="mt-2 space-y-2">
+              {comboItems.map((comboBadge) => (
+                <div
+                  key={`${item.id}-${comboBadge.id}`}
+                  className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5"
+                >
+                  <img
+                    src={comboBadge.image || item.image}
+                    alt={comboBadge.name}
+                    className="w-8 h-8 rounded-md object-cover shrink-0"
+                  />
+                  <p className="text-xs font-semibold text-slate-700 truncate">
+                    {comboBadge.name}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
       </div>
-
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 sm:gap-3">
-        <button
-          onClick={() => handleDecrement(item)}
-            className="w-8 h-8 rounded-full border"
-        >
-          −
-        </button>
-
-        <input
-          type="number"
-          min={1}
-          step={1}
-          value={quantityInputs[item.id] ?? String(item.quantity)}
-          onChange={(e) => handleQuantityInputChange(item.id, e.target.value)}
-          onBlur={() => commitQuantity(item.id, item.quantity)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              (e.target as HTMLInputElement).blur();
-            }
-          }}
-            className="w-14 sm:w-16 h-8 rounded-md border text-center font-bold"
-          inputMode="numeric"
-          aria-label="Item quantity"
-        />
-
-        <button
-          onClick={() => handleIncrement(item)}
-            className="w-8 h-8 rounded-full border"
-        >
-          +
-        </button>
-        </div>
-
-        <p className="font-bold text-sm sm:text-base whitespace-nowrap">
-          ₹{item.price * item.quantity}
-        </p>
-      </div>
-    </div>
-  ))}
+    );
+  })}
 </div>
 
           </div>
