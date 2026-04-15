@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { BADGES } from '../constants';
 import { Badge } from '../types';
@@ -10,6 +10,55 @@ import { API_BASE_URL } from '../config/api';
 interface BadgeDetailProps {
   addToCart: (badge: Badge) => void;
 }
+
+const LOCAL_CUSTOM_COMBO_STORAGE_KEY = 'sticktoon-local-custom-combos-v1';
+const CUSTOM_COMBO_SIZE = 4;
+const CUSTOM_COMBO_PRICE = 149;
+
+type LocalCustomCombo = {
+  id: string;
+  categoryKey: string;
+  categoryLabel: string;
+  badgeIds: string[];
+  badgeNames: string[];
+  createdAt: number;
+};
+
+type LocalCustomComboStorage = Record<string, LocalCustomCombo[]>;
+
+const normalizeCategoryKey = (value?: string) => {
+  if (!value) return '';
+  const normalized = String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  if (normalized === 'animal') return 'pet';
+  if (normalized === 'positive-vibe') return 'positive-vibes';
+  return normalized;
+};
+
+const formatCategoryLabel = (value?: string) => {
+  if (!value) return 'Badge';
+
+  return String(value)
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+};
+
+const getLocalComboOwnerKey = () => {
+  try {
+    const rawUser = localStorage.getItem('user');
+    if (!rawUser) return 'guest';
+
+    const parsedUser = JSON.parse(rawUser) as { email?: string; id?: string; _id?: string };
+    const key = String(parsedUser.email || parsedUser.id || parsedUser._id || '').trim().toLowerCase();
+    return key || 'guest';
+  } catch {
+    return 'guest';
+  }
+};
 
 export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +73,11 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
   const [shareCopied, setShareCopied] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [comboSelection, setComboSelection] = useState<string[]>([]);
+  const [comboMessage, setComboMessage] = useState('');
+  const [comboMessageType, setComboMessageType] = useState<'success' | 'error' | ''>('');
+  const [savedCombo, setSavedCombo] = useState<LocalCustomCombo | null>(null);
+  const [categoryBadges, setCategoryBadges] = useState<Badge[]>([]);
   const magneticFallback = '/badge/magnectbadge.png';
 
   const normalizeImagePath = (path?: string) => {
@@ -77,6 +131,66 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
       imageMagnetic: normalizeImagePath(b.imageMagnetic) || b.imageMagnetic,
     } as Badge;
   };
+
+  const readLocalCombos = (): LocalCustomComboStorage => {
+    try {
+      const raw = localStorage.getItem(LOCAL_CUSTOM_COMBO_STORAGE_KEY);
+      if (!raw) return {};
+
+      const parsed = JSON.parse(raw) as LocalCustomComboStorage;
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const saveLocalComboForUser = (combo: LocalCustomCombo) => {
+    const ownerKey = getLocalComboOwnerKey();
+    const allCombos = readLocalCombos();
+    const ownerCombos = allCombos[ownerKey] || [];
+    const nextOwnerCombos = [
+      combo,
+      ...ownerCombos.filter((item) => item.categoryKey !== combo.categoryKey),
+    ].slice(0, 30);
+
+    const nextStorage: LocalCustomComboStorage = {
+      ...allCombos,
+      [ownerKey]: nextOwnerCombos,
+    };
+
+    localStorage.setItem(LOCAL_CUSTOM_COMBO_STORAGE_KEY, JSON.stringify(nextStorage));
+    setSavedCombo(combo);
+  };
+
+  const activeCategoryKey = normalizeCategoryKey(String(badge?.category || ''));
+  const activeCategoryLabel = formatCategoryLabel(String(badge?.category || 'Badge'));
+
+  const comboCandidates = useMemo(() => {
+    if (!activeCategoryKey) return [];
+
+    const byId = new Map<string, Badge>();
+
+    const collect = (items: Badge[]) => {
+      items.forEach((item) => {
+        if (!item?.id || item.isCombo) return;
+
+        const itemCategoryKey = normalizeCategoryKey(String(item.category));
+        if (itemCategoryKey !== activeCategoryKey) return;
+
+        byId.set(item.id, {
+          ...item,
+          image: normalizeImagePath(item.image) || item.image,
+          imageMagnetic: normalizeImagePath(item.imageMagnetic) || item.imageMagnetic,
+        });
+      });
+    };
+
+    collect(BADGES);
+    collect(categoryBadges);
+    if (badge) collect([badge]);
+
+    return Array.from(byId.values());
+  }, [activeCategoryKey, badge, categoryBadges]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -133,6 +247,82 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
     }
     setCurrentImage(0);
   }, [badgeType]);
+
+  useEffect(() => {
+    if (!activeCategoryKey) {
+      setCategoryBadges([]);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadCategoryBadges = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/products/category/${encodeURIComponent(activeCategoryKey)}?limit=120`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const products = Array.isArray(data?.products) ? data.products : [];
+        const mapped = products.map((p: any) => ({
+          id: p._id,
+          name: p.name,
+          category: p.category?.toLowerCase?.() ?? p.category,
+          price: Number(p.price) || 0,
+          image: normalizeImagePath(p.image) || p.image,
+          subcategory: p.subcategory || p.subCategory || p.sub_category,
+          details: p.description || p.details || '',
+          imageMagnetic: normalizeImagePath(p.imageMagnetic),
+          color: p.color || 'bg-transparent',
+        })) as Badge[];
+
+        if (isMounted) {
+          setCategoryBadges(mapped.filter((item) => item.id && item.name && item.price > 0));
+        }
+      } catch {
+        if (isMounted) {
+          setCategoryBadges([]);
+        }
+      }
+    };
+
+    loadCategoryBadges();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeCategoryKey]);
+
+  useEffect(() => {
+    if (!badge) return;
+
+    const ownerKey = getLocalComboOwnerKey();
+    const allCombos = readLocalCombos();
+    const ownerCombos = allCombos[ownerKey] || [];
+    const localCombo = ownerCombos.find((item) => item.categoryKey === activeCategoryKey) || null;
+
+    setSavedCombo(localCombo);
+    setComboMessage('');
+    setComboMessageType('');
+
+    if (localCombo?.badgeIds?.length === CUSTOM_COMBO_SIZE) {
+      setComboSelection(localCombo.badgeIds);
+      return;
+    }
+
+    if (!badge.isCombo) {
+      setComboSelection([badge.id]);
+      return;
+    }
+
+    setComboSelection([]);
+  }, [badge?.id, badge?.isCombo, activeCategoryKey]);
+
+  useEffect(() => {
+    if (!comboCandidates.length) return;
+
+    const availableIds = new Set(comboCandidates.map((item) => item.id));
+    setComboSelection((prev) => prev.filter((selectedId) => availableIds.has(selectedId)));
+  }, [comboCandidates]);
 
   if (!id) {
     return (
@@ -192,6 +382,101 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
     setTimeout(() => setAddedToCart(false), 2000);
   };
 
+  const getSelectedComboBadges = () => {
+    const byId = new Map(comboCandidates.map((item) => [item.id, item]));
+    return comboSelection
+      .map((selectedId) => byId.get(selectedId))
+      .filter((item): item is Badge => Boolean(item));
+  };
+
+  const buildLocalCombo = () => {
+    const selectedBadges = getSelectedComboBadges();
+
+    if (comboSelection.length !== CUSTOM_COMBO_SIZE || selectedBadges.length !== CUSTOM_COMBO_SIZE) {
+      return null;
+    }
+
+    const comboIdSeed = comboSelection
+      .slice()
+      .sort()
+      .join('-')
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '');
+
+    const comboId = `local-combo-${activeCategoryKey || 'misc'}-${comboIdSeed}`;
+
+    const localCombo: LocalCustomCombo = {
+      id: comboId,
+      categoryKey: activeCategoryKey || 'misc',
+      categoryLabel: activeCategoryLabel,
+      badgeIds: [...comboSelection],
+      badgeNames: selectedBadges.map((item) => item.name),
+      createdAt: Date.now(),
+    };
+
+    return { localCombo, selectedBadges };
+  };
+
+  const handleToggleComboBadge = (badgeId: string) => {
+    setComboMessage('');
+    setComboMessageType('');
+
+    if (comboSelection.includes(badgeId)) {
+      setComboSelection((prev) => prev.filter((idItem) => idItem !== badgeId));
+      return;
+    }
+
+    if (comboSelection.length >= CUSTOM_COMBO_SIZE) {
+      setComboMessage(`You can select only ${CUSTOM_COMBO_SIZE} badges in one combo.`);
+      setComboMessageType('error');
+      return;
+    }
+
+    setComboSelection((prev) => [...prev, badgeId]);
+  };
+
+  const handleSaveComboLocally = () => {
+    const builtCombo = buildLocalCombo();
+    if (!builtCombo) {
+      setComboMessage(`Select exactly ${CUSTOM_COMBO_SIZE} badges from the same category.`);
+      setComboMessageType('error');
+      return;
+    }
+
+    saveLocalComboForUser(builtCombo.localCombo);
+    setComboMessage('Combo saved locally for your account on this browser.');
+    setComboMessageType('success');
+  };
+
+  const handleAddCustomComboToCart = () => {
+    const builtCombo = buildLocalCombo();
+    if (!builtCombo) {
+      setComboMessage(`Select exactly ${CUSTOM_COMBO_SIZE} badges from the same category.`);
+      setComboMessageType('error');
+      return;
+    }
+
+    const { localCombo, selectedBadges } = builtCombo;
+    saveLocalComboForUser(localCombo);
+
+    addToCart({
+      id: localCombo.id,
+      name: `${activeCategoryLabel} Custom Combo (Any 4)` as string,
+      price: CUSTOM_COMBO_PRICE,
+      category: badge.category,
+      image: selectedBadges[0]?.image || badge.image,
+      details: `Custom combo: ${localCombo.badgeNames.join(', ')}`,
+      tagline: 'Built by you',
+      color: 'bg-transparent',
+      isCombo: true,
+    });
+
+    setAddedToCart(true);
+    setTimeout(() => setAddedToCart(false), 2000);
+    setComboMessage(`Custom combo added to cart at ${formatPrice(CUSTOM_COMBO_PRICE)}.`);
+    setComboMessageType('success');
+  };
+
   const handleShareLink = () => {
     const shareUrl = `${window.location.origin}/badge/${id}`;
     const shareText = `Check out *${badge.name}* from StickToon - ${badge.tagline || badge.details}\n\nStickToon - We Create for Soul\n\n${shareUrl}`;
@@ -206,6 +491,8 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
   const magneticImage = badge?.imageMagnetic || magneticFallback;
   const images = badgeType === 'magnetic' ? [badge.image, magneticImage] : [badge.image];
   const formatPrice = (p: number) => `₹${p}`;
+  const canBuildCustomCombo = comboCandidates.length >= CUSTOM_COMBO_SIZE;
+  const isComboSelectionComplete = comboSelection.length === CUSTOM_COMBO_SIZE;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 relative overflow-hidden">
@@ -514,6 +801,105 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
                   <span className="text-[11px] font-bold">Limited stock!</span>
                 </div>
               </div>
+            </div>
+
+            {/* Custom Combo Builder */}
+            <div className="space-y-2.5 rounded-xl border border-yellow-200/70 bg-gradient-to-br from-yellow-50/70 via-white to-orange-50/60 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.12em] text-orange-700">
+                    Build Your Local Combo
+                  </p>
+                  <p className="text-[10px] text-slate-600 font-semibold mt-0.5">
+                    Select any {CUSTOM_COMBO_SIZE} {activeCategoryLabel} badges for {formatPrice(CUSTOM_COMBO_PRICE)}.
+                  </p>
+                </div>
+                <span className={`text-[10px] font-black px-2 py-1 rounded-full ${isComboSelectionComplete ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                  {comboSelection.length}/{CUSTOM_COMBO_SIZE}
+                </span>
+              </div>
+
+              {canBuildCustomCombo ? (
+                <>
+                  <div className="max-h-48 overflow-y-auto grid grid-cols-2 gap-2">
+                    {comboCandidates.map((candidate) => {
+                      const isSelected = comboSelection.includes(candidate.id);
+
+                      return (
+                        <button
+                          key={candidate.id}
+                          type="button"
+                          onClick={() => handleToggleComboBadge(candidate.id)}
+                          className={`relative rounded-lg border p-2 text-left transition-all ${isSelected ? 'border-yellow-500 bg-yellow-50 shadow-sm shadow-yellow-500/20' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                        >
+                          {isSelected && (
+                            <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-yellow-500 flex items-center justify-center">
+                              <Check className="w-2.5 h-2.5 text-white" />
+                            </span>
+                          )}
+
+                          <div className="flex items-center gap-2">
+                            <div className="w-10 h-10 rounded-md bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0">
+                              <img
+                                src={candidate.image}
+                                alt={candidate.name}
+                                className="w-full h-full object-contain"
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-bold text-slate-800 truncate">{candidate.name}</p>
+                              <p className="text-[9px] text-slate-400">{formatPrice(candidate.price)}</p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {savedCombo && (
+                    <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+                      <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-500 mb-1">Saved Local Combo</p>
+                      <p className="text-[10px] text-slate-700 leading-relaxed">
+                        {savedCombo.badgeNames.join(' • ')}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveComboLocally}
+                      className="py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-[10px] font-black uppercase tracking-wider hover:border-slate-400 transition-colors"
+                    >
+                      Save Local
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddCustomComboToCart}
+                      className="py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-[10px] font-black uppercase tracking-wider shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                      disabled={!isComboSelectionComplete}
+                    >
+                      Add Combo {formatPrice(CUSTOM_COMBO_PRICE)}
+                    </button>
+                  </div>
+
+                  <p className="text-[10px] text-slate-500">
+                    This custom combo stays local to your browser account and is not shown publicly.
+                  </p>
+
+                  {comboMessage && (
+                    <p className={`text-[10px] font-semibold ${comboMessageType === 'success' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                      {comboMessage}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-[11px] font-medium text-slate-500">
+                  At least {CUSTOM_COMBO_SIZE} badges are required in this category to build a combo.
+                </p>
+              )}
             </div>
 
             {/* CTA Buttons */}
