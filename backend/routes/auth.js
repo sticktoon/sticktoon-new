@@ -66,8 +66,17 @@ router.post("/signup", async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    // Generate same token as refresh token (for simplicity, they use same secret)
+    // In production, you'd use a different expiry like 30 days
+    const refreshToken = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
     res.status(201).json({
       token,
+      refreshToken,
       user: {
         _id: user._id,
         name: user.name,
@@ -118,8 +127,15 @@ router.post("/login", async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    const refreshToken = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
     res.json({
       token,
+      refreshToken,
       user: {
         _id: user._id,
         name: user.name,
@@ -174,8 +190,15 @@ router.post("/google", async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    const refreshToken = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
     res.json({
       token,
+      refreshToken,
       user: {
         _id: user._id,
         name: user.name,
@@ -439,6 +462,47 @@ router.post("/upload-avatar", auth, async (req, res) => {
   } catch (err) {
     console.error("Upload avatar error:", err);
     res.status(500).json({ message: "Failed to upload avatar" });
+  }
+});
+
+/* =========================
+   REFRESH TOKEN
+========================= */
+router.post("/refresh-token", async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(401).json({ message: "Refresh token required" });
+    }
+
+    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+    
+    const user = await User.findById(decoded.id).select("-password");
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    // Generate new access token
+    const newAccessToken = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      token: newAccessToken,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.error("Refresh token error:", err);
+    res.status(401).json({ message: "Invalid refresh token" });
   }
 });
 

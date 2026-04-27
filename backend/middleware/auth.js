@@ -10,7 +10,13 @@ module.exports = (req, res, next) => {
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error("CRITICAL: JWT_SECRET not set in environment");
+      return res.status(500).json({ message: "Server configuration error" });
+    }
+    
+    const decoded = jwt.verify(token, secret);
     req.user = {
       id: decoded.id,
       role: decoded.role,

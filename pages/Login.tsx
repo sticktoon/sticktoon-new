@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Eye, EyeOff, Sparkle } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { API_BASE_URL } from "../config/api";
+import { setTokens } from "../utils/apiClient";
 
 /* =========================
    VALIDATION HELPERS
@@ -46,6 +47,10 @@ export default function Login() {
   const saveAuth = (data: any) => {
     const displayName = data.user.name?.trim() || "User";
 
+    // Store both tokens using apiClient
+    setTokens(data.token, data.refreshToken);
+    
+    // Also store user info (kept for backwards compatibility)
     localStorage.setItem("token", data.token);
     localStorage.setItem(
       "user",
