@@ -21,6 +21,7 @@ import {
 import { Badge, CartItem, User as UserType } from './types.ts';
 import { CATEGORIES, STICKER_CATEGORIES } from "./constants";
 import { API_BASE_URL } from "./config/api";
+import { migrateOldUserSession } from "./utils/apiClient";
 
 const Home = lazy(() => import("./pages/Home"));
 const Categories = lazy(() => import("./pages/Categories"));
@@ -810,6 +811,9 @@ export default function App() {
     let isMounted = true;
 
     const initAuth = async () => {
+      // First, handle old user migration if needed
+      await migrateOldUserSession();
+
       const token = localStorage.getItem("token");
       const savedUser = localStorage.getItem("user");
 

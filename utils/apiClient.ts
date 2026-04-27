@@ -60,12 +60,57 @@ export const refreshAccessToken = async () => {
   }
 };
 
+// Handle old users without refreshToken - auto-migrate them
+const handleOldUserMigration = async () => {
+  const accessToken = getAccessToken();
+  const refreshToken = getRefreshToken();
+
+  // Old user has access token but NO refresh token
+  if (accessToken && !refreshToken) {
+    console.log("Old user detected - attempting to refresh session...");
+    try {
+      // Try to use existing access token to verify user is still valid
+      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${accessToken}` },
+      });
+
+      if (response.ok) {
+        // Access token still valid - generate new refresh token
+        // by re-authenticating with a new endpoint
+        const data = await response.json();
+        
+        // Create new refresh token using user ID
+        const newRefreshToken = await fetch(`${API_BASE_URL}/api/auth/refresh-token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken: accessToken }), // Use access token as temporary refresh
+        });
+
+        if (newRefreshToken.ok) {
+          const refreshData = await newRefreshToken.json();
+          setTokens(refreshData.token, refreshData.token); // Store both
+          return true;
+        }
+      }
+    } catch (error) {
+      console.log("Migration failed - redirecting to login");
+      clearTokens();
+      window.location.href = "/login?reason=session-refresh-required";
+    }
+  }
+  return false;
+};
+
 // Main API wrapper with auto-refresh
 export const apiCall = async (
   endpoint: string,
   options: RequestInit & { autoRetry?: boolean } = {}
 ) => {
   const { autoRetry = true, ...fetchOptions } = options;
+  
+  // Handle old users without refresh token
+  const migrated = await handleOldUserMigration();
   
   // Add auth header
   const headers = new Headers(fetchOptions.headers || {});
@@ -139,3 +184,6 @@ export const put = (
 export const del = (endpoint: string, options?: RequestInit) => {
   return apiCall(endpoint, { method: "DELETE", ...options });
 };
+
+// Export migration handler for optional use in App initialization
+export const migrateOldUserSession = handleOldUserMigration;

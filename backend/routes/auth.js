@@ -8,6 +8,16 @@ const { resetPasswordEmail } = require("../utils/emailTemplates");
 
 const router = express.Router();
 
+const getJwtInvalidBefore = () => {
+  const raw = process.env.JWT_INVALID_BEFORE;
+  if (!raw) return 0;
+
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+
+  return Math.floor(parsed);
+};
+
 const resolveFrontendBaseUrl = (req) => {
   const bodyFrontendUrl = req.body?.frontendUrl;
   const requestOrigin = req.get("origin");
@@ -471,12 +481,26 @@ router.post("/upload-avatar", auth, async (req, res) => {
 router.post("/refresh-token", async (req, res) => {
   try {
     const { refreshToken } = req.body;
+    const secret = process.env.JWT_SECRET;
 
     if (!refreshToken) {
       return res.status(401).json({ message: "Refresh token required" });
     }
 
-    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+    if (!secret) {
+      console.error("CRITICAL: JWT_SECRET not set in environment");
+      return res.status(500).json({ message: "Server configuration error" });
+    }
+
+    const decoded = jwt.verify(refreshToken, secret);
+    const invalidBefore = getJwtInvalidBefore();
+
+    if (invalidBefore > 0) {
+      const issuedAt = Number(decoded.iat || 0);
+      if (!issuedAt || issuedAt < invalidBefore) {
+        return res.status(401).json({ message: "Session expired. Please login again" });
+      }
+    }
     
     const user = await User.findById(decoded.id).select("-password");
     if (!user) {
