@@ -24,11 +24,6 @@ async function authenticate() {
   if (email && email.startsWith("'") && email.endsWith("'")) email = email.slice(1, -1);
   if (password && password.startsWith("'") && password.endsWith("'")) password = password.slice(1, -1);
 
-  console.log("DEBUG: Shiprocket Auth Details:");
-  console.log(`- Email: [${email}]`);
-  console.log(`- Password Length: ${password ? password.length : 0}`);
-  console.log(`- Password First 5 chars: ${password ? password.substring(0, 5) : "none"}...`);
-
   if (!email || !password) {
     throw new Error("Shiprocket credentials (SHIPROCKET_EMAIL, SHIPROCKET_PASSWORD) are not set in the environment variables.");
   }
@@ -132,6 +127,13 @@ async function pushOrderToShiprocket(orderId) {
     if (maxWidth === 0) maxWidth = 10;
     if (totalHeight === 0) totalHeight = 5;
 
+    // Shiprocket expects sub_total to equal the sum of the line items, not the
+    // order's net total (which includes delivery and is net of discount).
+    const itemsSubTotal = orderItems.reduce(
+      (sum, i) => sum + Number(i.selling_price) * Number(i.units),
+      0
+    );
+
     // If order has already been successfully synced before, append a reship suffix to avoid Shiprocket's duplicate order ID rejection
     let shiprocketOrderIdPayload = order._id.toString();
     if (order.shiprocketStatus === "SUCCESS" || order.shiprocketOrderId) {
@@ -155,7 +157,7 @@ async function pushOrderToShiprocket(orderId) {
       shipping_is_billing: true,
       order_items: orderItems,
       payment_method: "Prepaid",
-      sub_total: order.amount,
+      sub_total: itemsSubTotal,
       length: maxLength,
       breadth: maxWidth,
       height: totalHeight,

@@ -109,7 +109,7 @@ router.get("/", async (req, res) => {
     // Set cache headers for better performance
     res.set('Cache-Control', 'public, max-age=300');
 
-    const selectFields = 'name price category subcategory image imageMagnetic description isActive stock';
+    const selectFields = 'name price category subcategory image printImage imageMagnetic description isActive stock';
 
     // Use server-side cache for "all" queries
     if (all && productCache && (Date.now() - productCacheTime < CACHE_TTL)) {
@@ -166,7 +166,7 @@ router.get("/category/:category", async (req, res) => {
     // Set cache headers
     res.set('Cache-Control', 'public, max-age=300');
 
-    const selectFields = 'name price category subcategory image imageMagnetic description isActive stock';
+    const selectFields = 'name price category subcategory image printImage imageMagnetic description isActive stock';
 
     const normalizedCategory = normalizeCategory(req.params.category);
     if (!normalizedCategory) {
@@ -226,10 +226,12 @@ router.get("/:id", async (req, res) => {
 ======================== */
 router.post("/", auth, adminOnly, async (req, res) => {
   try {
-    const { name, price, description, category, subcategory, image, stock, weight, length, width, height, sku } = req.body;
+    const { name, price, description, category, subcategory, image, printImage, stock, weight, length, width, height, sku } = req.body;
     const normalizedCategory = normalizeCategory(category);
     const normalizedSubcategory = normalizeSubcategory(subcategory);
     const normalizedImage = normalizeProductImagePath(image);
+    // Print image is optional; only normalize when one was supplied.
+    const normalizedPrintImage = printImage ? normalizeProductImagePath(printImage) : "";
 
     // Validation
     if (!name || !price || !description || !category || !normalizedImage) {
@@ -247,6 +249,7 @@ router.post("/", auth, adminOnly, async (req, res) => {
       category: normalizedCategory,
       subcategory: normalizedSubcategory,
       image: normalizedImage,
+      printImage: normalizedPrintImage,
       stock: parseInt(stock) || 0,
       weight: weight !== undefined && !isNaN(parseFloat(weight)) ? parseFloat(weight) : 0.1,
       length: length !== undefined && !isNaN(parseFloat(length)) ? parseFloat(length) : 10,
@@ -268,7 +271,7 @@ router.post("/", auth, adminOnly, async (req, res) => {
 ======================== */
 router.patch("/:id", auth, adminOnly, async (req, res) => {
   try {
-    const { name, price, description, category, subcategory, image, stock, isActive, weight, length, width, height, sku } =
+    const { name, price, description, category, subcategory, image, printImage, stock, isActive, weight, length, width, height, sku } =
       req.body;
 
     const product = await Product.findById(req.params.id);
@@ -296,6 +299,10 @@ router.patch("/:id", auth, adminOnly, async (req, res) => {
         return res.status(400).json({ error: "Invalid image path" });
       }
       product.image = normalizedImage;
+    }
+    if (printImage !== undefined) {
+      // Allow clearing the print image by sending an empty string.
+      product.printImage = printImage ? normalizeProductImagePath(printImage) : "";
     }
     if (stock !== undefined) product.stock = parseInt(stock);
     if (isActive !== undefined) product.isActive = isActive;

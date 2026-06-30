@@ -31,6 +31,12 @@ const ProductSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    // Print-ready artwork. Shown ONLY to admins / attached to the order email
+    // so the badge can be printed directly. Not exposed to customers.
+    printImage: {
+      type: String,
+      default: "",
+    },
     imageMagnetic: {
       type: String,
       required: false,

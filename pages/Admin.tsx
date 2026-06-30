@@ -437,6 +437,7 @@ interface Product {
     | "Custom";
   subcategory?: string;
   image: string;
+  printImage?: string;
   stock: number;
   weight?: number;
   length?: number;
@@ -540,6 +541,7 @@ type ProductFormState = {
   category: AdminProductCategory;
   subcategory: string;
   image: string;
+  printImage: string;
   stock: number;
   weight: number;
   length: number;
@@ -557,6 +559,7 @@ const createDefaultProductForm = (
   category,
   subcategory: "",
   image: "",
+  printImage: "",
   stock: 0,
   weight: 0.1,
   length: 10,
@@ -2321,6 +2324,16 @@ const Admin: React.FC = () => {
   const [productForm, setProductForm] = useState<ProductFormState>(
     createDefaultProductForm(),
   );
+  const [isCustomSubcategory, setIsCustomSubcategory] = useState(false);
+  const availableSubcategories = useMemo(() => {
+    const currentCategory = productForm.category;
+    if (!currentCategory) return [];
+    const fromProducts = products
+      .filter((p) => p.category === currentCategory && p.subcategory)
+      .map((p) => p.subcategory!.trim());
+    const fromSuggestions = ADMIN_PRODUCT_SUBCATEGORY_SUGGESTIONS[currentCategory] || [];
+    return Array.from(new Set([...fromProducts, ...fromSuggestions])).filter(Boolean);
+  }, [productForm.category, products]);
 
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
 
@@ -3729,6 +3742,58 @@ const Admin: React.FC = () => {
   /* ===========================
      PRODUCT HANDLERS
   =========================== */
+  // Tracks which image field is mid-upload so we can show a spinner / disable.
+  const [uploadingImageField, setUploadingImageField] = useState<
+    null | "image" | "printImage"
+  >(null);
+
+  // Uploads a chosen file to Cloudinary/Drive via the existing image endpoint
+  // and stores the returned URL into the given product-form field.
+  const handleProductImageUpload = async (
+    file: File,
+    field: "image" | "printImage",
+  ) => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      showToast("error", "❌ Admin session expired. Please log in again.");
+      return;
+    }
+
+    setUploadingImageField(field);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      formData.append("category", "badge");
+
+      const res = await fetch(`${API_BASE_URL}/api/admin/images/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data?.success) {
+        const url = data.data?.cloudinaryUrl || data.data?.googleDriveUrl;
+        if (!url) {
+          showToast("error", "❌ Upload succeeded but no image URL was returned.");
+          return;
+        }
+        setProductForm((prev) => ({ ...prev, [field]: url }));
+        showToast(
+          "success",
+          `✅ ${field === "printImage" ? "Print" : "Display"} image uploaded!`,
+        );
+      } else {
+        showToast("error", `❌ ${data?.message || "Image upload failed"}`);
+      }
+    } catch (err) {
+      console.error("Product image upload error:", err);
+      showToast("error", "❌ Image upload failed. Please try again.");
+    } finally {
+      setUploadingImageField(null);
+    }
+  };
+
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = localStorage.getItem("adminToken");
@@ -3739,6 +3804,7 @@ const Admin: React.FC = () => {
       category: normalizeCategory(productForm.category),
       subcategory: sanitizeProductSubcategory(productForm.subcategory),
       image: sanitizeProductImagePath(productForm.image),
+      printImage: sanitizeProductImagePath(productForm.printImage),
     };
 
     try {
@@ -3778,6 +3844,7 @@ const Admin: React.FC = () => {
       category: normalizeCategory(productForm.category),
       subcategory: sanitizeProductSubcategory(productForm.subcategory),
       image: sanitizeProductImagePath(productForm.image),
+      printImage: sanitizeProductImagePath(productForm.printImage),
     };
 
     try {
@@ -6120,6 +6187,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     setShowProductForm(!showProductForm);
                     setEditingProduct(null);
                     setProductForm(createDefaultProductForm());
+                    setIsCustomSubcategory(false);
                   }}
                   className="group flex items-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white-500 font-bold tracking-wide transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 text-white-800"
                 >
@@ -6211,26 +6279,48 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       <label className="block text-gray-700 font-bold text-sm mb-2">
                         Subcategory
                       </label>
-                      <input
-                        type="text"
-                        list="admin-product-subcategory-add"
-                        placeholder="Optional (e.g., Cricket, Birthday, Dog Lovers)"
-                        value={productForm.subcategory}
-                        onChange={(e) =>
-                          setProductForm({
-                            ...productForm,
-                            subcategory: sanitizeProductSubcategory(e.target.value),
-                          })
-                        }
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300"
-                      />
-                      <datalist id="admin-product-subcategory-add">
-                        {ADMIN_PRODUCT_SUBCATEGORY_SUGGESTIONS[
-                          productForm.category
-                        ].map((subcategory) => (
-                          <option key={subcategory} value={subcategory} />
-                        ))}
-                      </datalist>
+                      <div className="space-y-3">
+                        <select
+                          value={isCustomSubcategory ? "custom-new" : productForm.subcategory}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "custom-new") {
+                              setIsCustomSubcategory(true);
+                              setProductForm({ ...productForm, subcategory: "" });
+                            } else {
+                              setIsCustomSubcategory(false);
+                              setProductForm({ ...productForm, subcategory: val });
+                            }
+                          }}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300 cursor-pointer"
+                        >
+                          <option value="">-- No Subcategory / Select Available --</option>
+                          {availableSubcategories.map((sub) => (
+                            <option key={sub} value={sub}>
+                              {sub}
+                            </option>
+                          ))}
+                          <option value="custom-new" className="font-bold text-indigo-600">
+                            ➕ Create New Subcategory
+                          </option>
+                        </select>
+
+                        {isCustomSubcategory && (
+                          <input
+                            type="text"
+                            placeholder="Type new subcategory name"
+                            value={productForm.subcategory}
+                            onChange={(e) =>
+                              setProductForm({
+                                ...productForm,
+                                subcategory: sanitizeProductSubcategory(e.target.value),
+                              })
+                            }
+                            required
+                            className="w-full px-4 py-3 bg-white border border-indigo-400 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300 animate-fadeIn"
+                          />
+                        )}
+                      </div>
                     </div>
 
                     <div>
@@ -6350,23 +6440,89 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       </div>
                     </div>
 
-                    <div className="md:col-span-2">
-                      <label className="block text-gray-700 font-bold text-sm mb-2">
-                        Image URL
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="/badge/image.png or https://example.com/image.jpg"
-                        value={productForm.image}
-                        onChange={(e) =>
-                          setProductForm({
-                            ...productForm,
-                            image: e.target.value,
-                          })
-                        }
-                        required
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300"
-                      />
+                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* ADV / Display image — what customers see */}
+                      <div>
+                        <label className="block text-gray-700 font-bold text-sm mb-2">
+                          ADV Image{" "}
+                          <span className="font-normal text-gray-400">(shown to customers)</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="/badge/image.png or https://example.com/image.jpg"
+                          value={productForm.image}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              image: e.target.value,
+                            })
+                          }
+                          required
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300"
+                        />
+                        <label className="mt-2 inline-flex items-center gap-2 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-indigo-700 font-semibold text-xs cursor-pointer transition-all">
+                          {uploadingImageField === "image" ? "Uploading…" : "⬆ Upload ADV image"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={uploadingImageField !== null}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleProductImageUpload(file, "image");
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                        {productForm.image && (
+                          <img
+                            src={productForm.image}
+                            alt="ADV preview"
+                            className="mt-2 w-20 h-20 object-cover rounded-lg border border-gray-200"
+                          />
+                        )}
+                      </div>
+
+                      {/* Print image — admin / order email only */}
+                      <div>
+                        <label className="block text-gray-700 font-bold text-sm mb-2">
+                          Print Image{" "}
+                          <span className="font-normal text-gray-400">(admin / order email only)</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Print-ready artwork URL (optional)"
+                          value={productForm.printImage}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              printImage: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-200 outline-none transition-all duration-300"
+                        />
+                        <label className="mt-2 inline-flex items-center gap-2 px-3 py-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg text-amber-700 font-semibold text-xs cursor-pointer transition-all">
+                          {uploadingImageField === "printImage" ? "Uploading…" : "⬆ Upload print image"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={uploadingImageField !== null}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleProductImageUpload(file, "printImage");
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                        {productForm.printImage && (
+                          <img
+                            src={productForm.printImage}
+                            alt="Print preview"
+                            className="mt-2 w-20 h-20 object-cover rounded-lg border border-amber-200"
+                          />
+                        )}
+                      </div>
                     </div>
 
                     <div className="md:col-span-2">
@@ -6403,6 +6559,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         onClick={() => {
                           setShowProductForm(false);
                           setProductForm(createDefaultProductForm());
+                          setIsCustomSubcategory(false);
                         }}
                         className="px-8 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-gray-700 font-bold transition-all duration-300 hover:scale-105 active:scale-95"
                       >
@@ -6527,6 +6684,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                             product.subcategory,
                                           ),
                                           image: product.image,
+                                          printImage: product.printImage ?? "",
                                           stock: product.stock,
                                           weight: product.weight ?? 0.1,
                                           length: product.length ?? 10,
@@ -6534,6 +6692,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                           height: product.height ?? 5,
                                           sku: product.sku ?? "",
                                         });
+                                        setIsCustomSubcategory(false);
                                         setShowProductForm(false);
                                       }}
                                       className="flex-1 py-2.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-blue-700 font-bold transition-all text-sm hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
@@ -8930,26 +9089,48 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     <label className="block text-white font-semibold mb-2">
                       Subcategory
                     </label>
-                    <input
-                      type="text"
-                      list="admin-product-subcategory-edit"
-                      placeholder="Optional (e.g., Cricket, Birthday, Dog Lovers)"
-                      value={productForm.subcategory}
-                      onChange={(e) =>
-                        setProductForm({
-                          ...productForm,
-                          subcategory: sanitizeProductSubcategory(e.target.value),
-                        })
-                      }
-                      className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-indigo-500 focus:outline-none transition-all"
-                    />
-                    <datalist id="admin-product-subcategory-edit">
-                      {ADMIN_PRODUCT_SUBCATEGORY_SUGGESTIONS[productForm.category].map(
-                        (subcategory) => (
-                          <option key={subcategory} value={subcategory} />
-                        ),
+                    <div className="space-y-3">
+                      <select
+                        value={isCustomSubcategory ? "custom-new" : productForm.subcategory}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "custom-new") {
+                            setIsCustomSubcategory(true);
+                            setProductForm({ ...productForm, subcategory: "" });
+                          } else {
+                            setIsCustomSubcategory(false);
+                            setProductForm({ ...productForm, subcategory: val });
+                          }
+                        }}
+                        className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white focus:border-indigo-500 focus:outline-none transition-all cursor-pointer"
+                      >
+                        <option value="" className="text-black">-- No Subcategory / Select Available --</option>
+                        {availableSubcategories.map((sub) => (
+                          <option key={sub} value={sub} className="text-black">
+                            {sub}
+                          </option>
+                        ))}
+                        <option value="custom-new" className="font-bold text-indigo-400 bg-slate-900">
+                          ➕ Create New Subcategory
+                        </option>
+                      </select>
+
+                      {isCustomSubcategory && (
+                        <input
+                          type="text"
+                          placeholder="Type new subcategory name"
+                          value={productForm.subcategory}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              subcategory: sanitizeProductSubcategory(e.target.value),
+                            })
+                          }
+                          required
+                          className="w-full px-4 py-2.5 bg-white/10 border border-indigo-400 rounded-lg text-white placeholder-gray-400 focus:outline-none transition-all animate-fadeIn"
+                        />
                       )}
-                    </datalist>
+                    </div>
                   </div>
 
                   <div>
@@ -9069,23 +9250,89 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     </div>
                   </div>
 
-                  <div className="md:col-span-2">
-                    <label className="block text-white font-semibold mb-2">
-                      Image URL
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="/badge/image.png or https://example.com/image.jpg"
-                      value={productForm.image}
-                      onChange={(e) =>
-                        setProductForm({
-                          ...productForm,
-                          image: e.target.value,
-                        })
-                      }
-                      required
-                      className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-indigo-500 focus:outline-none transition-all"
-                    />
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* ADV / Display image — what customers see */}
+                    <div>
+                      <label className="block text-white font-semibold mb-2">
+                        ADV Image{" "}
+                        <span className="font-normal text-gray-400">(shown to customers)</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="/badge/image.png or https://example.com/image.jpg"
+                        value={productForm.image}
+                        onChange={(e) =>
+                          setProductForm({
+                            ...productForm,
+                            image: e.target.value,
+                          })
+                        }
+                        required
+                        className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-indigo-500 focus:outline-none transition-all"
+                      />
+                      <label className="mt-2 inline-flex items-center gap-2 px-3 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/30 rounded-lg text-indigo-200 font-semibold text-xs cursor-pointer transition-all">
+                        {uploadingImageField === "image" ? "Uploading…" : "⬆ Upload ADV image"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingImageField !== null}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleProductImageUpload(file, "image");
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      {productForm.image && (
+                        <img
+                          src={productForm.image}
+                          alt="ADV preview"
+                          className="mt-2 w-20 h-20 object-cover rounded-lg border border-white/20"
+                        />
+                      )}
+                    </div>
+
+                    {/* Print image — admin / order email only */}
+                    <div>
+                      <label className="block text-white font-semibold mb-2">
+                        Print Image{" "}
+                        <span className="font-normal text-gray-400">(admin / order email only)</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Print-ready artwork URL (optional)"
+                        value={productForm.printImage}
+                        onChange={(e) =>
+                          setProductForm({
+                            ...productForm,
+                            printImage: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-amber-400 focus:outline-none transition-all"
+                      />
+                      <label className="mt-2 inline-flex items-center gap-2 px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/30 rounded-lg text-amber-200 font-semibold text-xs cursor-pointer transition-all">
+                        {uploadingImageField === "printImage" ? "Uploading…" : "⬆ Upload print image"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingImageField !== null}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleProductImageUpload(file, "printImage");
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      {productForm.printImage && (
+                        <img
+                          src={productForm.printImage}
+                          alt="Print preview"
+                          className="mt-2 w-20 h-20 object-cover rounded-lg border border-amber-400/30"
+                        />
+                      )}
+                    </div>
                   </div>
 
                   <div className="md:col-span-2">

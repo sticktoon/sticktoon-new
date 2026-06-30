@@ -93,7 +93,12 @@ module.exports = async function buildAdminOrderAttachments({
 
   const imageTasks = items
     .map((item, index) => ({
-      url: normalizeImageUrl(item?.image, frontendUrl),
+      // Prefer the print-ready artwork; fall back to the display image.
+      // (data: URIs from custom badges aren't fetchable here and are handled
+      //  separately via the generated Word doc.)
+      url:
+        normalizeImageUrl(item?.printImage, frontendUrl) ||
+        normalizeImageUrl(item?.image, frontendUrl),
       fallbackName: item?.name || item?.badgeId || "badge",
       index,
     }))

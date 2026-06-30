@@ -31,7 +31,8 @@ router.patch("/:id/status", auth, adminOnly, async (req, res) => {
   try {
     const { status } = req.body;
     
-    const validStatuses = ["PENDING", "PROCESSING", "SUCCESS", "FAILED", "REFUNDED"];
+    // Must match the Order model enum to avoid persisting invalid statuses.
+    const validStatuses = ["PENDING", "SUCCESS", "FAILED"];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: "Invalid status" });
     }
@@ -39,7 +40,7 @@ router.patch("/:id/status", auth, adminOnly, async (req, res) => {
     const order = await Order.findByIdAndUpdate(
       req.params.id,
       { status },
-      { new: true }
+      { new: true, runValidators: true }
     ).populate("userId", "email name");
 
     if (!order) {

@@ -111,6 +111,10 @@ router.post("/create-order", auth, async (req, res) => {
           quantity,
           price: verifiedPrice, // Use DB price
           name: product.name,   // Use DB name
+          image: product.image, // Use DB display (ADV) image
+          // Admin-only print artwork — flows into the order email so the badge
+          // can be printed directly. Falls back to the customer image if unset.
+          printImage: product.printImage || item.printImage || null,
         });
         continue;
       }
@@ -139,16 +143,18 @@ router.post("/create-order", auth, async (req, res) => {
     const deliveryCharges = 99;
     const totalBeforeDiscount = subtotal + deliveryCharges;
 
-    // Apply promo code
+    // Apply promo code — compute the discount only. Usage count, influencer
+    // earnings and notifications are committed AFTER payment succeeds (in
+    // /verify-payment), so abandoned/unpaid orders don't consume codes or
+    // inflate earnings.
     let discount = 0;
     let appliedPromoCode = null;
-    let promoForNotification = null;
 
     if (promoCode) {
       const promo = await PromoCode.findOne({
         code: promoCode.toUpperCase().trim(),
         isActive: true,
-      }).populate("createdBy", "email name");
+      });
 
       if (promo) {
         const now = new Date();
@@ -174,10 +180,6 @@ router.post("/create-order", auth, async (req, res) => {
 
           discount = Math.round(discount);
           appliedPromoCode = promo.code;
-          promoForNotification = promo;
-
-          promo.usedCount += 1;
-          await promo.save();
         }
       }
     }
@@ -215,85 +217,6 @@ router.post("/create-order", auth, async (req, res) => {
       status: "PENDING",
       paymentGateway: "razorpay",
     });
-
-    // Handle influencer promo
-    if (promoForNotification && promoForNotification.createdBy?.email) {
-      try {
-        const totalUnits = safeItems.reduce((sum, item) => sum + Number(item.quantity), 0);
-
-        let earningGenerated = 0;
-        if (promoForNotification.promoType === "influencer") {
-          const earningPerUnit = promoForNotification.earningPerUnit || 5;
-          earningGenerated = totalUnits * earningPerUnit;
-
-          await InfluencerEarning.create({
-            influencerId: promoForNotification.createdBy._id,
-            promoCodeId: promoForNotification._id,
-            orderId: order._id,
-            customerId: userId,
-            totalUnits: totalUnits,
-            earningPerUnit: earningPerUnit,
-            totalEarning: earningGenerated,
-            orderAmount: totalAmount,
-            status: "pending",
-          });
-
-          await PromoCode.findByIdAndUpdate(promoForNotification._id, {
-            $inc: {
-              totalEarnings: earningGenerated,
-              totalUnitsSold: totalUnits,
-            },
-          });
-
-          await User.findByIdAndUpdate(promoForNotification.createdBy._id, {
-            $inc: {
-              "influencerProfile.totalEarnings": earningGenerated,
-              "influencerProfile.pendingEarnings": earningGenerated,
-            },
-          });
-        }
-
-        await PromoCode.findByIdAndUpdate(promoForNotification._id, {
-          $push: {
-            usageHistory: {
-              userId: userId,
-              orderId: order._id,
-              discountApplied: discount,
-              unitsSold: totalUnits,
-              earningGenerated: earningGenerated,
-              usedAt: new Date(),
-            },
-          },
-        });
-
-        const emailHtml = promoUsedEmailTemplate({
-          promoCode: promoForNotification.code,
-          discountApplied: discount,
-          orderAmount: totalAmount,
-          customerName: address.name,
-          customerEmail: email,
-          usedCount: promoForNotification.usedCount,
-          usageLimit: promoForNotification.usageLimit,
-          orderId: order._id.toString(),
-          isInfluencer: promoForNotification.promoType === "influencer",
-          totalUnits: totalUnits,
-          earningPerUnit: promoForNotification.earningPerUnit || 5,
-          earningGenerated: earningGenerated,
-        });
-
-        const emailSubject = promoForNotification.promoType === "influencer"
-          ? "You earned Rs" + earningGenerated + "! Code " + promoForNotification.code + " used"
-          : "Promo Code " + promoForNotification.code + " Used!";
-
-        await sendEmail({
-          to: promoForNotification.createdBy.email,
-          subject: emailSubject,
-          html: emailHtml,
-        });
-      } catch (notifyErr) {
-        console.error("Promo notification error:", notifyErr.message);
-      }
-    }
 
     res.json({
       success: true,
@@ -341,6 +264,42 @@ router.post("/verify-payment", auth, async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
+    // 🔒 Bind the paid Razorpay order to THIS order. Without this, a valid
+    // signature from a cheap order could be replayed against an expensive
+    // PENDING order (order-substitution / amount-spoofing).
+    if (order.gatewayOrderId !== razorpay_order_id) {
+      return res.status(400).json({ success: false, message: "Payment does not match this order" });
+    }
+
+    // 🔒 Idempotency: if already processed, return success without re-running
+    // invoice / earnings / shiprocket side effects.
+    if (order.status === "SUCCESS") {
+      return res.json({
+        success: true,
+        message: "Payment already verified",
+        orderId: order._id,
+      });
+    }
+
+    // 🔒 Defense-in-depth: confirm the captured amount matches the order total.
+    try {
+      const payment = await razorpay.payments.fetch(razorpay_payment_id);
+      const amountPaid = Number(payment?.amount);
+      const expectedPaise = Math.round(order.amount * 100);
+      const paymentOk = ["captured", "authorized"].includes(payment?.status);
+      if (
+        String(payment?.order_id) !== razorpay_order_id ||
+        !paymentOk ||
+        amountPaid !== expectedPaise
+      ) {
+        return res.status(400).json({ success: false, message: "Payment verification failed (amount mismatch)" });
+      }
+    } catch (fetchErr) {
+      // Razorpay API hiccup: signature + gatewayOrderId binding already proved
+      // authenticity, so don't hard-fail a legitimate payment.
+      console.error("Razorpay payment fetch failed (continuing on signature):", fetchErr.message);
+    }
+
     order.status = "SUCCESS";
     order.gatewayPaymentId = razorpay_payment_id;
     await order.save();
@@ -366,14 +325,113 @@ router.post("/verify-payment", auth, async (req, res) => {
     }
 
     /* =========================
+   ✅ PROMO USAGE + INFLUENCER EARNING (committed only after payment)
+========================= */
+    if (order.promoCode) {
+      try {
+        const promo = await PromoCode.findOne({ code: order.promoCode }).populate(
+          "createdBy",
+          "email name"
+        );
+
+        if (promo) {
+          const totalUnits = (order.items || []).reduce(
+            (sum, item) => sum + Number(item.quantity || 0),
+            0
+          );
+
+          // Consume one use of the code now that the order is actually paid.
+          promo.usedCount = (promo.usedCount || 0) + 1;
+          await promo.save();
+
+          let earningGenerated = 0;
+          if (promo.promoType === "influencer" && promo.createdBy?._id) {
+            const earningPerUnit = promo.earningPerUnit || 5;
+            earningGenerated = totalUnits * earningPerUnit;
+
+            // Created as "pending"; the loop below moves it to "paid" and
+            // updates the influencer profile balances.
+            await InfluencerEarning.create({
+              influencerId: promo.createdBy._id,
+              promoCodeId: promo._id,
+              orderId: order._id,
+              customerId: order.userId,
+              totalUnits,
+              earningPerUnit,
+              totalEarning: earningGenerated,
+              orderAmount: order.amount,
+              status: "pending",
+            });
+
+            await PromoCode.findByIdAndUpdate(promo._id, {
+              $inc: { totalEarnings: earningGenerated, totalUnitsSold: totalUnits },
+            });
+
+            await User.findByIdAndUpdate(promo.createdBy._id, {
+              $inc: {
+                "influencerProfile.totalEarnings": earningGenerated,
+                "influencerProfile.pendingEarnings": earningGenerated,
+              },
+            });
+          }
+
+          await PromoCode.findByIdAndUpdate(promo._id, {
+            $push: {
+              usageHistory: {
+                userId: order.userId,
+                orderId: order._id,
+                discountApplied: order.discount || 0,
+                unitsSold: totalUnits,
+                earningGenerated,
+                usedAt: new Date(),
+              },
+            },
+          });
+
+          // Notify admin/influencer that their code was used on a PAID order.
+          if (promo.createdBy?.email) {
+            try {
+              await sendEmail({
+                to: promo.createdBy.email,
+                subject:
+                  promo.promoType === "influencer"
+                    ? "You earned Rs" + earningGenerated + "! Code " + promo.code + " used"
+                    : "Promo Code " + promo.code + " Used!",
+                html: promoUsedEmailTemplate({
+                  promoCode: promo.code,
+                  discountApplied: order.discount || 0,
+                  orderAmount: order.amount,
+                  customerName: order.address?.name || "Customer",
+                  customerEmail: order.userEmail || "",
+                  usedCount: promo.usedCount,
+                  usageLimit: promo.usageLimit,
+                  orderId: order._id.toString(),
+                  isInfluencer: promo.promoType === "influencer",
+                  totalUnits,
+                  earningPerUnit: promo.earningPerUnit || 5,
+                  earningGenerated,
+                }),
+              });
+            } catch (mailErr) {
+              console.error("Promo notification email error:", mailErr.message);
+            }
+          }
+        }
+      } catch (promoErr) {
+        console.error("Promo/earning accounting error:", promoErr.message);
+      }
+    }
+
+    /* =========================
    ✅ UPDATE INFLUENCER EARNING TO PAID
 ========================= */
 
-const earnings = await InfluencerEarning.find({ orderId: order._id });
+const earnings = await InfluencerEarning.find({ orderId: order._id, status: "pending" });
 
 for (const earn of earnings) {
   // change earning status
   earn.status = "paid";
+  earn.paidAt = new Date();
   await earn.save();
 
   // move pending → paid in influencer profile
