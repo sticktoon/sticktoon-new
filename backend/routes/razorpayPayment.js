@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const {
   razorpay,
@@ -25,10 +26,25 @@ const Product = require("../models/Product");
 /* =========================
    CREATE RAZORPAY ORDER
 ========================= */
-router.post("/create-order", auth, async (req, res) => {
+router.post("/create-order", async (req, res) => {
   try {
-    const { address, items, promoCode } = req.body;
-    const userId = req.user.id;
+    const { address, items, promoCode, email: requestEmail } = req.body;
+    const authHeader = req.headers.authorization;
+    let userId = null;
+    let userEmail = typeof requestEmail === "string" ? requestEmail.toLowerCase().trim() : null;
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded.id;
+        if (!userEmail && decoded.email) {
+          userEmail = decoded.email;
+        }
+      } catch (err) {
+        // Ignore invalid token for guest checkout; use provided email if present.
+      }
+    }
 
     const safeItems = Array.isArray(items) ? items : [];
 
@@ -40,6 +56,10 @@ router.post("/create-order", auth, async (req, res) => {
       return res.status(400).json({ message: "Complete address details (Name, Street, Phone, City, State, Pincode) are required." });
     }
 
+    if (!userEmail) {
+      return res.status(400).json({ message: "Email is required for order creation." });
+    }
+
     if (!/^\d{10,15}$/.test(address.phone)) {
       return res.status(400).json({ message: "Invalid phone number" });
     }
@@ -48,12 +68,19 @@ router.post("/create-order", auth, async (req, res) => {
       return res.status(400).json({ message: "Invalid pincode. Must be exactly 6 digits." });
     }
 
-    const user = await User.findById(userId).select("email");
-    if (!user || !user.email) {
-      return res.status(400).json({ message: "User email not found" });
+    let email = userEmail;
+
+    if (userId) {
+      const user = await User.findById(userId).select("email");
+      if (!user || !user.email) {
+        return res.status(400).json({ message: "User email not found" });
+      }
+      email = user.email;
     }
 
-    const email = user.email;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required for order creation." });
+    }
 
     // Verified items and subtotal calculation
     let subtotal = 0;
@@ -188,7 +215,7 @@ router.post("/create-order", auth, async (req, res) => {
 
     // Create Razorpay Order
     // receipt max length is 40 characters
-    const shortUserId = userId.slice(-8);
+    const shortUserId = userId ? String(userId).slice(-8) : "guest";
     const timestamp = Date.now().toString().slice(-10);
     const receiptId = `rcpt_${shortUserId}_${timestamp}`;
     
@@ -206,6 +233,7 @@ router.post("/create-order", auth, async (req, res) => {
     // Save order in DB
     const order = await Order.create({
       userId,
+      userEmail: email,
       items: verifiedItems,
       subtotal,
       deliveryCharges,
@@ -236,7 +264,7 @@ router.post("/create-order", auth, async (req, res) => {
 /* =========================
    VERIFY PAYMENT
 ========================= */
-router.post("/verify-payment", auth, async (req, res) => {
+router.post("/verify-payment", async (req, res) => {
   try {
     const {
       razorpay_order_id,
@@ -452,13 +480,14 @@ for (const earn of earnings) {
       invoiceNumber = `STK-${String(lastNum + 1).padStart(4, "0")}`;
     }
 
-    // Get user email
-    const user = await User.findById(order.userId);
+    // Get user email (guest checkout has no user account; fall back to order email)
+    const user = order.userId ? await User.findById(order.userId) : null;
+    const buyerEmail = user?.email || order.userEmail || null;
 
     const invoice = await Invoice.create({
       orderId: order._id,
       userId: order.userId,
-      email: user?.email || null,
+      email: buyerEmail,
       invoiceNumber,
       amount: order.amount,
       currency: order.currency || "INR",
@@ -473,12 +502,15 @@ for (const earn of earnings) {
     order.invoiceId = invoice._id;
     await order.save();
 
-    // Update user orders (Mapping for profile and admin)
-    await UserOrders.create({
-      userId: order.userId,
-      orderId: order._id,
-      invoiceId: invoice._id,
-    });
+    // Update user orders (Mapping for the logged-in profile page).
+    // Guests have no account/profile, so skip this mapping for them.
+    if (order.userId) {
+      await UserOrders.create({
+        userId: order.userId,
+        orderId: order._id,
+        invoiceId: invoice._id,
+      });
+    }
 
     // Generate Invoice PDF
     let invoicePdfBuffer = null;
@@ -494,10 +526,10 @@ for (const earn of earnings) {
     }
 
     // Send confirmation email with Invoice to BUYER
-    if (user?.email) {
+    if (buyerEmail) {
       try {
         const emailOptions = {
-          to: user.email,
+          to: buyerEmail,
           subject: `Order Confirmed! #${order._id.toString().slice(-8).toUpperCase()} - Invoice Attached`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
@@ -527,7 +559,7 @@ for (const earn of earnings) {
         }
 
         await sendEmail(emailOptions);
-        console.log("✅ Buyer email with invoice sent to:", user.email);
+        console.log("✅ Buyer email with invoice sent to:", buyerEmail);
       } catch (emailErr) {
         console.error("Buyer email error:", emailErr.message);
       }
@@ -660,7 +692,7 @@ for (const earn of earnings) {
             </div>
 
             <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">👤 Customer Info</h3>
-            <p><strong>Email:</strong> ${user?.email || 'N/A'}</p>
+            <p><strong>Email:</strong> ${buyerEmail || 'N/A'}</p>
             <p><strong>Payment ID:</strong> ${razorpay_payment_id}</p>
             <p><strong>Invoice:</strong> ${invoice.invoiceNumber}</p>
 
@@ -700,7 +732,7 @@ for (const earn of earnings) {
 /* =========================
    PAYMENT FAILED
 ========================= */
-router.post("/payment-failed", auth, async (req, res) => {
+router.post("/payment-failed", async (req, res) => {
   try {
     const { orderId, error } = req.body;
 

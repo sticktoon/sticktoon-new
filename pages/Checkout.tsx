@@ -175,6 +175,7 @@ export default function Checkout({
 
   const [address, setAddress] = useState({
     name: "",
+    email: "",
     street: "",
     phone: "",
     city: "",
@@ -184,6 +185,7 @@ export default function Checkout({
 
   const [errors, setErrors] = useState({
     name: "",
+    email: "",
     street: "",
     phone: "",
     city: "",
@@ -194,6 +196,7 @@ export default function Checkout({
   const [paymentError, setPaymentError] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [quantityInputs, setQuantityInputs] = useState<Record<string, string>>({});
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     const next: Record<string, string> = {};
@@ -211,6 +214,24 @@ export default function Checkout({
     onResize();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem("user");
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        if (parsedUser?.email) {
+          setAddress((prev) => ({ ...prev, email: String(parsedUser.email) }));
+        }
+      } catch {
+        // ignore invalid user data
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    setIsLoggedIn(Boolean(localStorage.getItem("token")));
   }, []);
 
   useEffect(() => {
@@ -276,14 +297,19 @@ export default function Checkout({
   const validatePromoRequest = async (
     code: string,
     currentSubtotal: number,
-    token: string
+    token?: string
   ) => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const res = await fetch(`${API_BASE_URL}/api/promo/validate`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers,
       body: JSON.stringify({ code, subtotal: currentSubtotal }),
     });
 
@@ -299,16 +325,11 @@ export default function Checkout({
     }
 
     const token = localStorage.getItem("token");
-    if (!token) {
-      setPromoError("Please login to apply promo code");
-      return;
-    }
-
     setPromoLoading(true);
     setPromoError("");
 
     try {
-      const { res, data } = await validatePromoRequest(promoCode, subtotal, token);
+      const { res, data } = await validatePromoRequest(promoCode, subtotal, token || undefined);
 
       if (!res.ok) {
         setPromoError(data.message || "Invalid promo code");
@@ -387,11 +408,23 @@ export default function Checkout({
   };
 
   const validate = () => {
-    const e = { name: "", street: "", phone: "", city: "", state: "", pincode: "" };
+    const e = {
+      name: "",
+      email: "",
+      street: "",
+      phone: "",
+      city: "",
+      state: "",
+      pincode: "",
+    };
 
     if (!address.name.trim()) e.name = "Name is required";
     else if (/\d/.test(address.name))
       e.name = "Name must not contain numbers";
+
+    if (!address.email.trim()) e.email = "Email is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address.email.trim()))
+      e.email = "Enter a valid email address";
 
     if (!address.street.trim()) e.street = "Address is required";
 
@@ -409,7 +442,15 @@ export default function Checkout({
       e.pincode = "Pincode must be exactly 6 digits";
 
     setErrors(e);
-    return !e.name && !e.street && !e.phone && !e.city && !e.state && !e.pincode;
+    return (
+      !e.name &&
+      !e.email &&
+      !e.street &&
+      !e.phone &&
+      !e.city &&
+      !e.state &&
+      !e.pincode
+    );
   };
 
   const handlePlaceOrder = async () => {
@@ -423,10 +464,6 @@ export default function Checkout({
     }
 
     const token = localStorage.getItem("token");
-    if (!token) {
-      setPaymentError("Please login to continue");
-      return;
-    }
 
     let promoCodeForOrder: string | null = appliedPromo?.code || null;
 
@@ -459,17 +496,23 @@ export default function Checkout({
       const Razorpay = await loadRazorpay();
 
       // Create order on backend
+      const createOrderHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      if (token) {
+        createOrderHeaders.Authorization = `Bearer ${token}`;
+      }
+
       const res = await fetch(
         `${API_BASE_URL}/api/razorpay/create-order`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: createOrderHeaders,
           body: JSON.stringify({
             amount: total,
             address,
+            email: address.email,
             promoCode: promoCodeForOrder,
             items: cart.map((item) => ({
               badgeId: item.id,
@@ -503,14 +546,18 @@ export default function Checkout({
           setIsProcessing(true); // Ensure it's showing during verification
           // Verify payment on backend
           try {
+            const verifyHeaders: Record<string, string> = {
+              "Content-Type": "application/json",
+            };
+            if (token) {
+              verifyHeaders.Authorization = `Bearer ${token}`;
+            }
+
             const verifyRes = await fetch(
               `${API_BASE_URL}/api/razorpay/verify-payment`,
               {
                 method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
+                headers: verifyHeaders,
                 body: JSON.stringify({
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_payment_id: response.razorpay_payment_id,
@@ -575,12 +622,16 @@ export default function Checkout({
         
         // Mark order as failed
         try {
+          const failedHeaders: Record<string, string> = {
+            "Content-Type": "application/json",
+          };
+          if (token) {
+            failedHeaders.Authorization = `Bearer ${token}`;
+          }
+
           await fetch(`${API_BASE_URL}/api/razorpay/payment-failed`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
+            headers: failedHeaders,
             body: JSON.stringify({
               orderId: data.orderId,
               error: response.error,
@@ -736,7 +787,7 @@ export default function Checkout({
                 Shipping Details <span className="text-red-500 text-xs font-bold uppercase tracking-tighter">(All Fields Required)</span>
               </h3>
 
-              {(["name", "street", "city", "state", "pincode", "phone"] as const).map(
+              {(["name", "email", "street", "city", "state", "pincode", "phone"] as const).map(
                 (field) => (
                   <div key={field} className="mb-4">
                     <input
@@ -746,6 +797,8 @@ export default function Checkout({
                       placeholder={
                         field === "name"
                           ? "Full Name"
+                          : field === "email"
+                          ? "Email Address"
                           : field === "street"
                           ? "Street Address (House No, Building, Area)"
                           : field === "city"
@@ -1009,6 +1062,12 @@ export default function Checkout({
   {paymentError && (
     <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
       <p className="text-sm font-semibold text-red-600">{paymentError}</p>
+    </div>
+  )}
+
+  {!isLoggedIn && (
+    <div className="mb-4 rounded-2xl border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-slate-800">
+      You can checkout as a guest without logging in. If you already have an account, login now to save this order to your profile.
     </div>
   )}
 

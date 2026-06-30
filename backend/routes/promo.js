@@ -1,12 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const PromoCode = require("../models/PromoCode");
-const auth = require("../middleware/auth");
 
 /* =========================
    VALIDATE PROMO CODE
 ========================= */
-router.post("/validate", auth, async (req, res) => {
+router.post("/validate", async (req, res) => {
   try {
     const { code, subtotal } = req.body;
     const deliveryCharges = 99; // Fixed delivery charge

@@ -40,8 +40,15 @@ const orderSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false,
       index: true,
+    },
+
+    userEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: null,
     },
 
     // ✅ ENSURE ITEMS ALWAYS EXISTS (even if empty)

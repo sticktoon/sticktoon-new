@@ -20,11 +20,12 @@ const influencerEarningSchema = new mongoose.Schema(
       required: true,
     },
 
-    // Customer who used the code
+    // Customer who used the code (null for guest checkout)
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false,
+      default: null,
     },
 
     // Total units/pieces in the order

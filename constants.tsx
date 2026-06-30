@@ -289,9 +289,9 @@ export const STICKER_CATEGORIES = [
     image: '/sticker/mergesticker.jpeg',
   },
   {
-    id: 'dog',
-    name: 'DOG',
-    icon: '🐕',
+    id: 'pet',
+    name: 'PET',
+    icon: '🐾',
     image: '/sticker/DogStickers.jpeg',
   },
   {
@@ -480,16 +480,16 @@ export const STICKERS: Sticker[] = [
   tagline: 'Man of Steel'
 },
 
-  // Dog
-  { id: 'sticker-dog-1', name: 'Golden Pup', price: 15, category: 'dog', image: '/sticker/DogStickers.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness', isFeatured: true },
-  { id: 'sticker-dog-2', name: 'Paw Squad', price: 15, category: 'dog', image: '/sticker/dodmix1.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
-  { id: 'sticker-dog-3', name: 'Stay Pawsitive', price: 15, category: 'dog', image: '/sticker/dog1.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
-  { id: 'sticker-dog-4', name: 'Happy High Paw', price: 15, category: 'dog', image: '/sticker/dog2.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
- { id: 'sticker-dog-5', name: 'Corgi Cheer', price: 15, category: 'dog', image: '/sticker/dog3.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' }, 
- { id: 'sticker-dog-6', name: 'Pawsitive Vibes', price: 15, category: 'dog', image: '/sticker/dog4.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
- { id: 'sticker-dog-7', name: 'Puppy Smiles', price: 15, category: 'dog', image: '/sticker/dog5.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
- { id: 'sticker-dog-8', name: 'Woof Energy', price: 15, category: 'dog', image: '/sticker/dog6.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
- { id: 'sticker-dog-9', name: 'Tail Wags Only', price: 15, category: 'dog', image: '/sticker/dog7.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
+  // Pet
+  { id: 'sticker-dog-1', name: 'Golden Pup', price: 15, category: 'pet', image: '/sticker/DogStickers.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness', isFeatured: true },
+  { id: 'sticker-dog-2', name: 'Paw Squad', price: 15, category: 'pet', image: '/sticker/dodmix1.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
+  { id: 'sticker-dog-3', name: 'Stay Pawsitive', price: 15, category: 'pet', image: '/sticker/dog1.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
+  { id: 'sticker-dog-4', name: 'Happy High Paw', price: 15, category: 'pet', image: '/sticker/dog2.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
+ { id: 'sticker-dog-5', name: 'Corgi Cheer', price: 15, category: 'pet', image: '/sticker/dog3.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' }, 
+ { id: 'sticker-dog-6', name: 'Pawsitive Vibes', price: 15, category: 'pet', image: '/sticker/dog4.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
+ { id: 'sticker-dog-7', name: 'Puppy Smiles', price: 15, category: 'pet', image: '/sticker/dog5.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
+ { id: 'sticker-dog-8', name: 'Woof Energy', price: 15, category: 'pet', image: '/sticker/dog6.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
+ { id: 'sticker-dog-9', name: 'Tail Wags Only', price: 15, category: 'pet', image: '/sticker/dog7.jpeg', details: 'Positive paws sticker.', tagline: 'Spread happiness' },
 
   // Love
   { id: 'sticker-love-1', name: 'Heartbeat', price: 15, category: 'love', image: '/sticker/mergesticker.jpeg', details: 'Love heartbeat sticker.', tagline: 'Love conquers all', isFeatured: true },

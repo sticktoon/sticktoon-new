@@ -1603,6 +1603,7 @@ const Admin: React.FC = () => {
       const id =
         o.userId?._id ||
         o.userId?.email ||
+        o.userEmail ||
         o.address?.phone ||
         o.orderId ||
         o._id;
@@ -1610,13 +1611,13 @@ const Admin: React.FC = () => {
 
       const inferredCreatedAt = o.userId?.createdAt || o.createdAt || "";
       const nextAccountName = o.userId?.name || o.address?.name || "Customer";
-      const nextEmail = o.userId?.email || "";
+      const nextEmail = o.userId?.email || o.userEmail || "";
       const nextPhone = o.address?.phone || o.userId?.phone || "";
       const nextCompany = o.company || o.userId?.company || "";
       const nextAddress = o.address?.street || o.address?.address || "";
       const nextContactName =
         o.contact?.name || o.address?.name || o.userId?.name || "";
-      const nextContactEmail = o.contact?.email || o.userId?.email || "";
+      const nextContactEmail = o.contact?.email || o.userId?.email || o.userEmail || "";
       const nextContactPhone = o.contact?.phone || o.address?.phone || "";
       const nextContactMobile = o.contact?.mobile || "";
 
@@ -1819,12 +1820,14 @@ const Admin: React.FC = () => {
         const key =
           o.userId?._id ||
           o.userId?.email ||
+          o.userEmail ||
           o.address?.phone ||
           o._id;
         const name =
           o.userId?.name ||
           o.address?.name ||
           o.userId?.email ||
+          o.userEmail ||
           "Guest";
         const current = customerMap.get(key) || { name, totalSpent: 0 };
         current.totalSpent += Number(o.amount || 0);
@@ -2383,34 +2386,41 @@ const Admin: React.FC = () => {
     }
   }, [user]);
 
-  // Handle URL parameters for navigation
+  // Handle URL parameters and pathname for navigation
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const view = params.get("view");
     const category = params.get("category");
 
-    if (isAuthenticated && view === "products") {
-      setCurrentView("products");
-      setShowProductForm(true);
+    if (isAuthenticated) {
+      if (location.pathname === "/admin/orders") {
+        setCurrentView("orders");
+        return;
+      }
 
-      if (category) {
-        const normalizedCategory = normalizeCategory(category) as
-          | AdminProductCategory
-          | undefined;
+      if (view === "products") {
+        setCurrentView("products");
+        setShowProductForm(true);
 
-        if (
-          normalizedCategory &&
-          ADMIN_PRODUCT_CATEGORIES.includes(normalizedCategory)
-        ) {
-          setProductForm((prev) => ({
-            ...prev,
-            category: normalizedCategory,
-            subcategory: "",
-          }));
+        if (category) {
+          const normalizedCategory = normalizeCategory(category) as
+            | AdminProductCategory
+            | undefined;
+
+          if (
+            normalizedCategory &&
+            ADMIN_PRODUCT_CATEGORIES.includes(normalizedCategory)
+          ) {
+            setProductForm((prev) => ({
+              ...prev,
+              category: normalizedCategory,
+              subcategory: "",
+            }));
+          }
         }
       }
     }
-  }, [location.search, isAuthenticated]);
+  }, [location.pathname, location.search, isAuthenticated]);
 
   // Lazy load data when view changes
   useEffect(() => {
@@ -2428,6 +2438,7 @@ const Admin: React.FC = () => {
         break;
       case "orders":
         fetchOrdersData(orderRange);
+        fetchShiprocketSettings();
         break;
       case "customers":
         // Customer list is derived from order history → needs the full set.
@@ -2825,6 +2836,70 @@ const Admin: React.FC = () => {
     }
   };
 
+  const handleShiprocketPush = async (orderId: string) => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+    setSyncingOrderId(orderId);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/orders/${orderId}/shiprocket-push`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("success", "✅ Order pushed to Shiprocket!");
+        setOrders((prev) => prev.map((o) => (o._id === orderId ? data.order : o)));
+        setViewingOrder((prev: any) => (prev && prev._id === orderId ? data.order : prev));
+      } else {
+        showToast("error", `❌ ${data.message || "Failed to push to Shiprocket"}`);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("error", "❌ Sync error. Check backend logs.");
+    } finally {
+      setSyncingOrderId(null);
+    }
+  };
+
+  const fetchShiprocketSettings = async () => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/settings`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setShiprocketAutoApprove(data.shiprocket_auto_approve === true);
+      }
+    } catch (err) {
+      console.error("Error fetching settings:", err);
+    }
+  };
+
+  const handleToggleShiprocketAuto = async () => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+    const nextValue = !shiprocketAutoApprove;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/settings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ key: "shiprocket_auto_approve", value: nextValue }),
+      });
+      if (res.ok) {
+        setShiprocketAutoApprove(nextValue);
+        showToast("success", `✅ Shiprocket Auto-Push ${nextValue ? "ENABLED" : "DISABLED"}`);
+      } else {
+        showToast("error", "❌ Failed to update setting");
+      }
+    } catch (err) {
+      showToast("error", "❌ Failed to update setting");
+    }
+  };
   const fetchProductsData = async () => {
     if (loadedData.products) return; // Already loaded
 
@@ -4192,13 +4267,7 @@ const Admin: React.FC = () => {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => {
-                  if (tab.id === "orders") {
-                    navigate("/admin/orders");
-                  } else {
-                    setCurrentView(tab.id as any);
-                  }
-                }}
+                onClick={() => setCurrentView(tab.id as any)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-bold transition-all text-left ${
                   currentView === tab.id
                     ? "bg-white text-slate-950 shadow-lg"
@@ -4338,7 +4407,7 @@ const Admin: React.FC = () => {
 
                 {/* Total Orders */}
                 <button
-                  onClick={() => navigate("/admin/orders")}
+                  onClick={() => setCurrentView("orders")}
                   className="bg-white rounded-xl p-5 border border-gray-200 hover:shadow-lg transition-all hover:border-gray-400 cursor-pointer text-left"
                 >
                   <div className="flex items-center justify-between mb-3">
@@ -4475,7 +4544,7 @@ const Admin: React.FC = () => {
                     </button>
 
                     <button
-                      onClick={() => navigate("/admin/orders")}
+                      onClick={() => setCurrentView("orders")}
                       className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-all group"
                     >
                       <div className="flex items-center gap-3">
@@ -7418,8 +7487,247 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
             </div>
           )}
 
-          {/* ================= ORDERS VIEW — redirects to /admin/orders ================= */}
-          {currentView === "orders" && (() => { navigate("/admin/orders"); return null; })()}
+          {/* ================= ORDERS VIEW ================= */}
+          {currentView === "orders" && (
+            <div className="flex flex-col xl:flex-row gap-4 xl:gap-6">
+              {/* ================= FILTER SIDEBAR ================= */}
+              <aside className="w-full xl:w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
+                <h3 className="font-black text-sm">Filters</h3>
+
+                {/* LOAD RANGE (server-side) */}
+                <div className="space-y-2">
+                  <p className="text-xs font-black uppercase text-slate-600">
+                    Load Range
+                  </p>
+                  <select
+                    value={orderRange}
+                    onChange={(e) => handleOrderRangeChange(e.target.value)}
+                    disabled={loadingData.orders}
+                    className="w-full px-3 py-2 border rounded-lg text-sm disabled:opacity-50"
+                  >
+                    <option value="7">Last 7 days</option>
+                    <option value="30">Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                    <option value="all">All time</option>
+                  </select>
+                  <p className="text-[11px] text-slate-400 leading-snug">
+                    Loads recent orders first. Pick a wider range to fetch older
+                    ones.
+                  </p>
+                </div>
+
+                {/* PAYMENT STATUS */}
+                <div className="space-y-2 text-sm">
+                  <p className="text-xs font-black uppercase text-slate-600">
+                    Payment Status
+                  </p>
+
+                  {["SUCCESS", "PENDING", "FAILED"].map((s) => (
+                    <label key={s} className="flex gap-2 items-center">
+                      <input
+                        type="checkbox"
+                        checked={orderStatusFilter.includes(s)}
+                        onChange={() =>
+                          setOrderStatusFilter((prev) =>
+                            prev.includes(s)
+                              ? prev.filter((x) => x !== s)
+                              : [...prev, s],
+                          )
+                        }
+                      />
+                      <span className="capitalize">{s.toLowerCase()}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {/* DATE */}
+                <div className="space-y-2">
+                  <p className="text-xs font-black uppercase text-slate-600">
+                    Date
+                  </p>
+                  <input
+                    type="date"
+                    value={orderFromDate}
+                    onChange={(e) => setOrderFromDate(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={orderToDate}
+                    onChange={(e) => setOrderToDate(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                  />
+                </div>
+
+                {/* SORT */}
+                <div className="space-y-2">
+                  <p className="text-xs font-black uppercase text-slate-600">
+                    Sort
+                  </p>
+                  <select
+                    value={orderSort}
+                    onChange={(e) =>
+                      setOrderSort(e.target.value as "asc" | "desc")
+                    }
+                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                  >
+                    <option value="desc">Newest first</option>
+                    <option value="asc">Oldest first</option>
+                  </select>
+                </div>
+
+                {/* SHIPROCKET AUTO-PUSH TOGGLE */}
+                <div className="space-y-2 border-t pt-4">
+                  <p className="text-xs font-black uppercase text-slate-600">
+                    🚀 Shiprocket Auto-Push
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleToggleShiprocketAuto}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        shiprocketAutoApprove ? "bg-indigo-600" : "bg-gray-300"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          shiprocketAutoApprove ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      {shiprocketAutoApprove ? "Auto" : "Manual"}
+                    </span>
+                  </div>
+                </div>
+              </aside>
+
+              {/* ================= MAIN CONTENT ================= */}
+              <section className="flex-1 flex flex-col gap-6">
+                {/* HEADER */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <h2 className="text-2xl font-black">
+                    All Orders ({filteredOrders.length})
+                  </h2>
+
+                  {filteredOrders.length > 0 && (
+                    <div className="text-sm text-slate-500 flex flex-wrap gap-3">
+                      <span>
+                        ✅ Success:{" "}
+                        {filteredOrders.filter((o) => o.status === "SUCCESS").length}
+                      </span>
+                      <span>
+                        ⏳ Pending:{" "}
+                        {filteredOrders.filter((o) => o.status === "PENDING").length}
+                      </span>
+                      <span>
+                        ❌ Failed:{" "}
+                        {filteredOrders.filter((o) => o.status === "FAILED").length}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* LOADING */}
+                {loadingData.orders ? (
+                  <div className="bg-white border rounded-xl p-12 text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                    <p className="text-slate-500">Loading orders...</p>
+                  </div>
+                ) : filteredOrders.length === 0 ? (
+                  /* EMPTY STATE */
+                  <div className="bg-white border rounded-xl p-12 text-center">
+                    <p className="text-slate-500">
+                      {orderRange === "all"
+                        ? "No orders match these filters."
+                        : "No orders in this range. Pick a wider Load Range to fetch older orders."}
+                    </p>
+                  </div>
+                ) : (
+                  /* GRID */
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredOrders.map((order) => (
+                      <div
+                        key={order._id}
+                        onClick={() => setViewingOrder(order)}
+                        className="bg-white border hover:border-indigo-500 rounded-xl p-4 transition hover:shadow-lg cursor-pointer"
+                      >
+                        {/* HEADER */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <p className="font-bold text-sm">
+                              #{order.orderId || order._id.slice(-6)}
+                            </p>
+                            <p className="text-xs text-slate-500 truncate">
+                              {order.userId?.email || order.userEmail || "N/A"}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                              order.status === "SUCCESS"
+                                ? "bg-green-100 text-green-700 border-green-200"
+                                : order.status === "PENDING"
+                                  ? "bg-yellow-100 text-yellow-700 border-yellow-200"
+                                  : "bg-red-100 text-red-700 border-red-200"
+                            }`}
+                          >
+                            {order.status}
+                          </span>
+                        </div>
+
+                        {/* BODY */}
+                        <div className="space-y-2 mb-3 pb-3 border-b">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">Amount</span>
+                            <span className="font-bold text-green-600">
+                              ₹{order.amount}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">Customer</span>
+                            <span className="text-slate-700">
+                              {order.userId?.name || order.address?.name || "Anonymous"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* FOOTER with Shiprocket status */}
+                        <div className="text-xs text-slate-400 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span>📅 {new Date(order.createdAt).toLocaleDateString()}</span>
+                            <span>•</span>
+                            <span
+                              className={
+                                order.isDelivered
+                                  ? "text-emerald-600 font-semibold"
+                                  : "text-amber-600 font-semibold"
+                              }
+                            >
+                              {order.isDelivered ? "Delivered" : "Not Delivered"}
+                            </span>
+                          </div>
+                          {order.status === "SUCCESS" && (
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                order.shiprocketStatus === "SUCCESS"
+                                  ? "bg-green-50 text-green-700 border-green-200"
+                                  : order.shiprocketStatus === "FAILED"
+                                    ? "bg-red-50 text-red-700 border-red-200"
+                                    : "bg-yellow-50 text-yellow-700 border-yellow-200"
+                              }`}
+                            >
+                              🚀 {order.shiprocketStatus === "SUCCESS" ? "Synced" : order.shiprocketStatus === "FAILED" ? "Failed" : "Pending"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
 
           {currentView === "customers" && (
             <div className="space-y-6">
@@ -8141,10 +8449,10 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   <div className="bg-white/5 rounded-xl p-3">
                     <p className="text-gray-400 text-xs mb-1">Customer</p>
                     <p className="text-white font-semibold">
-                      {viewingOrder.userId?.name || "Anonymous"}
+                      {viewingOrder.userId?.name || viewingOrder.address?.name || "Anonymous"}
                     </p>
                     <p className="text-gray-400 text-xs">
-                      {viewingOrder.userId?.email || "N/A"}
+                      {viewingOrder.userId?.email || viewingOrder.userEmail || "N/A"}
                     </p>
                   </div>
                   <div className="bg-white/5 rounded-xl p-3">
@@ -8327,6 +8635,62 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   <span className="text-2xl">📥</span>
                   <span>Download Invoice</span>
                 </button>
+
+                {/* Shiprocket sync section */}
+                {viewingOrder.status === "SUCCESS" && (
+                  <div className="bg-white/5 rounded-xl p-4 mt-4 space-y-4 border border-white/10">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-white font-bold">🚀 Shiprocket Fulfillment</h4>
+                        <p className="text-gray-400 text-sm">
+                          Sync this order to Shiprocket for shipment creation.
+                        </p>
+                      </div>
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                          viewingOrder.shiprocketStatus === "SUCCESS"
+                            ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                            : viewingOrder.shiprocketStatus === "FAILED"
+                              ? "bg-red-100 text-red-700 border border-red-200"
+                              : "bg-yellow-100 text-yellow-700 border border-yellow-200"
+                        }`}
+                      >
+                        {viewingOrder.shiprocketStatus === "SUCCESS"
+                          ? "Synced"
+                          : viewingOrder.shiprocketStatus === "FAILED"
+                            ? "Failed"
+                            : "Pending"}
+                      </span>
+                    </div>
+
+                    {viewingOrder.shiprocketOrderId && (
+                      <div className="flex items-center justify-between text-sm text-gray-300">
+                        <span>Shiprocket Order ID</span>
+                        <span className="font-mono text-white">{viewingOrder.shiprocketOrderId}</span>
+                      </div>
+                    )}
+
+                    {viewingOrder.shiprocketErrorMessage && (
+                      <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+                        <strong>Sync error:</strong> {viewingOrder.shiprocketErrorMessage}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => handleShiprocketPush(viewingOrder._id)}
+                      disabled={syncingOrderId === viewingOrder._id}
+                      className={`w-full py-3 rounded-xl text-sm font-bold transition ${
+                        syncingOrderId === viewingOrder._id
+                          ? "bg-slate-500 text-white cursor-not-allowed"
+                          : "bg-indigo-600 hover:bg-indigo-500 text-white"
+                      }`}
+                    >
+                      {syncingOrderId === viewingOrder._id
+                        ? "Syncing..."
+                        : "Push to Shiprocket"}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}

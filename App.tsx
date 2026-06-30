@@ -161,7 +161,6 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    localStorage.removeItem(GUEST_CART_STORAGE_KEY);
     localStorage.removeItem("cart");
     window.location.href = "/login";
   };
@@ -556,8 +555,12 @@ useEffect(() => {
 /* =======================
    FOOTER
 ======================= */
-const Footer: React.FC = () => (
-<footer className="bg-black text-white pt-8 pb-4 relative z-10">
+const Footer: React.FC = () => {
+  const location = useLocation();
+  const isAdminSection = location.pathname.startsWith("/admin");
+
+  return (
+    <footer className={`bg-black text-white pt-8 pb-4 relative z-10 ${isAdminSection ? "lg:ml-64" : ""}`}>
 
 
 
@@ -790,21 +793,29 @@ const Footer: React.FC = () => (
       </div>
     {/* </div> */}
   </footer>
-);
+  );
+};
 
 /* =======================
    APP
 ======================= */
 const GUEST_CART_STORAGE_KEY = "guest_cart";
 
-export default function App() {
+function App() {
   // Logged-in users are required for cart actions, so DB is source of truth.
   const [cart, setCart] = useState<CartItem[]>([]);
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showOrderConfirmation, setShowOrderConfirmation] = useState(false);
   const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
   const [cartLoaded, setCartLoaded] = useState(false);
+
+  const saveGuestCartLocally = (nextCart: CartItem[]) => {
+    try {
+      localStorage.setItem(GUEST_CART_STORAGE_KEY, JSON.stringify(nextCart));
+    } catch (err) {
+      console.error("Failed to save guest cart", err);
+    }
+  };
 
   /* 🔐 JWT AUTH CHECK + CART SYNC */
   useEffect(() => {
@@ -816,6 +827,16 @@ export default function App() {
 
       const token = localStorage.getItem("token");
       const savedUser = localStorage.getItem("user");
+      const guestCartJson = localStorage.getItem(GUEST_CART_STORAGE_KEY);
+      let guestCart: CartItem[] = [];
+
+      if (guestCartJson) {
+        try {
+          guestCart = JSON.parse(guestCartJson) as CartItem[];
+        } catch (parseErr) {
+          console.error("Failed to parse guest cart", parseErr);
+        }
+      }
 
       if (token) {
         try {
@@ -830,28 +851,37 @@ export default function App() {
             }
           }
 
-          const res = await fetch(`${API_BASE_URL}/api/cart`, {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
+          if (guestCart.length > 0) {
+            const syncRes = await fetch(`${API_BASE_URL}/api/cart/sync`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ localCart: guestCart }),
+            });
 
-          if (res.ok) {
-            const data = await res.json();
-            if (isMounted) {
-              setCart(data.items || []);
+            if (syncRes.ok) {
+              const data = await syncRes.json();
+              if (isMounted) {
+                setCart(data.items || []);
+              }
+              localStorage.removeItem(GUEST_CART_STORAGE_KEY);
+              localStorage.removeItem("cart");
+            } else {
+              console.error("Guest cart sync failed", await syncRes.json());
+              await syncCartWithDatabase();
             }
-            // Cleanup legacy key from older builds.
-            localStorage.removeItem(GUEST_CART_STORAGE_KEY);
-            localStorage.removeItem("cart");
           } else {
-            console.error("Cart bootstrap failed", await res.json());
             await syncCartWithDatabase();
           }
         } catch (err) {
           console.error("Cart bootstrap error:", err);
           await syncCartWithDatabase();
+        }
+      } else {
+        if (guestCart.length > 0 && isMounted) {
+          setCart(guestCart);
         }
       }
 
@@ -916,11 +946,6 @@ export default function App() {
     }
 
     const token = localStorage.getItem("token");
-    if (!token) {
-      setShowLoginPrompt(true);
-      return;
-    }
-
     const comboItems = Array.isArray(badge?.comboItems)
       ? badge.comboItems
           .filter((item: any) => item?.id && item?.name)
@@ -940,6 +965,26 @@ export default function App() {
       category: badge.category,
       comboItems,
     };
+
+    if (!token) {
+      setCart((prev) => {
+        const index = prev.findIndex((item) => item.id === cartItem.id);
+        const next = [...prev];
+
+        if (index < 0) {
+          next.push({ ...cartItem, quantity: qty } as CartItem);
+        } else {
+          next[index] = {
+            ...next[index],
+            quantity: Math.max(1, next[index].quantity + qty),
+          };
+        }
+
+        saveGuestCartLocally(next);
+        return next;
+      });
+      return;
+    }
 
     const existingItem = cart.find((item) => item.id === cartItem.id);
 
@@ -1022,7 +1067,9 @@ export default function App() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      console.error("User is not authenticated");
+      const nextCart = cart.filter((item) => item.id !== id);
+      setCart(nextCart);
+      saveGuestCartLocally(nextCart);
       return;
     }
 
@@ -1053,7 +1100,11 @@ export default function App() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      console.error("User is not authenticated");
+      const nextCart = q <= 0
+        ? cart.filter((item) => item.id !== id)
+        : cart.map((item) => (item.id === id ? { ...item, quantity: q } : item));
+      setCart(nextCart);
+      saveGuestCartLocally(nextCart);
       return;
     }
 
@@ -1198,27 +1249,6 @@ export default function App() {
       />
 
       {/* Login Prompt Modal */}
-      {showLoginPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-lg p-8 max-w-sm w-full text-center">
-            <h2 className="text-xl font-bold mb-4">Login Required</h2>
-            <p className="mb-6">Please log in to add items to your cart.</p>
-            <Link
-              to="/login"
-              className="inline-block px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition"
-              onClick={() => setShowLoginPrompt(false)}
-            >
-              Go to Login
-            </Link>
-            <button
-              className="block mt-4 text-slate-500 hover:text-slate-800 text-sm mx-auto"
-              onClick={() => setShowLoginPrompt(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Order Confirmation Modal */}
       {showOrderConfirmation && (
@@ -1331,7 +1361,7 @@ export default function App() {
           <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/admin" element={<ProtectedAdminRoute user={user}><AdminDashboard /></ProtectedAdminRoute>} />
           <Route path="/admin/users" element={<ProtectedAdminRoute user={user}><AdminUsers /></ProtectedAdminRoute>} />
-          <Route path="/admin/orders" element={<ProtectedAdminRoute user={user}><AdminOrders /></ProtectedAdminRoute>} />
+          <Route path="/admin/orders" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
           <Route path="/admin/revenue" element={<ProtectedAdminRoute user={user}><AdminRevenue /></ProtectedAdminRoute>} />
           <Route path="/admin/user-orders" element={<ProtectedAdminRoute user={user}><AdminUserOrders /></ProtectedAdminRoute>} />
           <Route path="/admin/invoice/:id" element={<ProtectedAdminRoute user={user}><AdminInvoice /></ProtectedAdminRoute>} />
@@ -1363,3 +1393,5 @@ export default function App() {
     </BrowserRouter>
   );
 }
+
+export default App;
