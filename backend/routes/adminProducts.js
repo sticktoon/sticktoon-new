@@ -226,7 +226,7 @@ router.get("/:id", async (req, res) => {
 ======================== */
 router.post("/", auth, adminOnly, async (req, res) => {
   try {
-    const { name, price, description, category, subcategory, image, stock } = req.body;
+    const { name, price, description, category, subcategory, image, stock, weight, length, width, height, sku } = req.body;
     const normalizedCategory = normalizeCategory(category);
     const normalizedSubcategory = normalizeSubcategory(subcategory);
     const normalizedImage = normalizeProductImagePath(image);
@@ -248,6 +248,11 @@ router.post("/", auth, adminOnly, async (req, res) => {
       subcategory: normalizedSubcategory,
       image: normalizedImage,
       stock: parseInt(stock) || 0,
+      weight: weight !== undefined && !isNaN(parseFloat(weight)) ? parseFloat(weight) : 0.1,
+      length: length !== undefined && !isNaN(parseFloat(length)) ? parseFloat(length) : 10,
+      width: width !== undefined && !isNaN(parseFloat(width)) ? parseFloat(width) : 10,
+      height: height !== undefined && !isNaN(parseFloat(height)) ? parseFloat(height) : 5,
+      sku: sku || "",
     });
 
     await product.save();
@@ -263,7 +268,7 @@ router.post("/", auth, adminOnly, async (req, res) => {
 ======================== */
 router.patch("/:id", auth, adminOnly, async (req, res) => {
   try {
-    const { name, price, description, category, subcategory, image, stock, isActive } =
+    const { name, price, description, category, subcategory, image, stock, isActive, weight, length, width, height, sku } =
       req.body;
 
     const product = await Product.findById(req.params.id);
@@ -294,6 +299,12 @@ router.patch("/:id", auth, adminOnly, async (req, res) => {
     }
     if (stock !== undefined) product.stock = parseInt(stock);
     if (isActive !== undefined) product.isActive = isActive;
+    
+    if (weight !== undefined) product.weight = parseFloat(weight);
+    if (length !== undefined) product.length = parseFloat(length);
+    if (width !== undefined) product.width = parseFloat(width);
+    if (height !== undefined) product.height = parseFloat(height);
+    if (sku !== undefined) product.sku = sku;
 
     await product.save();
     invalidateProductCache();

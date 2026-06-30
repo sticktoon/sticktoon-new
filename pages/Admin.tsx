@@ -438,6 +438,11 @@ interface Product {
   subcategory?: string;
   image: string;
   stock: number;
+  weight?: number;
+  length?: number;
+  width?: number;
+  height?: number;
+  sku?: string;
   createdAt: string;
   isPlaceholder?: boolean;
 }
@@ -536,6 +541,11 @@ type ProductFormState = {
   subcategory: string;
   image: string;
   stock: number;
+  weight: number;
+  length: number;
+  width: number;
+  height: number;
+  sku: string;
 };
 
 const createDefaultProductForm = (
@@ -548,6 +558,11 @@ const createDefaultProductForm = (
   subcategory: "",
   image: "",
   stock: 0,
+  weight: 0.1,
+  length: 10,
+  width: 10,
+  height: 5,
+  sku: "",
 });
 
 const normalizeAdminProduct = (product: Product): Product => {
@@ -6223,12 +6238,110 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         onChange={(e) =>
                           setProductForm({
                             ...productForm,
-                            stock: parseInt(e.target.value),
+                            stock: parseInt(e.target.value) || 0,
                           })
                         }
                         required
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300"
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-gray-700 font-bold text-sm mb-2">
+                        SKU (Shiprocket)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g., STK-ANIME-01"
+                        value={productForm.sku}
+                        onChange={(e) =>
+                          setProductForm({
+                            ...productForm,
+                            sku: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2 border-t pt-4 mt-2">
+                      <h4 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        📦 Shipping Parameters (Shiprocket)
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <label className="block text-gray-700 font-semibold text-xs mb-1.5">
+                            Weight (kg)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={productForm.weight}
+                            onChange={(e) =>
+                              setProductForm({
+                                ...productForm,
+                                weight: parseFloat(e.target.value) || 0,
+                              })
+                            }
+                            required
+                            className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 text-sm focus:border-indigo-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 font-semibold text-xs mb-1.5">
+                            Length (cm)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={productForm.length}
+                            onChange={(e) =>
+                              setProductForm({
+                                ...productForm,
+                                length: parseFloat(e.target.value) || 0,
+                              })
+                            }
+                            required
+                            className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 text-sm focus:border-indigo-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 font-semibold text-xs mb-1.5">
+                            Width (cm)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={productForm.width}
+                            onChange={(e) =>
+                              setProductForm({
+                                ...productForm,
+                                width: parseFloat(e.target.value) || 0,
+                              })
+                            }
+                            required
+                            className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 text-sm focus:border-indigo-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 font-semibold text-xs mb-1.5">
+                            Height (cm)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={productForm.height}
+                            onChange={(e) =>
+                              setProductForm({
+                                ...productForm,
+                                height: parseFloat(e.target.value) || 0,
+                              })
+                            }
+                            required
+                            className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 text-sm focus:border-indigo-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     <div className="md:col-span-2">
@@ -6409,6 +6522,11 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                           ),
                                           image: product.image,
                                           stock: product.stock,
+                                          weight: product.weight ?? 0.1,
+                                          length: product.length ?? 10,
+                                          width: product.width ?? 10,
+                                          height: product.height ?? 5,
+                                          sku: product.sku ?? "",
                                         });
                                         setShowProductForm(false);
                                       }}
@@ -8839,12 +8957,110 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       onChange={(e) =>
                         setProductForm({
                           ...productForm,
-                          stock: parseInt(e.target.value),
+                          stock: parseInt(e.target.value) || 0,
                         })
                       }
                       required
                       className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-indigo-500 focus:outline-none transition-all"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-white font-semibold mb-2">
+                      SKU (Shiprocket)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g., STK-ANIME-01"
+                      value={productForm.sku}
+                      onChange={(e) =>
+                        setProductForm({
+                          ...productForm,
+                          sku: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-indigo-500 focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 border-t border-white/10 pt-4 mt-2">
+                    <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                      📦 Shipping Parameters (Shiprocket)
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-gray-300 font-semibold text-xs mb-1.5">
+                          Weight (kg)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={productForm.weight}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              weight: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          required
+                          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-300 font-semibold text-xs mb-1.5">
+                          Length (cm)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={productForm.length}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              length: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          required
+                          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-300 font-semibold text-xs mb-1.5">
+                          Width (cm)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={productForm.width}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              width: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          required
+                          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-300 font-semibold text-xs mb-1.5">
+                          Height (cm)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={productForm.height}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              height: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          required
+                          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="md:col-span-2">

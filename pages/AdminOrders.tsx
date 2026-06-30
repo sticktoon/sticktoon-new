@@ -44,47 +44,139 @@ export default function AdminOrders() {
   };
 
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      if (!token) {
-        showToast("warning", "Please login as admin to view orders.");
+  const [autoApprove, setAutoApprove] = useState<boolean>(false);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+
+  const fetchOrders = async () => {
+    if (!token) {
+      showToast("warning", "Please login as admin to view orders.");
+      setOrders([]);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/orders`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(
+          "error",
+          data?.message || "Failed to fetch orders. Please login again."
+        );
         setOrders([]);
         return;
       }
 
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/admin/orders`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+      setOrders(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Fetch orders error:", error);
+      showToast("error", "Unable to load orders right now.");
+      setOrders([]);
+    }
+  };
 
+  const fetchSettings = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/settings`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
         const data = await res.json();
-
-        if (!res.ok) {
-          showToast(
-            "error",
-            data?.message || "Failed to fetch orders. Please login again."
-          );
-          setOrders([]);
-          return;
-        }
-
-        setOrders(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error("Fetch orders error:", error);
-        showToast("error", "Unable to load orders right now.");
-        setOrders([]);
+        setAutoApprove(data.shiprocket_auto_approve === true);
       }
-    };
+    } catch (err) {
+      console.error("Error fetching settings:", err);
+    }
+  };
 
+  const handleToggleAutoApprove = async () => {
+    if (!token) return;
+    const nextValue = !autoApprove;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/settings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ key: "shiprocket_auto_approve", value: nextValue }),
+      });
+      if (res.ok) {
+        setAutoApprove(nextValue);
+        showToast("success", `✅ Auto-push to Shiprocket is now ${nextValue ? "ENABLED (Auto)" : "DISABLED (Needs Approval)"}`);
+      } else {
+        showToast("error", "❌ Failed to update settings");
+      }
+    } catch (err) {
+      showToast("error", "❌ Failed to update settings");
+    }
+  };
+
+  const handleShiprocketPush = async (orderId: string) => {
+    if (!token) return;
+    setIsSyncing(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/orders/${orderId}/shiprocket-push`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("success", "✅ Order successfully pushed to Shiprocket!");
+        setOrders((prev) => prev.map((o) => (o._id === orderId ? data.order : o)));
+        setActiveOrder(data.order);
+      } else {
+        showToast("error", `❌ ${data.message || "Failed to push to Shiprocket"}`);
+        fetchOrders();
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("error", "❌ Sync error. Check backend logs.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  useEffect(() => {
     fetchOrders();
+    fetchSettings();
   }, [token]);
 
   return (
     <div className="p-10 bg-slate-100 min-h-screen">
       <AdminBackButton />
-      <h1 className="text-3xl font-black mb-6">Orders</h1>
+      
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <h1 className="text-3xl font-black">Orders</h1>
+        <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border shadow-sm">
+          <span className="text-sm font-bold text-gray-700">🚀 Shiprocket Auto-Push:</span>
+          <button
+            onClick={handleToggleAutoApprove}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+              autoApprove ? "bg-indigo-600" : "bg-gray-300"
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                autoApprove ? "translate-x-5" : "translate-x-0"
+              }`}
+            />
+          </button>
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            {autoApprove ? "Auto" : "Approval"}
+          </span>
+        </div>
+      </div>
 
       <div className="bg-white rounded-xl shadow overflow-x-auto">
         <table className="w-full">
@@ -95,6 +187,7 @@ export default function AdminOrders() {
               <th className="p-4">User</th>
               <th className="p-4">Amount</th>
               <th className="p-4">Status</th>
+              <th className="p-4">Shiprocket</th>
               <th className="p-4">View</th>
             </tr>
           </thead>
@@ -107,6 +200,17 @@ export default function AdminOrders() {
                 <td className="p-3">{order.userId?.email || "—"}</td>
                 <td className="p-3">₹{order.amount}</td>
                 <td className="p-3 font-bold">{order.status}</td>
+                <td className="p-3">
+                  {order.status !== "SUCCESS" ? (
+                    <span className="text-gray-400 text-xs font-semibold">Not Paid</span>
+                  ) : order.shiprocketStatus === "SUCCESS" ? (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-green-150 text-green-800 border border-green-300">Synced</span>
+                  ) : order.shiprocketStatus === "FAILED" ? (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-150 text-red-800 border border-red-300">Failed</span>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-yellow-150 text-yellow-800 border border-yellow-300">Pending</span>
+                  )}
+                </td>
                 <td className="p-3">
                   <button
                     onClick={() => setActiveOrder(order)}
@@ -204,6 +308,53 @@ export default function AdminOrders() {
             <span className="text-xl">📥</span>
             <span>Download Invoice</span>
           </button>
+
+          {/* Shiprocket Section */}
+          {activeOrder.status === "SUCCESS" && (
+            <div className="bg-white border rounded-xl p-4 mt-4 space-y-3 text-left">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                🚀 Shiprocket Fulfillment
+              </h3>
+              
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500 font-semibold">Sync Status:</span>
+                {activeOrder.shiprocketStatus === "SUCCESS" ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-150 text-green-800 border border-green-300">Synced</span>
+                ) : activeOrder.shiprocketStatus === "FAILED" ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-150 text-red-800 border border-red-300">Failed</span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-yellow-150 text-yellow-800 border border-yellow-300">Pending Approval</span>
+                )}
+              </div>
+
+              {activeOrder.shiprocketOrderId && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Shiprocket Order ID:</span>
+                  <span className="font-mono font-bold text-gray-800">{activeOrder.shiprocketOrderId}</span>
+                </div>
+              )}
+
+              {activeOrder.shiprocketErrorMessage && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 text-xs text-red-700 font-medium">
+                  <strong>Sync Error:</strong> {activeOrder.shiprocketErrorMessage}
+                </div>
+              )}
+
+              {activeOrder.shiprocketStatus !== "SUCCESS" && (
+                <button
+                  onClick={() => handleShiprocketPush(activeOrder._id)}
+                  disabled={isSyncing}
+                  className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 mt-2"
+                >
+                  {isSyncing ? (
+                    <>⏳ Syncing...</>
+                  ) : (
+                    <>📤 Approve & Sync with Shiprocket</>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
         </Modal>
       )}
 

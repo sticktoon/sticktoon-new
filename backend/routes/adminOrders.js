@@ -104,4 +104,24 @@ router.delete("/:id", auth, adminOnly, async (req, res) => {
   }
 });
 
+/* =========================
+   PUSH ORDER TO SHIPROCKET (ADMIN)
+========================= */
+router.post("/:id/shiprocket-push", auth, adminOnly, async (req, res) => {
+  try {
+    const { pushOrderToShiprocket } = require("../services/shiprocketService");
+    const result = await pushOrderToShiprocket(req.params.id);
+
+    if (result.success) {
+      const updatedOrder = await Order.findById(req.params.id).populate("userId", "email name");
+      return res.json({ message: "Successfully synced with Shiprocket", order: updatedOrder });
+    } else {
+      return res.status(400).json({ message: `Shiprocket Sync Failed: ${result.error}` });
+    }
+  } catch (err) {
+    console.error("Manual Shiprocket push error:", err);
+    res.status(500).json({ message: "Failed to push order to Shiprocket" });
+  }
+});
+
 module.exports = router;

@@ -22,13 +22,18 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ message: "Items required" });
     }
 
-    if (!address?.name || !address?.street || !address?.phone) {
-      return res.status(400).json({ message: "Address required" });
+    if (!address?.name || !address?.street || !address?.phone || !address?.city || !address?.state || !address?.pincode) {
+      return res.status(400).json({ message: "Complete address details (Name, Street, Phone, City, State, Pincode) are required." });
     }
 
     // Validate phone number
     if (!/^\d{10,15}$/.test(address.phone)) {
       return res.status(400).json({ message: "Invalid phone number" });
+    }
+
+    // Validate pincode
+    if (!/^\d{6}$/.test(address.pincode)) {
+      return res.status(400).json({ message: "Invalid pincode. Must be exactly 6 digits." });
     }
 
     // Get user email from database
@@ -281,6 +286,22 @@ exports.updateOrderStatus = async (req, res) => {
             "influencerProfile.paidEarnings": earn.totalEarning,
           },
         });
+      }
+
+      // Auto-approve Shiprocket logic
+      try {
+        const Setting = require("../models/Setting");
+        const { pushOrderToShiprocket } = require("../services/shiprocketService");
+        const autoApproveSetting = await Setting.findOne({ key: "shiprocket_auto_approve" });
+        const isAutoApprove = autoApproveSetting ? autoApproveSetting.value === true : false;
+        if (isAutoApprove) {
+          console.log(`Auto-push enabled. Syncing order ${order._id} with Shiprocket...`);
+          pushOrderToShiprocket(order._id);
+        } else {
+          console.log(`Auto-push disabled. Order ${order._id} set to PENDING for Shiprocket.`);
+        }
+      } catch (err) {
+        console.error("Error triggering auto-push for Cashfree order:", err.message);
       }
     }
 

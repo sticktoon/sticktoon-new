@@ -45,6 +45,26 @@ const ProductSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    weight: {
+      type: Number,
+      default: 0.1,
+    },
+    length: {
+      type: Number,
+      default: 10,
+    },
+    width: {
+      type: Number,
+      default: 10,
+    },
+    height: {
+      type: Number,
+      default: 5,
+    },
+    sku: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,

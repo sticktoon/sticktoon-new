@@ -61,6 +61,7 @@ app.use("/api/admin/images", require("./routes/adminImages"));
 app.use("/api/admin/leads", require("./routes/adminLeads"));
 app.use("/api/admin/tasks", require("./routes/adminTasks"));
 app.use("/api/admin/support", require("./routes/adminSupport"));
+app.use("/api/admin/settings", require("./routes/adminSettings"));
 app.use("/api/contact", require("./routes/contact"));
 
 /* Startup: Catch-up upload for offline-added images */

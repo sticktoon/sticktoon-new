@@ -177,12 +177,18 @@ export default function Checkout({
     name: "",
     street: "",
     phone: "",
+    city: "",
+    state: "",
+    pincode: "",
   });
 
   const [errors, setErrors] = useState({
     name: "",
     street: "",
     phone: "",
+    city: "",
+    state: "",
+    pincode: "",
   });
 
   const [paymentError, setPaymentError] = useState("");
@@ -381,7 +387,7 @@ export default function Checkout({
   };
 
   const validate = () => {
-    const e = { name: "", street: "", phone: "" };
+    const e = { name: "", street: "", phone: "", city: "", state: "", pincode: "" };
 
     if (!address.name.trim()) e.name = "Name is required";
     else if (/\d/.test(address.name))
@@ -395,8 +401,15 @@ export default function Checkout({
     else if (address.phone.length < 10)
       e.phone = "Phone must be at least 10 digits";
 
+    if (!address.city.trim()) e.city = "City is required";
+    if (!address.state.trim()) e.state = "State is required";
+
+    if (!address.pincode.trim()) e.pincode = "Pincode is required";
+    else if (!/^\d{6}$/.test(address.pincode.trim()))
+      e.pincode = "Pincode must be exactly 6 digits";
+
     setErrors(e);
-    return !e.name && !e.street && !e.phone;
+    return !e.name && !e.street && !e.phone && !e.city && !e.state && !e.pincode;
   };
 
   const handlePlaceOrder = async () => {
@@ -723,7 +736,7 @@ export default function Checkout({
                 Shipping Details <span className="text-red-500 text-xs font-bold uppercase tracking-tighter">(All Fields Required)</span>
               </h3>
 
-              {(["name", "street", "phone"] as const).map(
+              {(["name", "street", "city", "state", "pincode", "phone"] as const).map(
                 (field) => (
                   <div key={field} className="mb-4">
                     <input
@@ -734,7 +747,13 @@ export default function Checkout({
                         field === "name"
                           ? "Full Name"
                           : field === "street"
-                          ? "Street Address"
+                          ? "Street Address (House No, Building, Area)"
+                          : field === "city"
+                          ? "City"
+                          : field === "state"
+                          ? "State"
+                          : field === "pincode"
+                          ? "Pincode (6 digits)"
                           : "Phone Number"
                       }
                       value={address[field]}
@@ -744,6 +763,8 @@ export default function Checkout({
                           [field]:
                             field === "phone"
                               ? e.target.value.replace(/\D/g, "")
+                              : field === "pincode"
+                              ? e.target.value.replace(/\D/g, "").slice(0, 6)
                               : e.target.value,
                         })
                       }

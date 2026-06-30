@@ -119,6 +119,10 @@ const orderSchema = new mongoose.Schema(
       name: { type: String, default: null },
       street: { type: String, default: null },
       phone: { type: String, default: null },
+      city: { type: String, default: null },
+      state: { type: String, default: null },
+      pincode: { type: String, default: null },
+      country: { type: String, default: "India" },
     },
 
     gatewayPaymentId: {
@@ -130,6 +134,25 @@ const orderSchema = new mongoose.Schema(
     invoiceId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Invoice",
+      default: null,
+    },
+
+    shiprocketOrderId: {
+      type: String,
+      default: null,
+    },
+    shiprocketShipmentId: {
+      type: String,
+      default: null,
+    },
+    shiprocketStatus: {
+      type: String,
+      enum: ["PENDING", "SUCCESS", "FAILED"],
+      default: "PENDING",
+      index: true,
+    },
+    shiprocketErrorMessage: {
+      type: String,
       default: null,
     },
   },

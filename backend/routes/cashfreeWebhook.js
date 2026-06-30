@@ -128,6 +128,22 @@ router.post("/webhook", async (req, res) => {
 
       await order.save();
 
+      // Auto-approve Shiprocket logic
+      try {
+        const Setting = require("../models/Setting");
+        const { pushOrderToShiprocket } = require("../services/shiprocketService");
+        const autoApproveSetting = await Setting.findOne({ key: "shiprocket_auto_approve" });
+        const isAutoApprove = autoApproveSetting ? autoApproveSetting.value === true : false;
+        if (isAutoApprove) {
+          console.log(`Auto-push enabled. Syncing order ${order._id} with Shiprocket...`);
+          pushOrderToShiprocket(order._id);
+        } else {
+          console.log(`Auto-push disabled. Order ${order._id} set to PENDING for Shiprocket.`);
+        }
+      } catch (err) {
+        console.error("Error triggering auto-push for Cashfree webhook order:", err.message);
+      }
+
       /* =========================
          GENERATE PDF
       ========================= */
