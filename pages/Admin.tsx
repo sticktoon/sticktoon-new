@@ -808,6 +808,8 @@ const Admin: React.FC = () => {
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [updatingDeliveryOrderId, setUpdatingDeliveryOrderId] = useState<string | null>(null);
+  const [syncingOrderId, setSyncingOrderId] = useState<string | null>(null);
+  const [shiprocketAutoApprove, setShiprocketAutoApprove] = useState<boolean>(false);
   const [viewingOrder, setViewingOrder] = useState<any>(null);
   const [viewingCustomerId, setViewingCustomerId] = useState<string | null>(null);
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
@@ -842,6 +844,12 @@ const Admin: React.FC = () => {
   const [orderFromDate, setOrderFromDate] = useState("");
   const [orderToDate, setOrderToDate] = useState("");
   const [orderSort, setOrderSort] = useState<"desc" | "asc">("desc"); // desc = newest
+  // Server-side load window for the orders list. Defaults to last 30 days for
+  // a fast first paint; older orders load on demand via the range filter.
+  const [orderRange, setOrderRange] = useState<string>("30");
+  // Tracks which window is currently held in `orders` so we only refetch when
+  // a different view (e.g. reports needs "all") asks for a wider set.
+  const [loadedOrderRange, setLoadedOrderRange] = useState<string | null>(null);
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerDraft, setCustomerDraft] = useState({
     accountName: "",
@@ -2419,13 +2427,15 @@ const Admin: React.FC = () => {
         fetchWithdrawalsData();
         break;
       case "orders":
-        fetchOrdersData();
+        fetchOrdersData(orderRange);
         break;
       case "customers":
-        fetchOrdersData();
+        // Customer list is derived from order history → needs the full set.
+        fetchOrdersData("all");
         break;
       case "reports":
-        fetchOrdersData();
+        // Revenue/period math needs every order, not just the recent window.
+        fetchOrdersData("all");
         fetchLeadsData();
         break;
       case "products":
@@ -2610,7 +2620,7 @@ const Admin: React.FC = () => {
         fetch(`${API_BASE_URL}/api/admin/users`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${API_BASE_URL}/api/admin/orders`, {
+        fetch(`${API_BASE_URL}/api/admin/orders?days=30`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch(`${API_BASE_URL}/api/admin/products`, {
@@ -2626,7 +2636,8 @@ const Admin: React.FC = () => {
 
       if (!handleUnauthorized(ordersRes) && ordersRes.ok) {
         const data = await ordersRes.json();
-        setOrders(data);
+        setOrders(Array.isArray(data) ? data : []);
+        setLoadedOrderRange("30");
         setLoadedData((prev) => ({ ...prev, orders: true }));
       }
 
@@ -2733,21 +2744,24 @@ const Admin: React.FC = () => {
     }
   };
 
-  const fetchOrdersData = async () => {
-    if (loadedData.orders) return; // Already loaded
+  const fetchOrdersData = async (range: string = orderRange, force = false) => {
+    // Skip the network call when the window we already hold satisfies the request.
+    if (!force && loadedOrderRange === range) return;
 
     const token = localStorage.getItem("adminToken");
     if (!token) return;
 
     setLoadingData((prev) => ({ ...prev, orders: true }));
     try {
-      const ordersRes = await fetch(`${API_BASE_URL}/api/admin/orders`, {
+      const params = range === "all" ? "?all=true" : `?days=${range}`;
+      const ordersRes = await fetch(`${API_BASE_URL}/api/admin/orders${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (handleUnauthorized(ordersRes)) return;
       if (ordersRes.ok) {
         const data = await ordersRes.json();
-        setOrders(data);
+        setOrders(Array.isArray(data) ? data : []);
+        setLoadedOrderRange(range);
         setLoadedData((prev) => ({ ...prev, orders: true }));
       } else {
         showToast("error", "❌ Failed to fetch orders");
@@ -2757,6 +2771,12 @@ const Admin: React.FC = () => {
     } finally {
       setLoadingData((prev) => ({ ...prev, orders: false }));
     }
+  };
+
+  // Orders list range filter: refetch the chosen window from the server.
+  const handleOrderRangeChange = (range: string) => {
+    setOrderRange(range);
+    fetchOrdersData(range, true);
   };
 
   const updateOrderDeliveryStatus = async (orderId: string, isDelivered: boolean) => {
@@ -3773,15 +3793,25 @@ const Admin: React.FC = () => {
 
       const data = await res.json();
       if (res.ok && data?.success) {
-        const url = data.data?.cloudinaryUrl || data.data?.googleDriveUrl;
-        if (!url) {
-          showToast("error", "❌ Upload succeeded but no image URL was returned.");
+        // Cloudinary is the single source of truth for product image URLs: it
+        // serves a CDN https URL that renders reliably on the storefront and in
+        // order emails. We deliberately do NOT fall back to the Google Drive
+        // URL (those often won't load in <img>) or to a local path.
+        const cloudinaryUrl = data.data?.cloudinaryUrl;
+        if (!cloudinaryUrl) {
+          const cloudErr = Array.isArray(data.data?.errors)
+            ? data.data.errors.find((e: any) => e.service === "Cloudinary")?.error
+            : null;
+          showToast(
+            "error",
+            `❌ Cloudinary upload failed${cloudErr ? `: ${cloudErr}` : ""}. Please try again.`,
+          );
           return;
         }
-        setProductForm((prev) => ({ ...prev, [field]: url }));
+        setProductForm((prev) => ({ ...prev, [field]: cloudinaryUrl }));
         showToast(
           "success",
-          `✅ ${field === "printImage" ? "Print" : "Display"} image uploaded!`,
+          `✅ ${field === "printImage" ? "Print" : "Display"} image uploaded to Cloudinary!`,
         );
       } else {
         showToast("error", `❌ ${data?.message || "Image upload failed"}`);
@@ -7395,6 +7425,28 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
               <aside className="w-full xl:w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
                 <h3 className="font-black text-sm">Filters</h3>
 
+                {/* LOAD RANGE (server-side) */}
+                <div className="space-y-2">
+                  <p className="text-xs font-black uppercase text-slate-600">
+                    Load Range
+                  </p>
+                  <select
+                    value={orderRange}
+                    onChange={(e) => handleOrderRangeChange(e.target.value)}
+                    disabled={loadingData.orders}
+                    className="w-full px-3 py-2 border rounded-lg text-sm disabled:opacity-50"
+                  >
+                    <option value="7">Last 7 days</option>
+                    <option value="30">Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                    <option value="all">All time</option>
+                  </select>
+                  <p className="text-[11px] text-slate-400 leading-snug">
+                    Loads recent orders first. Pick a wider range to fetch older
+                    ones.
+                  </p>
+                </div>
+
                 {/* PAYMENT STATUS */}
                 <div className="space-y-2 text-sm">
                   <p className="text-xs font-black uppercase text-slate-600">
@@ -7461,22 +7513,22 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 {/* HEADER */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <h2 className="text-2xl font-black">
-                    All Orders ({orders.length})
+                    All Orders ({filteredOrders.length})
                   </h2>
 
-                  {orders.length > 0 && (
+                  {filteredOrders.length > 0 && (
                     <div className="text-sm text-slate-500 flex flex-wrap gap-3">
                       <span>
                         ✅ Success:{" "}
-                        {orders.filter((o) => o.status === "SUCCESS").length}
+                        {filteredOrders.filter((o) => o.status === "SUCCESS").length}
                       </span>
                       <span>
                         ⏳ Pending:{" "}
-                        {orders.filter((o) => o.status === "PENDING").length}
+                        {filteredOrders.filter((o) => o.status === "PENDING").length}
                       </span>
                       <span>
                         ❌ Failed:{" "}
-                        {orders.filter((o) => o.status === "FAILED").length}
+                        {filteredOrders.filter((o) => o.status === "FAILED").length}
                       </span>
                     </div>
                   )}
@@ -7488,15 +7540,19 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
                     <p className="text-slate-500">Loading orders...</p>
                   </div>
-                ) : orders.length === 0 ? (
+                ) : filteredOrders.length === 0 ? (
                   /* EMPTY STATE */
                   <div className="bg-white border rounded-xl p-12 text-center">
-                    <p className="text-slate-500">No orders found</p>
+                    <p className="text-slate-500">
+                      {orderRange === "all"
+                        ? "No orders match these filters."
+                        : "No orders in this range. Pick a wider Load Range to fetch older orders."}
+                    </p>
                   </div>
                 ) : (
                   /* GRID */
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {orders.map((order) => (
+                    {filteredOrders.map((order) => (
                       <div
                         key={order._id}
                         onClick={() => setViewingOrder(order)}
