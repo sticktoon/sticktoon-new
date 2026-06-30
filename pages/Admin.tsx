@@ -4095,7 +4095,13 @@ const Admin: React.FC = () => {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setCurrentView(tab.id as any)}
+                onClick={() => {
+                  if (tab.id === "orders") {
+                    navigate("/admin/orders");
+                  } else {
+                    setCurrentView(tab.id as any);
+                  }
+                }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-bold transition-all text-left ${
                   currentView === tab.id
                     ? "bg-white text-slate-950 shadow-lg"
@@ -4235,7 +4241,7 @@ const Admin: React.FC = () => {
 
                 {/* Total Orders */}
                 <button
-                  onClick={() => setCurrentView("orders")}
+                  onClick={() => navigate("/admin/orders")}
                   className="bg-white rounded-xl p-5 border border-gray-200 hover:shadow-lg transition-all hover:border-gray-400 cursor-pointer text-left"
                 >
                   <div className="flex items-center justify-between mb-3">
@@ -4372,7 +4378,7 @@ const Admin: React.FC = () => {
                     </button>
 
                     <button
-                      onClick={() => setCurrentView("orders")}
+                      onClick={() => navigate("/admin/orders")}
                       className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-all group"
                     >
                       <div className="flex items-center gap-3">

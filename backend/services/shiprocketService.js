@@ -96,8 +96,9 @@ async function pushOrderToShiprocket(orderId) {
       let height = 5;   // fallback 5cm
       let sku = item.badgeId || "custom-item";
 
-      // If it's a real catalog product, load details from DB
-      if (item.badgeId && !item.badgeId.startsWith("custom-")) {
+      // If it's a real catalog product (valid ObjectId), load details from DB
+      const mongoose = require("mongoose");
+      if (item.badgeId && mongoose.Types.ObjectId.isValid(item.badgeId)) {
         try {
           const product = await Product.findById(item.badgeId);
           if (product) {
@@ -131,9 +132,15 @@ async function pushOrderToShiprocket(orderId) {
     if (maxWidth === 0) maxWidth = 10;
     if (totalHeight === 0) totalHeight = 5;
 
+    // If order has already been successfully synced before, append a reship suffix to avoid Shiprocket's duplicate order ID rejection
+    let shiprocketOrderIdPayload = order._id.toString();
+    if (order.shiprocketStatus === "SUCCESS" || order.shiprocketOrderId) {
+      shiprocketOrderIdPayload += `-R${Math.floor(Date.now() / 1000)}`;
+    }
+
     // Shiprocket Order Payload
     const payload = {
-      order_id: order._id.toString(),
+      order_id: shiprocketOrderIdPayload,
       order_date: new Date(order.createdAt).toISOString().replace("T", " ").slice(0, 16),
       pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION || "Primary",
       billing_customer_name: firstName,
@@ -150,7 +157,7 @@ async function pushOrderToShiprocket(orderId) {
       payment_method: "Prepaid",
       sub_total: order.amount,
       length: maxLength,
-      width: maxWidth,
+      breadth: maxWidth,
       height: totalHeight,
       weight: parseFloat(totalWeight.toFixed(2)),
     };

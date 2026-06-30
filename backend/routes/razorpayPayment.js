@@ -345,6 +345,7 @@ router.post("/verify-payment", auth, async (req, res) => {
     order.gatewayPaymentId = razorpay_payment_id;
     await order.save();
 
+    let shiprocketSynced = false;
     // Auto-approve Shiprocket logic
     try {
       const Setting = require("../models/Setting");
@@ -353,7 +354,10 @@ router.post("/verify-payment", auth, async (req, res) => {
       const isAutoApprove = autoApproveSetting ? autoApproveSetting.value === true : false;
       if (isAutoApprove) {
         console.log(`Auto-push enabled. Syncing order ${order._id} with Shiprocket...`);
-        pushOrderToShiprocket(order._id);
+        const syncResult = await pushOrderToShiprocket(order._id);
+        if (syncResult && syncResult.success) {
+          shiprocketSynced = true;
+        }
       } else {
         console.log(`Auto-push disabled. Order ${order._id} set to PENDING for Shiprocket.`);
       }
@@ -472,7 +476,7 @@ for (const earn of earnings) {
     }
 
     // Send order notification to OWNER (sticktoon.xyz@gmail.com)
-    const ownerEmail = process.env.ADMIN_EMAIL || "sticktoon.xyz@gmail.com";
+    const ownerEmail = process.env.ORDERS_EMAIL || process.env.ADMIN_EMAIL || "sticktoon.xyz@gmail.com";
     const frontendUrl = process.env.FRONTEND_URL;
     try {
       const customBadges = order.items.filter(item => 
@@ -535,12 +539,32 @@ for (const earn of earnings) {
         frontendUrl,
       });
 
+      const emailSubject = shiprocketSynced
+        ? `🛒 [Auto-Synced] New Order Received! #${order._id.toString().slice(-8).toUpperCase()} - ₹${order.amount}`
+        : `🛒 [Action Required] New Order Received! #${order._id.toString().slice(-8).toUpperCase()} - ₹${order.amount}`;
+
+      const syncStatusHtml = shiprocketSynced
+        ? `
+            <div style="background: #ecfdf5; border: 2px solid #10b981; padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #065f46; font-family: Arial, sans-serif;">
+              <h3 style="margin: 0; font-size: 16px;">✅ Auto-Synced to Shiprocket!</h3>
+              <p style="margin: 5px 0 0; font-size: 14px;">The order has been automatically pushed to Shiprocket. Go to your Shiprocket panel and ship the order.</p>
+            </div>
+          `
+        : `
+            <div style="background: #fffbeb; border: 2px solid #f59e0b; padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #92400e; font-family: Arial, sans-serif;">
+              <h3 style="margin: 0; font-size: 16px;">⚠️ Manual Action Required</h3>
+              <p style="margin: 5px 0 0; font-size: 14px;">This order is NOT auto-synced. Please open your Admin Panel, review the order, and click "Send to Shiprocket" to proceed with the shipment.</p>
+            </div>
+          `;
+
       await sendEmail({
         to: ownerEmail,
-        subject: `🛒 New Order Received! #${order._id.toString().slice(-8).toUpperCase()} - ₹${order.amount}`,
+        subject: emailSubject,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h1 style="color: #3b82f6; margin-bottom: 20px;">🎉 New Order Received!</h1>
+            
+            ${syncStatusHtml}
             
             <div style="background: #f0fdf4; border: 2px solid #22c55e; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
               <h2 style="margin: 0; color: #166534;">Order ID: ${order._id.toString().slice(-8).toUpperCase()}</h2>

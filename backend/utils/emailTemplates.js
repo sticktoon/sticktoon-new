@@ -52,9 +52,26 @@ const wrapper = (content) => `
 /* =========================
    ADMIN EMAIL (SUMMARY ONLY)
 ========================= */
-exports.adminOrderSuccessEmail = ({ order, invoice }) =>
-  wrapper(`
+exports.adminOrderSuccessEmail = ({ order, invoice, shiprocketSynced }) => {
+  const syncStatusHtml = shiprocketSynced
+    ? `
+        <div style="background: #ecfdf5; border: 2px solid #10b981; padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #065f46; font-family: Arial, sans-serif;">
+          <h3 style="margin: 0; font-size: 16px;">✅ Auto-Synced to Shiprocket!</h3>
+          <p style="margin: 5px 0 0; font-size: 14px;">The order has been automatically pushed to Shiprocket. Go to your Shiprocket panel and ship the order.</p>
+        </div>
+      `
+    : `
+        <div style="background: #fffbeb; border: 2px solid #f59e0b; padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #92400e; font-family: Arial, sans-serif;">
+          <h3 style="margin: 0; font-size: 16px;">⚠️ Manual Action Required</h3>
+          <p style="margin: 5px 0 0; font-size: 14px;">This order is NOT auto-synced. Please open your Admin Panel, review the order, and click "Send to Shiprocket" to proceed with the shipment.</p>
+        </div>
+      `;
+
+  return wrapper(`
     <h2 style="margin-top:0;">New Paid Order</h2>
+    
+    ${syncStatusHtml}
+
     <p><b>Status:</b> SUCCESS</p>
 
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;" />
@@ -76,6 +93,7 @@ exports.adminOrderSuccessEmail = ({ order, invoice }) =>
       Invoice PDF is attached.
     </p>
   `);
+};
 
 /* =========================
    USER EMAIL (INVOICE STYLE)

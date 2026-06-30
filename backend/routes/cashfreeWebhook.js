@@ -128,6 +128,7 @@ router.post("/webhook", async (req, res) => {
 
       await order.save();
 
+      let shiprocketSynced = false;
       // Auto-approve Shiprocket logic
       try {
         const Setting = require("../models/Setting");
@@ -136,7 +137,10 @@ router.post("/webhook", async (req, res) => {
         const isAutoApprove = autoApproveSetting ? autoApproveSetting.value === true : false;
         if (isAutoApprove) {
           console.log(`Auto-push enabled. Syncing order ${order._id} with Shiprocket...`);
-          pushOrderToShiprocket(order._id);
+          const syncResult = await pushOrderToShiprocket(order._id);
+          if (syncResult && syncResult.success) {
+            shiprocketSynced = true;
+          }
         } else {
           console.log(`Auto-push disabled. Order ${order._id} set to PENDING for Shiprocket.`);
         }
@@ -183,9 +187,11 @@ router.post("/webhook", async (req, res) => {
       });
 
       await sendEmail({
-        to: process.env.ADMIN_EMAIL,
-        subject: "🧾 New Paid Order – StickToon",
-        html: adminOrderSuccessEmail({ order, invoice }),
+        to: process.env.ORDERS_EMAIL || process.env.ADMIN_EMAIL || "sticktoon.xyz@gmail.com",
+        subject: shiprocketSynced 
+          ? `🧾 [Auto-Synced] New Paid Order – StickToon #${order._id.toString().slice(-8).toUpperCase()}`
+          : `🧾 [Action Required] New Paid Order – StickToon #${order._id.toString().slice(-8).toUpperCase()}`,
+        html: adminOrderSuccessEmail({ order, invoice, shiprocketSynced }),
         attachments: adminAttachments,
       });
     }

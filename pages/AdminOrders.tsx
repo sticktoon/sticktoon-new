@@ -340,19 +340,23 @@ export default function AdminOrders() {
                 </div>
               )}
 
-              {activeOrder.shiprocketStatus !== "SUCCESS" && (
-                <button
-                  onClick={() => handleShiprocketPush(activeOrder._id)}
-                  disabled={isSyncing}
-                  className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 mt-2"
-                >
-                  {isSyncing ? (
-                    <>⏳ Syncing...</>
-                  ) : (
-                    <>📤 Approve & Sync with Shiprocket</>
-                  )}
-                </button>
-              )}
+              <button
+                onClick={() => handleShiprocketPush(activeOrder._id)}
+                disabled={isSyncing}
+                className={`w-full text-white py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 mt-2 disabled:opacity-50 ${
+                  activeOrder.shiprocketStatus === "SUCCESS"
+                    ? "bg-indigo-600 hover:bg-indigo-700 shadow-md"
+                    : "bg-slate-900 hover:bg-slate-800"
+                }`}
+              >
+                {isSyncing ? (
+                  <>⏳ Syncing...</>
+                ) : activeOrder.shiprocketStatus === "SUCCESS" ? (
+                  <>🔄 Reship / Force Resync</>
+                ) : (
+                  <>📤 Send to Shiprocket</>
+                )}
+              </button>
             </div>
           )}
         </Modal>
