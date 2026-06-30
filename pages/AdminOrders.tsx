@@ -47,15 +47,28 @@ export default function AdminOrders() {
   const [autoApprove, setAutoApprove] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  const fetchOrders = async () => {
+  // Orders load the last 30 days by default; older windows load on demand.
+  const [rangeFilter, setRangeFilter] = useState<string>("30");
+  const [loadingOrders, setLoadingOrders] = useState<boolean>(false);
+
+  const RANGE_OPTIONS = [
+    { value: "7", label: "Last 7 days" },
+    { value: "30", label: "Last 30 days" },
+    { value: "90", label: "Last 90 days" },
+    { value: "all", label: "All time" },
+  ];
+
+  const fetchOrders = async (range: string = rangeFilter) => {
     if (!token) {
       showToast("warning", "Please login as admin to view orders.");
       setOrders([]);
       return;
     }
 
+    setLoadingOrders(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/orders`, {
+      const params = range === "all" ? "?all=true" : `?days=${range}`;
+      const res = await fetch(`${API_BASE_URL}/api/admin/orders${params}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -77,7 +90,14 @@ export default function AdminOrders() {
       console.error("Fetch orders error:", error);
       showToast("error", "Unable to load orders right now.");
       setOrders([]);
+    } finally {
+      setLoadingOrders(false);
     }
+  };
+
+  const handleRangeChange = (range: string) => {
+    setRangeFilter(range);
+    fetchOrders(range);
   };
 
   const fetchSettings = async () => {
@@ -157,8 +177,31 @@ export default function AdminOrders() {
       <AdminBackButton />
       
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 className="text-3xl font-black">Orders</h1>
-        <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border shadow-sm">
+        <div className="flex items-center gap-4">
+          <h1 className="text-3xl font-black">Orders</h1>
+          <span className="text-sm font-semibold text-gray-500">
+            {loadingOrders
+              ? "Loading…"
+              : `${orders.length} order${orders.length === 1 ? "" : "s"}`}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border shadow-sm">
+            <span className="text-sm font-bold text-gray-700">📅 Show:</span>
+            <select
+              value={rangeFilter}
+              onChange={(e) => handleRangeChange(e.target.value)}
+              disabled={loadingOrders}
+              className="text-sm font-semibold text-gray-800 bg-transparent focus:outline-none cursor-pointer disabled:opacity-50"
+            >
+              {RANGE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border shadow-sm">
           <span className="text-sm font-bold text-gray-700">🚀 Shiprocket Auto-Push:</span>
           <button
             onClick={handleToggleAutoApprove}
@@ -175,6 +218,7 @@ export default function AdminOrders() {
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
             {autoApprove ? "Auto" : "Approval"}
           </span>
+          </div>
         </div>
       </div>
 
@@ -221,6 +265,16 @@ export default function AdminOrders() {
                 </td>
               </tr>
             ))}
+
+            {!loadingOrders && orders.length === 0 && (
+              <tr>
+                <td colSpan={7} className="p-8 text-center text-gray-500 text-sm">
+                  {rangeFilter === "all"
+                    ? "No orders found."
+                    : "No orders in this period. Try a wider range above to load older orders."}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

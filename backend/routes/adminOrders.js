@@ -10,9 +10,29 @@ const { adminOnly } = require("../middleware/roleMiddleware");
 ========================= */
 router.get("/", auth, adminOnly, async (req, res) => {
   try {
-    const { status } = req.query;
-    const query = status ? { status } : {};
-    
+    const { status, all, days, from, to } = req.query;
+    const query = {};
+
+    if (status) query.status = status;
+
+    // Date window: default to the last 30 days so the list loads fast.
+    // Older orders are fetched on demand via ?all=true, ?days=N, or ?from/&to.
+    if (all === "true") {
+      // No date constraint — return the full history.
+    } else if (from || to) {
+      const createdAt = {};
+      const fromDate = from ? new Date(from) : null;
+      const toDate = to ? new Date(to) : null;
+      if (fromDate && !isNaN(fromDate.getTime())) createdAt.$gte = fromDate;
+      if (toDate && !isNaN(toDate.getTime())) createdAt.$lte = toDate;
+      if (Object.keys(createdAt).length) query.createdAt = createdAt;
+    } else {
+      const dayCount = Math.max(1, parseInt(days, 10) || 30);
+      const since = new Date();
+      since.setDate(since.getDate() - dayCount);
+      query.createdAt = { $gte: since };
+    }
+
     const orders = await Order.find(query)
       .populate("userId", "email name")
       .sort({ createdAt: -1 });
