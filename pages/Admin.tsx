@@ -438,6 +438,7 @@ interface Product {
   subcategory?: string;
   image: string;
   printImage?: string;
+  images?: string[];
   stock: number;
   weight?: number;
   length?: number;
@@ -542,6 +543,7 @@ type ProductFormState = {
   subcategory: string;
   image: string;
   printImage: string;
+  images: string[];
   stock: number;
   weight: number;
   length: number;
@@ -560,6 +562,7 @@ const createDefaultProductForm = (
   subcategory: "",
   image: "",
   printImage: "",
+  images: [],
   stock: 0,
   weight: 0.1,
   length: 10,
@@ -1980,6 +1983,7 @@ const Admin: React.FC = () => {
   // 🔍 LEADS FILTER STATE
   const [leadSearch, setLeadSearch] = useState("");
   const [leadStatusFilter, setLeadStatusFilter] = useState<string[]>([]);
+  const [leadTypeFilter, setLeadTypeFilter] = useState<string[]>([]);
   const [leadSort, setLeadSort] = useState<"asc" | "desc">("desc");
 
   // ===============================
@@ -2004,6 +2008,13 @@ const Admin: React.FC = () => {
       list = list.filter((l) => leadStatusFilter.includes(l.status || "New"));
     }
 
+    // TYPE FILTER (Individual vs Company, inferred from the company field)
+    if (leadTypeFilter.length) {
+      list = list.filter((l) =>
+        leadTypeFilter.includes(l.company?.trim() ? "Company" : "Individual"),
+      );
+    }
+
     // SORT
     list.sort((a, b) => {
       const da = new Date(a.createdAt || "").getTime();
@@ -2012,7 +2023,7 @@ const Admin: React.FC = () => {
     });
 
     return list;
-  }, [leads, leadSearch, leadStatusFilter, leadSort]);
+  }, [leads, leadSearch, leadStatusFilter, leadTypeFilter, leadSort]);
 
   const toDateInputValue = (value?: string) => {
     if (!value) return "";
@@ -2285,6 +2296,28 @@ const Admin: React.FC = () => {
       return a.whenMs - b.whenMs;
     });
   }, [leads, supportMessages, tasks]);
+
+  // 🔍 NOTIFICATIONS FILTER STATE
+  const [notificationCategoryFilter, setNotificationCategoryFilter] = useState<
+    string[]
+  >([]);
+  const [notificationSeverityFilter, setNotificationSeverityFilter] = useState<
+    string[]
+  >([]);
+
+  const filteredNotifications = useMemo(() => {
+    let list = [...notifications];
+
+    if (notificationCategoryFilter.length) {
+      list = list.filter((n) => notificationCategoryFilter.includes(n.category));
+    }
+
+    if (notificationSeverityFilter.length) {
+      list = list.filter((n) => notificationSeverityFilter.includes(n.severity));
+    }
+
+    return list;
+  }, [notifications, notificationCategoryFilter, notificationSeverityFilter]);
 
   // Track what data has been loaded to avoid unnecessary fetches
   const [loadedData, setLoadedData] = useState({
@@ -3899,6 +3932,63 @@ const Admin: React.FC = () => {
     }
   };
 
+  // Tracks whether an extra gallery image is mid-upload.
+  const [uploadingGalleryImage, setUploadingGalleryImage] = useState(false);
+
+  // Uploads a chosen file and appends the returned URL to the gallery list
+  // instead of replacing a single field.
+  const handleGalleryImageUpload = async (file: File) => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      showToast("error", "❌ Admin session expired. Please log in again.");
+      return;
+    }
+
+    setUploadingGalleryImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      formData.append("category", "badge");
+
+      const res = await fetch(`${API_BASE_URL}/api/admin/images/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data?.success) {
+        const cloudinaryUrl = data.data?.cloudinaryUrl;
+        if (!cloudinaryUrl) {
+          const cloudErr = Array.isArray(data.data?.errors)
+            ? data.data.errors.find((e: any) => e.service === "Cloudinary")?.error
+            : null;
+          showToast(
+            "error",
+            `❌ Cloudinary upload failed${cloudErr ? `: ${cloudErr}` : ""}. Please try again.`,
+          );
+          return;
+        }
+        setProductForm((prev) => ({ ...prev, images: [...prev.images, cloudinaryUrl] }));
+        showToast("success", "✅ Gallery image uploaded to Cloudinary!");
+      } else {
+        showToast("error", `❌ ${data?.message || "Image upload failed"}`);
+      }
+    } catch (err) {
+      console.error("Gallery image upload error:", err);
+      showToast("error", "❌ Image upload failed. Please try again.");
+    } finally {
+      setUploadingGalleryImage(false);
+    }
+  };
+
+  const handleRemoveGalleryImage = (index: number) => {
+    setProductForm((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index),
+    }));
+  };
+
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = localStorage.getItem("adminToken");
@@ -3910,6 +4000,7 @@ const Admin: React.FC = () => {
       subcategory: sanitizeProductSubcategory(productForm.subcategory),
       image: sanitizeProductImagePath(productForm.image),
       printImage: sanitizeProductImagePath(productForm.printImage),
+      images: productForm.images.map((img) => sanitizeProductImagePath(img)).filter(Boolean),
     };
 
     try {
@@ -3950,6 +4041,7 @@ const Admin: React.FC = () => {
       subcategory: sanitizeProductSubcategory(productForm.subcategory),
       image: sanitizeProductImagePath(productForm.image),
       printImage: sanitizeProductImagePath(productForm.printImage),
+      images: productForm.images.map((img) => sanitizeProductImagePath(img)).filter(Boolean),
     };
 
     try {
@@ -4640,6 +4732,32 @@ const Admin: React.FC = () => {
                   ))}
                 </div>
 
+                {/* Type Filter (Individual / Company) */}
+                <div className="space-y-1.5">
+                  <p className="text-xs font-black uppercase text-slate-600 mb-1">
+                    Type
+                  </p>
+                  {["Individual", "Company"].map((t) => (
+                    <label
+                      key={t}
+                      className="flex gap-2 items-center text-sm leading-tight"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={leadTypeFilter.includes(t)}
+                        onChange={() =>
+                          setLeadTypeFilter((prev) =>
+                            prev.includes(t)
+                              ? prev.filter((x) => x !== t)
+                              : [...prev, t],
+                          )
+                        }
+                      />
+                      {t}
+                    </label>
+                  ))}
+                </div>
+
                 <input
                   type="date"
                   value={startDate}
@@ -5123,13 +5241,75 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 </span>
               </div>
 
-              {notifications.length === 0 ? (
+              {/* FILTERS */}
+              <div className="bg-white border rounded-xl p-4 flex flex-wrap items-center gap-6">
+                <div className="flex items-center gap-3">
+                  <p className="text-xs font-black uppercase text-slate-600">
+                    Category
+                  </p>
+                  {[
+                    { value: "lead", label: "Lead" },
+                    { value: "support", label: "Support" },
+                    { value: "task", label: "Task" },
+                  ].map((c) => (
+                    <label
+                      key={c.value}
+                      className="flex gap-1.5 items-center text-sm leading-tight"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={notificationCategoryFilter.includes(c.value)}
+                        onChange={() =>
+                          setNotificationCategoryFilter((prev) =>
+                            prev.includes(c.value)
+                              ? prev.filter((x) => x !== c.value)
+                              : [...prev, c.value],
+                          )
+                        }
+                      />
+                      {c.label}
+                    </label>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <p className="text-xs font-black uppercase text-slate-600">
+                    Severity
+                  </p>
+                  {[
+                    { value: "high", label: "High" },
+                    { value: "medium", label: "Medium" },
+                  ].map((s) => (
+                    <label
+                      key={s.value}
+                      className="flex gap-1.5 items-center text-sm leading-tight"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={notificationSeverityFilter.includes(s.value)}
+                        onChange={() =>
+                          setNotificationSeverityFilter((prev) =>
+                            prev.includes(s.value)
+                              ? prev.filter((x) => x !== s.value)
+                              : [...prev, s.value],
+                          )
+                        }
+                      />
+                      {s.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {filteredNotifications.length === 0 ? (
                 <div className="bg-white border rounded-xl p-10 text-center text-slate-500">
-                  No urgent notifications right now.
+                  {notifications.length === 0
+                    ? "No urgent notifications right now."
+                    : "No alerts match your filters."}
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {notifications.map((item) => (
+                  {filteredNotifications.map((item) => (
                     <div
                       key={item.id}
                       className={`bg-white border rounded-xl p-4 flex items-start justify-between gap-4 ${
@@ -6626,6 +6806,47 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
                     <div className="md:col-span-2">
                       <label className="block text-gray-700 font-bold text-sm mb-2">
+                        Extra Preview Images{" "}
+                        <span className="font-normal text-gray-400">
+                          (optional, shown as a gallery on the product page)
+                        </span>
+                      </label>
+                      <div className="flex flex-wrap gap-3">
+                        {productForm.images.map((img, idx) => (
+                          <div key={idx} className="relative w-20 h-20">
+                            <img
+                              src={img}
+                              alt={`Gallery preview ${idx + 1}`}
+                              className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveGalleryImage(idx)}
+                              className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center hover:bg-red-600"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                        <label className="w-20 h-20 flex items-center justify-center gap-1 bg-indigo-50 hover:bg-indigo-100 border border-dashed border-indigo-300 rounded-lg text-indigo-700 font-semibold text-[10px] text-center cursor-pointer transition-all px-1">
+                          {uploadingGalleryImage ? "Uploading…" : "⬆ Add image"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={uploadingGalleryImage}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleGalleryImageUpload(file);
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-gray-700 font-bold text-sm mb-2">
                         Description
                       </label>
                       <textarea
@@ -6784,6 +7005,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                           ),
                                           image: product.image,
                                           printImage: product.printImage ?? "",
+                                          images: product.images ?? [],
                                           stock: product.stock,
                                           weight: product.weight ?? 0.1,
                                           length: product.length ?? 10,
@@ -9564,6 +9786,47 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                           className="mt-2 w-20 h-20 object-cover rounded-lg border border-amber-400/30"
                         />
                       )}
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-white font-semibold mb-2">
+                      Extra Preview Images{" "}
+                      <span className="font-normal text-gray-400">
+                        (optional, shown as a gallery on the product page)
+                      </span>
+                    </label>
+                    <div className="flex flex-wrap gap-3">
+                      {productForm.images.map((img, idx) => (
+                        <div key={idx} className="relative w-20 h-20">
+                          <img
+                            src={img}
+                            alt={`Gallery preview ${idx + 1}`}
+                            className="w-20 h-20 object-cover rounded-lg border border-white/20"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveGalleryImage(idx)}
+                            className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center hover:bg-red-600"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      <label className="w-20 h-20 flex items-center justify-center gap-1 bg-indigo-500/20 hover:bg-indigo-500/30 border border-dashed border-indigo-400/40 rounded-lg text-indigo-200 font-semibold text-[10px] text-center cursor-pointer transition-all px-1">
+                        {uploadingGalleryImage ? "Uploading…" : "⬆ Add image"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingGalleryImage}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleGalleryImageUpload(file);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
                     </div>
                   </div>
 

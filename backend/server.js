@@ -62,6 +62,7 @@ app.use("/api/admin/tasks", require("./routes/adminTasks"));
 app.use("/api/admin/support", require("./routes/adminSupport"));
 app.use("/api/admin/settings", require("./routes/adminSettings"));
 app.use("/api/contact", require("./routes/contact"));
+app.use("/api/reviews", require("./routes/reviews"));
 
 /* Startup: Catch-up upload for offline-added images */
 async function scanAndUploadOfflineImages() {

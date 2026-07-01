@@ -7,8 +7,23 @@ import { getBadgeDescription } from '../geminiService';
 import { ShoppingCart, Zap, Shield, RotateCcw, ArrowLeft, Star, Truck, Share2, Check, Sparkles, Package, ChevronRight } from 'lucide-react';
 import { API_BASE_URL } from '../config/api';
 
+interface BadgeDetailUser {
+  id: string;
+  name?: string;
+  email: string;
+}
+
 interface BadgeDetailProps {
   addToCart: (badge: Badge) => void;
+  user?: BadgeDetailUser | null;
+}
+
+interface ProductReview {
+  _id: string;
+  userName?: string;
+  rating: number;
+  comment?: string;
+  createdAt: string;
 }
 
 const CUSTOM_COMBO_SIZE = 4;
@@ -35,7 +50,7 @@ const formatCategoryLabel = (value?: string) => {
     .join(' ');
 };
 
-export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
+export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [currentImage, setCurrentImage] = useState(0);
@@ -53,6 +68,17 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
   const [comboMessageType, setComboMessageType] = useState<'success' | 'error' | ''>('');
   const [categoryBadges, setCategoryBadges] = useState<Badge[]>([]);
   const magneticFallback = '/badge/magnectbadge.png';
+
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [reviewStats, setReviewStats] = useState({ average: 0, count: 0 });
+  const [canReview, setCanReview] = useState(false);
+  const [hasExistingReview, setHasExistingReview] = useState(false);
+  const [eligibilityChecked, setEligibilityChecked] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewMessage, setReviewMessage] = useState('');
+  const [reviewMessageType, setReviewMessageType] = useState<'success' | 'error' | ''>('');
 
   const normalizeImagePath = (path?: string) => {
     if (!path) return undefined;
@@ -158,6 +184,9 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
             subcategory: p.subcategory || p.subCategory || p.sub_category,
             details: p.description || p.details || '',
             imageMagnetic: normalizeImagePath(p.imageMagnetic),
+            images: Array.isArray(p.images)
+              ? (p.images.map((img: string) => normalizeImagePath(img)).filter(Boolean) as string[])
+              : [],
             color: p.color || 'bg-transparent',
           };
           setBadge(mappedBadge);
@@ -183,6 +212,120 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
       getBadgeDescription(badge.name).then(setDescription);
     }
   }, [badge]);
+
+  const fetchReviews = async (productId: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/reviews/${productId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setReviews(Array.isArray(data.reviews) ? data.reviews : []);
+      setReviewStats({ average: data.average || 0, count: data.count || 0 });
+    } catch (err) {
+      console.error('Error fetching reviews:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (!id) return;
+    setReviews([]);
+    setReviewStats({ average: 0, count: 0 });
+    setCanReview(false);
+    setHasExistingReview(false);
+    setEligibilityChecked(false);
+    setReviewRating(5);
+    setReviewComment('');
+    setReviewMessage('');
+    setReviewMessageType('');
+    fetchReviews(id);
+  }, [id]);
+
+  useEffect(() => {
+    if (!id || !user) {
+      setCanReview(false);
+      setEligibilityChecked(true);
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setCanReview(false);
+      setEligibilityChecked(true);
+      return;
+    }
+
+    let isMounted = true;
+
+    const checkEligibility = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/reviews/${id}/eligibility`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!isMounted) return;
+        setCanReview(Boolean(data.canReview));
+        if (data.myReview) {
+          setHasExistingReview(true);
+          setReviewRating(data.myReview.rating || 5);
+          setReviewComment(data.myReview.comment || '');
+        }
+      } catch (err) {
+        console.error('Error checking review eligibility:', err);
+      } finally {
+        if (isMounted) setEligibilityChecked(true);
+      }
+    };
+
+    checkEligibility();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id, user]);
+
+  const handleSubmitReview = async () => {
+    if (!id) return;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setReviewMessage('Please log in to submit a review.');
+      setReviewMessageType('error');
+      return;
+    }
+
+    setSubmittingReview(true);
+    setReviewMessage('');
+    setReviewMessageType('');
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/reviews/${id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ rating: reviewRating, comment: reviewComment }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setReviewMessage(data?.message || 'Failed to submit review.');
+        setReviewMessageType('error');
+        return;
+      }
+
+      setReviewMessage('Thanks! Your review has been saved.');
+      setReviewMessageType('success');
+      setHasExistingReview(true);
+      fetchReviews(id);
+    } catch (err) {
+      console.error('Error submitting review:', err);
+      setReviewMessage('Failed to submit review. Please try again.');
+      setReviewMessageType('error');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   useEffect(() => {
     if (badgeType === 'magnetic') {
@@ -407,7 +550,9 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
   };
 
   const magneticImage = badge?.imageMagnetic || magneticFallback;
-  const images = badgeType === 'magnetic' ? [badge.image, magneticImage] : [badge.image];
+  const baseImages = badgeType === 'magnetic' ? [badge.image, magneticImage] : [badge.image];
+  const extraGalleryImages = (badge.images || []).filter((img) => !baseImages.includes(img));
+  const images = [...baseImages, ...extraGalleryImages];
   const formatPrice = (p: number) => `₹${p}`;
   const canBuildCustomCombo = comboCandidates.length >= CUSTOM_COMBO_SIZE;
   const isComboSelectionComplete = comboSelection.length === CUSTOM_COMBO_SIZE;
@@ -618,12 +763,29 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-0.5">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+                  <Star
+                    key={i}
+                    className={`w-3.5 h-3.5 ${
+                      i < Math.round(reviewStats.average)
+                        ? 'text-yellow-500 fill-yellow-500'
+                        : 'text-slate-300 fill-slate-200'
+                    }`}
+                  />
                 ))}
               </div>
-              <span className="text-[11px] font-bold text-slate-500">4.9</span>
-              <span className="w-1 h-1 rounded-full bg-slate-300" />
-              <span className="text-[11px] font-medium text-slate-400">128 reviews</span>
+              {reviewStats.count > 0 ? (
+                <>
+                  <span className="text-[11px] font-bold text-slate-500">
+                    {reviewStats.average.toFixed(1)}
+                  </span>
+                  <span className="w-1 h-1 rounded-full bg-slate-300" />
+                  <span className="text-[11px] font-medium text-slate-400">
+                    {reviewStats.count} review{reviewStats.count === 1 ? '' : 's'}
+                  </span>
+                </>
+              ) : (
+                <span className="text-[11px] font-medium text-slate-400">No reviews yet</span>
+              )}
             </div>
 
             {/* Price */}
@@ -904,6 +1066,121 @@ export default function BadgeDetail({ addToCart }: BadgeDetailProps) {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* ===== REVIEWS SECTION ===== */}
+        <div className="mt-8 bg-white rounded-xl border border-slate-200/80 shadow-sm p-5 space-y-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-black text-slate-900">Customer Reviews</h2>
+            {reviewStats.count > 0 && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-0.5">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`w-4 h-4 ${
+                        i < Math.round(reviewStats.average)
+                          ? 'text-yellow-500 fill-yellow-500'
+                          : 'text-slate-300 fill-slate-200'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-sm font-bold text-slate-700">
+                  {reviewStats.average.toFixed(1)} ({reviewStats.count})
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Write / update a review */}
+          {!user ? (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-xs font-medium text-slate-600">
+              <button onClick={() => navigate('/login')} className="text-yellow-600 font-bold hover:underline">
+                Log in
+              </button>{' '}
+              to write a review.
+            </div>
+          ) : !eligibilityChecked ? null : !canReview ? (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-xs font-medium text-slate-600">
+              Only customers who've ordered this product can leave a review.
+            </div>
+          ) : (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+              <p className="text-xs font-black uppercase tracking-wider text-slate-500">
+                {hasExistingReview ? 'Update your review' : 'Write a review'}
+              </p>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setReviewRating(i + 1)}
+                    aria-label={`Rate ${i + 1} star${i === 0 ? '' : 's'}`}
+                  >
+                    <Star
+                      className={`w-6 h-6 transition-colors ${
+                        i < reviewRating ? 'text-yellow-500 fill-yellow-500' : 'text-slate-300 fill-slate-200'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                placeholder="Share your experience with this product (optional)"
+                rows={3}
+                className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400/40 focus:border-yellow-400"
+              />
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSubmitReview}
+                  disabled={submittingReview}
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs font-black uppercase tracking-wider shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {submittingReview ? 'Submitting…' : 'Submit Review'}
+                </button>
+                {reviewMessage && (
+                  <p className={`text-xs font-semibold ${reviewMessageType === 'success' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                    {reviewMessage}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Review list */}
+          {reviews.length === 0 ? (
+            <p className="text-sm text-slate-500">No reviews yet. Be the first to review this product!</p>
+          ) : (
+            <div className="space-y-3">
+              {reviews.map((r) => (
+                <div key={r._id} className="border-b border-slate-100 last:border-0 pb-3 last:pb-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-800">{r.userName || 'Verified Buyer'}</span>
+                      <div className="flex items-center gap-0.5">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-3 h-3 ${
+                              i < r.rating ? 'text-yellow-500 fill-yellow-500' : 'text-slate-300 fill-slate-200'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      {new Date(r.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  {r.comment && <p className="text-xs text-slate-600 mt-1">{r.comment}</p>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -12,6 +12,7 @@ export interface Badge {
   image: string;            // pin image (default)
   imageMagnetic?: string;  // magnetic image (optional)
   printImage?: string;     // 70mm print image (optional)
+  images?: string[];       // extra preview/gallery images (optional)
 
   details: string;
   tagline?: string;         // New subtitle/tagline field
