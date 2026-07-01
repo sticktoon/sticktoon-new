@@ -8383,8 +8383,9 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
           {/* Order Details Modal */}
           {viewingOrder && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-              <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-indigo-500/30 rounded-2xl p-6 max-w-2xl w-full shadow-2xl shadow-indigo-500/20 transform transition-all duration-300 max-h-[90vh] overflow-y-auto">
-                <div className="mb-6 pb-4 border-b border-indigo-500/20 flex items-start justify-between">
+              <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-indigo-500/30 rounded-2xl max-w-2xl w-full shadow-2xl shadow-indigo-500/20 transform transition-all duration-300 max-h-[90vh] flex flex-col overflow-hidden">
+                {/* Fixed header — stays pinned while the body scrolls */}
+                <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-indigo-500/20 flex items-start justify-between bg-gray-900/95 backdrop-blur-sm">
                   <div>
                     <h3 className="text-white font-bold text-xl flex items-center gap-2">
                       📦 Order Details
@@ -8401,6 +8402,8 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   </button>
                 </div>
 
+                {/* Scrollable body */}
+                <div className="flex-1 overflow-y-auto px-6 py-6">
                 {/* Order Items */}
                 <div className="space-y-3 mb-6">
                   {viewingOrder.items?.map((item: any, i: number) => (
@@ -8679,18 +8682,24 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     <button
                       onClick={() => handleShiprocketPush(viewingOrder._id)}
                       disabled={syncingOrderId === viewingOrder._id}
-                      className={`w-full py-3 rounded-xl text-sm font-bold transition ${
+                      className={`w-full py-3.5 rounded-xl text-base font-extrabold tracking-wide transition-all flex items-center justify-center gap-2 ${
                         syncingOrderId === viewingOrder._id
                           ? "bg-slate-500 text-white cursor-not-allowed"
-                          : "bg-indigo-600 hover:bg-indigo-500 text-white"
+                          : "bg-indigo-500 hover:bg-indigo-400 text-white shadow-lg shadow-indigo-500/40 ring-1 ring-indigo-300/40 hover:scale-[1.01] active:scale-[0.99]"
                       }`}
                     >
-                      {syncingOrderId === viewingOrder._id
-                        ? "Syncing..."
-                        : "Push to Shiprocket"}
+                      {syncingOrderId === viewingOrder._id ? (
+                        "Syncing..."
+                      ) : (
+                        <>
+                          <span className="text-lg">🚀</span>
+                          <span>Push to Shiprocket</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 )}
+                </div>
               </div>
             </div>
           )}
