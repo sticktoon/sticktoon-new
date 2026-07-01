@@ -1008,12 +1008,12 @@ export default function Checkout({
               setPromoError("");
             }}
             placeholder="Enter promo code"
-            className="flex-1 p-3 rounded-xl border uppercase"
+            className="flex-1 min-w-0 p-3 rounded-xl border uppercase"
           />
           <button
             onClick={handleApplyPromo}
             disabled={promoLoading}
-            className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-black rounded-xl shadow-lg hover:shadow-xl hover:shadow-yellow-500/25 hover:from-yellow-400 hover:to-orange-400 disabled:opacity-50 transition"
+            className="w-full sm:w-auto shrink-0 px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-black rounded-xl shadow-lg hover:shadow-xl hover:shadow-yellow-500/25 hover:from-yellow-400 hover:to-orange-400 disabled:opacity-50 transition"
           >
             {promoLoading ? "..." : "Apply"}
           </button>
