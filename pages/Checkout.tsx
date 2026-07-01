@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Trash2, ShoppingCart, Tag, X, CheckCircle, Sparkles } from "lucide-react";
 import { CartItem, ComboItemPreview } from "../types";
 import { BADGES, formatPrice } from "../constants";
@@ -197,6 +197,15 @@ export default function Checkout({
   const [isProcessing, setIsProcessing] = useState(false);
   const [quantityInputs, setQuantityInputs] = useState<Record<string, string>>({});
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const navigate = useNavigate();
+
+  // "Login & Continue": remember to come back to checkout after login,
+  // then send the user to the login page. The guest cart is merged into the
+  // account on the next app load, so nothing in the cart is lost.
+  const handleLoginAndContinue = () => {
+    localStorage.setItem("postLoginRedirect", "/checkout");
+    navigate("/login");
+  };
 
   useEffect(() => {
     const next: Record<string, string> = {};
@@ -1065,19 +1074,43 @@ export default function Checkout({
     </div>
   )}
 
-  {!isLoggedIn && (
-    <div className="mb-4 rounded-2xl border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-slate-800">
-      You can checkout as a guest without logging in. If you already have an account, login now to save this order to your profile.
+  {/* CTA */}
+  {isLoggedIn ? (
+    <button
+      onClick={handlePlaceOrder}
+      className="w-full py-5 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 transition text-slate-900 font-black rounded-2xl shadow-lg hover:shadow-xl hover:shadow-yellow-500/25"
+    >
+      PLACE ORDER NOW
+    </button>
+  ) : (
+    <div className="space-y-3">
+      {/* Option 1: guest checkout — no login needed */}
+      <button
+        onClick={handlePlaceOrder}
+        className="w-full py-5 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 transition text-slate-900 font-black rounded-2xl shadow-lg hover:shadow-xl hover:shadow-yellow-500/25"
+      >
+        CONTINUE AS GUEST
+      </button>
+
+      <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+        <span className="h-px flex-1 bg-slate-200" />
+        or
+        <span className="h-px flex-1 bg-slate-200" />
+      </div>
+
+      {/* Option 2: login first, then come back to checkout */}
+      <button
+        onClick={handleLoginAndContinue}
+        className="w-full py-4 bg-white border-2 border-slate-900 text-slate-900 font-black rounded-2xl hover:bg-slate-900 hover:text-white transition"
+      >
+        LOGIN &amp; CONTINUE
+      </button>
+
+      <p className="text-center text-xs text-slate-500">
+        Login to save this order to your profile and track it later. Your cart stays intact.
+      </p>
     </div>
   )}
-
-  {/* CTA */}
-  <button
-    onClick={handlePlaceOrder}
-    className="w-full py-5 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 transition text-slate-900 font-black rounded-2xl shadow-lg hover:shadow-xl hover:shadow-yellow-500/25"
-  >
-    PLACE ORDER NOW
-  </button>
 </div>
 
         </div>

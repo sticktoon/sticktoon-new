@@ -63,7 +63,11 @@ export default function Login() {
       })
     );
 
-    window.location.href = "/";
+    // If the user came here via "Login & Continue" (e.g. from checkout),
+    // send them back where they started; otherwise go home.
+    const postLoginRedirect = localStorage.getItem("postLoginRedirect");
+    localStorage.removeItem("postLoginRedirect");
+    window.location.href = postLoginRedirect || "/";
   };
 
   /* =========================
