@@ -109,7 +109,7 @@ router.get("/", async (req, res) => {
     // Set cache headers for better performance
     res.set('Cache-Control', 'public, max-age=300');
 
-    const selectFields = 'name price category subcategory image printImage imageMagnetic description isActive stock';
+    const selectFields = 'name price category subcategory image printImage imageMagnetic images description isActive stock';
 
     // Use server-side cache for "all" queries
     if (all && productCache && (Date.now() - productCacheTime < CACHE_TTL)) {
@@ -166,7 +166,7 @@ router.get("/category/:category", async (req, res) => {
     // Set cache headers
     res.set('Cache-Control', 'public, max-age=300');
 
-    const selectFields = 'name price category subcategory image printImage imageMagnetic description isActive stock';
+    const selectFields = 'name price category subcategory image printImage imageMagnetic images description isActive stock';
 
     const normalizedCategory = normalizeCategory(req.params.category);
     if (!normalizedCategory) {
@@ -226,12 +226,15 @@ router.get("/:id", async (req, res) => {
 ======================== */
 router.post("/", auth, adminOnly, async (req, res) => {
   try {
-    const { name, price, description, category, subcategory, image, printImage, stock, weight, length, width, height, sku } = req.body;
+    const { name, price, description, category, subcategory, image, printImage, images, stock, weight, length, width, height, sku } = req.body;
     const normalizedCategory = normalizeCategory(category);
     const normalizedSubcategory = normalizeSubcategory(subcategory);
     const normalizedImage = normalizeProductImagePath(image);
     // Print image is optional; only normalize when one was supplied.
     const normalizedPrintImage = printImage ? normalizeProductImagePath(printImage) : "";
+    const normalizedImages = Array.isArray(images)
+      ? images.map((img) => normalizeProductImagePath(img)).filter(Boolean)
+      : [];
 
     // Validation
     if (!name || !price || !description || !category || !normalizedImage) {
@@ -250,6 +253,7 @@ router.post("/", auth, adminOnly, async (req, res) => {
       subcategory: normalizedSubcategory,
       image: normalizedImage,
       printImage: normalizedPrintImage,
+      images: normalizedImages,
       stock: parseInt(stock) || 0,
       weight: weight !== undefined && !isNaN(parseFloat(weight)) ? parseFloat(weight) : 0.1,
       length: length !== undefined && !isNaN(parseFloat(length)) ? parseFloat(length) : 10,
@@ -271,7 +275,7 @@ router.post("/", auth, adminOnly, async (req, res) => {
 ======================== */
 router.patch("/:id", auth, adminOnly, async (req, res) => {
   try {
-    const { name, price, description, category, subcategory, image, printImage, stock, isActive, weight, length, width, height, sku } =
+    const { name, price, description, category, subcategory, image, printImage, images, stock, isActive, weight, length, width, height, sku } =
       req.body;
 
     const product = await Product.findById(req.params.id);
@@ -303,6 +307,11 @@ router.patch("/:id", auth, adminOnly, async (req, res) => {
     if (printImage !== undefined) {
       // Allow clearing the print image by sending an empty string.
       product.printImage = printImage ? normalizeProductImagePath(printImage) : "";
+    }
+    if (images !== undefined) {
+      product.images = Array.isArray(images)
+        ? images.map((img) => normalizeProductImagePath(img)).filter(Boolean)
+        : [];
     }
     if (stock !== undefined) product.stock = parseInt(stock);
     if (isActive !== undefined) product.isActive = isActive;

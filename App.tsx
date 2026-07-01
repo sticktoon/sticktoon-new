@@ -596,6 +596,12 @@ const Footer: React.FC = () => {
           <p className="text-slate-400 max-w-md leading-relaxed font-medium mt-4">
             Creators of bold, affordable pin badges and custom merch. Every design tells your story. Badge culture, redefined with unbeatable quality and prices.
           </p>
+          <a
+            href="mailto:sticktoon.xyz@gmail.com"
+            className="block text-sm font-bold text-slate-300 hover:text-white transition-colors mt-4"
+          >
+            sticktoon.xyz@gmail.com
+          </a>
         </div>
 
         <div className="text-center sm:text-left">
@@ -1339,7 +1345,7 @@ function App() {
           <Route path="/categories" element={<Categories addToCart={addToCart} user={user} />} />
           <Route path="/stickers" element={<Stickers addToCart={addToCart} />} />
           <Route path="/stickers/:id" element={<StickerDetail addToCart={addToCart} />} />
-          <Route path="/badge/:id" element={<BadgeDetail addToCart={addToCart} />} />
+          <Route path="/badge/:id" element={<BadgeDetail addToCart={addToCart} user={user} />} />
           <Route
             path="/checkout"
             element={

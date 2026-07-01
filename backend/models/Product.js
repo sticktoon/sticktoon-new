@@ -41,6 +41,11 @@ const ProductSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
+    // Extra preview images shown as a gallery on the product detail page.
+    images: {
+      type: [String],
+      default: [],
+    },
     stock: {
       type: Number,
       required: true,
