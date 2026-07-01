@@ -363,8 +363,9 @@ export default function AdminOrders() {
             <span>Download Invoice</span>
           </button>
 
-          {/* Shiprocket Section */}
-          {activeOrder.status === "SUCCESS" && (
+          {/* Shiprocket Section — shown for paid and pending orders, hidden
+              only for explicitly failed payments. */}
+          {activeOrder.status !== "FAILED" && (
             <div className="bg-white border rounded-xl p-4 mt-4 space-y-3 text-left">
               <h3 className="font-bold text-gray-800 flex items-center gap-2">
                 🚀 Shiprocket Fulfillment

@@ -138,6 +138,20 @@ const getComboItemsForDisplay = (item: CartItem) => {
   return decodeComboItemsFromCartId(item);
 };
 
+// Persist the in-progress checkout (shipping details + applied promo) so it
+// survives navigating away to log in and coming back.
+const CHECKOUT_DRAFT_KEY = "checkout_draft";
+
+const loadCheckoutDraft = () => {
+  try {
+    const raw = localStorage.getItem(CHECKOUT_DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
 interface CheckoutProps {
   cart: CartItem[];
   removeFromCart: (id: string) => void;
@@ -168,19 +182,31 @@ export default function Checkout({
     code: string;
     discount: number;
     description: string;
-  } | null>(null);
+  } | null>(() => loadCheckoutDraft()?.appliedPromo ?? null);
 
   const discount = appliedPromo?.discount || 0;
   const total = subtotal + deliveryCharges - discount;
 
-  const [address, setAddress] = useState({
-    name: "",
-    email: "",
-    street: "",
-    phone: "",
-    city: "",
-    state: "",
-    pincode: "",
+  const [address, setAddress] = useState<{
+    name: string;
+    email: string;
+    street: string;
+    phone: string;
+    city: string;
+    state: string;
+    pincode: string;
+  }>(() => {
+    const draft = loadCheckoutDraft();
+    return {
+      name: "",
+      email: "",
+      street: "",
+      phone: "",
+      city: "",
+      state: "",
+      pincode: "",
+      ...(draft?.address || {}),
+    };
   });
 
   const [errors, setErrors] = useState({
@@ -231,13 +257,29 @@ export default function Checkout({
       try {
         const parsedUser = JSON.parse(savedUser);
         if (parsedUser?.email) {
-          setAddress((prev) => ({ ...prev, email: String(parsedUser.email) }));
+          // Don't clobber an email the user already typed / that was restored.
+          setAddress((prev) =>
+            prev.email ? prev : { ...prev, email: String(parsedUser.email) }
+          );
         }
       } catch {
         // ignore invalid user data
       }
     }
   }, []);
+
+  // Persist the checkout draft so shipping details + promo survive a
+  // navigate-away-to-login round trip.
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        CHECKOUT_DRAFT_KEY,
+        JSON.stringify({ address, appliedPromo })
+      );
+    } catch {
+      // ignore storage errors (e.g. quota / private mode)
+    }
+  }, [address, appliedPromo]);
 
   useEffect(() => {
     setIsLoggedIn(Boolean(localStorage.getItem("token")));
@@ -582,6 +624,7 @@ export default function Checkout({
               // Payment successful - clear cart from localStorage and DB
               localStorage.removeItem("guest_cart");
               localStorage.removeItem("cart");
+              localStorage.removeItem(CHECKOUT_DRAFT_KEY);
               
               // Clear cart from database
               try {

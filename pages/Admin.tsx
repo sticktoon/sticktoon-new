@@ -7707,7 +7707,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                               {order.isDelivered ? "Delivered" : "Not Delivered"}
                             </span>
                           </div>
-                          {order.status === "SUCCESS" && (
+                          {order.status !== "FAILED" && (
                             <span
                               className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                                 order.shiprocketStatus === "SUCCESS"
@@ -8639,8 +8639,10 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   <span>Download Invoice</span>
                 </button>
 
-                {/* Shiprocket sync section */}
-                {viewingOrder.status === "SUCCESS" && (
+                {/* Shiprocket sync section — show for paid and pending
+                    (e.g. offline/awaiting-payment) orders, hide only for
+                    explicitly failed payments. */}
+                {viewingOrder.status !== "FAILED" && (
                   <div className="bg-white/5 rounded-xl p-4 mt-4 space-y-4 border border-white/10">
                     <div className="flex items-center justify-between gap-3">
                       <div>

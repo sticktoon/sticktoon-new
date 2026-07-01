@@ -60,9 +60,10 @@ async function pushOrderToShiprocket(orderId) {
       throw new Error(`Order ${orderId} not found`);
     }
 
-    // Verify order is paid/success
-    if (order.status !== "SUCCESS") {
-      throw new Error(`Order ${orderId} cannot be pushed to Shiprocket because its status is ${order.status}`);
+    // Block only explicitly failed payments. PENDING orders (e.g. awaiting or
+    // offline payment) can still be fulfilled manually by an admin.
+    if (order.status === "FAILED") {
+      throw new Error(`Order ${orderId} cannot be pushed to Shiprocket because its payment status is FAILED`);
     }
 
     const token = await authenticate();
