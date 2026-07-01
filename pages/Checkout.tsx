@@ -841,74 +841,6 @@ export default function Checkout({
               )}
             </div>
 
-            {/* PROMO CODE */}
-            <div className="relative overflow-hidden bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 border border-white/70 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-              <h3 className="text-lg md:text-xl font-black mb-4 flex items-center gap-2">
-                <Tag className="w-5 h-5" />
-                Promo Code
-              </h3>
-
-              {showPromoBurst && (
-                <div className="promo-burst-layer" aria-hidden="true">
-                  <div className="promo-burst promo-burst-left">
-                    {Array.from({ length: 8 }).map((_, i) => (
-                      <span key={`left-${i}`} className="promo-burst-particle" style={{ ["--i" as "--i"]: i } as React.CSSProperties} />
-                    ))}
-                  </div>
-                  <div className="promo-burst promo-burst-right">
-                    {Array.from({ length: 8 }).map((_, i) => (
-                      <span key={`right-${i}`} className="promo-burst-particle" style={{ ["--i" as "--i"]: i } as React.CSSProperties} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {appliedPromo ? (
-                <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-4">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                    <div>
-                      <p className="font-bold text-green-700">{appliedPromo.code}</p>
-                      <p className="text-sm text-green-600">
-                        {appliedPromo.description || `You save ₹${appliedPromo.discount}`}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleRemovePromo}
-                    className="p-2 hover:bg-green-100 rounded-full transition"
-                  >
-                    <X className="w-4 h-4 text-green-700" />
-                  </button>
-                </div>
-              ) : (
-                <div>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      value={promoCode}
-                      onChange={(e) => {
-                        setPromoCode(e.target.value.toUpperCase());
-                        setPromoError("");
-                      }}
-                      placeholder="Enter promo code"
-                      className="flex-1 p-3 rounded-xl border uppercase"
-                    />
-                    <button
-                      onClick={handleApplyPromo}
-                      disabled={promoLoading}
-                      className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-black rounded-xl shadow-lg hover:shadow-xl hover:shadow-yellow-500/25 hover:from-yellow-400 hover:to-orange-400 disabled:opacity-50 transition"
-                    >
-                      {promoLoading ? "..." : "Apply"}
-                    </button>
-                  </div>
-                  {promoError && (
-                    <p className="text-red-500 text-sm mt-2">{promoError}</p>
-                  )}
-                </div>
-              )}
-            </div>
-
             {/* CART ITEMS */}
           
 <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 border border-white/70 shadow-[0_18px_45px_rgba(15,23,42,0.08)] space-y-6">
@@ -1023,7 +955,78 @@ export default function Checkout({
           </div>
 
           {/* RIGHT */}
-<div className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 border border-white/70 shadow-[0_18px_45px_rgba(15,23,42,0.08)] lg:sticky lg:top-32">
+<div className="space-y-8 lg:sticky lg:top-32">
+
+  {/* PROMO CODE */}
+  <div className="relative overflow-hidden bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 border border-white/70 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+    <h3 className="text-lg md:text-xl font-black mb-4 flex items-center gap-2">
+      <Tag className="w-5 h-5" />
+      Promo Code
+    </h3>
+
+    {showPromoBurst && (
+      <div className="promo-burst-layer" aria-hidden="true">
+        <div className="promo-burst promo-burst-left">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <span key={`left-${i}`} className="promo-burst-particle" style={{ ["--i" as "--i"]: i } as React.CSSProperties} />
+          ))}
+        </div>
+        <div className="promo-burst promo-burst-right">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <span key={`right-${i}`} className="promo-burst-particle" style={{ ["--i" as "--i"]: i } as React.CSSProperties} />
+          ))}
+        </div>
+      </div>
+    )}
+
+    {appliedPromo ? (
+      <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-4">
+        <div className="flex items-center gap-3">
+          <CheckCircle className="w-5 h-5 text-green-600" />
+          <div>
+            <p className="font-bold text-green-700">{appliedPromo.code}</p>
+            <p className="text-sm text-green-600">
+              {appliedPromo.description || `You save ₹${appliedPromo.discount}`}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleRemovePromo}
+          className="p-2 hover:bg-green-100 rounded-full transition"
+        >
+          <X className="w-4 h-4 text-green-700" />
+        </button>
+      </div>
+    ) : (
+      <div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="text"
+            value={promoCode}
+            onChange={(e) => {
+              setPromoCode(e.target.value.toUpperCase());
+              setPromoError("");
+            }}
+            placeholder="Enter promo code"
+            className="flex-1 p-3 rounded-xl border uppercase"
+          />
+          <button
+            onClick={handleApplyPromo}
+            disabled={promoLoading}
+            className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-black rounded-xl shadow-lg hover:shadow-xl hover:shadow-yellow-500/25 hover:from-yellow-400 hover:to-orange-400 disabled:opacity-50 transition"
+          >
+            {promoLoading ? "..." : "Apply"}
+          </button>
+        </div>
+        {promoError && (
+          <p className="text-red-500 text-sm mt-2">{promoError}</p>
+        )}
+      </div>
+    )}
+  </div>
+
+  {/* PRICE DETAILS CARD */}
+  <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 border border-white/70 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
 
   {/* PRICE DETAILS HEADER */}
   <div className="flex items-center justify-between mb-6">
@@ -1111,6 +1114,7 @@ export default function Checkout({
       </p>
     </div>
   )}
+  </div>
 </div>
 
         </div>

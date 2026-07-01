@@ -29,7 +29,6 @@ coverage/
 package-lock.json
 .next/
 Thumbs.db
-backend/.env
 
 # Editor directories and files
 .vscode/*
