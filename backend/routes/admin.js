@@ -8,7 +8,7 @@ const UserOrders = require("../models/User_Orders");
 const router = express.Router();
 
 const auth = require("../middleware/auth");
-const { adminOnly, superAdminOnly, isSuperAdmin } = require("../middleware/roleMiddleware");
+const { adminOnly, superAdminOnly, isSuperAdmin, isAdminEmail } = require("../middleware/roleMiddleware");
 
 /* ======================
    ADMIN LOGIN
@@ -22,13 +22,19 @@ router.post("/login", async (req, res) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    const user = await User.findOne({ 
-      email: cleanEmail,
-      role: "admin"
-    }).select("+password");
+    const user = await User.findOne({ email: cleanEmail }).select("+password");
 
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
+    }
+
+    if (user.role !== "admin" && !isAdminEmail(user.email)) {
+      return res.status(403).json({ message: "Access denied. This account is not an admin account." });
+    }
+
+    if (user.role !== "admin") {
+      user.role = "admin";
+      await user.save();
     }
 
     // If no password set (Google account), ask to reset password
@@ -84,11 +90,13 @@ router.post("/google-login", async (req, res) => {
         email,
         provider: "google",
         avatar,
-        role: "admin",
+        role: isAdminEmail(email) ? "admin" : "user",
       });
     } else {
-      // User exists - ensure they are admin
-      if (user.role !== "admin") {
+      // User exists - ensure they are admin if their email is allowed
+      if (user.role !== "admin" && isAdminEmail(user.email)) {
+        user.role = "admin";
+      } else if (user.role !== "admin") {
         return res.status(403).json({ 
           message: "Access denied. This account is not an admin account." 
         });
