@@ -412,7 +412,7 @@ export default function Checkout({
 
     const syncPromoWithSubtotal = async () => {
       try {
-        const { res, data } = await validatePromoRequest(appliedPromo.code, subtotal, token);
+        const { res, data } = await validatePromoRequest(appliedPromo.code, subtotal, token || undefined);
         if (isCancelled) return;
 
         if (!res.ok) {
@@ -520,7 +520,7 @@ export default function Checkout({
 
     if (promoCodeForOrder) {
       try {
-        const { res, data } = await validatePromoRequest(promoCodeForOrder, subtotal, token);
+        const { res, data } = await validatePromoRequest(promoCodeForOrder, subtotal, token || undefined);
 
         if (!res.ok) {
           setAppliedPromo(null);

@@ -39,8 +39,13 @@ import {
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 
-// Super Admin Email - Only this email can edit/remove other admins
-const SUPER_ADMIN_EMAIL = "sticktoon.xyz@gmail.com";
+// Super Admin Emails - Only these emails can edit/remove other admins and manage admin roles
+const SUPER_ADMIN_EMAILS = ["sticktoon.xyz@gmail.com", "anishpatankar974@gmail.com"];
+
+const isSuperAdminEmail = (email?: string | null) => {
+  const normalized = email?.toLowerCase().trim();
+  return normalized ? SUPER_ADMIN_EMAILS.includes(normalized) : false;
+};
 
 const normalizeCategory = (value?: string) => {
   if (!value) return value;
@@ -2396,7 +2401,7 @@ const Admin: React.FC = () => {
   const [updatingProfile, setUpdatingProfile] = useState(false);
 
   // Check if current user is super admin
-  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
+  const isSuperAdmin = isSuperAdminEmail(user?.email);
   const authToastShownRef = useRef(false);
 
   /* ===========================
@@ -2964,7 +2969,7 @@ const Admin: React.FC = () => {
     setError("");
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: loginEmail, password: loginPassword }),
@@ -2977,7 +2982,7 @@ const Admin: React.FC = () => {
       }
 
       // Check if user is admin
-      if (data.user.role !== "admin") {
+      if (data.user?.role !== "admin") {
         throw new Error("Only admins can access this panel");
       }
 
@@ -3276,7 +3281,7 @@ const Admin: React.FC = () => {
 
     // Check if trying to delete admin without super admin privileges
     const targetUser = allUsers.find((u) => u._id === userId);
-    if (targetUser?.role === "admin" && user?.email !== SUPER_ADMIN_EMAIL) {
+    if (targetUser?.role === "admin" && !isSuperAdminEmail(user?.email)) {
       showToast("error", "🔒 Only super admin can delete other admins");
       return;
     }
@@ -3352,7 +3357,7 @@ const Admin: React.FC = () => {
     if (!token) return;
 
     // Check if trying to reset password without super admin privileges
-    if (user?.email !== SUPER_ADMIN_EMAIL) {
+    if (!isSuperAdminEmail(user?.email)) {
       showToast("error", "🔒 Only super admin can reset passwords");
       return;
     }
@@ -3680,7 +3685,7 @@ const Admin: React.FC = () => {
 
     // Check if trying to modify admin without super admin privileges
     const targetUser = allUsers.find((u) => u._id === userId);
-    if (targetUser?.role === "admin" && user?.email !== SUPER_ADMIN_EMAIL) {
+    if (targetUser?.role === "admin" && !isSuperAdminEmail(user?.email)) {
       showToast("error", "🔒 Only super admin can modify other admins");
       return;
     }
