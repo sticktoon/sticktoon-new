@@ -14,22 +14,25 @@ const parseEmailList = (value) => {
 };
 
 const getAdminAccessEmails = () => {
-  const configured = process.env.ADMIN_ACCESS_EMAILS || process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || "sticktoon.xyz@gmail.com,orders.sticktoon@gmail.com";
-  return [
-    ...parseEmailList(configured),
-    "sticktoon.xyz@gmail.com",
-    "orders.sticktoon@gmail.com",
-    "anishpatankar974@gmail.com",
-  ].map(normalizeEmail).filter((email, index, array) => array.indexOf(email) === index);
+  const envValues = [
+    process.env.DEV_EMAIL || "",
+    process.env.ADMIN_EMAIL || "",
+    process.env.ORDERS_EMAIL || "",
+    process.env.ADMIN_ACCESS_EMAILS || "",
+    process.env.ADMIN_EMAILS || "",
+  ].join(",");
+
+  return parseEmailList(envValues).map(normalizeEmail).filter((email, index, array) => array.indexOf(email) === index);
 };
 
 const getSuperAdminEmails = () => {
-  const configured = process.env.SUPER_ADMIN_EMAILS || process.env.ADMIN_EMAIL || "sticktoon.xyz@gmail.com,anishpatankar974@gmail.com";
-  return [
-    ...parseEmailList(configured),
-    "sticktoon.xyz@gmail.com",
-    "anishpatankar974@gmail.com",
-  ].map(normalizeEmail).filter((email, index, array) => array.indexOf(email) === index);
+  const configured = process.env.DEV_EMAIL || process.env.SUPER_ADMIN_EMAILS || "";
+  return parseEmailList(configured).map(normalizeEmail).filter((email, index, array) => array.indexOf(email) === index);
+};
+
+const getOrdersEmails = () => {
+  const configured = process.env.ORDERS_EMAIL || "";
+  return parseEmailList(configured).map(normalizeEmail).filter((email, index, array) => array.indexOf(email) === index);
 };
 
 /**
@@ -38,9 +41,11 @@ const getSuperAdminEmails = () => {
 const isAdminEmail = (email) => getAdminAccessEmails().includes(normalizeEmail(email));
 
 /**
- * Helper to check if an email is a super admin
+ * Helper to check if an email is a super admin (developer)
  */
 const isSuperAdmin = (email) => getSuperAdminEmails().includes(normalizeEmail(email));
+
+const isOrdersEmail = (email) => getOrdersEmails().includes(normalizeEmail(email));
 
 const isAdminAccount = (user) => {
   if (!user) return false;
@@ -103,6 +108,7 @@ module.exports = {
   superAdminOnly,
   isSuperAdmin,
   isAdminEmail,
+  isOrdersEmail,
   isAdminAccount,
   influencerOnly,
   approvedInfluencerOnly
