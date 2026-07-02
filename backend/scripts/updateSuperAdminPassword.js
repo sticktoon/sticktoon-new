@@ -7,8 +7,17 @@ require("dotenv").config();
 const updatePassword = async () => {
   try {
     const User = require("../models/User");
-    const SUPER_ADMIN_EMAIL = "sticktoon.xyz@gmail.com";
-    const NEW_PASSWORD = "gullyboy12345";
+    const SUPER_ADMIN_EMAILS = (process.env.DEV_EMAIL || process.env.SUPER_ADMIN_EMAILS || process.env.SUPER_ADMIN_EMAIL || "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean);
+    const SUPER_ADMIN_EMAIL = SUPER_ADMIN_EMAILS[0];
+    const NEW_PASSWORD = process.env.SUPER_ADMIN_NEW_PASSWORD || "gullyboy12345";
+
+    if (!SUPER_ADMIN_EMAIL) {
+      console.log("❌ No super admin email configured in DEV_EMAIL, SUPER_ADMIN_EMAILS, or SUPER_ADMIN_EMAIL");
+      process.exit(1);
+    }
 
     // Find super admin
     const superAdmin = await User.findOne({ email: SUPER_ADMIN_EMAIL }).select("+password");

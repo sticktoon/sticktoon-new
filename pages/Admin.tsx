@@ -39,12 +39,15 @@ import {
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 
-// Super Admin Emails - Only these emails can edit/remove other admins and manage admin roles
-const SUPER_ADMIN_EMAILS = ["sticktoon.xyz@gmail.com", "anishpatankar974@gmail.com"];
+// Developer email (full access) configured through Vite env variables only
+const DEV_EMAILS = (import.meta.env.VITE_DEV_EMAIL || "")
+  .split(",")
+  .map((email) => email.toLowerCase().trim())
+  .filter(Boolean);
 
 const isSuperAdminEmail = (email?: string | null) => {
   const normalized = email?.toLowerCase().trim();
-  return normalized ? SUPER_ADMIN_EMAILS.includes(normalized) : false;
+  return normalized ? DEV_EMAILS.includes(normalized) : false;
 };
 
 const normalizeCategory = (value?: string) => {

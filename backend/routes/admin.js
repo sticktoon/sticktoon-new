@@ -8,7 +8,7 @@ const UserOrders = require("../models/User_Orders");
 const router = express.Router();
 
 const auth = require("../middleware/auth");
-const { adminOnly, superAdminOnly, isSuperAdmin, isAdminEmail } = require("../middleware/roleMiddleware");
+const { adminOnly, superAdminOnly, isSuperAdmin, isAdminEmail, isOrdersEmail } = require("../middleware/roleMiddleware");
 
 /* ======================
    ADMIN LOGIN
@@ -301,6 +301,11 @@ router.delete("/users/:id", auth, adminOnly, async (req, res) => {
       return res.status(403).json({ message: "Cannot delete yourself" });
     }
 
+    // Orders account cannot manage users
+    if (isOrdersEmail(req.user.email)) {
+      return res.status(403).json({ message: "Orders account cannot manage users" });
+    }
+
     // Only super admin can delete admin users
     if (user.role === "admin" && !isSuperAdmin(req.user.email)) {
       return res.status(403).json({ message: "Only super admin can delete admin users" });
@@ -328,6 +333,11 @@ router.patch("/users/:id/role", auth, adminOnly, async (req, res) => {
     const targetUser = await User.findById(req.params.id);
     if (!targetUser) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    // Orders account cannot manage users
+    if (isOrdersEmail(req.user.email)) {
+      return res.status(403).json({ message: "Orders account cannot manage users" });
     }
 
     // Only super admin can change admin roles or make someone admin
@@ -388,6 +398,11 @@ router.patch("/users/:id", auth, adminOnly, async (req, res) => {
     const targetUser = await User.findById(req.params.id);
     if (!targetUser) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    // Orders account cannot manage users
+    if (isOrdersEmail(req.user.email)) {
+      return res.status(403).json({ message: "Orders account cannot manage users" });
     }
 
     // Super admin can edit ANYONE, regular admins can only edit non-admins
