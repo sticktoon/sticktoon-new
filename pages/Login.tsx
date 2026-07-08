@@ -234,6 +234,9 @@ export default function Login() {
      GOOGLE LOGIN
   ========================== */
   const googleLogin = useGoogleLogin({
+    // Always show the Google account chooser instead of silently reusing the
+    // last-used account, so a different account can be selected after logout.
+    prompt: "select_account",
     onSuccess: async (tokenResponse) => {
       try {
         setIsGoogleLoading(true);
