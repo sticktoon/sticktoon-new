@@ -16,6 +16,7 @@ import ContactsRoundedIcon from "@mui/icons-material/ContactsRounded";
 import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
 import NotificationsActiveRoundedIcon from "@mui/icons-material/NotificationsActiveRounded";
 import LocalOfferRoundedIcon from "@mui/icons-material/LocalOfferRounded";
+import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
 import {
   Eye,
   EyeOff,
@@ -36,6 +37,7 @@ import {
   Info,
   BarChart3,
   BriefcaseBusiness,
+  Store,
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 
@@ -770,21 +772,74 @@ const createDefaultTaskForm = (): TaskFormState => ({
   description: "",
 });
 /* ===========================
+   INITIAL ADMIN SESSION (optimistic)
+   Reads any existing admin session synchronously so we don't flash the
+   login screen for a logged-in admin while checkAuth() validates in the
+   background. Checks the admin-panel session first, then falls back to a
+   storefront admin session (single sign-on).
+=========================== */
+const getStoredAdminUser = (): AdminUser | null => {
+  try {
+    const adminToken = localStorage.getItem("adminToken");
+    const rawAdminUser = localStorage.getItem("adminUser");
+    if (adminToken && rawAdminUser) {
+      const parsed = JSON.parse(rawAdminUser);
+      if (parsed?.role === "admin") return parsed as AdminUser;
+    }
+
+    const sfToken = localStorage.getItem("token");
+    const rawSfUser = localStorage.getItem("user");
+    if (sfToken && rawSfUser) {
+      const parsed = JSON.parse(rawSfUser);
+      if (parsed?.role === "admin") return parsed as AdminUser;
+    }
+  } catch {
+    // ignore malformed storage
+  }
+  return null;
+};
+
+/* Mirror an admin login into the storefront session so the shop navbar
+   recognises the admin (shows the "Admin Panel" link) and toggling between
+   the shop and the admin panel works without re-logging in. */
+const syncStorefrontSession = (token: string, adminUser: any) => {
+  try {
+    localStorage.setItem("token", token);
+    localStorage.setItem(
+      "user",
+      JSON.stringify({
+        id: adminUser?._id || adminUser?.id,
+        name: adminUser?.name,
+        email: adminUser?.email,
+        role: adminUser?.role,
+        avatar: adminUser?.avatar,
+      }),
+    );
+  } catch {
+    // ignore storage errors
+  }
+};
+
+/* ===========================
    MAIN COMPONENT
 =========================== */
 const Admin: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Auth state
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<AdminUser | null>(null);
+  // Auth state — start optimistically authenticated if a session already
+  // exists in storage, so returning admins never see the login flash.
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
+    () => !!getStoredAdminUser(),
+  );
+  const [user, setUser] = useState<AdminUser | null>(() => getStoredAdminUser());
   const [currentView, setCurrentView] = useState<
     | "login"
     | "dashboard"
     | "notifications"
     | "leads"
     | "deals"
+    | "invoices"
     | "support"
     | "tasks"
     | "users"
@@ -797,7 +852,7 @@ const Admin: React.FC = () => {
     | "orders"
     | "reports"
     | "profile"
-  >("login");
+  >(() => (getStoredAdminUser() ? "dashboard" : "login"));
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Login state
@@ -2991,6 +3046,9 @@ const Admin: React.FC = () => {
 
       localStorage.setItem("adminToken", data.token);
       localStorage.setItem("adminUser", JSON.stringify(data.user));
+      // Mirror into the storefront session so the shop recognises the admin
+      // and the shop <-> admin panel toggle works in both directions.
+      syncStorefrontSession(data.token, data.user);
 
       authToastShownRef.current = false;
       setIsAuthenticated(true);
@@ -3006,13 +3064,29 @@ const Admin: React.FC = () => {
 
   const handleLogout = () => {
     authToastShownRef.current = false;
-    clearAdminSession();
+    // Full sign-out: clear BOTH the admin-panel session and the storefront
+    // session. Otherwise checkAuth() would silently restore the same account
+    // from the storefront session on the next visit (single sign-on), which
+    // makes it impossible to switch accounts after logging out.
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminUser");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("cart");
+    setIsAuthenticated(false);
+    setUser(null);
+    setCurrentView("login");
+    navigate("/admin/login", { replace: true });
   };
 
   /* ===========================
      GOOGLE LOGIN
   =========================== */
   const googleLogin = useGoogleLogin({
+    // Always show the Google account chooser instead of silently reusing the
+    // last-used account, so a different account can be selected after logout.
+    prompt: "select_account",
     onSuccess: async (tokenResponse) => {
       try {
         setIsGoogleLoading(true);
@@ -3051,6 +3125,9 @@ const Admin: React.FC = () => {
 
         localStorage.setItem("adminToken", data.token);
         localStorage.setItem("adminUser", JSON.stringify(data.user));
+        // Mirror into the storefront session so the shop recognises the admin
+        // and the shop <-> admin panel toggle works in both directions.
+        syncStorefrontSession(data.token, data.user);
 
         authToastShownRef.current = false;
         setIsAuthenticated(true);
@@ -4308,6 +4385,11 @@ const Admin: React.FC = () => {
                 icon: <BriefcaseBusiness className="w-5 h-5" />,
               },
               {
+                id: "invoices",
+                label: "Invoices",
+                icon: <ReceiptLongRoundedIcon sx={{ fontSize: 22 }} />,
+              },
+              {
                 id: "support",
                 label: "Support",
                 icon: <SupportAgentRoundedIcon sx={{ fontSize: 22 }} />,
@@ -4389,6 +4471,17 @@ const Admin: React.FC = () => {
 
           <div className="mt-8 pt-6 border-t border-slate-700 space-y-2">
             <button
+              onClick={() => {
+                // Full navigation so the storefront re-reads the (mirrored)
+                // session and shows the correct logged-in state / admin link.
+                window.location.href = "/";
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-bold transition-all text-left text-white admin-zoho-keep-white hover:bg-slate-800"
+            >
+              <Store className="w-5 h-5" />
+              <span className="text-base">Go to Shop</span>
+            </button>
+            <button
               onClick={() => setCurrentView("profile")}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-bold transition-all text-left text-white admin-zoho-keep-white hover:bg-slate-800"
             >
@@ -4424,6 +4517,7 @@ const Admin: React.FC = () => {
                 {currentView === "notifications" && "Notifications"}
                 {currentView === "leads" && "Leads"}
                 {currentView === "deals" && "Deals"}
+                {currentView === "invoices" && "Invoices"}
                 {currentView === "support" && "Support"}
                 {currentView === "tasks" && "Tasks"}
                 {currentView === "users" && "All Users"}
@@ -7055,6 +7149,58 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ================= INVOICES VIEW ================= */}
+          {currentView === "invoices" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-black text-slate-900">Invoices &amp; Catalogues</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Generate a custom invoice or product catalogue from scratch — no lead required.
+                </p>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* Custom Invoice */}
+                <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-white">
+                    <ReceiptLongRoundedIcon sx={{ fontSize: 26 }} />
+                  </div>
+                  <h3 className="mt-4 text-lg font-black text-slate-900">Custom Invoice</h3>
+                  <p className="mt-1 flex-1 text-sm text-slate-500">
+                    Build a professional quotation / invoice with line items, GST, terms &amp; bank
+                    details, then download or print as PDF.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/admin/deal-convert", { state: { lead: {}, docType: "invoice" } })}
+                    className="mt-5 inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                  >
+                    Generate Invoice
+                  </button>
+                </div>
+
+                {/* Custom Catalogue */}
+                <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 text-white">
+                    <DescriptionRoundedIcon sx={{ fontSize: 26 }} />
+                  </div>
+                  <h3 className="mt-4 text-lg font-black text-slate-900">Custom Catalogue</h3>
+                  <p className="mt-1 flex-1 text-sm text-slate-500">
+                    Design a visual product catalogue proposal with images, pricing and overview,
+                    then download or print as PDF.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/admin/deal-send", { state: { lead: {} } })}
+                    className="mt-5 inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-indigo-500"
+                  >
+                    Generate Catalogue
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

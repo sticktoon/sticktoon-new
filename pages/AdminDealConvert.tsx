@@ -29,9 +29,12 @@ type QuoteItem = {
   image?: string;
 };
 
-const makeQuoteNumber = () => {
+type DocType = "quotation" | "invoice";
+
+const makeDocNumber = (docType: DocType = "quotation") => {
   const now = new Date();
-  return `ST/QTN/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}${String(
+  const segment = docType === "invoice" ? "INV" : "QTN";
+  return `ST/${segment}/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}${String(
     now.getDate(),
   ).padStart(2, "0")}`;
 };
@@ -126,11 +129,19 @@ const getPdfLinkRects = (
 export default function AdminDealConvert() {
   const location = useLocation();
   const navigate = useNavigate();
-  const lead = (location.state as { lead?: LeadLike } | null)?.lead;
-  const isSendMode = location.pathname === "/admin/deal-send";
-  const pageTitle = isSendMode ? "Send Quotation" : "Convert Deal";
-  const pageSubtitle = isSendMode
-    ? "Prepare the quotation before sending it."
+  const navState = location.state as { lead?: LeadLike; docType?: DocType } | null;
+  const lead = navState?.lead;
+  const initialDocType: DocType = navState?.docType === "invoice" ? "invoice" : "quotation";
+
+  const [docType, setDocType] = useState<DocType>(initialDocType);
+  const isInvoice = docType === "invoice";
+  const partyLabel = isInvoice ? "Bill To" : "Quotation For";
+  const numberLabel = isInvoice ? "Invoice No" : "Quotation No";
+  const validityLabel = isInvoice ? "Payment Due (Days)" : "Validity Days";
+  const validityPreviewLabel = isInvoice ? "Payment Due" : "Validity";
+  const pageTitle = isInvoice ? "Create Invoice" : "Convert Deal";
+  const pageSubtitle = isInvoice
+    ? "Edit fields and generate invoice."
     : "Edit fields and generate quotation.";
 
   const [quotationFor, setQuotationFor] = useState(
@@ -140,13 +151,13 @@ export default function AdminDealConvert() {
   const [email, setEmail] = useState(lead?.email || "");
   const [phone, setPhone] = useState(lead?.phone || "");
   const [address, setAddress] = useState("");
-  const [quotationNo, setQuotationNo] = useState(makeQuoteNumber());
+  const [quotationNo, setQuotationNo] = useState(() => makeDocNumber(initialDocType));
   const [quotationDate, setQuotationDate] = useState(
     formatDateDdMmYyyy(new Date()),
   );
   const [validityDays, setValidityDays] = useState(30);
   const [subject, setSubject] = useState(
-    "Quotation for manufacturing & printing",
+    `${initialDocType === "invoice" ? "Invoice" : "Quotation"} for manufacturing & printing`,
   );
   const [items, setItems] = useState<QuoteItem[]>([
     {
@@ -239,6 +250,19 @@ export default function AdminDealConvert() {
     return pages;
   }, [items, firstPageRows, otherPageRows]);
 
+  const handleDocTypeChange = (nextType: DocType) => {
+    if (nextType === docType) return;
+    setDocType(nextType);
+    const segment = nextType === "invoice" ? "INV" : "QTN";
+    // Keep the auto-generated number prefix in sync, but never clobber a custom number.
+    setQuotationNo((prev) =>
+      /^ST\/(QTN|INV)\//.test(prev) ? prev.replace(/^ST\/(QTN|INV)\//, `ST/${segment}/`) : prev,
+    );
+    setSubject((prev) =>
+      prev.replace(/\b(quotation|invoice)\b/gi, nextType === "invoice" ? "Invoice" : "Quotation"),
+    );
+  };
+
   const updateItem = (id: string, updates: Partial<QuoteItem>) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
   };
@@ -325,7 +349,7 @@ export default function AdminDealConvert() {
   const handleDownload = async () => {
     const pdf = await buildPdf();
     if (!pdf) return;
-    pdf.save(`quotation-${quotationNo}.pdf`);
+    pdf.save(`${isInvoice ? "invoice" : "quotation"}-${quotationNo}.pdf`);
   };
 
   useEffect(() => {
@@ -393,9 +417,9 @@ export default function AdminDealConvert() {
     return (
       <div className="min-h-screen bg-slate-100 p-8">
         <div className="mx-auto max-w-3xl rounded-2xl border bg-white p-8">
-          <h1 className="text-2xl font-black text-slate-900">No deal selected</h1>
+          <h1 className="text-2xl font-black text-slate-900">Nothing selected</h1>
           <p className="mt-2 text-slate-600">
-            Open this page from the Leads table using the {isSendMode ? "Send" : "Convert"} action.
+            Open this page from the Leads table using the Convert action, or from the Invoices section.
           </p>
           <button
             onClick={() => navigate("/admin")}
@@ -570,9 +594,30 @@ export default function AdminDealConvert() {
             </Link>
           </div>
 
+          <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1 print:hidden">
+            <button
+              type="button"
+              onClick={() => handleDocTypeChange("quotation")}
+              className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
+                !isInvoice ? "bg-slate-900 text-white shadow" : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              Quotation
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDocTypeChange("invoice")}
+              className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
+                isInvoice ? "bg-slate-900 text-white shadow" : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              Invoice
+            </button>
+          </div>
+
           <div className="space-y-4">
             <label className="block">
-              <span className="mb-1 block text-xs font-black uppercase text-slate-500">Quotation For</span>
+              <span className="mb-1 block text-xs font-black uppercase text-slate-500">{partyLabel}</span>
               <input value={quotationFor} onChange={(e) => setQuotationFor(e.target.value)} className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
             </label>
             <label className="block">
@@ -594,7 +639,7 @@ export default function AdminDealConvert() {
 
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
-                <span className="mb-1 block text-xs font-black uppercase text-slate-500">Quotation No</span>
+                <span className="mb-1 block text-xs font-black uppercase text-slate-500">{numberLabel}</span>
                 <input value={quotationNo} onChange={(e) => setQuotationNo(e.target.value)} className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
               </label>
               <label className="block">
@@ -613,7 +658,7 @@ export default function AdminDealConvert() {
 
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
-                <span className="mb-1 block text-xs font-black uppercase text-slate-500">Validity Days</span>
+                <span className="mb-1 block text-xs font-black uppercase text-slate-500">{validityLabel}</span>
                 <input type="number" min={1} value={validityDays} onChange={(e) => setValidityDays(Number(e.target.value || 30))} className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
               </label>
               <label className="block">
@@ -709,7 +754,7 @@ export default function AdminDealConvert() {
 
                     <div className="mt-8 grid grid-cols-2 gap-6 border-b pb-6">
                       <div>
-                        <p className="text-sm font-black uppercase">Quotation For:</p>
+                        <p className="text-sm font-black uppercase">{partyLabel}:</p>
                         <p className="mt-3 text-2xl font-black">{quotationFor || "-"}</p>
                         {company.trim() ? <p className="mt-1 text-base">{company}</p> : null}
                         {email.trim() ? <p className="text-base">{email}</p> : null}
@@ -718,17 +763,18 @@ export default function AdminDealConvert() {
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-black uppercase">Details:</p>
-                        <p className="mt-3"><span className="font-black">Quotation No:</span> {quotationNo}</p>
+                        <p className="mt-3"><span className="font-black">{numberLabel}:</span> {quotationNo}</p>
                         <p><span className="font-black">Date:</span> {quotationDate}</p>
-                        <p><span className="font-black">Validity:</span> {validityDays} Days</p>
+                        <p><span className="font-black">{validityPreviewLabel}:</span> {validityDays} Days</p>
                       </div>
                     </div>
 
                     <div className="mt-6">
                       <p className="text-sm font-black uppercase underline">{subject}</p>
                       <p className="mt-4 text-sm leading-7 text-slate-700">
-                        Dear Sir/Ma'am, thank you for your interest in Stick Toon. Please find below the
-                        quotation details prepared for your requirement.
+                        {isInvoice
+                          ? "Dear Sir/Ma'am, thank you for your business with Stick Toon. Please find below the invoice details for your order."
+                          : "Dear Sir/Ma'am, thank you for your interest in Stick Toon. Please find below the quotation details prepared for your requirement."}
                       </p>
                     </div>
                   </>

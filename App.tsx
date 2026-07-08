@@ -159,9 +159,14 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
   setIsOpen(false);
 }, [location.pathname]);
   const handleLogout = () => {
+    // Full sign-out: clear the storefront session AND any mirrored admin-panel
+    // session so an admin isn't silently signed back in when switching accounts.
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("cart");
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminUser");
+    localStorage.removeItem("refreshToken");
     window.location.href = "/login";
   };
 
