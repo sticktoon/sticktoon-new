@@ -46,6 +46,24 @@ const ProductSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // Combo pack: one SKU bundling several badges. `comboItems` is the
+    // customer-visible breakdown, snapshotted at save time so renaming a member
+    // badge later does not rewrite what past orders say was in the box.
+    isCombo: {
+      type: Boolean,
+      default: false,
+    },
+    comboItems: {
+      type: [
+        {
+          _id: false,
+          id: { type: String, required: true },
+          name: { type: String, required: true },
+          image: { type: String, default: "" },
+        },
+      ],
+      default: [],
+    },
     stock: {
       type: Number,
       required: true,
