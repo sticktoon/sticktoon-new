@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminBackButton from "./AdminBackButton";
 import { API_BASE_URL } from "../config/api";
+import { formatDate } from "../utils/formatDate";
 type GroupedUserOrders = {
   user: {
     email: string;
@@ -100,7 +101,7 @@ export default function AdminUserOrders() {
 
                           {/* DATE */}
                           <div>
-                            {new Date(o.createdAt).toLocaleDateString()}
+                            {formatDate(o.createdAt)}
                           </div>
                         </div>
                       ))}

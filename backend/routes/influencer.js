@@ -487,7 +487,7 @@ router.post("/withdraw", auth, approvedInfluencerOnly, async (req, res) => {
             <p><strong>Amount:</strong> ₹${amount}</p>
             <p><strong>Method:</strong> ${normalizedPaymentMethod}</p>
             <p><strong>Promo Code:</strong> ${normalizedPromoCode || "-"}</p>
-            <p><strong>Requested At:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Requested At:</strong> ${new Date().toLocaleString("en-GB", { timeZone: "Asia/Kolkata" })}</p>
             <h3 style="margin-top: 20px;">Payment Details</h3>
             <pre style="background: #f3f4f6; padding: 12px; border-radius: 8px; overflow-x: auto;">${JSON.stringify(paymentDetails || {}, null, 2)}</pre>
             <p style="margin-top: 20px;">Please review and process this request in the admin panel.</p>

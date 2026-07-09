@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
+import { formatDate } from "../utils/formatDate";
 import AdminBackButton from "./AdminBackButton";
 
 interface Influencer {
@@ -318,7 +319,7 @@ const AdminInfluencerManage: React.FC = () => {
                       <td className="px-6 py-4 text-green-400 font-bold text-xl">₹{w.amount}</td>
                       <td className="px-6 py-4 text-gray-300 uppercase">{w.paymentMethod.replace("_", " ")}</td>
                       <td className="px-6 py-4 text-gray-400">
-                        {new Date(w.createdAt).toLocaleDateString("en-IN")}
+                        {formatDate(w.createdAt)}
                       </td>
                       <td className="px-6 py-4">
                         <button
@@ -360,7 +361,7 @@ const AdminInfluencerManage: React.FC = () => {
                         <p className="text-white font-medium">{inf.name}</p>
                         <p className="text-gray-500 text-sm">{inf.email}</p>
                         <p className="text-gray-600 text-xs">
-                          Applied {new Date(inf.createdAt).toLocaleDateString("en-IN")}
+                          Applied {formatDate(inf.createdAt)}
                         </p>
                       </td>
                       <td className="px-6 py-4">

@@ -22,6 +22,7 @@ const generateInvoicePDF = require("../utils/generateInvoicePDF");
 const generateBadgeDoc = require("../utils/generateBadgeDoc");
 const buildAdminOrderAttachments = require("../utils/buildAdminOrderAttachments");
 const Product = require("../models/Product");
+const { logActivity } = require("../utils/activityLogger");
 
 /* =========================
    CREATE RAZORPAY ORDER
@@ -350,6 +351,20 @@ router.post("/verify-payment", async (req, res) => {
     order.status = "SUCCESS";
     order.gatewayPaymentId = razorpay_payment_id;
     await order.save();
+
+    logActivity({
+      req,
+      actor: { id: order.userId, email: order.userEmail, role: "user" },
+      action: "order.paid",
+      category: "order",
+      message: `Order paid — ₹${order.amount} by ${order.userEmail || "guest"}`,
+      target: { type: "Order", id: order._id, label: String(order._id) },
+      meta: {
+        amount: order.amount,
+        itemCount: order.items?.length || 0,
+        gatewayPaymentId: razorpay_payment_id,
+      },
+    });
 
     let shiprocketSynced = false;
     // Auto-approve Shiprocket logic
@@ -755,10 +770,27 @@ router.post("/payment-failed", async (req, res) => {
   try {
     const { orderId, error } = req.body;
 
-    await Order.findByIdAndUpdate(orderId, {
-      status: "FAILED",
-      failureReason: error?.description || "Payment failed",
-    });
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      {
+        status: "FAILED",
+        failureReason: error?.description || "Payment failed",
+      },
+      { new: true }
+    );
+
+    if (order) {
+      logActivity({
+        req,
+        actor: { id: order.userId, email: order.userEmail, role: "user" },
+        action: "order.payment_failed",
+        category: "order",
+        status: "failure",
+        message: `Payment failed — ₹${order.amount} for ${order.userEmail || "guest"}`,
+        target: { type: "Order", id: order._id, label: String(order._id) },
+        meta: { amount: order.amount, reason: error?.description || "Payment failed" },
+      });
+    }
 
     res.json({ success: true, message: "Order marked as failed" });
   } catch (err) {

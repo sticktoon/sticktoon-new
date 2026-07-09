@@ -2,10 +2,15 @@ const mongoose = require("mongoose");
 
 const ReviewSchema = new mongoose.Schema(
   {
+    // A String, not an ObjectId: reviewable products come from three places —
+    // Mongo `Product` documents (ObjectId hex), the hardcoded badges in
+    // constants.tsx, and the hardcoded stickers ("sticker-1"). Orders already
+    // store the same loose id in `items.badgeId`, so this matches how a
+    // purchase is recorded.
     productId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Product",
+      type: String,
       required: true,
+      trim: true,
       index: true,
     },
     userId: {

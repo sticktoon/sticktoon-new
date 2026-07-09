@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const User = require("../models/User");
 const sendEmail = require("../utils/sendEmail");
 const { resetPasswordEmail } = require("../utils/emailTemplates");
+const { logActivity } = require("../utils/activityLogger");
 
 const router = express.Router();
 
@@ -84,6 +85,15 @@ router.post("/signup", async (req, res) => {
       { expiresIn: "30d" }
     );
 
+    logActivity({
+      req,
+      actor: { id: user._id, name: user.name, email: user.email, role: user.role },
+      action: "auth.signup",
+      category: "auth",
+      message: `${user.email} created an account`,
+      meta: { provider: "credentials" },
+    });
+
     res.status(201).json({
       token,
       refreshToken,
@@ -114,20 +124,36 @@ router.post("/login", async (req, res) => {
 
     const cleanEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: cleanEmail }).select("+password");
-    
+
+    // Failed attempts are logged against the typed email, since there may be no
+    // account behind it. Never log the password that was tried.
+    const logFailure = (reason) =>
+      logActivity({
+        req,
+        actor: { email: cleanEmail, role: "guest" },
+        action: "auth.login",
+        category: "auth",
+        status: "failure",
+        message: `Failed login for ${cleanEmail}`,
+        meta: { reason },
+      });
+
     if (!user) {
+      await logFailure("no_such_user");
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
     // If no password set, allow them to set one or use Google
     if (!user.password) {
-      return res.status(400).json({ 
-        message: "No password set for this account. Please use Google login or reset your password." 
+      await logFailure("no_password_set");
+      return res.status(400).json({
+        message: "No password set for this account. Please use Google login or reset your password."
       });
     }
 
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
+      await logFailure("wrong_password");
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
@@ -142,6 +168,15 @@ router.post("/login", async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "30d" }
     );
+
+    logActivity({
+      req,
+      actor: { id: user._id, name: user.name, email: user.email, role: user.role },
+      action: "auth.login",
+      category: "auth",
+      message: `${user.email} logged in`,
+      meta: { provider: "credentials" },
+    });
 
     res.json({
       token,
@@ -172,6 +207,7 @@ router.post("/google", async (req, res) => {
     }
 
     let user = await User.findOne({ email });
+    const isNewAccount = !user;
 
     if (!user) {
       // Create new user with Google provider
@@ -205,6 +241,17 @@ router.post("/google", async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "30d" }
     );
+
+    logActivity({
+      req,
+      actor: { id: user._id, name: user.name, email: user.email, role: user.role },
+      action: isNewAccount ? "auth.signup" : "auth.login",
+      category: "auth",
+      message: isNewAccount
+        ? `${user.email} created an account via Google`
+        : `${user.email} logged in via Google`,
+      meta: { provider: "google" },
+    });
 
     res.json({
       token,
@@ -373,6 +420,14 @@ router.post("/reset-password/:token", async (req, res) => {
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
     await user.save();
+
+    logActivity({
+      req,
+      actor: { id: user._id, name: user.name, email: user.email, role: user.role },
+      action: "auth.password_reset",
+      category: "auth",
+      message: `${user.email} reset their password via email link`,
+    });
 
     res.json({ message: "Password reset successful" });
   } catch (err) {

@@ -167,6 +167,22 @@ export default function AdminDashboard() {
             </span>
           </Link>
 
+          {/* 📜 ACTIVITY LOGS */}
+          <Link
+            to="/admin/logs"
+            className="bg-gradient-to-br from-slate-700 to-slate-900 p-4 md:p-6 rounded-xl shadow border hover:shadow-md transition cursor-pointer text-white"
+          >
+            <h3 className="text-xs md:text-sm font-black text-slate-300 uppercase">
+              Activity Logs
+            </h3>
+            <p className="text-2xl md:text-3xl font-black mt-2">
+              📜
+            </p>
+            <span className="text-white font-bold text-xs md:text-sm mt-2 inline-block">
+              View Logs →
+            </span>
+          </Link>
+
         </div>
       </div>
     </div>

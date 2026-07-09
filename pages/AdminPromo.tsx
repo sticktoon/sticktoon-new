@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Tag, Percent, IndianRupee, Calendar, Users, X, History, Eye, Building2, UserCheck, Wallet } from "lucide-react";
 import AdminBackButton from "./AdminBackButton";
 import { API_BASE_URL } from "../config/api";
+import { formatDate, formatDateTime } from "../utils/formatDate";
 
 type UsageHistoryItem = {
   userId: { _id: string; name?: string; email: string } | null;
@@ -380,7 +381,7 @@ export default function AdminPromo() {
                       <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4 text-slate-400" />
                         <span className={isExpired(promo.validUntil) ? "text-red-600" : ""}>
-                          {new Date(promo.validUntil).toLocaleDateString()}
+                          {formatDate(promo.validUntil)}
                         </span>
                       </div>
                     </td>
@@ -812,7 +813,7 @@ export default function AdminPromo() {
                           <p className="text-xs text-slate-500">{item.userId.email}</p>
                         )}
                         <p className="text-xs text-slate-400 mt-1">
-                          {new Date(item.usedAt).toLocaleString()}
+                          {formatDateTime(item.usedAt)}
                         </p>
                       </div>
                       <div className="flex items-center gap-4">

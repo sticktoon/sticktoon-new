@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { User, Camera, X, Save, LogOut, Mail, Calendar, ShoppingBag, CheckCircle, XCircle, AlertCircle, Package, RefreshCw, Clock, ChevronRight, Shield } from "lucide-react";
 import { API_BASE_URL } from "../config/api";
+import { formatDateLong } from "../utils/formatDate";
 
 interface UserProfile {
   _id: string;
@@ -204,9 +205,7 @@ const Profile: React.FC<ProfileProps> = ({ addToCart }) => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
-  };
+  const formatDate = (dateString: string) => formatDateLong(dateString);
 
   const getStatusIcon = (status: string) => {
     switch (status) {

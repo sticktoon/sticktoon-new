@@ -6,6 +6,7 @@ import { Badge } from '../types';
 import { getBadgeDescription } from '../geminiService';
 import { ShoppingCart, Zap, Shield, RotateCcw, ArrowLeft, Star, Truck, Share2, Check, Sparkles, Package, ChevronRight } from 'lucide-react';
 import { API_BASE_URL } from '../config/api';
+import { formatDate } from '../utils/formatDate';
 
 interface BadgeDetailUser {
   id: string;
@@ -1182,7 +1183,7 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
                       </div>
                     </div>
                     <span className="text-[10px] text-slate-400 font-medium">
-                      {new Date(r.createdAt).toLocaleDateString()}
+                      {formatDate(r.createdAt)}
                     </span>
                   </div>
                   {r.comment && <p className="text-xs text-slate-600 mt-1">{r.comment}</p>}
