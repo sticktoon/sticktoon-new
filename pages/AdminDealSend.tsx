@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { Camera } from "lucide-react";
+import { Camera, Search, Loader2, Check, X } from "lucide-react";
+import { API_BASE_URL } from "../config/api";
 
 type LeadLike = {
   _id?: string;
@@ -22,6 +23,17 @@ type QuoteItem = {
   image?: string;
   defaultImage?: string;
   finishLabel?: string;
+};
+
+type ImportProduct = {
+  _id: string;
+  name: string;
+  description?: string;
+  price: number;
+  category: string;
+  subcategory?: string;
+  image: string;
+  sku?: string;
 };
 
 const DEFAULT_CUSTOM_CARD_TITLE = "Custom\nAdvantage";
@@ -116,6 +128,91 @@ export default function AdminDealSend() {
     makeInitialItems(Number(lead?.expectedAmount || 50)),
   );
   const [gstRate, setGstRate] = useState(18);
+
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [availableProducts, setAvailableProducts] = useState<ImportProduct[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [importSearch, setImportSearch] = useState("");
+  const [importCategory, setImportCategory] = useState("All");
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+
+  const categoriesList = useMemo(() => [
+    "All",
+    "Positive Vibes",
+    "Moody",
+    "Sports",
+    "Religious",
+    "Entertainment",
+    "Events",
+    "Animal",
+    "Couple",
+    "Anime",
+    "Custom"
+  ], []);
+
+  useEffect(() => {
+    if (!isImportModalOpen) return;
+    
+    const fetchProducts = async () => {
+      setLoadingProducts(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/products?all=true`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.products)) {
+            setAvailableProducts(data.products);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching products:", err);
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+    
+    fetchProducts();
+  }, [isImportModalOpen]);
+
+  const filteredProducts = useMemo(() => {
+    return availableProducts.filter((prod) => {
+      const matchSearch =
+        prod.name.toLowerCase().includes(importSearch.toLowerCase()) ||
+        (prod.sku && prod.sku.toLowerCase().includes(importSearch.toLowerCase()));
+      const matchCategory =
+        importCategory === "All" || prod.category === importCategory;
+      return matchSearch && matchCategory;
+    });
+  }, [availableProducts, importSearch, importCategory]);
+
+  const toggleProductSelection = (productId: string) => {
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
+
+  const handleImportSelected = () => {
+    const selected = availableProducts.filter((prod) => selectedProductIds.has(prod._id));
+    if (selected.length === 0) return;
+
+    const newItems = selected.map((prod) => ({
+      id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      description: prod.name,
+      unitPrice: prod.price || Number(lead?.expectedAmount || 50),
+      quantity: 1,
+      image: prod.image,
+      finishLabel: "Premium 58mm Glossy",
+    }));
+
+    setItems((prev) => [...prev, ...newItems]);
+    setSelectedProductIds(new Set());
+    setIsImportModalOpen(false);
+  };
   const [overviewPoints, setOverviewPoints] = useState(
     [
       "Specializes in the creation of 58 mm round plastic pin badges.",
@@ -873,13 +970,22 @@ export default function AdminDealSend() {
                   <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">Catalogue Items</p>
                   <p className="mt-1 text-xs text-slate-500">Manage card names and upload artwork for the final sheet.</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={addItem}
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700"
-                >
-                  Add Item
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsImportModalOpen(true)}
+                    className="rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition"
+                  >
+                    Import Products
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addItem}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                  >
+                    Add Item
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-3">
@@ -1138,6 +1244,160 @@ export default function AdminDealSend() {
           ))}
         </div>
       </div>
+
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="flex h-full max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <div>
+                <h3 className="text-lg font-black text-slate-900">Import Products</h3>
+                <p className="text-xs text-slate-500">Select products to import into your catalogue items</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Filters */}
+            <div className="flex flex-col gap-3 border-b bg-slate-50 p-4 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search products by name or SKU..."
+                  value={importSearch}
+                  onChange={(e) => setImportSearch(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm outline-none focus:border-slate-400 transition"
+                />
+              </div>
+              <div className="w-full sm:w-48">
+                <select
+                  value={importCategory}
+                  onChange={(e) => setImportCategory(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 transition"
+                >
+                  {categoriesList.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingProducts ? (
+                <div className="flex h-40 flex-col items-center justify-center gap-2">
+                  <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
+                  <p className="text-sm text-slate-500">Loading products...</p>
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="flex h-40 flex-col items-center justify-center">
+                  <p className="text-sm font-semibold text-slate-500">No products found matching filters.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                  {filteredProducts.map((prod) => {
+                    const isSelected = selectedProductIds.has(prod._id);
+                    return (
+                      <div
+                        key={prod._id}
+                        onClick={() => toggleProductSelection(prod._id)}
+                        className={`relative flex cursor-pointer flex-col overflow-hidden rounded-xl border p-2 transition hover:shadow-md ${
+                          isSelected
+                            ? "border-indigo-600 bg-indigo-50/20 ring-1 ring-indigo-600"
+                            : "border-slate-200 bg-white hover:border-slate-300"
+                        }`}
+                      >
+                        <div className="relative flex aspect-square items-center justify-center rounded-lg bg-slate-50 p-2 overflow-hidden border border-slate-100">
+                          {prod.image ? (
+                            <img
+                              src={prod.image}
+                              alt={prod.name}
+                              className="h-full w-full object-contain object-center"
+                            />
+                          ) : (
+                            <div className="text-[10px] text-slate-400 uppercase font-black">No image</div>
+                          )}
+                          
+                          {/* Selection Checkmark Bubble */}
+                          <div className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border transition ${
+                            isSelected
+                              ? "border-indigo-600 bg-indigo-600 text-white"
+                              : "border-slate-300 bg-white/80"
+                          }`}>
+                            {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
+                          </div>
+                        </div>
+
+                        <div className="mt-2 flex flex-1 flex-col justify-between">
+                          <div>
+                            <h4 className="line-clamp-2 text-xs font-bold text-slate-900 leading-tight">
+                              {prod.name}
+                            </h4>
+                            <p className="mt-1 text-[10px] font-medium text-slate-400">
+                              {prod.category} {prod.subcategory ? `• ${prod.subcategory}` : ""}
+                            </p>
+                          </div>
+                          <p className="mt-2 text-xs font-black text-slate-900">
+                            ₹{prod.price}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between border-t bg-slate-50 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedProductIds.size === filteredProducts.length) {
+                      setSelectedProductIds(new Set());
+                    } else {
+                      setSelectedProductIds(new Set(filteredProducts.map((p) => p._id)));
+                    }
+                  }}
+                  className="text-xs font-bold text-slate-600 hover:text-slate-900"
+                >
+                  {selectedProductIds.size === filteredProducts.length ? "Deselect All" : "Select All"}
+                </button>
+                <span className="text-xs text-slate-400">|</span>
+                <span className="text-xs font-bold text-slate-500">
+                  {selectedProductIds.size} selected
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsImportModalOpen(false)}
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleImportSelected}
+                  disabled={selectedProductIds.size === 0}
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 transition"
+                >
+                  Import Selected
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
