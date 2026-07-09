@@ -616,6 +616,8 @@ const normalizeAdminProduct = (product: Product): Product => {
   };
 };
 
+const PLACEHOLDER_IMAGE = "/badge/placeholder.png";
+
 const ensureMinimumProductsPerCategory = (
   items: Product[],
   minCount = 4,
@@ -653,7 +655,7 @@ const ensureMinimumProductsPerCategory = (
           description: "",
           price: 0,
           category: category as AdminProductCategory,
-          image: "/badge/placeholder.png",
+          image: PLACEHOLDER_IMAGE,
           stock: 0,
           createdAt: "1970-01-01T00:00:00.000Z",
           isPlaceholder: true,
@@ -7258,9 +7260,13 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                               {/* Image */}
                               <div className="relative h-56 bg-gray-100 overflow-hidden">
                                 <img
-                                  src={product.image}
+                                  src={product.image || PLACEHOLDER_IMAGE}
                                   alt={product.name}
                                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                  onError={(e) => {
+                                    if (e.currentTarget.src.endsWith(PLACEHOLDER_IMAGE)) return;
+                                    e.currentTarget.src = PLACEHOLDER_IMAGE;
+                                  }}
                                 />
                                 {/* Stock badge overlay */}
                                 <div className="absolute top-3 right-3">

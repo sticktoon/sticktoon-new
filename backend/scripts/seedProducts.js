@@ -1,6 +1,7 @@
+const path = require("path");
 const mongoose = require("mongoose");
 const Product = require("../models/Product");
-require("dotenv").config();
+require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
 // Existing badges from constants.tsx
 const EXISTING_BADGES = [
@@ -11,10 +12,10 @@ const EXISTING_BADGES = [
   { id: 'moody-3', name: 'Just Vibin', price: 50, category: 'Moody', image: '/badge/moody4.png', stock: 100 },
   
   // SPORTS
-  { id: 'sports-1', name: 'GOAL VIBE', price: 50, category: 'Sports', image: '/badge/sport1.png', stock: 100 },
-  { id: 'sports-2', name: 'WIN VIBE', price: 50, category: 'Sports', image: '/badge/sport2.png', stock: 100 },
-  { id: 'sports-3', name: 'GAME VIBE', price: 50, category: 'Sports', image: '/badge/sport3.png', stock: 100 },
-  { id: 'sports-4', name: 'BEAST MODE', price: 50, category: 'Sports', image: '/badge/sport4.png', stock: 100 },
+  { id: 'sports-1', name: 'GOAL VIBE', price: 50, category: 'Sports', image: '/badge/sports1.png', stock: 100 },
+  { id: 'sports-2', name: 'WIN VIBE', price: 50, category: 'Sports', image: '/badge/sports2.png', stock: 100 },
+  { id: 'sports-3', name: 'GAME VIBE', price: 50, category: 'Sports', image: '/badge/sports3.png', stock: 100 },
+  { id: 'sports-4', name: 'BEAST MODE', price: 50, category: 'Sports', image: '/badge/sports4.png', stock: 100 },
   
   // RELIGIOUS
   { id: 'reli-1', name: 'OM VIBE', price: 50, category: 'Religious', image: '/badge/R1.png', stock: 100 },
