@@ -455,9 +455,17 @@ interface Product {
   width?: number;
   height?: number;
   sku?: string;
+  isCombo?: boolean;
+  comboItems?: ComboItemForm[];
   createdAt: string;
   isPlaceholder?: boolean;
 }
+
+type ComboItemForm = {
+  id: string;
+  name: string;
+  image?: string;
+};
 
 const ADMIN_PRODUCT_CATEGORIES = [
   "Positive Vibes",
@@ -560,6 +568,8 @@ type ProductFormState = {
   width: number;
   height: number;
   sku: string;
+  isCombo: boolean;
+  comboItems: ComboItemForm[];
 };
 
 const createDefaultProductForm = (
@@ -579,6 +589,8 @@ const createDefaultProductForm = (
   width: 10,
   height: 5,
   sku: "",
+  isCombo: false,
+  comboItems: [],
 });
 
 const normalizeAdminProduct = (product: Product): Product => {
@@ -594,6 +606,13 @@ const normalizeAdminProduct = (product: Product): Product => {
         : "Moody",
     subcategory: sanitizeProductSubcategory(product.subcategory),
     image: sanitizeProductImagePath(product.image),
+    isCombo: Boolean(product.isCombo),
+    comboItems: Array.isArray(product.comboItems)
+      ? product.comboItems.map((item) => ({
+          ...item,
+          image: sanitizeProductImagePath(item.image),
+        }))
+      : [],
   };
 };
 
@@ -647,6 +666,146 @@ const ensureMinimumProductsPerCategory = (
   });
 
   return result;
+};
+
+// Combo pack editor: flags a product as a bundle and picks the member badges.
+// Rendered inside both the (light) add form and the (dark) edit modal.
+const ComboPackPicker = ({
+  form,
+  setForm,
+  options,
+  theme,
+}: {
+  form: ProductFormState;
+  setForm: React.Dispatch<React.SetStateAction<ProductFormState>>;
+  options: Product[];
+  theme: "light" | "dark";
+}) => {
+  const [search, setSearch] = useState("");
+  const dark = theme === "dark";
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return options;
+    return options.filter((item) => item.name.toLowerCase().includes(query));
+  }, [options, search]);
+
+  const selectedIds = new Set(form.comboItems.map((item) => item.id));
+
+  const toggleItem = (product: Product) => {
+    setForm((prev) =>
+      prev.comboItems.some((item) => item.id === product._id)
+        ? {
+            ...prev,
+            comboItems: prev.comboItems.filter((item) => item.id !== product._id),
+          }
+        : {
+            ...prev,
+            comboItems: [
+              ...prev.comboItems,
+              { id: product._id, name: product.name, image: product.image },
+            ],
+          },
+    );
+  };
+
+  return (
+    <div
+      className={`md:col-span-2 border-t pt-4 mt-2 ${dark ? "border-white/10" : "border-gray-200"}`}
+    >
+      <label className="inline-flex items-center gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={form.isCombo}
+          onChange={(e) => setForm((prev) => ({ ...prev, isCombo: e.target.checked }))}
+          className="w-4 h-4 accent-indigo-600"
+        />
+        <span className={`text-sm font-bold ${dark ? "text-white" : "text-gray-900"}`}>
+          🎁 This is a Combo Pack
+        </span>
+        <span className={`text-xs font-normal ${dark ? "text-gray-400" : "text-gray-500"}`}>
+          (bundles several badges under one price)
+        </span>
+      </label>
+
+      {form.isCombo && (
+        <div className="mt-3 space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="text"
+              placeholder="Search badges to include…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={
+                dark
+                  ? "flex-1 min-w-[200px] px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 text-sm focus:border-indigo-500 focus:outline-none"
+                  : "flex-1 min-w-[200px] px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 text-sm focus:border-indigo-500 focus:outline-none"
+              }
+            />
+            <span
+              className={`text-xs font-semibold ${dark ? "text-indigo-200" : "text-indigo-600"}`}
+            >
+              {form.comboItems.length} selected
+            </span>
+          </div>
+
+          {options.length === 0 ? (
+            <p className={`text-sm ${dark ? "text-gray-400" : "text-gray-500"}`}>
+              No other products available to bundle yet. Add some badges first.
+            </p>
+          ) : (
+            <div
+              className={`max-h-60 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 rounded-lg border p-2 ${
+                dark ? "border-white/20 bg-white/5" : "border-gray-200 bg-gray-50"
+              }`}
+            >
+              {filtered.map((product) => {
+                const checked = selectedIds.has(product._id);
+                return (
+                  <label
+                    key={product._id}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer border transition-all ${
+                      checked
+                        ? dark
+                          ? "border-indigo-400/60 bg-indigo-500/20"
+                          : "border-indigo-300 bg-indigo-50"
+                        : dark
+                          ? "border-transparent hover:bg-white/10"
+                          : "border-transparent hover:bg-white"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleItem(product)}
+                      className="w-4 h-4 accent-indigo-600 shrink-0"
+                    />
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-8 h-8 rounded object-cover shrink-0"
+                    />
+                    <span
+                      className={`text-xs font-semibold truncate ${dark ? "text-gray-100" : "text-gray-800"}`}
+                    >
+                      {product.name}
+                    </span>
+                  </label>
+                );
+              })}
+              {filtered.length === 0 && (
+                <p
+                  className={`col-span-full py-3 text-center text-xs ${dark ? "text-gray-400" : "text-gray-500"}`}
+                >
+                  No badges match “{search}”.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const hasValidImage = (image?: string) => {
@@ -2418,6 +2577,19 @@ const Admin: React.FC = () => {
   // Product form
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+
+  // Badges that may be bundled into a combo: real DB products only, minus other
+  // combos and the product currently being edited (a combo can't contain itself).
+  const comboPickerOptions = useMemo(
+    () =>
+      products.filter(
+        (product) =>
+          !product.isPlaceholder &&
+          !product.isCombo &&
+          product._id !== editingProduct?._id,
+      ),
+    [products, editingProduct],
+  );
   const [isLoadingPromos, setIsLoadingPromos] = useState(false);
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
@@ -2730,9 +2902,7 @@ const Admin: React.FC = () => {
         fetch(`${API_BASE_URL}/api/admin/orders?days=30`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${API_BASE_URL}/api/admin/products`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        fetch(`${API_BASE_URL}/api/products?all=true`, { cache: "no-store" }),
       ]);
 
       if (!handleUnauthorized(usersRes) && usersRes.ok) {
@@ -2748,11 +2918,13 @@ const Admin: React.FC = () => {
         setLoadedData((prev) => ({ ...prev, orders: true }));
       }
 
-      if (!handleUnauthorized(productsRes) && productsRes.ok) {
+      if (productsRes.ok) {
         const data = await productsRes.json();
-        if (Array.isArray(data)) {
-          setProducts(data.map((item: Product) => normalizeAdminProduct(item)));
-        }
+        setProducts(
+          (Array.isArray(data.products) ? data.products : []).map(
+            (item: Product) => normalizeAdminProduct(item),
+          ),
+        );
         setLoadedData((prev) => ({ ...prev, products: true }));
       }
     } catch (err) {
@@ -3001,7 +3173,11 @@ const Admin: React.FC = () => {
 
     setLoadingData((prev) => ({ ...prev, products: true }));
     try {
-      const productsRes = await fetch(`${API_BASE_URL}/api/products`);
+      // `all=true` bypasses the 100-item page limit, otherwise the admin list
+      // silently drops every product past the first page.
+      const productsRes = await fetch(`${API_BASE_URL}/api/products?all=true`, {
+        cache: "no-store",
+      });
       if (productsRes.ok) {
         const data = await productsRes.json();
         setProducts(
@@ -4074,6 +4250,13 @@ const Admin: React.FC = () => {
     }));
   };
 
+  // Clears a wrongly uploaded ADV / print image so a new one can be picked.
+  // The ADV image is required, so clearing it blocks submit until replaced;
+  // an empty printImage is persisted as "" by the PATCH endpoint.
+  const handleRemoveProductImage = (field: "image" | "printImage") => {
+    setProductForm((prev) => ({ ...prev, [field]: "" }));
+  };
+
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = localStorage.getItem("adminToken");
@@ -4086,6 +4269,8 @@ const Admin: React.FC = () => {
       image: sanitizeProductImagePath(productForm.image),
       printImage: sanitizeProductImagePath(productForm.printImage),
       images: productForm.images.map((img) => sanitizeProductImagePath(img)).filter(Boolean),
+      isCombo: productForm.isCombo,
+      comboItems: productForm.isCombo ? productForm.comboItems : [],
     };
 
     try {
@@ -4127,6 +4312,8 @@ const Admin: React.FC = () => {
       image: sanitizeProductImagePath(productForm.image),
       printImage: sanitizeProductImagePath(productForm.printImage),
       images: productForm.images.map((img) => sanitizeProductImagePath(img)).filter(Boolean),
+      isCombo: productForm.isCombo,
+      comboItems: productForm.isCombo ? productForm.comboItems : [],
     };
 
     try {
@@ -6856,11 +7043,21 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                           />
                         </label>
                         {productForm.image && (
-                          <img
-                            src={productForm.image}
-                            alt="ADV preview"
-                            className="mt-2 w-20 h-20 object-cover rounded-lg border border-gray-200"
-                          />
+                          <div className="relative mt-2 w-20 h-20">
+                            <img
+                              src={productForm.image}
+                              alt="ADV preview"
+                              className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveProductImage("image")}
+                              title="Remove ADV image"
+                              className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center hover:bg-red-600"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         )}
                       </div>
 
@@ -6897,11 +7094,21 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                           />
                         </label>
                         {productForm.printImage && (
-                          <img
-                            src={productForm.printImage}
-                            alt="Print preview"
-                            className="mt-2 w-20 h-20 object-cover rounded-lg border border-amber-200"
-                          />
+                          <div className="relative mt-2 w-20 h-20">
+                            <img
+                              src={productForm.printImage}
+                              alt="Print preview"
+                              className="w-20 h-20 object-cover rounded-lg border border-amber-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveProductImage("printImage")}
+                              title="Remove print image"
+                              className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center hover:bg-red-600"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -6946,6 +7153,13 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         </label>
                       </div>
                     </div>
+
+                    <ComboPackPicker
+                      form={productForm}
+                      setForm={setProductForm}
+                      options={comboPickerOptions}
+                      theme="light"
+                    />
 
                     <div className="md:col-span-2">
                       <label className="block text-gray-700 font-bold text-sm mb-2">
@@ -7062,6 +7276,13 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                       : `${product.stock} in stock`}
                                   </span>
                                 </div>
+                                {product.isCombo && (
+                                  <div className="absolute top-3 left-3">
+                                    <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                      🎁 Combo ({product.comboItems?.length ?? 0})
+                                    </span>
+                                  </div>
+                                )}
                               </div>
 
                               {/* Content */}
@@ -7114,6 +7335,8 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                           width: product.width ?? 10,
                                           height: product.height ?? 5,
                                           sku: product.sku ?? "",
+                                          isCombo: Boolean(product.isCombo),
+                                          comboItems: product.comboItems ?? [],
                                         });
                                         setIsCustomSubcategory(false);
                                         setShowProductForm(false);
@@ -9893,11 +10116,21 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         />
                       </label>
                       {productForm.image && (
-                        <img
-                          src={productForm.image}
-                          alt="ADV preview"
-                          className="mt-2 w-20 h-20 object-cover rounded-lg border border-white/20"
-                        />
+                        <div className="relative mt-2 w-20 h-20">
+                          <img
+                            src={productForm.image}
+                            alt="ADV preview"
+                            className="w-20 h-20 object-cover rounded-lg border border-white/20"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveProductImage("image")}
+                            title="Remove ADV image"
+                            className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center hover:bg-red-600"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       )}
                     </div>
 
@@ -9934,11 +10167,21 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         />
                       </label>
                       {productForm.printImage && (
-                        <img
-                          src={productForm.printImage}
-                          alt="Print preview"
-                          className="mt-2 w-20 h-20 object-cover rounded-lg border border-amber-400/30"
-                        />
+                        <div className="relative mt-2 w-20 h-20">
+                          <img
+                            src={productForm.printImage}
+                            alt="Print preview"
+                            className="w-20 h-20 object-cover rounded-lg border border-amber-400/30"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveProductImage("printImage")}
+                            title="Remove print image"
+                            className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center hover:bg-red-600"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -9983,6 +10226,13 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       </label>
                     </div>
                   </div>
+
+                  <ComboPackPicker
+                    form={productForm}
+                    setForm={setProductForm}
+                    options={comboPickerOptions}
+                    theme="dark"
+                  />
 
                   <div className="md:col-span-2">
                     <label className="block text-white font-semibold mb-2">

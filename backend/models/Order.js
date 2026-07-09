@@ -31,6 +31,20 @@ const orderItemSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+
+    // Breakdown of a combo pack, so the admin order email shows which badges
+    // belong in the box. Absent for ordinary single-badge items.
+    comboItems: {
+      type: [
+        {
+          _id: false,
+          id: { type: String, required: true },
+          name: { type: String, required: true },
+          image: { type: String, default: null },
+        },
+      ],
+      default: undefined,
+    },
   },
   { _id: false }
 );

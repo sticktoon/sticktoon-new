@@ -39,26 +39,45 @@ const makeDocNumber = (docType: DocType = "quotation") => {
   ).padStart(2, "0")}`;
 };
 
-const formatDateDdMmYyyy = (date: Date) => {
-  const day = String(date.getDate()).padStart(2, "0");
+const MONTHS_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+const toIsoDate = (date: Date) => {
+  const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = String(date.getFullYear());
-  return `${day}-${month}-${year}`;
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
-const normalizeDateInputDdMmYyyy = (value: string) => {
-  const trimmed = value.trim();
-  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (isoMatch) {
-    const [, year, month, day] = isoMatch;
-    return `${day}-${month}-${year}`;
-  }
-
-  const digits = trimmed.replace(/\D/g, "").slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
+// Formats an ISO (YYYY-MM-DD) date as "08 Jul 2026".
+const formatDisplayDate = (iso: string) => {
+  const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return iso;
+  const [, year, month, day] = match;
+  const monthLabel = MONTHS_SHORT[Number(month) - 1] ?? month;
+  return `${day} ${monthLabel} ${year}`;
 };
+
+type Currency = {
+  code: string;
+  symbol: string;
+  label: string;
+  locale: string;
+};
+
+const CURRENCIES: Currency[] = [
+  { code: "INR", symbol: "Rs.", label: "Indian Rupee (INR)", locale: "en-IN" },
+  { code: "USD", symbol: "$", label: "US Dollar (USD)", locale: "en-US" },
+  { code: "EUR", symbol: "€", label: "Euro (EUR)", locale: "en-IE" },
+  { code: "GBP", symbol: "£", label: "British Pound (GBP)", locale: "en-GB" },
+  { code: "AED", symbol: "AED", label: "UAE Dirham (AED)", locale: "en-US" },
+  { code: "AUD", symbol: "A$", label: "Australian Dollar (AUD)", locale: "en-AU" },
+  { code: "CAD", symbol: "C$", label: "Canadian Dollar (CAD)", locale: "en-CA" },
+  { code: "SGD", symbol: "S$", label: "Singapore Dollar (SGD)", locale: "en-SG" },
+  { code: "JPY", symbol: "¥", label: "Japanese Yen (JPY)", locale: "ja-JP" },
+];
 
 const waitForImages = async (root: ParentNode) => {
   const images = Array.from(root.querySelectorAll<HTMLImageElement>("img"));
@@ -152,13 +171,21 @@ export default function AdminDealConvert() {
   const [phone, setPhone] = useState(lead?.phone || "");
   const [address, setAddress] = useState("");
   const [quotationNo, setQuotationNo] = useState(() => makeDocNumber(initialDocType));
-  const [quotationDate, setQuotationDate] = useState(
-    formatDateDdMmYyyy(new Date()),
-  );
+  const [quotationDate, setQuotationDate] = useState(toIsoDate(new Date()));
   const [validityDays, setValidityDays] = useState(30);
+  const [currencyCode, setCurrencyCode] = useState("INR");
   const [subject, setSubject] = useState(
     `${initialDocType === "invoice" ? "Invoice" : "Quotation"} for manufacturing & printing`,
   );
+  const [intro, setIntro] = useState(
+    initialDocType === "invoice"
+      ? "Dear Sir/Ma'am, thank you for your business with Stick Toon. Please find below the invoice details for your order."
+      : "Dear Sir/Ma'am, thank you for your interest in Stick Toon. Please find below the quotation details prepared for your requirement.",
+  );
+  const [companyGstin, setCompanyGstin] = useState("GSTIN: 27HENPP0138G1Z9");
+  const [companyUdyam, setCompanyUdyam] = useState("Udyam Reg: UDYAM-MH-03-0082090");
+  const [companyEmail, setCompanyEmail] = useState("Email: sticktoon.xyz@gmail.com");
+  const [companyContact, setCompanyContact] = useState("Contact: +91 895 666 7277");
   const [items, setItems] = useState<QuoteItem[]>([
     {
       id: "item-1",
@@ -185,6 +212,7 @@ export default function AdminDealConvert() {
   const [bankName, setBankName] = useState("State Bank of India");
   const [accountNumber, setAccountNumber] = useState("41532186427");
   const [ifsc, setIfsc] = useState("SBIN0000502");
+  const [swift, setSwift] = useState("SBININBBXXX");
   const [branch, setBranch] = useState("Warud, Amravati, MH");
   const [operationalAddress, setOperationalAddress] = useState(
     "Stick-Toon : Tejas Bhandarkar at TBI, CIIT,\nRamdeobaba College, Nagpur - 440013",
@@ -195,9 +223,14 @@ export default function AdminDealConvert() {
   const [authorizedSignatory, setAuthorizedSignatory] = useState(
     "Tejas Bhandarkar / Anish Patankar",
   );
+  const [signatureBrand, setSignatureBrand] = useState("For StickToon");
   const [isExporting, setIsExporting] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const isStaticPreview = isExporting || isPrinting;
+
+  const currency = CURRENCIES.find((c) => c.code === currencyCode) ?? CURRENCIES[0];
+  const formatMoney = (value: number) => Math.round(value).toLocaleString(currency.locale);
+  const money = (value: number) => `${currency.symbol} ${formatMoney(value)}`;
 
   const termLines = useMemo(
     () =>
@@ -260,6 +293,9 @@ export default function AdminDealConvert() {
     );
     setSubject((prev) =>
       prev.replace(/\b(quotation|invoice)\b/gi, nextType === "invoice" ? "Invoice" : "Quotation"),
+    );
+    setIntro((prev) =>
+      prev.replace(/\b(quotation|invoice)\b/gi, nextType === "invoice" ? "invoice" : "quotation"),
     );
   };
 
@@ -349,7 +385,8 @@ export default function AdminDealConvert() {
   const handleDownload = async () => {
     const pdf = await buildPdf();
     if (!pdf) return;
-    pdf.save(`${isInvoice ? "invoice" : "quotation"}-${quotationNo}.pdf`);
+    const safeNo = quotationNo.replace(/[\\/:*?"<>|]+/g, "-");
+    pdf.save(`${isInvoice ? "invoice" : "quotation"}-${safeNo}.pdf`);
   };
 
   useEffect(() => {
@@ -645,14 +682,12 @@ export default function AdminDealConvert() {
               <label className="block">
                 <span className="mb-1 block text-xs font-black uppercase text-slate-500">Date</span>
                 <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={10}
-                  placeholder="DD-MM-YYYY"
+                  type="date"
                   value={quotationDate}
-                  onChange={(e) => setQuotationDate(normalizeDateInputDdMmYyyy(e.target.value))}
+                  onChange={(e) => setQuotationDate(e.target.value)}
                   className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`}
                 />
+                <span className="mt-1 block text-[11px] text-slate-400">Shows as {formatDisplayDate(quotationDate)}</span>
               </label>
             </div>
 
@@ -668,9 +703,39 @@ export default function AdminDealConvert() {
             </div>
 
             <label className="block">
+              <span className="mb-1 block text-xs font-black uppercase text-slate-500">Currency</span>
+              <select
+                value={currencyCode}
+                onChange={(e) => setCurrencyCode(e.target.value)}
+                className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`}
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.symbol}  {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
               <span className="mb-1 block text-xs font-black uppercase text-slate-500">Subject</span>
               <input value={subject} onChange={(e) => setSubject(e.target.value)} className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
             </label>
+
+            <label className="block">
+              <span className="mb-1 block text-xs font-black uppercase text-slate-500">Intro / Greeting</span>
+              <textarea value={intro} onChange={(e) => setIntro(e.target.value)} rows={3} className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
+            </label>
+
+            <div className="rounded-xl border p-4">
+              <h2 className="mb-3 text-sm font-black uppercase text-slate-700">Company Header (Top Right)</h2>
+              <div className="space-y-2">
+                <input value={companyGstin} onChange={(e) => setCompanyGstin(e.target.value)} placeholder="GSTIN" className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
+                <input value={companyUdyam} onChange={(e) => setCompanyUdyam(e.target.value)} placeholder="Udyam Reg" className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
+                <input value={companyEmail} onChange={(e) => setCompanyEmail(e.target.value)} placeholder="Email" className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
+                <input value={companyContact} onChange={(e) => setCompanyContact(e.target.value)} placeholder="Contact" className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
+              </div>
+            </div>
 
             <div className="rounded-xl border p-4">
               <h2 className="mb-3 text-sm font-black uppercase text-slate-700">Terms & Conditions</h2>
@@ -689,6 +754,7 @@ export default function AdminDealConvert() {
                 <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank Name" className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
                 <input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="Account Number" className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
                 <input value={ifsc} onChange={(e) => setIfsc(e.target.value)} placeholder="IFSC" className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
+                <input value={swift} onChange={(e) => setSwift(e.target.value)} placeholder="SWIFT Code" className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
                 <input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="Branch" className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
               </div>
             </div>
@@ -708,6 +774,12 @@ export default function AdminDealConvert() {
                   onChange={(e) => setHeadquartersAddress(e.target.value)}
                   rows={3}
                   placeholder="Head Quarters"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`}
+                />
+                <input
+                  value={signatureBrand}
+                  onChange={(e) => setSignatureBrand(e.target.value)}
+                  placeholder="Signature Heading (e.g. For StickToon)"
                   className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`}
                 />
                 <input
@@ -744,38 +816,34 @@ export default function AdminDealConvert() {
                   <>
                     <div className="flex items-start justify-between gap-6 border-b pb-4">
                       <img src="/images/STICKTOON_LONG.jpeg" alt="StickToon" className="h-16 w-auto object-contain" />
-                      <div className="text-right text-sm font-semibold leading-6">
-                        <p>GSTIN: 27HENPP0138G1Z9</p>
-                        <p>Udyam Reg: UDYAM-MH-03-0082090</p>
-                        <p>Email: sticktoon.xyz@gmail.com</p>
-                        <p>Contact: +91 895 666 7277</p>
+                      <div className="text-right text-xs font-semibold leading-6">
+                        {companyGstin.trim() ? <p>{companyGstin}</p> : null}
+                        {companyUdyam.trim() ? <p>{companyUdyam}</p> : null}
+                        {companyEmail.trim() ? <p>{companyEmail}</p> : null}
+                        {companyContact.trim() ? <p>{companyContact}</p> : null}
                       </div>
                     </div>
 
                     <div className="mt-8 grid grid-cols-2 gap-6 border-b pb-6">
-                      <div>
-                        <p className="text-sm font-black uppercase">{partyLabel}:</p>
+                      <div className="border-r border-slate-300 pr-6">
+                        <p className="text-xs font-black uppercase">{partyLabel}:</p>
                         <p className="mt-3 text-2xl font-black">{quotationFor || "-"}</p>
-                        {company.trim() ? <p className="mt-1 text-base">{company}</p> : null}
-                        {email.trim() ? <p className="text-base">{email}</p> : null}
-                        {phone.trim() ? <p className="text-base">{phone}</p> : null}
-                        {address.trim() ? <p className="whitespace-pre-line text-base">{address}</p> : null}
+                        {company.trim() ? <p className="mt-1 text-sm">{company}</p> : null}
+                        {email.trim() ? <p className="text-sm">{email}</p> : null}
+                        {phone.trim() ? <p className="text-sm">{phone}</p> : null}
+                        {address.trim() ? <p className="whitespace-pre-line text-sm">{address}</p> : null}
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-black uppercase">Details:</p>
+                      <div className="text-right text-sm">
+                        <p className="text-xs font-black uppercase">Details:</p>
                         <p className="mt-3"><span className="font-black">{numberLabel}:</span> {quotationNo}</p>
-                        <p><span className="font-black">Date:</span> {quotationDate}</p>
+                        <p><span className="font-black">Date:</span> {formatDisplayDate(quotationDate)}</p>
                         <p><span className="font-black">{validityPreviewLabel}:</span> {validityDays} Days</p>
                       </div>
                     </div>
 
                     <div className="mt-6">
                       <p className="text-sm font-black uppercase underline">{subject}</p>
-                      <p className="mt-4 text-sm leading-7 text-slate-700">
-                        {isInvoice
-                          ? "Dear Sir/Ma'am, thank you for your business with Stick Toon. Please find below the invoice details for your order."
-                          : "Dear Sir/Ma'am, thank you for your interest in Stick Toon. Please find below the quotation details prepared for your requirement."}
-                      </p>
+                      <p className="mt-4 whitespace-pre-line text-sm leading-7 text-slate-700">{intro}</p>
                     </div>
                   </>
                 )}
@@ -834,7 +902,7 @@ export default function AdminDealConvert() {
                                 <div className="text-left leading-snug">
                                   <p className="text-sm font-semibold">{item.description || "-"}</p>
                                   {item.subDescription ? (
-                                    <p className="mt-1 text-[9px] italic text-slate-500">{item.subDescription}</p>
+                                    <p className="mt-1 text-[10px] italic text-slate-500">{item.subDescription}</p>
                                   ) : null}
                                 </div>
                               ) : (
@@ -849,7 +917,7 @@ export default function AdminDealConvert() {
                                     value={item.subDescription}
                                     onChange={(e) => updateItem(item.id, { subDescription: e.target.value })}
                                     placeholder="Description"
-                                    className={`w-full rounded-md border px-2 py-2 text-[9px] italic text-slate-600 ${printFieldClass}`}
+                                    className={`w-full rounded-md border px-2 py-2 text-[10px] italic text-slate-600 ${printFieldClass}`}
                                   />
                                 </div>
                               )}
@@ -883,7 +951,7 @@ export default function AdminDealConvert() {
                             </td>
                             <td className={rowCellClass}>
                               {isStaticPreview ? (
-                                <div>Rs. {item.unitPrice.toLocaleString("en-IN")}</div>
+                                <div>{money(item.unitPrice)}</div>
                               ) : (
                                 <input
                                   type="number"
@@ -907,11 +975,11 @@ export default function AdminDealConvert() {
                                 />
                               )}
                             </td>
-                            <td className={rowCellClass}>{amount.toLocaleString("en-IN")}</td>
-                            <td className={rowCellClass}>{Math.round(igst).toLocaleString("en-IN")}</td>
+                            <td className={rowCellClass}>{formatMoney(amount)}</td>
+                            <td className={rowCellClass}>{formatMoney(igst)}</td>
                             <td className={`${rowCellClass} font-black`}>
                               <div className={`flex items-center justify-center ${isStaticPreview ? "" : "flex-col gap-2"}`}>
-                                <span>Rs. {Math.round(amount + igst).toLocaleString("en-IN")}</span>
+                                <span>{money(amount + igst)}</span>
                                 {!isStaticPreview && (
                                   <button
                                     onClick={() => removeItem(item.id)}
@@ -930,9 +998,9 @@ export default function AdminDealConvert() {
                       <tfoot className="bg-slate-900 text-white">
                         <tr>
                           <td colSpan={5} className="border px-3 py-3 text-center font-black">Grand Total</td>
-                          <td className="border px-3 py-3 text-center">{Math.round(totals.subtotal).toLocaleString("en-IN")}</td>
-                          <td className="border px-3 py-3 text-center">{Math.round(totals.gstAmount).toLocaleString("en-IN")}</td>
-                          <td className="border px-4 py-3 text-center font-black">Rs. {Math.round(totals.grandTotal).toLocaleString("en-IN")}</td>
+                          <td className="border px-3 py-3 text-center">{formatMoney(totals.subtotal)}</td>
+                          <td className="border px-3 py-3 text-center">{formatMoney(totals.gstAmount)}</td>
+                          <td className="border px-4 py-3 text-center font-black">{money(totals.grandTotal)}</td>
                         </tr>
                       </tfoot>
                     )}
@@ -970,7 +1038,7 @@ export default function AdminDealConvert() {
                   <p><span className="font-black">Account Name:</span> {accountName}</p>
                   <p><span className="font-black">Bank Name:</span> {bankName}</p>
                   <p><span className="font-black">Account No:</span> {accountNumber}</p>
-                  <p><span className="font-black">SWIFT Code:</span> SBININBBXXX</p>
+                  <p><span className="font-black">SWIFT Code:</span> {swift}</p>
                   <p><span className="font-black">IFSC Code:</span> {ifsc}</p>
                   <p><span className="font-black">Branch:</span> {branch}</p>
                 </div>
@@ -990,7 +1058,7 @@ export default function AdminDealConvert() {
               </div>
 
               <div className="mt-12 text-center">
-                <p className="text-3xl font-black">For StickToon</p>
+                <p className="text-3xl font-black">{signatureBrand}</p>
                 <p className="mt-8 text-4xl font-black italic text-slate-200">Signature</p>
                 <p className="mt-4 text-sm italic text-slate-400">[Authorized Signatory]</p>
                 <p className="mt-4 text-2xl font-black">{authorizedSignatory}</p>

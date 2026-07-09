@@ -14,7 +14,7 @@ interface CategoriesProps {
 const CUSTOM_COMBO_SIZE = 4;
 const CUSTOM_COMBO_PRICE = 149;
 
-const PRODUCTS_FETCH_VERSION = 'subcat-v1';
+const PRODUCTS_FETCH_VERSION = 'combo-v2';
 const PRODUCTS_CACHE_KEY = `sticktoon-products-cache-${PRODUCTS_FETCH_VERSION}`;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 type ProductsCacheRecord = { data: Badge[]; timestamp: number };
@@ -407,14 +407,34 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
       subcategory: p.subcategory || p.subCategory || p.sub_category || undefined,
       details: p.description || '',
       color: p.color || 'bg-transparent',
+      printImage: normalizeImagePath(p.printImage) || undefined,
+      isCombo: Boolean(p.isCombo),
+      comboItems: Array.isArray(p.comboItems) && p.comboItems.length > 0
+        ? p.comboItems.map((item: any) => ({
+            id: String(item.id),
+            name: String(item.name),
+            image: normalizeImagePath(item.image) || undefined,
+          }))
+        : undefined,
     }));
 
   const ensureMinimumPerCategory = (items: Badge[], minCount = 4): Badge[] => {
     const normalized = [...items];
     const existingIds = new Set(normalized.map((b) => b.id));
 
-    // Always inject combo badges from static data if not already present
-    const comboBadges = BADGES.filter((b) => b.isCombo && !existingIds.has(b.id));
+    // Fall back to the hardcoded combo packs only for categories where the admin
+    // has not published a real combo product yet — otherwise both would show.
+    const categoriesWithDbCombo = new Set(
+      normalized
+        .filter((b) => b.isCombo)
+        .map((b) => normalizeCategoryId(String(b.category))),
+    );
+    const comboBadges = BADGES.filter(
+      (b) =>
+        b.isCombo &&
+        !existingIds.has(b.id) &&
+        !categoriesWithDbCombo.has(normalizeCategoryId(String(b.category))),
+    );
     normalized.push(...comboBadges);
     comboBadges.forEach((b) => existingIds.add(b.id));
 

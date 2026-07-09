@@ -188,6 +188,15 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
               ? (p.images.map((img: string) => normalizeImagePath(img)).filter(Boolean) as string[])
               : [],
             color: p.color || 'bg-transparent',
+            printImage: normalizeImagePath(p.printImage) || undefined,
+            isCombo: Boolean(p.isCombo),
+            comboItems: Array.isArray(p.comboItems) && p.comboItems.length > 0
+              ? p.comboItems.map((item: any) => ({
+                  id: String(item.id),
+                  name: String(item.name),
+                  image: normalizeImagePath(item.image) || undefined,
+                }))
+              : undefined,
           };
           setBadge(mappedBadge);
           return;

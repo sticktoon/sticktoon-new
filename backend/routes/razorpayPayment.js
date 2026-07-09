@@ -86,6 +86,19 @@ router.post("/create-order", async (req, res) => {
     let subtotal = 0;
     const verifiedItems = [];
 
+    // `undefined` (not []) keeps the field off ordinary single-badge items.
+    const sanitizeComboItems = (items) => {
+      if (!Array.isArray(items) || items.length === 0) return undefined;
+      const cleaned = items
+        .filter((entry) => entry && entry.id && entry.name)
+        .map((entry) => ({
+          id: String(entry.id),
+          name: String(entry.name),
+          image: entry.image ? String(entry.image) : null,
+        }));
+      return cleaned.length > 0 ? cleaned : undefined;
+    };
+
     for (const item of safeItems) {
       if (!item?.badgeId) continue;
 
@@ -110,6 +123,7 @@ router.post("/create-order", async (req, res) => {
           quantity,
           image: item.image || null,
           printImage: item.printImage || null,
+          comboItems: sanitizeComboItems(item.comboItems),
         });
         continue;
       }
@@ -142,6 +156,10 @@ router.post("/create-order", async (req, res) => {
           // Admin-only print artwork — flows into the order email so the badge
           // can be printed directly. Falls back to the customer image if unset.
           printImage: product.printImage || item.printImage || null,
+          // The saved combo definition wins over whatever the cart claimed.
+          comboItems:
+            sanitizeComboItems(product.isCombo ? product.comboItems : null) ||
+            sanitizeComboItems(item.comboItems),
         });
         continue;
       }
@@ -160,6 +178,7 @@ router.post("/create-order", async (req, res) => {
         quantity,
         image: item.image || null,
         printImage: item.printImage || null,
+        comboItems: sanitizeComboItems(item.comboItems),
       });
     }
 

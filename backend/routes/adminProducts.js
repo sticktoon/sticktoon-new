@@ -86,6 +86,19 @@ const normalizeProductImagePath = (value) => {
   return normalized;
 };
 
+// A combo item is a snapshot of a member badge: enough to render the breakdown
+// without a join. Entries missing an id or name are dropped.
+const normalizeComboItems = (items) => {
+  if (!Array.isArray(items)) return [];
+  return items
+    .filter((item) => item && item.id && item.name)
+    .map((item) => ({
+      id: String(item.id),
+      name: String(item.name),
+      image: item.image ? normalizeProductImagePath(item.image) : "",
+    }));
+};
+
 /* ========================
    GET ALL PRODUCTS (WITH PAGINATION)
 ======================== */
@@ -109,7 +122,8 @@ router.get("/", async (req, res) => {
     // Set cache headers for better performance
     res.set('Cache-Control', 'public, max-age=300');
 
-    const selectFields = 'name price category subcategory image printImage imageMagnetic images description isActive stock';
+    const selectFields =
+      'name price category subcategory image printImage imageMagnetic images description isActive stock weight length width height sku isCombo comboItems createdAt';
 
     // Use server-side cache for "all" queries
     if (all && productCache && (Date.now() - productCacheTime < CACHE_TTL)) {
@@ -166,7 +180,8 @@ router.get("/category/:category", async (req, res) => {
     // Set cache headers
     res.set('Cache-Control', 'public, max-age=300');
 
-    const selectFields = 'name price category subcategory image printImage imageMagnetic images description isActive stock';
+    const selectFields =
+      'name price category subcategory image printImage imageMagnetic images description isActive stock weight length width height sku isCombo comboItems createdAt';
 
     const normalizedCategory = normalizeCategory(req.params.category);
     if (!normalizedCategory) {
@@ -226,7 +241,7 @@ router.get("/:id", async (req, res) => {
 ======================== */
 router.post("/", auth, adminOnly, async (req, res) => {
   try {
-    const { name, price, description, category, subcategory, image, printImage, images, stock, weight, length, width, height, sku } = req.body;
+    const { name, price, description, category, subcategory, image, printImage, images, stock, weight, length, width, height, sku, isCombo, comboItems } = req.body;
     const normalizedCategory = normalizeCategory(category);
     const normalizedSubcategory = normalizeSubcategory(subcategory);
     const normalizedImage = normalizeProductImagePath(image);
@@ -254,6 +269,8 @@ router.post("/", auth, adminOnly, async (req, res) => {
       image: normalizedImage,
       printImage: normalizedPrintImage,
       images: normalizedImages,
+      isCombo: Boolean(isCombo),
+      comboItems: isCombo ? normalizeComboItems(comboItems) : [],
       stock: parseInt(stock) || 0,
       weight: weight !== undefined && !isNaN(parseFloat(weight)) ? parseFloat(weight) : 0.1,
       length: length !== undefined && !isNaN(parseFloat(length)) ? parseFloat(length) : 10,
@@ -275,7 +292,7 @@ router.post("/", auth, adminOnly, async (req, res) => {
 ======================== */
 router.patch("/:id", auth, adminOnly, async (req, res) => {
   try {
-    const { name, price, description, category, subcategory, image, printImage, images, stock, isActive, weight, length, width, height, sku } =
+    const { name, price, description, category, subcategory, image, printImage, images, stock, isActive, weight, length, width, height, sku, isCombo, comboItems } =
       req.body;
 
     const product = await Product.findById(req.params.id);
@@ -313,6 +330,13 @@ router.patch("/:id", auth, adminOnly, async (req, res) => {
         ? images.map((img) => normalizeProductImagePath(img)).filter(Boolean)
         : [];
     }
+    if (isCombo !== undefined) product.isCombo = Boolean(isCombo);
+    if (comboItems !== undefined) {
+      product.comboItems = normalizeComboItems(comboItems);
+    }
+    // Un-flagging a combo must not leave a stale breakdown behind.
+    if (!product.isCombo) product.comboItems = [];
+
     if (stock !== undefined) product.stock = parseInt(stock);
     if (isActive !== undefined) product.isActive = isActive;
     
