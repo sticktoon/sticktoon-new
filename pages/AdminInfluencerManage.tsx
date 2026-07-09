@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
 import { formatDate } from "../utils/formatDate";
 import AdminBackButton from "./AdminBackButton";
@@ -49,20 +49,6 @@ interface Stats {
     totalOrders: number;
   };
   pendingWithdrawals: {
-    total: number;
-    count: number;
-  };
-}
-
-const AdminInfluencerManage: React.FC = () => {
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"pending" | "approved" | "withdrawals">("pending");
-  const [influencers, setInfluencers] = useState<Influencer[]>([]);
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [error, setError] = useState("");
-  const [processing, setProcessing] = useState<string | null>(null);
 
   // Payment modal
   const [paymentModal, setPaymentModal] = useState<Withdrawal | null>(null);
