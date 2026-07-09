@@ -26,6 +26,30 @@ const loadRazorpay = (): Promise<any> => {
   });
 };
 
+/* =========================
+   INTERNATIONAL ORDERS
+   Pricing outside India differs (shipping + duties), so online checkout is
+   India-only and overseas buyers are routed to sales.
+========================== */
+const HOME_COUNTRY = "India";
+const INTERNATIONAL_SALES_PHONE = "+91 8956667277";
+const INTERNATIONAL_SALES_EMAIL = "sticktoon.xyz@gmail.com";
+
+const COUNTRIES = [
+  HOME_COUNTRY,
+  "Australia",
+  "Bangladesh",
+  "Canada",
+  "Germany",
+  "Nepal",
+  "Singapore",
+  "Sri Lanka",
+  "United Arab Emirates",
+  "United Kingdom",
+  "United States",
+  "Other (outside India)",
+];
+
 const normalizeCategoryKey = (value?: string) => {
   if (!value) return "";
 
@@ -195,6 +219,7 @@ export default function Checkout({
     city: string;
     state: string;
     pincode: string;
+    country: string;
   }>(() => {
     const draft = loadCheckoutDraft();
     return {
@@ -205,9 +230,12 @@ export default function Checkout({
       city: "",
       state: "",
       pincode: "",
+      country: HOME_COUNTRY,
       ...(draft?.address || {}),
     };
   });
+
+  const isInternational = address.country !== HOME_COUNTRY;
 
   const [errors, setErrors] = useState({
     name: "",
@@ -506,7 +534,19 @@ export default function Checkout({
 
   const handlePlaceOrder = async () => {
     setPaymentError("");
-    
+
+    // Overseas pricing is quoted manually — never let an international order
+    // through the Razorpay (INR) flow.
+    if (isInternational) {
+      setPaymentError(
+        `We can't process orders outside India online yet. Call or WhatsApp ${INTERNATIONAL_SALES_PHONE} for international pricing.`
+      );
+      document
+        .getElementById("delivery-form")
+        ?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+
     if (!validate()) {
       document
         .getElementById("delivery-form")
@@ -839,6 +879,62 @@ export default function Checkout({
                 Shipping Details <span className="text-red-500 text-xs font-bold uppercase tracking-tighter">(All Fields Required)</span>
               </h3>
 
+              <div className="mb-4">
+                <label
+                  htmlFor="country"
+                  className="block mb-1.5 text-sm font-bold text-slate-700"
+                >
+                  Country
+                </label>
+                <select
+                  id="country"
+                  className="w-full p-3 rounded-xl border bg-white"
+                  value={address.country}
+                  onChange={(e) =>
+                    setAddress({ ...address, country: e.target.value })
+                  }
+                >
+                  {COUNTRIES.map((country) => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-slate-500">
+                  We currently ship online within India only.
+                </p>
+              </div>
+
+              {isInternational && (
+                <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-4">
+                  <p className="text-sm font-black text-amber-900">
+                    International orders (outside India)
+                  </p>
+                  <p className="mt-1 text-sm text-amber-800">
+                    Pricing for international customers is different from the
+                    prices shown here, because of shipping and customs duties.
+                    We can't take these orders online yet.
+                  </p>
+                  <p className="mt-3 text-sm font-bold text-amber-900">
+                    Call or WhatsApp{" "}
+                    <a
+                      href={`tel:${INTERNATIONAL_SALES_PHONE.replace(/\s/g, "")}`}
+                      className="underline"
+                    >
+                      {INTERNATIONAL_SALES_PHONE}
+                    </a>{" "}
+                    or email{" "}
+                    <a
+                      href={`mailto:${INTERNATIONAL_SALES_EMAIL}?subject=International order enquiry`}
+                      className="underline"
+                    >
+                      {INTERNATIONAL_SALES_EMAIL}
+                    </a>{" "}
+                    for a quote.
+                  </p>
+                </div>
+              )}
+
               {(["name", "email", "street", "city", "state", "pincode", "phone"] as const).map(
                 (field) => (
                   <div key={field} className="mb-4">
@@ -1121,7 +1217,14 @@ export default function Checkout({
   )}
 
   {/* CTA */}
-  {isLoggedIn ? (
+  {isInternational ? (
+    <a
+      href={`tel:${INTERNATIONAL_SALES_PHONE.replace(/\s/g, "")}`}
+      className="block w-full py-5 text-center bg-slate-900 text-white font-black rounded-2xl shadow-lg hover:bg-slate-800 transition"
+    >
+      CONTACT US FOR INTERNATIONAL PRICING
+    </a>
+  ) : isLoggedIn ? (
     <button
       onClick={handlePlaceOrder}
       className="w-full py-5 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 transition text-slate-900 font-black rounded-2xl shadow-lg hover:shadow-xl hover:shadow-yellow-500/25"
