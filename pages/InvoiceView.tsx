@@ -1,7 +1,13 @@
+import { useState } from "react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { useScreenshotPrivacy } from "../utils/useScreenshotPrivacy";
+import ScreenshotPrivacyOverlay from "../utils/ScreenshotPrivacyOverlay";
 
 export default function InvoiceView({ invoice }: { invoice: any }) {
+  const [isExporting, setIsExporting] = useState(false);
+  const isScreenProtected = useScreenshotPrivacy(!isExporting);
+
   const handlePrint = () => {
     window.print();
   };
@@ -10,19 +16,31 @@ export default function InvoiceView({ invoice }: { invoice: any }) {
     const element = document.getElementById("invoice-root");
     if (!element) return;
 
-    const canvas = await html2canvas(element, { scale: 2 });
-    const imgData = canvas.toDataURL("image/png");
+    try {
+      setIsExporting(true);
+      // Wait a frame for state update and DOM changes to settle before capturing
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      const canvas = await html2canvas(element, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
 
-    const pdf = new jsPDF("p", "mm", "a4");
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`Invoice-${invoice.invoiceNumber}.pdf`);
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Invoice-${invoice.invoiceNumber}.pdf`);
+    } catch (err) {
+      console.error("Error generating PDF:", err);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
     <div id="invoice-root" className="bg-white p-10 text-black">
+      {isScreenProtected && (
+        <ScreenshotPrivacyOverlay message="Hidden while this window is out of focus, so commercial details stay off task-switcher previews." />
+      )}
       <h1 className="text-3xl font-black mb-6 text-center">INVOICE</h1>
 
       <div className="mb-6 text-sm space-y-1">

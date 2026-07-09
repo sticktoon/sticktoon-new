@@ -4,6 +4,8 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { Camera, Search, Loader2, Check, X } from "lucide-react";
 import { API_BASE_URL } from "../config/api";
+import { useScreenshotPrivacy } from "../utils/useScreenshotPrivacy";
+import ScreenshotPrivacyOverlay from "../utils/ScreenshotPrivacyOverlay";
 
 type LeadLike = {
   _id?: string;
@@ -237,6 +239,8 @@ export default function AdminDealSend() {
   const [customCardCopy, setCustomCardCopy] = useState(DEFAULT_CUSTOM_CARD_COPY);
   const [isExporting, setIsExporting] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const isScreenProtected = useScreenshotPrivacy(!isExporting && !isPrinting);
+
   const normalizedTagline = (tagline || "Limited Edition").trim() || "Limited Edition";
   const normalizedHighlightLine =
     ((highlightLine || "Smart Magnetic 58mm Pin Badges - Designed to Stick Anywhere in Your Office").trim() ||
@@ -1077,6 +1081,9 @@ export default function AdminDealSend() {
         </div>
 
         <div id="deal-send-preview">
+          {isScreenProtected && (
+            <ScreenshotPrivacyOverlay message="Hidden while this window is out of focus, so catalog pricing and artwork stay off task-switcher previews." />
+          )}
           {catalogPages.map((pageItems, pageIndex) => (
             <div key={`catalog-page-${pageIndex}`} className="catalog-page mb-6">
               <div className="catalog-shell">

@@ -4,6 +4,8 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { Search, Loader2, Check, X } from "lucide-react";
 import { API_BASE_URL } from "../config/api";
+import { useScreenshotPrivacy } from "../utils/useScreenshotPrivacy";
+import ScreenshotPrivacyOverlay from "../utils/ScreenshotPrivacyOverlay";
 
 const printFieldClass =
   "print:border-0 print:bg-transparent print:p-0 print:shadow-none print:outline-none print:ring-0";
@@ -336,6 +338,7 @@ export default function AdminDealConvert() {
   const [isExporting, setIsExporting] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const isStaticPreview = isExporting || isPrinting;
+  const isScreenProtected = useScreenshotPrivacy(!isExporting && !isPrinting);
 
   const currency = CURRENCIES.find((c) => c.code === currencyCode) ?? CURRENCIES[0];
   const formatMoney = (value: number) => Math.round(value).toLocaleString(currency.locale);
@@ -915,6 +918,9 @@ export default function AdminDealConvert() {
           id="deal-quotation-preview"
           className={`min-w-0 text-black ${isStaticPreview ? "exporting" : ""}`}
         >
+          {isScreenProtected && (
+            <ScreenshotPrivacyOverlay message="Hidden while this window is out of focus, so quotation pricing stays off task-switcher previews." />
+          )}
           <div id="deal-main-content">
             {itemPages.map((pageItems, pageIndex) => (
               <div
@@ -1200,6 +1206,8 @@ export default function AdminDealConvert() {
             </div>
           </div>
         </div>
+      </div>
+
       {isImportModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-fadeIn text-slate-800">
           <div className="flex h-full max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
