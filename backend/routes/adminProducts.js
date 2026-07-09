@@ -4,6 +4,7 @@ const auth = require("../middleware/auth");
 const Product = require("../models/Product");
 
 const { adminOnly } = require("../middleware/roleMiddleware");
+const { logActivity } = require("../utils/activityLogger");
 
 const ALLOWED_CATEGORIES = [
   "Positive Vibes",
@@ -281,6 +282,16 @@ router.post("/", auth, adminOnly, async (req, res) => {
 
     await product.save();
     invalidateProductCache();
+
+    logActivity({
+      req,
+      action: "product.create",
+      category: "product",
+      message: `Created product "${product.name}"`,
+      target: { type: "Product", id: product._id, label: product.name },
+      meta: { price: product.price, category: product.category, stock: product.stock },
+    });
+
     res.status(201).json(product);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -348,6 +359,16 @@ router.patch("/:id", auth, adminOnly, async (req, res) => {
 
     await product.save();
     invalidateProductCache();
+
+    logActivity({
+      req,
+      action: "product.update",
+      category: "product",
+      message: `Updated product "${product.name}"`,
+      target: { type: "Product", id: product._id, label: product.name },
+      meta: { fields: Object.keys(req.body || {}) },
+    });
+
     res.json(product);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -364,6 +385,16 @@ router.delete("/:id", auth, adminOnly, async (req, res) => {
       return res.status(404).json({ error: "Product not found" });
     }
     invalidateProductCache();
+
+    logActivity({
+      req,
+      action: "product.delete",
+      category: "product",
+      message: `Deleted product "${product.name}"`,
+      target: { type: "Product", id: product._id, label: product.name },
+      meta: { price: product.price, category: product.category },
+    });
+
     res.json({ message: "Product deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });

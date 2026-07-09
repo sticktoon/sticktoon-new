@@ -2,6 +2,12 @@ import React, { useState, useEffect, useMemo, useRef, JSX } from "react";
 
 import { useNavigate, useLocation } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
+import {
+  formatDate,
+  formatDateLong,
+  formatDateTime,
+  formatDayMonth,
+} from "../utils/formatDate";
 import { BADGES } from "../constants";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import DescriptionRoundedIcon from "@mui/icons-material/DescriptionRounded";
@@ -38,6 +44,7 @@ import {
   BarChart3,
   BriefcaseBusiness,
   Store,
+  ScrollText,
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 
@@ -2022,7 +2029,7 @@ const Admin: React.FC = () => {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
       const key = d.toISOString().slice(0, 10);
-      return { key, label: d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }), revenue: 0 };
+      return { key, label: formatDayMonth(d), revenue: 0 };
     });
 
     const trendIndex = new Map(trendByDate.map((x, idx) => [x.key, idx]));
@@ -2100,7 +2107,7 @@ const Admin: React.FC = () => {
       }, 0);
 
       productSalesSeries = [{
-        label: now.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
+        label: formatDayMonth(now),
         value: totalUnits,
       }];
       productSalesSubtitle = "Daily";
@@ -2459,7 +2466,7 @@ const Admin: React.FC = () => {
         detail: isOverdue
           ? `Next Follow Up is overdue by ${formatDurationFromMs(Math.abs(diff))}.`
           : `Next Follow Up is due in ${formatDurationFromMs(diff)}.`,
-        whenText: new Date(followUpMs).toLocaleString(),
+        whenText: formatDateTime(followUpMs),
         whenMs: followUpMs,
       });
     });
@@ -2481,7 +2488,7 @@ const Admin: React.FC = () => {
         detail: isOverdue
           ? `SLA is overdue by ${formatDurationFromMs(Math.abs(diff))}.`
           : `SLA will expire in ${formatDurationFromMs(diff)}.`,
-        whenText: new Date(deadlineMs).toLocaleString(),
+        whenText: formatDateTime(deadlineMs),
         whenMs: deadlineMs,
       });
     });
@@ -2506,7 +2513,7 @@ const Admin: React.FC = () => {
         detail: isOverdue
           ? `Task is overdue by ${formatDurationFromMs(Math.abs(diff))}.`
           : `Task is due in ${formatDurationFromMs(diff)}.`,
-        whenText: new Date(dueMs).toLocaleString(),
+        whenText: formatDateTime(dueMs),
         whenMs: dueMs,
       });
     });
@@ -4635,10 +4642,19 @@ const Admin: React.FC = () => {
                 label: "Promo Codes",
                 icon: <LocalOfferRoundedIcon sx={{ fontSize: 22 }} />,
               },
+              {
+                id: "logs",
+                label: "Activity Logs",
+                icon: <ScrollText className="w-5 h-5" />,
+                // Lives on its own route rather than as a view in this panel.
+                href: "/admin/logs",
+              },
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setCurrentView(tab.id as any)}
+                onClick={() =>
+                  tab.href ? navigate(tab.href) : setCurrentView(tab.id as any)
+                }
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-bold transition-all text-left ${
                   currentView === tab.id
                     ? "bg-white text-slate-950 shadow-lg"
@@ -4722,11 +4738,7 @@ const Admin: React.FC = () => {
               </h2>
             </div>
             <div className="hidden sm:block text-sm text-slate-500 whitespace-nowrap">
-              {new Date().toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
+              {formatDateLong(new Date())}
             </div>
           </div>
         </header>
@@ -5160,7 +5172,7 @@ const Admin: React.FC = () => {
                         </span>
                         <span className="text-xs text-slate-500">
                           {lead.createdAt
-                            ? new Date(lead.createdAt).toLocaleDateString()
+                            ? formatDate(lead.createdAt)
                             : "-"}
                         </span>
                         <span>
@@ -5758,7 +5770,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                             </button>
                             <span className="text-xs font-semibold text-slate-500">
                               {msg.createdAt
-                                ? new Date(msg.createdAt).toLocaleString()
+                                ? formatDateTime(msg.createdAt)
                                 : "—"}
                             </span>
                             <select
@@ -6088,9 +6100,9 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                 {taskStatus}
                               </span>
                             </span>
-                            <span>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}</span>
+                            <span>{task.dueDate ? formatDate(task.dueDate) : "—"}</span>
                             <span>
-                              {task.reminderAt ? new Date(task.reminderAt).toLocaleString() : "—"}
+                              {task.reminderAt ? formatDateTime(task.reminderAt) : "—"}
                             </span>
                             <span>
                               {typeof task.assignedTo === "object"
@@ -6293,11 +6305,11 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                           Status → {isTaskOverdue(viewingTask) ? "Overdue" : normalizeTaskStatus(viewingTask.status)}
                         </p>
                         <p className="text-sm text-slate-600">
-                          Due → {viewingTask.dueDate ? new Date(viewingTask.dueDate).toLocaleString() : "—"}
+                          Due → {viewingTask.dueDate ? formatDateTime(viewingTask.dueDate) : "—"}
                         </p>
                         <p className="text-sm text-slate-600">
                           Reminder →{" "}
-                          {viewingTask.reminderAt ? new Date(viewingTask.reminderAt).toLocaleString() : "—"}
+                          {viewingTask.reminderAt ? formatDateTime(viewingTask.reminderAt) : "—"}
                         </p>
                       </div>
                       <button
@@ -6321,7 +6333,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                           <div key={idx} className="border-b pb-2">
                             <p className="text-sm font-semibold">{c.authorName}</p>
                             <p className="text-xs text-slate-500">
-                              {new Date(c.createdAt).toLocaleString()}
+                              {formatDateTime(c.createdAt)}
                             </p>
                             <p className="text-sm mt-1">{c.text}</p>
                           </div>
@@ -6351,7 +6363,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       ) : (
                         (viewingTask.activityTimeline || []).map((a, idx) => (
                           <p key={idx} className="text-sm">
-                            {new Date(a.createdAt).toLocaleString()} - {a.message}
+                            {formatDateTime(a.createdAt)} - {a.message}
                           </p>
                         ))
                       )}
@@ -6424,7 +6436,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                           </p>
                         )}
                         <p className="text-gray-500 text-xs mt-2">
-                          {new Date(inf.createdAt).toLocaleDateString()}
+                          {formatDate(inf.createdAt)}
                         </p>
                       </div>
                       <div className="flex gap-3">
@@ -6487,7 +6499,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         </p>
                         <p className="text-gray-500 text-xs mt-1">
                           {w.paymentMethod.toUpperCase()} •{" "}
-                          {new Date(w.createdAt).toLocaleDateString()}
+                          {formatDate(w.createdAt)}
                         </p>
                         <span
                           className={`inline-flex mt-2 px-2.5 py-1 rounded-full text-[11px] font-bold ${
@@ -6581,7 +6593,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   <div className="bg-white/5 rounded-xl p-4 border border-white/10">
                     <p className="text-gray-400 text-sm">Requested On</p>
                     <p className="text-white font-semibold mt-1">
-                      {new Date(viewingWithdrawal.createdAt).toLocaleString()}
+                      {formatDateTime(viewingWithdrawal.createdAt)}
                     </p>
                   </div>
                   <div className="bg-white/5 rounded-xl p-4 border border-white/10">
@@ -7505,7 +7517,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         {promo.usedCount}
                         {promo.usageLimit ? ` / ${promo.usageLimit}` : ""}
                       </span>
-                      <span>{new Date(promo.validUntil).toLocaleDateString()}</span>
+                      <span>{formatDate(promo.validUntil)}</span>
                       <span>
                         {isPromoExpired(promo.validUntil) ? (
                           <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
@@ -7852,51 +7864,118 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       <th className="p-3 text-left">Role</th>
                       <th className="p-3 text-left">Provider</th>
                       <th className="p-3 text-left">Created</th>
-                      <th className="px-4 py-3 text-left">Mail</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
 
                   <tbody>
-                    {filteredUsers.map((u, i) => (
+                    {filteredUsers.map((u, i) => {
+                      // A non-super admin may not touch other admin accounts.
+                      const locked = u.role === "admin" && !isSuperAdmin;
+                      const isSelf =
+                        !!user?.email &&
+                        u.email?.toLowerCase() === user.email.toLowerCase();
+
+                      return (
                       <tr key={u._id} className="border-t hover:bg-slate-50">
                         <td className="p-3">{i + 1}</td>
                         <td className="p-3 font-medium">{u.name || "—"}</td>
                         <td className="p-3">{u.email}</td>
-                        <td className="p-3 capitalize">{u.role}</td>
+                        <td className="p-3">
+                          <select
+                            value={u.role}
+                            disabled={locked || isSelf}
+                            onChange={(e) => handleUpdateRole(u._id, e.target.value)}
+                            className="px-2 py-1 rounded-lg border text-xs capitalize bg-white disabled:bg-slate-100 disabled:text-slate-400"
+                            title={
+                              isSelf
+                                ? "You cannot change your own role"
+                                : locked
+                                  ? "Only super admin can change an admin's role"
+                                  : "Change role"
+                            }
+                          >
+                            {["user", "influencer", "admin"].map((r) => (
+                              <option key={r} value={r} className="capitalize">
+                                {r}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
                         <td className="p-3 capitalize">
                           {u.provider || "credentials"}
                         </td>
                         <td className="p-3 text-xs text-slate-500">
-                          {new Date(u.createdAt).toLocaleDateString()}
+                          {formatDate(u.createdAt)}
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => {
-                              const subject = encodeURIComponent(
-                                "Regarding Your StickToon Account",
-                              );
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => {
+                                const subject = encodeURIComponent(
+                                  "Regarding Your StickToon Account",
+                                );
 
-                              const body = encodeURIComponent(
-                                `Hi ${u.name || "there"},\n\nWe’d love to connect with you regarding your StickToon account.\n\nBest regards,\nStickToon Team`,
-                              );
+                                const body = encodeURIComponent(
+                                  `Hi ${u.name || "there"},\n\nWe’d love to connect with you regarding your StickToon account.\n\nBest regards,\nStickToon Team`,
+                                );
 
-                              window.open(
-                                `https://mail.google.com/mail/?view=cm&fs=1&to=${u.email}&su=${subject}&body=${body}`,
-                                "_blank",
-                              );
-                            }}
-                            className="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs px-3 py-1.5 rounded-lg transition shadow-sm"
-                          >
-                            <img
-                              src="https://www.gstatic.com/images/branding/product/1x/gmail_48dp.png"
-                              alt="gmail"
-                              className="w-4 h-4"
-                            />
-                            Mail
-                          </button>
+                                window.open(
+                                  `https://mail.google.com/mail/?view=cm&fs=1&to=${u.email}&su=${subject}&body=${body}`,
+                                  "_blank",
+                                );
+                              }}
+                              className="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs px-3 py-1.5 rounded-lg transition shadow-sm"
+                            >
+                              <img
+                                src="https://www.gstatic.com/images/branding/product/1x/gmail_48dp.png"
+                                alt="gmail"
+                                className="w-4 h-4"
+                              />
+                              Mail
+                            </button>
+
+                            <button
+                              onClick={() => setEditingUser({ ...u })}
+                              disabled={locked}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+                              title={locked ? "Only super admin can edit an admin" : "Edit user"}
+                            >
+                              Edit
+                            </button>
+
+                            {isSuperAdmin && (
+                              <button
+                                onClick={() => {
+                                  setNewPassword("");
+                                  setResettingPassword(u);
+                                }}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border border-yellow-300 transition"
+                                title="Reset this user's password"
+                              >
+                                Password
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => setConfirmingDelete(u)}
+                              disabled={locked || isSelf}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                              title={
+                                isSelf
+                                  ? "You cannot delete yourself"
+                                  : locked
+                                    ? "Only super admin can delete an admin"
+                                    : "Delete user"
+                              }
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
 
                     {filteredUsers.length === 0 && (
                       <tr>
@@ -8077,7 +8156,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       </div>
 
                       <p className="text-xs text-slate-500 mt-3">
-                        Joined: {new Date(inf.createdAt).toLocaleDateString()}
+                        Joined: {formatDate(inf.createdAt)}
                       </p>
                     </div>
                   ))}
@@ -8300,7 +8379,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         {/* FOOTER with Shiprocket status */}
                         <div className="text-xs text-slate-400 flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span>📅 {new Date(order.createdAt).toLocaleDateString()}</span>
+                            <span>📅 {formatDate(order.createdAt)}</span>
                             <span>•</span>
                             <span
                               className={
@@ -8409,7 +8488,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                             <td className="px-4 py-3 text-slate-700">{customer.company || "-"}</td>
                             <td className="px-4 py-3 text-slate-700">
                               {customer.createdAt
-                                ? new Date(customer.createdAt).toLocaleDateString("en-IN")
+                                ? formatDate(customer.createdAt)
                                 : "-"}
                             </td>
                             <td className="px-4 py-3 text-slate-700 font-bold">{customer.orderCount}</td>
@@ -9071,7 +9150,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       {viewingOrder.status}
                     </p>
                     <p className="text-gray-400 text-xs">
-                      {new Date(viewingOrder.createdAt).toLocaleString()}
+                      {formatDateTime(viewingOrder.createdAt)}
                     </p>
                   </div>
                 </div>
@@ -9087,7 +9166,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       </p>
                       {viewingOrder.deliveredAt && (
                         <p className="text-gray-400 text-xs mt-1">
-                          Delivered on {new Date(viewingOrder.deliveredAt).toLocaleString()}
+                          Delivered on {formatDateTime(viewingOrder.deliveredAt)}
                         </p>
                       )}
                     </div>

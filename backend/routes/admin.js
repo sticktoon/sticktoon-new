@@ -9,6 +9,7 @@ const router = express.Router();
 
 const auth = require("../middleware/auth");
 const { adminOnly, superAdminOnly, isSuperAdmin, isAdminEmail, isOrdersEmail } = require("../middleware/roleMiddleware");
+const { logActivity } = require("../utils/activityLogger");
 
 /* ======================
    ADMIN LOGIN
@@ -24,11 +25,25 @@ router.post("/login", async (req, res) => {
     const cleanEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: cleanEmail }).select("+password");
 
+    // Rejected admin-panel attempts are a security signal worth keeping.
+    const logFailure = (reason) =>
+      logActivity({
+        req,
+        actor: { email: cleanEmail, role: "guest" },
+        action: "auth.admin_login",
+        category: "auth",
+        status: "failure",
+        message: `Failed admin login for ${cleanEmail}`,
+        meta: { reason },
+      });
+
     if (!user) {
+      await logFailure("no_such_user");
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
     if (user.role !== "admin" && !isAdminEmail(user.email)) {
+      await logFailure("not_an_admin");
       return res.status(403).json({ message: "Access denied. This account is not an admin account." });
     }
 
@@ -39,13 +54,15 @@ router.post("/login", async (req, res) => {
 
     // If no password set (Google account), ask to reset password
     if (!user.password) {
-      return res.status(400).json({ 
-        message: "No password set for this admin account. Please reset your password first." 
+      await logFailure("no_password_set");
+      return res.status(400).json({
+        message: "No password set for this admin account. Please reset your password first."
       });
     }
 
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
+      await logFailure("wrong_password");
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
@@ -54,6 +71,15 @@ router.post("/login", async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
+
+    logActivity({
+      req,
+      actor: { id: user._id, name: user.name, email: user.email, role: user.role },
+      action: "auth.admin_login",
+      category: "auth",
+      message: `${user.email} signed in to the admin panel`,
+      meta: { provider: "credentials", superAdmin: isSuperAdmin(user.email) },
+    });
 
     res.json({
       token,
@@ -118,6 +144,15 @@ router.post("/google-login", async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
+
+    logActivity({
+      req,
+      actor: { id: user._id, name: user.name, email: user.email, role: user.role },
+      action: "auth.admin_login",
+      category: "auth",
+      message: `${user.email} signed in to the admin panel via Google`,
+      meta: { provider: "google", superAdmin: isSuperAdmin(user.email) },
+    });
 
     res.json({
       token,
@@ -312,6 +347,16 @@ router.delete("/users/:id", auth, adminOnly, async (req, res) => {
     }
 
     await User.findByIdAndDelete(req.params.id);
+
+    logActivity({
+      req,
+      action: "user.delete",
+      category: "user",
+      message: `Deleted user ${user.email}`,
+      target: { type: "User", id: user._id, label: user.email },
+      meta: { deletedRole: user.role, deletedName: user.name },
+    });
+
     res.json({ message: "User deleted successfully" });
   } catch (err) {
     console.error("Delete user error:", err);
@@ -351,6 +396,15 @@ router.patch("/users/:id/role", auth, adminOnly, async (req, res) => {
       { new: true }
     ).select("_id name email role");
 
+    logActivity({
+      req,
+      action: "user.role_change",
+      category: "user",
+      message: `Changed role of ${user.email} from ${targetUser.role} to ${role}`,
+      target: { type: "User", id: user._id, label: user.email },
+      meta: { from: targetUser.role, to: role },
+    });
+
     res.json({ message: "Role updated successfully", user });
   } catch (err) {
     console.error("Update role error:", err);
@@ -380,6 +434,14 @@ router.patch("/users/:id/reset-password", auth, superAdminOnly, async (req, res)
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    logActivity({
+      req,
+      action: "user.password_reset",
+      category: "user",
+      message: `Reset the password of ${user.email}`,
+      target: { type: "User", id: user._id, label: user.email },
+    });
 
     res.json({ message: "Password reset successfully", user });
   } catch (err) {
@@ -419,6 +481,19 @@ router.patch("/users/:id", auth, adminOnly, async (req, res) => {
       updateData,
       { new: true }
     ).select("_id name email role provider createdAt");
+
+    logActivity({
+      req,
+      action: "user.update",
+      category: "user",
+      message: `Updated user ${user.email}`,
+      target: { type: "User", id: user._id, label: user.email },
+      meta: {
+        fields: Object.keys(updateData),
+        before: { name: targetUser.name, email: targetUser.email },
+        after: updateData,
+      },
+    });
 
     res.json({ message: "User updated successfully", user });
   } catch (err) {
@@ -472,6 +547,16 @@ router.put("/users/:id/super-edit", auth, superAdminOnly, async (req, res) => {
       updateData,
       { new: true }
     ).select("_id name email role provider avatar createdAt");
+
+    logActivity({
+      req,
+      action: "user.super_edit",
+      category: "user",
+      message: `Super-admin edited user ${user.email}`,
+      target: { type: "User", id: user._id, label: user.email },
+      // `fields` is safe to log; the password value itself is redacted by the logger.
+      meta: { fields: Object.keys(updateData) },
+    });
 
     res.json({ message: "User updated successfully by super admin", user });
   } catch (err) {

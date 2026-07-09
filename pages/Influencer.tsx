@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
+import { formatDate } from "../utils/formatDate";
 import { Eye, EyeOff, TrendingUp, DollarSign, Users, Award, Copy, Check, LogOut } from "lucide-react";
 
 /* ===========================
@@ -919,7 +920,7 @@ const Influencer: React.FC = () => {
                       {dashboardData.recentEarnings.slice(0, 10).map((earning) => (
                         <tr key={earning._id} className="border-b border-white/5">
                           <td className="py-3 text-gray-300 text-sm">
-                            {new Date(earning.createdAt).toLocaleDateString()}
+                            {formatDate(earning.createdAt)}
                           </td>
                           <td className="py-3 text-white text-sm">{earning.customerId?.name || "N/A"}</td>
                           <td className="py-3 text-gray-300 text-sm uppercase">{earning.promoCodeId?.code || "-"}</td>
@@ -1241,7 +1242,7 @@ const Influencer: React.FC = () => {
                       {withdrawals.map((withdrawal) => (
                         <tr key={withdrawal._id} className="border-b border-white/5">
                           <td className="py-3 text-gray-300 text-sm">
-                            {new Date(withdrawal.createdAt).toLocaleDateString()}
+                            {formatDate(withdrawal.createdAt)}
                           </td>
                           <td className="py-3 text-white font-bold text-sm">₹{withdrawal.amount}</td>
                           <td className="py-3 text-gray-300 text-sm uppercase">{withdrawal.paymentMethod}</td>

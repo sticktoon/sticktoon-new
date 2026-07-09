@@ -36,6 +36,7 @@ const StickerDetail = lazy(() => import("./pages/StickerDetail"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers"));
+const AdminLogs = lazy(() => import("./pages/AdminLogs"));
 const AdminOrders = lazy(() => import("./pages/AdminOrders"));
 const AdminRevenue = lazy(() => import("./pages/AdminRevenue"));
 const AdminUserOrders = lazy(() => import("./pages/AdminUserOrders"));
@@ -1372,6 +1373,7 @@ function App() {
           <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/admin" element={<ProtectedAdminRoute user={user}><AdminDashboard /></ProtectedAdminRoute>} />
           <Route path="/admin/users" element={<ProtectedAdminRoute user={user}><AdminUsers /></ProtectedAdminRoute>} />
+          <Route path="/admin/logs" element={<ProtectedAdminRoute user={user}><AdminLogs /></ProtectedAdminRoute>} />
           <Route path="/admin/orders" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
           <Route path="/admin/revenue" element={<ProtectedAdminRoute user={user}><AdminRevenue /></ProtectedAdminRoute>} />
           <Route path="/admin/user-orders" element={<ProtectedAdminRoute user={user}><AdminUserOrders /></ProtectedAdminRoute>} />

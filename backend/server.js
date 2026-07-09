@@ -61,6 +61,7 @@ app.use("/api/admin/leads", require("./routes/adminLeads"));
 app.use("/api/admin/tasks", require("./routes/adminTasks"));
 app.use("/api/admin/support", require("./routes/adminSupport"));
 app.use("/api/admin/settings", require("./routes/adminSettings"));
+app.use("/api/admin/logs", require("./routes/adminLogs"));
 app.use("/api/contact", require("./routes/contact"));
 app.use("/api/reviews", require("./routes/reviews"));
 
