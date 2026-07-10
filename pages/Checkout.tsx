@@ -900,9 +900,6 @@ export default function Checkout({
                     </option>
                   ))}
                 </select>
-                <p className="mt-1 text-xs text-slate-500">
-                  We currently ship online within India only.
-                </p>
               </div>
 
               {isInternational && (

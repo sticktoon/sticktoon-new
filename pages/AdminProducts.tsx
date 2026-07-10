@@ -28,7 +28,7 @@ interface Product {
   description: string;
   price: number;
   category: AdminProductCategory;
-  subcategory: string;
+  subcategory?: string;
   image: string;
   printImage?: string;
   images?: string[];
