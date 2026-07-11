@@ -94,6 +94,51 @@ const CURRENCIES: Currency[] = [
   { code: "JPY", symbol: "¥", label: "Japanese Yen (JPY)", locale: "ja-JP" },
 ];
 
+const DEAL_DRAFT_KEY = "sticktoon:dealConvertDraft";
+
+type DealDraft = {
+  leadId: string;
+  lead: LeadLike;
+  docType: DocType;
+  quotationFor: string;
+  company: string;
+  email: string;
+  phone: string;
+  address: string;
+  quotationNo: string;
+  quotationDate: string;
+  validityDays: number;
+  currencyCode: string;
+  subject: string;
+  intro: string;
+  companyGstin: string;
+  companyUdyam: string;
+  companyEmail: string;
+  companyContact: string;
+  items: QuoteItem[];
+  gstRate: number;
+  termsText: string;
+  accountName: string;
+  bankName: string;
+  accountNumber: string;
+  ifsc: string;
+  swift: string;
+  branch: string;
+  operationalAddress: string;
+  headquartersAddress: string;
+  authorizedSignatory: string;
+  signatureBrand: string;
+};
+
+const loadDealDraft = (): DealDraft | null => {
+  try {
+    const raw = localStorage.getItem(DEAL_DRAFT_KEY);
+    return raw ? (JSON.parse(raw) as DealDraft) : null;
+  } catch {
+    return null;
+  }
+};
+
 const waitForImages = async (root: ParentNode) => {
   const images = Array.from(root.querySelectorAll<HTMLImageElement>("img"));
 
@@ -164,8 +209,20 @@ export default function AdminDealConvert() {
   const location = useLocation();
   const navigate = useNavigate();
   const navState = location.state as { lead?: LeadLike; docType?: DocType } | null;
-  const lead = navState?.lead;
-  const initialDocType: DocType = navState?.docType === "invoice" ? "invoice" : "quotation";
+  const navLead = navState?.lead;
+
+  // Restore an in-progress draft saved to this browser so a refresh / accidental
+  // navigation doesn't wipe progress. It only applies when we're continuing the same
+  // lead (or we arrived without nav state, e.g. straight after a page refresh).
+  const savedDraft = useMemo(() => loadDealDraft(), []);
+  const draft =
+    savedDraft && (!navLead || savedDraft.leadId === (navLead._id || ""))
+      ? savedDraft
+      : null;
+  const lead = navLead ?? draft?.lead;
+
+  const initialDocType: DocType =
+    draft?.docType ?? (navState?.docType === "invoice" ? "invoice" : "quotation");
 
   const [docType, setDocType] = useState<DocType>(initialDocType);
   const isInvoice = docType === "invoice";
@@ -179,39 +236,43 @@ export default function AdminDealConvert() {
     : "Edit fields and generate quotation.";
 
   const [quotationFor, setQuotationFor] = useState(
-    [lead?.firstName, lead?.lastName].filter(Boolean).join(" ") || "",
+    draft?.quotationFor ?? ([lead?.firstName, lead?.lastName].filter(Boolean).join(" ") || ""),
   );
-  const [company, setCompany] = useState(lead?.company || "");
-  const [email, setEmail] = useState(lead?.email || "");
-  const [phone, setPhone] = useState(lead?.phone || "");
-  const [address, setAddress] = useState("");
-  const [quotationNo, setQuotationNo] = useState(() => makeDocNumber(initialDocType));
-  const [quotationDate, setQuotationDate] = useState(toIsoDate(new Date()));
-  const [validityDays, setValidityDays] = useState(30);
-  const [currencyCode, setCurrencyCode] = useState("INR");
+  const [company, setCompany] = useState(draft?.company ?? (lead?.company || ""));
+  const [email, setEmail] = useState(draft?.email ?? (lead?.email || ""));
+  const [phone, setPhone] = useState(draft?.phone ?? (lead?.phone || ""));
+  const [address, setAddress] = useState(draft?.address ?? "");
+  const [quotationNo, setQuotationNo] = useState(() => draft?.quotationNo ?? makeDocNumber(initialDocType));
+  const [quotationDate, setQuotationDate] = useState(draft?.quotationDate ?? toIsoDate(new Date()));
+  const [validityDays, setValidityDays] = useState(draft?.validityDays ?? 30);
+  const [currencyCode, setCurrencyCode] = useState(draft?.currencyCode ?? "INR");
   const [subject, setSubject] = useState(
-    `${initialDocType === "invoice" ? "Invoice" : "Quotation"} for manufacturing & printing`,
+    draft?.subject ??
+      `${initialDocType === "invoice" ? "Invoice" : "Quotation"} for manufacturing & printing`,
   );
   const [intro, setIntro] = useState(
-    initialDocType === "invoice"
-      ? "Dear Sir/Ma'am, thank you for your business with Stick Toon. Please find below the invoice details for your order."
-      : "Dear Sir/Ma'am, thank you for your interest in Stick Toon. Please find below the quotation details prepared for your requirement.",
+    draft?.intro ??
+      (initialDocType === "invoice"
+        ? "Dear Sir/Ma'am, thank you for your business with Stick Toon. Please find below the invoice details for your order."
+        : "Dear Sir/Ma'am, thank you for your interest in Stick Toon. Please find below the quotation details prepared for your requirement."),
   );
-  const [companyGstin, setCompanyGstin] = useState("GSTIN: 27HENPP0138G1Z9");
-  const [companyUdyam, setCompanyUdyam] = useState("Udyam Reg: UDYAM-MH-03-0082090");
-  const [companyEmail, setCompanyEmail] = useState("Email: sticktoon.xyz@gmail.com");
-  const [companyContact, setCompanyContact] = useState("Contact: +91 895 666 7277");
-  const [items, setItems] = useState<QuoteItem[]>([
-    {
-      id: "item-1",
-      description: "Custom product",
-      subDescription: "",
-      unitPrice: Number(lead?.expectedAmount || 0),
-      quantity: 1,
-      image: "",
-    },
-  ]);
-  const [gstRate, setGstRate] = useState(18);
+  const [companyGstin, setCompanyGstin] = useState(draft?.companyGstin ?? "GSTIN: 27HENPP0138G1Z9");
+  const [companyUdyam, setCompanyUdyam] = useState(draft?.companyUdyam ?? "Udyam Reg: UDYAM-MH-03-0082090");
+  const [companyEmail, setCompanyEmail] = useState(draft?.companyEmail ?? "Email: sticktoon.xyz@gmail.com");
+  const [companyContact, setCompanyContact] = useState(draft?.companyContact ?? "Contact: +91 895 666 7277");
+  const [items, setItems] = useState<QuoteItem[]>(
+    draft?.items ?? [
+      {
+        id: "item-1",
+        description: "Custom product",
+        subDescription: "",
+        unitPrice: Number(lead?.expectedAmount || 0),
+        quantity: 1,
+        image: "",
+      },
+    ],
+  );
+  const [gstRate, setGstRate] = useState(draft?.gstRate ?? 18);
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [availableProducts, setAvailableProducts] = useState<ImportProduct[]>([]);
@@ -309,32 +370,35 @@ export default function AdminDealConvert() {
     setIsImportModalOpen(false);
   };
   const [termsText, setTermsText] = useState(
-    [
-      "1. Currency: All prices are in Indian Rupees (INR).",
-      "2. Taxes: Rates are inclusive of 18% IGST.",
-      "3. International Shipping: Delivery will be managed by Sticktoon, with no charges applied to the customer.",
-      "4. Lead Time: 20-25 working days from the date of Purchase Order and advance payment.",
-      "5. Payment Terms: 100% Advance payment required for international orders.",
-      "6. Validity: This quotation is valid for 10 days.",
-      "7. Jurisdiction: Subject to Nagpur Jurisdiction.",
-    ].join("\n"),
+    draft?.termsText ??
+      [
+        "1. Currency: All prices are in Indian Rupees (INR).",
+        "2. Taxes: Rates are inclusive of 18% IGST.",
+        "3. International Shipping: Delivery will be managed by Sticktoon, with no charges applied to the customer.",
+        "4. Lead Time: 20-25 working days from the date of Purchase Order and advance payment.",
+        "5. Payment Terms: 100% Advance payment required for international orders.",
+        "6. Validity: This quotation is valid for 10 days.",
+        "7. Jurisdiction: Subject to Nagpur Jurisdiction.",
+      ].join("\n"),
   );
-  const [accountName, setAccountName] = useState("Anish Patankar (Stick Toon)");
-  const [bankName, setBankName] = useState("State Bank of India");
-  const [accountNumber, setAccountNumber] = useState("41532186427");
-  const [ifsc, setIfsc] = useState("SBIN0000502");
-  const [swift, setSwift] = useState("SBININBBXXX");
-  const [branch, setBranch] = useState("Warud, Amravati, MH");
+  const [accountName, setAccountName] = useState(draft?.accountName ?? "Anish Patankar (Stick Toon)");
+  const [bankName, setBankName] = useState(draft?.bankName ?? "State Bank of India");
+  const [accountNumber, setAccountNumber] = useState(draft?.accountNumber ?? "41532186427");
+  const [ifsc, setIfsc] = useState(draft?.ifsc ?? "SBIN0000502");
+  const [swift, setSwift] = useState(draft?.swift ?? "SBININBBXXX");
+  const [branch, setBranch] = useState(draft?.branch ?? "Warud, Amravati, MH");
   const [operationalAddress, setOperationalAddress] = useState(
-    "Stick-Toon : Tejas Bhandarkar at TBI, CIIT,\nRamdeobaba College, Nagpur - 440013",
+    draft?.operationalAddress ??
+      "Stick-Toon : Tejas Bhandarkar at TBI, CIIT,\nRamdeobaba College, Nagpur - 440013",
   );
   const [headquartersAddress, setHeadquartersAddress] = useState(
-    "House No.501/107 , N.T.R High School,\nWarud, Amravati, 444906",
+    draft?.headquartersAddress ??
+      "House No.501/107 , N.T.R High School,\nWarud, Amravati, 444906",
   );
   const [authorizedSignatory, setAuthorizedSignatory] = useState(
-    "Tejas Bhandarkar / Anish Patankar",
+    draft?.authorizedSignatory ?? "Tejas Bhandarkar / Anish Patankar",
   );
-  const [signatureBrand, setSignatureBrand] = useState("For StickToon");
+  const [signatureBrand, setSignatureBrand] = useState(draft?.signatureBrand ?? "For StickToon");
   const [isExporting, setIsExporting] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const isStaticPreview = isExporting || isPrinting;
@@ -394,6 +458,98 @@ export default function AdminDealConvert() {
 
     return pages;
   }, [items, firstPageRows, otherPageRows]);
+
+  // Persist the working draft on every change so nothing is lost on refresh.
+  useEffect(() => {
+    if (!lead) return;
+    const draftToSave: DealDraft = {
+      leadId: lead._id || "",
+      lead,
+      docType,
+      quotationFor,
+      company,
+      email,
+      phone,
+      address,
+      quotationNo,
+      quotationDate,
+      validityDays,
+      currencyCode,
+      subject,
+      intro,
+      companyGstin,
+      companyUdyam,
+      companyEmail,
+      companyContact,
+      items,
+      gstRate,
+      termsText,
+      accountName,
+      bankName,
+      accountNumber,
+      ifsc,
+      swift,
+      branch,
+      operationalAddress,
+      headquartersAddress,
+      authorizedSignatory,
+      signatureBrand,
+    };
+    try {
+      localStorage.setItem(DEAL_DRAFT_KEY, JSON.stringify(draftToSave));
+    } catch {
+      // Storage full (usually large base64 item images) — retry without embedded uploads.
+      try {
+        const slimItems = items.map((item) =>
+          item.image && item.image.startsWith("data:") ? { ...item, image: "" } : item,
+        );
+        localStorage.setItem(DEAL_DRAFT_KEY, JSON.stringify({ ...draftToSave, items: slimItems }));
+      } catch {
+        /* give up silently — nothing else we can do here */
+      }
+    }
+  }, [
+    lead,
+    docType,
+    quotationFor,
+    company,
+    email,
+    phone,
+    address,
+    quotationNo,
+    quotationDate,
+    validityDays,
+    currencyCode,
+    subject,
+    intro,
+    companyGstin,
+    companyUdyam,
+    companyEmail,
+    companyContact,
+    items,
+    gstRate,
+    termsText,
+    accountName,
+    bankName,
+    accountNumber,
+    ifsc,
+    swift,
+    branch,
+    operationalAddress,
+    headquartersAddress,
+    authorizedSignatory,
+    signatureBrand,
+  ]);
+
+  const handleClearDraft = () => {
+    if (!window.confirm("Clear this draft and start fresh? Unsaved changes will be lost.")) return;
+    try {
+      localStorage.removeItem(DEAL_DRAFT_KEY);
+    } catch {
+      /* ignore */
+    }
+    navigate(0);
+  };
 
   const handleDocTypeChange = (nextType: DocType) => {
     if (nextType === docType) return;
@@ -738,9 +894,18 @@ export default function AdminDealConvert() {
               <h1 className="text-2xl font-black text-slate-900">{pageTitle}</h1>
               <p className="text-sm text-slate-500">{pageSubtitle}</p>
             </div>
-            <Link to="/admin" className="text-sm font-bold text-slate-600 print:hidden">
-              Back
-            </Link>
+            <div className="flex items-center gap-3 print:hidden">
+              <button
+                type="button"
+                onClick={handleClearDraft}
+                className="text-sm font-bold text-red-500 hover:text-red-600"
+              >
+                Clear
+              </button>
+              <Link to="/admin" className="text-sm font-bold text-slate-600">
+                Back
+              </Link>
+            </div>
           </div>
 
           <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1 print:hidden">
