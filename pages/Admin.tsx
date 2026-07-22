@@ -8,7 +8,6 @@ import {
   formatDateTime,
   formatDayMonth,
 } from "../utils/formatDate";
-import { BADGES } from "../constants";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import DescriptionRoundedIcon from "@mui/icons-material/DescriptionRounded";
 import SupportAgentRoundedIcon from "@mui/icons-material/SupportAgentRounded";
@@ -436,22 +435,15 @@ interface WithdrawalRequest {
   createdAt: string;
 }
 
+type ProductType = "badge" | "sticker";
+
 interface Product {
   _id: string;
   name: string;
+  type: ProductType;
   description: string;
   price: number;
-  category:
-    | "Positive Vibes"
-    | "Moody"
-    | "Sports"
-    | "Religious"
-    | "Entertainment"
-    | "Events"
-    | "Animal"
-    | "Couple"
-    | "Anime"
-    | "Custom";
+  category: string;
   subcategory?: string;
   image: string;
   printImage?: string;
@@ -462,10 +454,11 @@ interface Product {
   width?: number;
   height?: number;
   sku?: string;
+  size?: string;
+  packCount?: number;
   isCombo?: boolean;
   comboItems?: ComboItemForm[];
   createdAt: string;
-  isPlaceholder?: boolean;
 }
 
 type ComboItemForm = {
@@ -504,6 +497,27 @@ const ADMIN_PRODUCT_CATEGORY_OPTIONS: Array<{
   { value: "Anime", label: "Anime", emoji: "🎌" },
   { value: "Custom", label: "Custom", emoji: "✨" },
 ];
+
+// Sticker categories are kebab ids (must match STICKER_CATEGORIES in constants.tsx
+// and the enum in backend/models/Product.js).
+const STICKER_CATEGORY_OPTIONS: { value: string; label: string; emoji: string }[] = [
+  { value: "sticker-pack", label: "Sticker Pack", emoji: "📦" },
+  { value: "marvel", label: "Marvel", emoji: "🦸" },
+  { value: "dc-universe", label: "DC Universe", emoji: "🦇" },
+  { value: "pet", label: "Pet", emoji: "🐾" },
+  { value: "love", label: "Love", emoji: "💕" },
+  { value: "anime", label: "Anime", emoji: "🎌" },
+  { value: "cartoon", label: "Cartoon", emoji: "🎨" },
+  { value: "sports", label: "Sports", emoji: "🏆" },
+  { value: "random", label: "Random", emoji: "🎲" },
+];
+const STICKER_CATEGORY_VALUES = STICKER_CATEGORY_OPTIONS.map((o) => o.value);
+
+const categoryOptionsForType = (type: ProductType) =>
+  type === "sticker" ? STICKER_CATEGORY_OPTIONS : ADMIN_PRODUCT_CATEGORY_OPTIONS;
+
+const firstCategoryForType = (type: ProductType): string =>
+  type === "sticker" ? STICKER_CATEGORY_OPTIONS[0].value : "Moody";
 
 const ADMIN_PRODUCT_SUBCATEGORY_SUGGESTIONS: Record<
   AdminProductCategory,
@@ -562,9 +576,10 @@ const sanitizeProductImagePath = (value?: string) => {
 
 type ProductFormState = {
   name: string;
+  type: ProductType;
   description: string;
   price: number;
-  category: AdminProductCategory;
+  category: string;
   subcategory: string;
   image: string;
   printImage: string;
@@ -575,17 +590,18 @@ type ProductFormState = {
   width: number;
   height: number;
   sku: string;
+  size: string;
+  packCount: number;
   isCombo: boolean;
   comboItems: ComboItemForm[];
 };
 
-const createDefaultProductForm = (
-  category: AdminProductCategory = "Moody",
-): ProductFormState => ({
+const createDefaultProductForm = (type: ProductType = "badge"): ProductFormState => ({
   name: "",
+  type,
   description: "",
   price: 0,
-  category,
+  category: firstCategoryForType(type),
   subcategory: "",
   image: "",
   printImage: "",
@@ -596,24 +612,36 @@ const createDefaultProductForm = (
   width: 10,
   height: 5,
   sku: "",
+  size: "",
+  packCount: 0,
   isCombo: false,
   comboItems: [],
 });
 
 const normalizeAdminProduct = (product: Product): Product => {
-  const normalizedCategory = normalizeCategory(product.category) as
-    | AdminProductCategory
-    | undefined;
+  const type: ProductType = product.type === "sticker" ? "sticker" : "badge";
+
+  let category: string;
+  if (type === "sticker") {
+    const lower = String(product.category || "").toLowerCase();
+    category = STICKER_CATEGORY_VALUES.includes(lower)
+      ? lower
+      : STICKER_CATEGORY_VALUES[STICKER_CATEGORY_VALUES.length - 1];
+  } else {
+    const normalized = normalizeCategory(product.category) as AdminProductCategory | undefined;
+    category =
+      normalized && ADMIN_PRODUCT_CATEGORIES.includes(normalized) ? normalized : "Moody";
+  }
 
   return {
     ...product,
-    category:
-      normalizedCategory && ADMIN_PRODUCT_CATEGORIES.includes(normalizedCategory)
-        ? normalizedCategory
-        : "Moody",
+    type,
+    category,
     subcategory: sanitizeProductSubcategory(product.subcategory),
     image: sanitizeProductImagePath(product.image),
-    isCombo: Boolean(product.isCombo),
+    size: product.size ?? "",
+    packCount: product.packCount ?? 0,
+    isCombo: type === "badge" && Boolean(product.isCombo),
     comboItems: Array.isArray(product.comboItems)
       ? product.comboItems.map((item) => ({
           ...item,
@@ -624,58 +652,6 @@ const normalizeAdminProduct = (product: Product): Product => {
 };
 
 const PLACEHOLDER_IMAGE = "/badge/placeholder.png";
-
-const ensureMinimumProductsPerCategory = (
-  items: Product[],
-  minCount = 4,
-): Product[] => {
-  const result: Product[] = [...items];
-
-  ADMIN_PRODUCT_CATEGORIES.forEach((category) => {
-    const current = result.filter((p) => p.category === category);
-    if (current.length >= minCount) return;
-
-    const fallbackBadges = BADGES.filter((b) => b.category === category);
-    const needed = minCount - current.length;
-    const existingNames = new Set(current.map((p) => p.name));
-    const toAdd = fallbackBadges
-      .filter((b) => !existingNames.has(b.name))
-      .slice(0, needed)
-      .map((b, index) => ({
-        _id: `placeholder-${category}-${b.id}-${index}`,
-        name: b.name,
-        description: b.details || "",
-        price: b.price,
-        category: category as AdminProductCategory,
-        image: b.image,
-        stock: 0,
-        createdAt: "1970-01-01T00:00:00.000Z",
-        isPlaceholder: true,
-      }));
-
-    if (toAdd.length === 0 && current.length < minCount) {
-      const fillerNeeded = minCount - current.length;
-      for (let i = 0; i < fillerNeeded; i += 1) {
-        result.push({
-          _id: `placeholder-${category}-generic-${i}`,
-          name: `${category} Badge`,
-          description: "",
-          price: 0,
-          category: category as AdminProductCategory,
-          image: PLACEHOLDER_IMAGE,
-          stock: 0,
-          createdAt: "1970-01-01T00:00:00.000Z",
-          isPlaceholder: true,
-        });
-      }
-      return;
-    }
-
-    result.push(...toAdd);
-  });
-
-  return result;
-};
 
 // Combo pack editor: flags a product as a bundle and picks the member badges.
 // Rendered inside both the (light) add form and the (dark) edit modal.
@@ -1047,7 +1023,6 @@ const Admin: React.FC = () => {
   const [viewingOrder, setViewingOrder] = useState<any>(null);
   const [viewingCustomerId, setViewingCustomerId] = useState<string | null>(null);
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
-  const productsForDisplay = ensureMinimumProductsPerCategory(products);
 
   // 🔍 CRM FILTER STATE
   const [search, setSearch] = useState("");
@@ -2587,13 +2562,13 @@ const Admin: React.FC = () => {
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
 
-  // Badges that may be bundled into a combo: real DB products only, minus other
+  // Badges that may be bundled into a combo: real badge products only, minus other
   // combos and the product currently being edited (a combo can't contain itself).
   const comboPickerOptions = useMemo(
     () =>
       products.filter(
         (product) =>
-          !product.isPlaceholder &&
+          product.type === "badge" &&
           !product.isCombo &&
           product._id !== editingProduct?._id,
       ),
@@ -2613,15 +2588,40 @@ const Admin: React.FC = () => {
     createDefaultProductForm(),
   );
   const [isCustomSubcategory, setIsCustomSubcategory] = useState(false);
+  // Products list filters (type tab + search).
+  const [productTypeFilter, setProductTypeFilter] = useState<"all" | ProductType>("all");
+  const [productSearchQuery, setProductSearchQuery] = useState("");
   const availableSubcategories = useMemo(() => {
+    // Subcategories are a badge-only concept.
+    if (productForm.type !== "badge") return [];
     const currentCategory = productForm.category;
     if (!currentCategory) return [];
     const fromProducts = products
       .filter((p) => p.category === currentCategory && p.subcategory)
       .map((p) => p.subcategory!.trim());
-    const fromSuggestions = ADMIN_PRODUCT_SUBCATEGORY_SUGGESTIONS[currentCategory] || [];
+    const fromSuggestions =
+      ADMIN_PRODUCT_SUBCATEGORY_SUGGESTIONS[currentCategory as AdminProductCategory] || [];
     return Array.from(new Set([...fromProducts, ...fromSuggestions])).filter(Boolean);
-  }, [productForm.category, products]);
+  }, [productForm.type, productForm.category, products]);
+
+  // Real products only, filtered by the active type tab + search query.
+  const productsForDisplay = useMemo(() => {
+    const q = productSearchQuery.trim().toLowerCase();
+    return products.filter((p) => {
+      if (productTypeFilter !== "all" && p.type !== productTypeFilter) return false;
+      if (!hasValidImage(p.image)) return false;
+      if (!q) return true;
+      return (
+        p.name.toLowerCase().includes(q) ||
+        (p.description || "").toLowerCase().includes(q) ||
+        (p.subcategory || "").toLowerCase().includes(q) ||
+        (p.category || "").toLowerCase().includes(q)
+      );
+    });
+  }, [products, productTypeFilter, productSearchQuery]);
+
+  const badgeCount = useMemo(() => products.filter((p) => p.type === "badge").length, [products]);
+  const stickerCount = useMemo(() => products.filter((p) => p.type === "sticker").length, [products]);
 
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
 
@@ -4161,7 +4161,7 @@ const Admin: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append("image", file);
-      formData.append("category", "badge");
+      formData.append("category", productForm.type);
 
       const res = await fetch(`${API_BASE_URL}/api/admin/images/upload`, {
         method: "POST",
@@ -4218,7 +4218,7 @@ const Admin: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append("image", file);
-      formData.append("category", "badge");
+      formData.append("category", productForm.type);
 
       const res = await fetch(`${API_BASE_URL}/api/admin/images/upload`, {
         method: "POST",
@@ -4271,15 +4271,18 @@ const Admin: React.FC = () => {
     const token = localStorage.getItem("adminToken");
     if (!token) return;
 
+    const isSticker = productForm.type === "sticker";
     const payload = {
       ...productForm,
-      category: normalizeCategory(productForm.category),
-      subcategory: sanitizeProductSubcategory(productForm.subcategory),
+      // Send category raw; the backend normalizes it against the product type
+      // (badge Title-case vs sticker kebab).
+      category: productForm.category,
+      subcategory: isSticker ? "" : sanitizeProductSubcategory(productForm.subcategory),
       image: sanitizeProductImagePath(productForm.image),
-      printImage: sanitizeProductImagePath(productForm.printImage),
+      printImage: isSticker ? "" : sanitizeProductImagePath(productForm.printImage),
       images: productForm.images.map((img) => sanitizeProductImagePath(img)).filter(Boolean),
-      isCombo: productForm.isCombo,
-      comboItems: productForm.isCombo ? productForm.comboItems : [],
+      isCombo: !isSticker && productForm.isCombo,
+      comboItems: !isSticker && productForm.isCombo ? productForm.comboItems : [],
     };
 
     try {
@@ -4314,15 +4317,16 @@ const Admin: React.FC = () => {
     const token = localStorage.getItem("adminToken");
     if (!token) return;
 
+    const isSticker = productForm.type === "sticker";
     const payload = {
       ...productForm,
-      category: normalizeCategory(productForm.category),
-      subcategory: sanitizeProductSubcategory(productForm.subcategory),
+      category: productForm.category,
+      subcategory: isSticker ? "" : sanitizeProductSubcategory(productForm.subcategory),
       image: sanitizeProductImagePath(productForm.image),
-      printImage: sanitizeProductImagePath(productForm.printImage),
+      printImage: isSticker ? "" : sanitizeProductImagePath(productForm.printImage),
       images: productForm.images.map((img) => sanitizeProductImagePath(img)).filter(Boolean),
-      isCombo: productForm.isCombo,
-      comboItems: productForm.isCombo ? productForm.comboItems : [],
+      isCombo: !isSticker && productForm.isCombo,
+      comboItems: !isSticker && productForm.isCombo ? productForm.comboItems : [],
     };
 
     try {
@@ -6793,13 +6797,47 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     onSubmit={handleAddProduct}
                     className="grid grid-cols-1 md:grid-cols-2 gap-6"
                   >
+                    {/* Product Type toggle — drives which categories & fields show */}
+                    <div className="md:col-span-2">
+                      <label className="block text-gray-700 font-bold text-sm mb-2">
+                        Product Type
+                      </label>
+                      <div className="inline-flex rounded-lg border border-gray-300 bg-gray-50 p-1 gap-1">
+                        {(["badge", "sticker"] as ProductType[]).map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => {
+                              if (productForm.type === t) return;
+                              setProductForm((prev) => ({
+                                ...prev,
+                                type: t,
+                                category: firstCategoryForType(t),
+                                subcategory: "",
+                                isCombo: false,
+                                comboItems: [],
+                              }));
+                              setIsCustomSubcategory(false);
+                            }}
+                            className={`px-6 py-2 rounded-md text-sm font-bold transition-all ${
+                              productForm.type === t
+                                ? "bg-indigo-600 text-white shadow"
+                                : "text-gray-600 hover:bg-white"
+                            }`}
+                          >
+                            {t === "badge" ? "🎖️ Badge" : "🎨 Sticker"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-gray-700 font-bold text-sm mb-2">
                         Product Name
                       </label>
                       <input
                         type="text"
-                        placeholder="e.g., Anime Sticker Set"
+                        placeholder={productForm.type === "sticker" ? "e.g., Spider-Man Sticker" : "e.g., Anime Badge"}
                         value={productForm.name}
                         onChange={(e) =>
                           setProductForm({
@@ -6839,17 +6877,16 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       <select
                         value={productForm.category}
                         onChange={(e) => {
-                          const nextCategory = e.target.value as AdminProductCategory;
                           setProductForm({
                             ...productForm,
-                            category: nextCategory,
+                            category: e.target.value,
                             subcategory: "",
                           });
                         }}
                         required
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300 cursor-pointer"
                       >
-                        {ADMIN_PRODUCT_CATEGORY_OPTIONS.map((option) => (
+                        {categoryOptionsForType(productForm.type).map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.emoji} {option.label}
                           </option>
@@ -6857,53 +6894,85 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       </select>
                     </div>
 
-                    <div>
-                      <label className="block text-gray-700 font-bold text-sm mb-2">
-                        Subcategory
-                      </label>
-                      <div className="space-y-3">
-                        <select
-                          value={isCustomSubcategory ? "custom-new" : productForm.subcategory}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === "custom-new") {
-                              setIsCustomSubcategory(true);
-                              setProductForm({ ...productForm, subcategory: "" });
-                            } else {
-                              setIsCustomSubcategory(false);
-                              setProductForm({ ...productForm, subcategory: val });
-                            }
-                          }}
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300 cursor-pointer"
-                        >
-                          <option value="">-- No Subcategory / Select Available --</option>
-                          {availableSubcategories.map((sub) => (
-                            <option key={sub} value={sub}>
-                              {sub}
+                    {productForm.type === "badge" ? (
+                      <div>
+                        <label className="block text-gray-700 font-bold text-sm mb-2">
+                          Subcategory
+                        </label>
+                        <div className="space-y-3">
+                          <select
+                            value={isCustomSubcategory ? "custom-new" : productForm.subcategory}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "custom-new") {
+                                setIsCustomSubcategory(true);
+                                setProductForm({ ...productForm, subcategory: "" });
+                              } else {
+                                setIsCustomSubcategory(false);
+                                setProductForm({ ...productForm, subcategory: val });
+                              }
+                            }}
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300 cursor-pointer"
+                          >
+                            <option value="">-- No Subcategory / Select Available --</option>
+                            {availableSubcategories.map((sub) => (
+                              <option key={sub} value={sub}>
+                                {sub}
+                              </option>
+                            ))}
+                            <option value="custom-new" className="font-bold text-indigo-600">
+                              ➕ Create New Subcategory
                             </option>
-                          ))}
-                          <option value="custom-new" className="font-bold text-indigo-600">
-                            ➕ Create New Subcategory
-                          </option>
-                        </select>
+                          </select>
 
-                        {isCustomSubcategory && (
+                          {isCustomSubcategory && (
+                            <input
+                              type="text"
+                              placeholder="Type new subcategory name"
+                              value={productForm.subcategory}
+                              onChange={(e) =>
+                                setProductForm({
+                                  ...productForm,
+                                  subcategory: sanitizeProductSubcategory(e.target.value),
+                                })
+                              }
+                              required
+                              className="w-full px-4 py-3 bg-white border border-indigo-400 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300 animate-fadeIn"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-gray-700 font-bold text-sm mb-2">
+                            Sticker Size
+                          </label>
                           <input
                             type="text"
-                            placeholder="Type new subcategory name"
-                            value={productForm.subcategory}
-                            onChange={(e) =>
-                              setProductForm({
-                                ...productForm,
-                                subcategory: sanitizeProductSubcategory(e.target.value),
-                              })
-                            }
-                            required
-                            className="w-full px-4 py-3 bg-white border border-indigo-400 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300 animate-fadeIn"
+                            placeholder="e.g., 5×5 cm"
+                            value={productForm.size}
+                            onChange={(e) => setProductForm({ ...productForm, size: e.target.value })}
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300"
                           />
-                        )}
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 font-bold text-sm mb-2">
+                            Stickers per Pack
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0 = single"
+                            value={productForm.packCount || ""}
+                            onChange={(e) =>
+                              setProductForm({ ...productForm, packCount: parseInt(e.target.value) || 0 })
+                            }
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300"
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <div>
                       <label className="block text-gray-700 font-bold text-sm mb-2">
@@ -7168,12 +7237,14 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       </div>
                     </div>
 
-                    <ComboPackPicker
-                      form={productForm}
-                      setForm={setProductForm}
-                      options={comboPickerOptions}
-                      theme="light"
-                    />
+                    {productForm.type === "badge" && (
+                      <ComboPackPicker
+                        form={productForm}
+                        setForm={setProductForm}
+                        options={comboPickerOptions}
+                        theme="light"
+                      />
+                    )}
 
                     <div className="md:col-span-2">
                       <label className="block text-gray-700 font-bold text-sm mb-2">
@@ -7220,168 +7291,237 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 </div>
               )}
 
-              {/* Products by Category */}
+              {/* Type filter tabs + search */}
+              {!loadingData.products && products.length > 0 && (
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                  <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 gap-1 shadow-sm overflow-x-auto">
+                    {(
+                      [
+                        { key: "all", label: `All (${products.length})` },
+                        { key: "badge", label: `🎖️ Badges (${badgeCount})` },
+                        { key: "sticker", label: `🎨 Stickers (${stickerCount})` },
+                      ] as { key: "all" | ProductType; label: string }[]
+                    ).map((tab) => (
+                      <button
+                        key={tab.key}
+                        onClick={() => setProductTypeFilter(tab.key)}
+                        className={`px-4 py-2 rounded-md text-sm font-bold whitespace-nowrap transition-all ${
+                          productTypeFilter === tab.key
+                            ? "bg-indigo-600 text-white shadow"
+                            : "text-gray-600 hover:bg-gray-100"
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="relative sm:w-72">
+                    <input
+                      type="text"
+                      placeholder="🔍 Search products…"
+                      value={productSearchQuery}
+                      onChange={(e) => setProductSearchQuery(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none shadow-sm"
+                    />
+                    {productSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setProductSearchQuery("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 font-bold"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Products grouped by type -> category */}
               {loadingData.products ? (
                 <div className="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-12 text-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
                   <p className="text-gray-500 text-lg">Loading products...</p>
                 </div>
-              ) : products.length > 0 ? (
-                <div className="space-y-8">
-                  {ADMIN_PRODUCT_CATEGORIES.map((category) => {
-                    const categoryProducts = productsForDisplay.filter(
-                      (p) =>
-                        p.category === category &&
-                        (p.isPlaceholder || hasValidImage(p.image)),
-                    );
-                    if (categoryProducts.length === 0) return null;
+              ) : productsForDisplay.length > 0 ? (
+                <div className="space-y-10">
+                  {(
+                    [
+                      ...(productTypeFilter !== "sticker"
+                        ? [{ type: "badge" as ProductType, label: "🎖️ Badges", options: ADMIN_PRODUCT_CATEGORY_OPTIONS }]
+                        : []),
+                      ...(productTypeFilter !== "badge"
+                        ? [{ type: "sticker" as ProductType, label: "🎨 Stickers", options: STICKER_CATEGORY_OPTIONS }]
+                        : []),
+                    ] as { type: ProductType; label: string; options: { value: string; label: string; emoji: string }[] }[]
+                  ).map((group) => {
+                    const groupProducts = productsForDisplay.filter((p) => p.type === group.type);
+                    if (groupProducts.length === 0) return null;
 
                     return (
-                      <div key={category} className="animate-fadeIn">
-                        <div className="flex items-center gap-4 mb-6">
-                          <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-2xl">
-                            {category === "Positive Vibes" && "✨"}
-                            {category === "Moody" && "😊"}
-                            {category === "Sports" && "🏆"}
-                            {category === "Religious" && "🕉️"}
-                            {category === "Entertainment" && "🎭"}
-                            {category === "Events" && "🎉"}
-                            {category === "Animal" && "🐾"}
-                            {category === "Couple" && "💑"}
-                            {category === "Anime" && "🎌"}
-                            {category === "Custom" && "✨"}
+                      <div key={group.type} className="space-y-8">
+                        {productTypeFilter === "all" && (
+                          <div className="flex items-center gap-3">
+                            <h2 className="text-xl font-black text-gray-900">{group.label}</h2>
+                            <span className="text-sm text-gray-400 font-semibold">
+                              {groupProducts.length}
+                            </span>
+                            <div className="flex-1 h-px bg-gray-200" />
                           </div>
-                          <div className="flex-1">
-                            <h3 className="text-2xl font-bold text-gray-900">
-                              {category}
-                            </h3>
-                            <p className="text-gray-600 font-medium text-sm">
-                              {categoryProducts.length}{" "}
-                              {categoryProducts.length === 1
-                                ? "product"
-                                : "products"}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                          {categoryProducts.map((product) => (
-                            <div
-                              key={product._id}
-                              className="group bg-white border border-gray-200 rounded-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
-                            >
-                              {/* Image */}
-                              <div className="relative h-56 bg-gray-100 overflow-hidden">
-                                <img
-                                  src={product.image || PLACEHOLDER_IMAGE}
-                                  alt={product.name}
-                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                  onError={(e) => {
-                                    if (e.currentTarget.src.endsWith(PLACEHOLDER_IMAGE)) return;
-                                    e.currentTarget.src = PLACEHOLDER_IMAGE;
-                                  }}
-                                />
-                                {/* Stock badge overlay */}
-                                <div className="absolute top-3 right-3">
-                                  <span
-                                    className={`px-3 py-1.5 rounded-full text-xs font-bold ${
-                                      product.stock > 0
-                                        ? "bg-green-100 text-green-700 border border-green-200"
-                                        : "bg-red-100 text-red-700 border border-red-200"
-                                    }`}
-                                  >
-                                    {product.isPlaceholder
-                                      ? "Sample"
-                                      : `${product.stock} in stock`}
-                                  </span>
-                                </div>
-                                {product.isCombo && (
-                                  <div className="absolute top-3 left-3">
-                                    <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
-                                      🎁 Combo ({product.comboItems?.length ?? 0})
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
+                        )}
 
-                              {/* Content */}
-                              <div className="p-5 space-y-3">
-                                <h4 className="text-gray-900 font-bold text-lg line-clamp-2 leading-tight">
-                                  {product.name}
-                                </h4>
-                                <p className="text-gray-600 text-sm line-clamp-2 leading-relaxed">
-                                  {product.description}
-                                </p>
-                                {product.subcategory && (
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
-                                    {product.subcategory}
+                        {group.options.map((option) => {
+                          const categoryProducts = groupProducts.filter(
+                            (p) => p.category === option.value,
+                          );
+                          if (categoryProducts.length === 0) return null;
+
+                          return (
+                            <div key={`${group.type}-${option.value}`} className="animate-fadeIn">
+                              <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-2xl">
+                                  {option.emoji}
+                                </div>
+                                <div className="flex-1">
+                                  <h3 className="text-2xl font-bold text-gray-900">
+                                    {option.label}
+                                  </h3>
+                                  <p className="text-gray-600 font-medium text-sm">
+                                    {categoryProducts.length}{" "}
+                                    {categoryProducts.length === 1 ? "product" : "products"}
                                   </p>
-                                )}
-
-                                {/* Price */}
-                                <div className="flex items-baseline gap-2 pt-2">
-                                  <span className="text-3xl font-bold text-indigo-600">
-                                    ₹{product.price}
-                                  </span>
                                 </div>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                {categoryProducts.map((product) => (
+                                  <div
+                                    key={product._id}
+                                    className="group bg-white border border-gray-200 rounded-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
+                                  >
+                                    {/* Image */}
+                                    <div className="relative h-56 bg-gray-100 overflow-hidden">
+                                      <img
+                                        src={product.image || PLACEHOLDER_IMAGE}
+                                        alt={product.name}
+                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                        onError={(e) => {
+                                          if (e.currentTarget.src.endsWith(PLACEHOLDER_IMAGE)) return;
+                                          e.currentTarget.src = PLACEHOLDER_IMAGE;
+                                        }}
+                                      />
+                                      {/* Stock badge overlay */}
+                                      <div className="absolute top-3 right-3">
+                                        <span
+                                          className={`px-3 py-1.5 rounded-full text-xs font-bold ${
+                                            product.stock > 0
+                                              ? "bg-green-100 text-green-700 border border-green-200"
+                                              : "bg-red-100 text-red-700 border border-red-200"
+                                          }`}
+                                        >
+                                          {product.stock > 0
+                                            ? `${product.stock} in stock`
+                                            : "Out of stock"}
+                                        </span>
+                                      </div>
+                                      {product.isCombo && (
+                                        <div className="absolute top-3 left-3">
+                                          <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                            🎁 Combo ({product.comboItems?.length ?? 0})
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
 
-                                {/* Actions */}
-                                {product.isPlaceholder ? (
-                                  <div className="flex gap-2 pt-2">
-                                    <div className="flex-1 py-2.5 bg-gray-100 border border-gray-200 rounded-lg text-gray-500 font-bold text-sm text-center">
-                                      Sample Badge
+                                    {/* Content */}
+                                    <div className="p-5 space-y-3">
+                                      <h4 className="text-gray-900 font-bold text-lg line-clamp-2 leading-tight">
+                                        {product.name}
+                                      </h4>
+                                      <p className="text-gray-600 text-sm line-clamp-2 leading-relaxed">
+                                        {product.description}
+                                      </p>
+                                      {product.type === "sticker"
+                                        ? (product.size || (product.packCount ?? 0) > 0) && (
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">
+                                              {product.size}
+                                              {product.size && (product.packCount ?? 0) > 0 ? " • " : ""}
+                                              {(product.packCount ?? 0) > 0 ? `${product.packCount} pcs/pack` : ""}
+                                            </p>
+                                          )
+                                        : product.subcategory && (
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                                              {product.subcategory}
+                                            </p>
+                                          )}
+
+                                      {/* Price */}
+                                      <div className="flex items-baseline gap-2 pt-2">
+                                        <span className="text-3xl font-bold text-indigo-600">
+                                          ₹{product.price}
+                                        </span>
+                                      </div>
+
+                                      {/* Actions */}
+                                      <div className="flex gap-2 pt-2">
+                                        <button
+                                          onClick={() => {
+                                            setEditingProduct(product);
+                                            setProductForm({
+                                              name: product.name,
+                                              type: product.type,
+                                              description: product.description,
+                                              price: product.price,
+                                              category: product.category,
+                                              subcategory: sanitizeProductSubcategory(
+                                                product.subcategory,
+                                              ),
+                                              image: product.image,
+                                              printImage: product.printImage ?? "",
+                                              images: product.images ?? [],
+                                              stock: product.stock,
+                                              weight: product.weight ?? 0.1,
+                                              length: product.length ?? 10,
+                                              width: product.width ?? 10,
+                                              height: product.height ?? 5,
+                                              sku: product.sku ?? "",
+                                              size: product.size ?? "",
+                                              packCount: product.packCount ?? 0,
+                                              isCombo: Boolean(product.isCombo),
+                                              comboItems: product.comboItems ?? [],
+                                            });
+                                            setIsCustomSubcategory(false);
+                                            setShowProductForm(false);
+                                          }}
+                                          className="flex-1 py-2.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-blue-700 font-bold transition-all text-sm hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                                        >
+                                          <span className="text-base">✏️</span>
+                                          <span>Edit</span>
+                                        </button>
+                                        <button
+                                          onClick={() =>
+                                            setConfirmingDeleteProduct(product)
+                                          }
+                                          className="flex-1 py-2.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg text-red-700 font-bold transition-all text-sm hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                                        >
+                                          <span className="text-base">🗑️</span>
+                                          <span>Delete</span>
+                                        </button>
+                                      </div>
                                     </div>
                                   </div>
-                                ) : (
-                                  <div className="flex gap-2 pt-2">
-                                    <button
-                                      onClick={() => {
-                                        setEditingProduct(product);
-                                        setProductForm({
-                                          name: product.name,
-                                          description: product.description,
-                                          price: product.price,
-                                          category: product.category,
-                                          subcategory: sanitizeProductSubcategory(
-                                            product.subcategory,
-                                          ),
-                                          image: product.image,
-                                          printImage: product.printImage ?? "",
-                                          images: product.images ?? [],
-                                          stock: product.stock,
-                                          weight: product.weight ?? 0.1,
-                                          length: product.length ?? 10,
-                                          width: product.width ?? 10,
-                                          height: product.height ?? 5,
-                                          sku: product.sku ?? "",
-                                          isCombo: Boolean(product.isCombo),
-                                          comboItems: product.comboItems ?? [],
-                                        });
-                                        setIsCustomSubcategory(false);
-                                        setShowProductForm(false);
-                                      }}
-                                      className="flex-1 py-2.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-blue-700 font-bold transition-all text-sm hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
-                                    >
-                                      <span className="text-base">✏️</span>
-                                      <span>Edit</span>
-                                    </button>
-                                    <button
-                                      onClick={() =>
-                                        setConfirmingDeleteProduct(product)
-                                      }
-                                      className="flex-1 py-2.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg text-red-700 font-bold transition-all text-sm hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
-                                    >
-                                      <span className="text-base">🗑️</span>
-                                      <span>Delete</span>
-                                    </button>
-                                  </div>
-                                )}
+                                ))}
                               </div>
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })}
                       </div>
                     );
                   })}
+                </div>
+              ) : products.length > 0 ? (
+                <div className="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-12 text-center">
+                  <p className="text-gray-500 text-lg">
+                    🔍 No products match your filter or search.
+                  </p>
                 </div>
               ) : (
                 <div className="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-12 text-center">
@@ -9936,13 +10076,47 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   }}
                   className="grid grid-cols-1 md:grid-cols-2 gap-4"
                 >
+                  {/* Product Type toggle */}
+                  <div className="md:col-span-2">
+                    <label className="block text-white font-semibold mb-2">
+                      Product Type
+                    </label>
+                    <div className="inline-flex rounded-lg border border-white/20 bg-white/10 p-1 gap-1">
+                      {(["badge", "sticker"] as ProductType[]).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => {
+                            if (productForm.type === t) return;
+                            setProductForm((prev) => ({
+                              ...prev,
+                              type: t,
+                              category: firstCategoryForType(t),
+                              subcategory: "",
+                              isCombo: false,
+                              comboItems: [],
+                            }));
+                            setIsCustomSubcategory(false);
+                          }}
+                          className={`px-6 py-2 rounded-md text-sm font-bold transition-all ${
+                            productForm.type === t
+                              ? "bg-indigo-600 text-white shadow"
+                              : "text-gray-300 hover:bg-white/10"
+                          }`}
+                        >
+                          {t === "badge" ? "🎖️ Badge" : "🎨 Sticker"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-white font-semibold mb-2">
                       Product Name
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g., Anime Sticker Set"
+                      placeholder={productForm.type === "sticker" ? "e.g., Spider-Man Sticker" : "e.g., Anime Badge"}
                       value={productForm.name}
                       onChange={(e) =>
                         setProductForm({ ...productForm, name: e.target.value })
@@ -9979,17 +10153,16 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     <select
                       value={productForm.category}
                       onChange={(e) => {
-                        const nextCategory = e.target.value as AdminProductCategory;
                         setProductForm({
                           ...productForm,
-                          category: nextCategory,
+                          category: e.target.value,
                           subcategory: "",
                         });
                       }}
                       required
                       className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white focus:border-indigo-500 focus:outline-none transition-all"
                     >
-                      {ADMIN_PRODUCT_CATEGORY_OPTIONS.map((option) => (
+                      {categoryOptionsForType(productForm.type).map((option) => (
                         <option
                           key={option.value}
                           value={option.value}
@@ -10001,53 +10174,85 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-white font-semibold mb-2">
-                      Subcategory
-                    </label>
-                    <div className="space-y-3">
-                      <select
-                        value={isCustomSubcategory ? "custom-new" : productForm.subcategory}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === "custom-new") {
-                            setIsCustomSubcategory(true);
-                            setProductForm({ ...productForm, subcategory: "" });
-                          } else {
-                            setIsCustomSubcategory(false);
-                            setProductForm({ ...productForm, subcategory: val });
-                          }
-                        }}
-                        className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white focus:border-indigo-500 focus:outline-none transition-all cursor-pointer"
-                      >
-                        <option value="" className="text-black">-- No Subcategory / Select Available --</option>
-                        {availableSubcategories.map((sub) => (
-                          <option key={sub} value={sub} className="text-black">
-                            {sub}
+                  {productForm.type === "badge" ? (
+                    <div>
+                      <label className="block text-white font-semibold mb-2">
+                        Subcategory
+                      </label>
+                      <div className="space-y-3">
+                        <select
+                          value={isCustomSubcategory ? "custom-new" : productForm.subcategory}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "custom-new") {
+                              setIsCustomSubcategory(true);
+                              setProductForm({ ...productForm, subcategory: "" });
+                            } else {
+                              setIsCustomSubcategory(false);
+                              setProductForm({ ...productForm, subcategory: val });
+                            }
+                          }}
+                          className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white focus:border-indigo-500 focus:outline-none transition-all cursor-pointer"
+                        >
+                          <option value="" className="text-black">-- No Subcategory / Select Available --</option>
+                          {availableSubcategories.map((sub) => (
+                            <option key={sub} value={sub} className="text-black">
+                              {sub}
+                            </option>
+                          ))}
+                          <option value="custom-new" className="font-bold text-indigo-400 bg-slate-900">
+                            ➕ Create New Subcategory
                           </option>
-                        ))}
-                        <option value="custom-new" className="font-bold text-indigo-400 bg-slate-900">
-                          ➕ Create New Subcategory
-                        </option>
-                      </select>
+                        </select>
 
-                      {isCustomSubcategory && (
+                        {isCustomSubcategory && (
+                          <input
+                            type="text"
+                            placeholder="Type new subcategory name"
+                            value={productForm.subcategory}
+                            onChange={(e) =>
+                              setProductForm({
+                                ...productForm,
+                                subcategory: sanitizeProductSubcategory(e.target.value),
+                              })
+                            }
+                            required
+                            className="w-full px-4 py-2.5 bg-white/10 border border-indigo-400 rounded-lg text-white placeholder-gray-400 focus:outline-none transition-all animate-fadeIn"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-white font-semibold mb-2">
+                          Sticker Size
+                        </label>
                         <input
                           type="text"
-                          placeholder="Type new subcategory name"
-                          value={productForm.subcategory}
-                          onChange={(e) =>
-                            setProductForm({
-                              ...productForm,
-                              subcategory: sanitizeProductSubcategory(e.target.value),
-                            })
-                          }
-                          required
-                          className="w-full px-4 py-2.5 bg-white/10 border border-indigo-400 rounded-lg text-white placeholder-gray-400 focus:outline-none transition-all animate-fadeIn"
+                          placeholder="e.g., 5×5 cm"
+                          value={productForm.size}
+                          onChange={(e) => setProductForm({ ...productForm, size: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-indigo-500 focus:outline-none transition-all"
                         />
-                      )}
+                      </div>
+                      <div>
+                        <label className="block text-white font-semibold mb-2">
+                          Stickers per Pack
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="0 = single"
+                          value={productForm.packCount || ""}
+                          onChange={(e) =>
+                            setProductForm({ ...productForm, packCount: parseInt(e.target.value) || 0 })
+                          }
+                          className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-indigo-500 focus:outline-none transition-all"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <div>
                     <label className="block text-white font-semibold mb-2">
@@ -10312,12 +10517,14 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     </div>
                   </div>
 
-                  <ComboPackPicker
-                    form={productForm}
-                    setForm={setProductForm}
-                    options={comboPickerOptions}
-                    theme="dark"
-                  />
+                  {productForm.type === "badge" && (
+                    <ComboPackPicker
+                      form={productForm}
+                      setForm={setProductForm}
+                      options={comboPickerOptions}
+                      theme="dark"
+                    />
+                  )}
 
                   <div className="md:col-span-2">
                     <label className="block text-white font-semibold mb-2">

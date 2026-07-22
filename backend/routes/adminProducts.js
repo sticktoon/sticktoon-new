@@ -19,10 +19,31 @@ const ALLOWED_CATEGORIES = [
   "Custom",
 ];
 
-const normalizeCategory = (value) => {
+// Sticker categories are stored as kebab ids (match STICKER_CATEGORIES in constants.tsx).
+const STICKER_CATEGORIES = [
+  "sticker-pack",
+  "marvel",
+  "dc-universe",
+  "pet",
+  "love",
+  "anime",
+  "cartoon",
+  "sports",
+  "random",
+];
+
+const normalizeType = (value) => (String(value || "badge").toLowerCase() === "sticker" ? "sticker" : "badge");
+
+// Category rules differ by type: badges use Title-case names, stickers use kebab ids.
+const normalizeCategory = (value, type = "badge") => {
   if (!value) return null;
   const trimmed = String(value).trim();
   const lower = trimmed.toLowerCase();
+
+  if (type === "sticker") {
+    return STICKER_CATEGORIES.includes(lower) ? lower : null;
+  }
+
   const lookup = {
     "positive vibe": "Positive Vibes",
     "positive vibes": "Positive Vibes",
@@ -119,22 +140,28 @@ router.get("/", async (req, res) => {
     const limit = parseInt(req.query.limit) || 100;
     const skip = (page - 1) * limit;
     const all = req.query.all === 'true';
+    // Optional type filter (badge | sticker). Absent = both (admin & legacy callers).
+    const typeFilter = req.query.type ? normalizeType(req.query.type) : null;
 
     // Set cache headers for better performance
     res.set('Cache-Control', 'public, max-age=300');
 
     const selectFields =
-      'name price category subcategory image printImage imageMagnetic images description isActive stock weight length width height sku isCombo comboItems createdAt';
+      'name type price category subcategory image printImage imageMagnetic images description isActive stock weight length width height sku size packCount isCombo comboItems createdAt';
 
-    // Use server-side cache for "all" queries
-    if (all && productCache && (Date.now() - productCacheTime < CACHE_TTL)) {
+    const baseFilter = { isActive: true };
+    if (typeFilter) baseFilter.type = typeFilter;
+
+    // Server-side cache is only for the unfiltered "all" query; type-filtered
+    // queries hit the DB directly so stickers never leak into badge results.
+    if (all && !typeFilter && productCache && (Date.now() - productCacheTime < CACHE_TTL)) {
       return res.json({
         products: productCache,
         pagination: { total: productCache.length, page: 1, limit: productCache.length, pages: 1 },
       });
     }
 
-    let query = Product.find({ isActive: true })
+    let query = Product.find(baseFilter)
       .select(selectFields)
       .sort("-createdAt")
       .lean();
@@ -146,11 +173,11 @@ router.get("/", async (req, res) => {
     // Run find and count in parallel
     const [products, total] = await Promise.all([
       query,
-      Product.countDocuments({ isActive: true }),
+      Product.countDocuments(baseFilter),
     ]);
 
-    // Cache the "all" result
-    if (all) {
+    // Cache only the unfiltered "all" result
+    if (all && !typeFilter) {
       productCache = products;
       productCacheTime = Date.now();
     }
@@ -182,7 +209,7 @@ router.get("/category/:category", async (req, res) => {
     res.set('Cache-Control', 'public, max-age=300');
 
     const selectFields =
-      'name price category subcategory image printImage imageMagnetic images description isActive stock weight length width height sku isCombo comboItems createdAt';
+      'name type price category subcategory image printImage imageMagnetic images description isActive stock weight length width height sku size packCount isCombo comboItems createdAt';
 
     const normalizedCategory = normalizeCategory(req.params.category);
     if (!normalizedCategory) {
@@ -242,8 +269,9 @@ router.get("/:id", async (req, res) => {
 ======================== */
 router.post("/", auth, adminOnly, async (req, res) => {
   try {
-    const { name, price, description, category, subcategory, image, printImage, images, stock, weight, length, width, height, sku, isCombo, comboItems } = req.body;
-    const normalizedCategory = normalizeCategory(category);
+    const { name, type, price, description, category, subcategory, image, printImage, images, stock, weight, length, width, height, sku, size, packCount, isCombo, comboItems } = req.body;
+    const normalizedType = normalizeType(type);
+    const normalizedCategory = normalizeCategory(category, normalizedType);
     const normalizedSubcategory = normalizeSubcategory(subcategory);
     const normalizedImage = normalizeProductImagePath(image);
     // Print image is optional; only normalize when one was supplied.
@@ -258,11 +286,12 @@ router.post("/", auth, adminOnly, async (req, res) => {
     }
 
     if (!normalizedCategory) {
-      return res.status(400).json({ error: "Invalid category" });
+      return res.status(400).json({ error: `Invalid category for ${normalizedType}` });
     }
 
     const product = new Product({
       name,
+      type: normalizedType,
       price: parseFloat(price),
       description,
       category: normalizedCategory,
@@ -270,14 +299,17 @@ router.post("/", auth, adminOnly, async (req, res) => {
       image: normalizedImage,
       printImage: normalizedPrintImage,
       images: normalizedImages,
-      isCombo: Boolean(isCombo),
-      comboItems: isCombo ? normalizeComboItems(comboItems) : [],
+      // Combos are a badge-only concept for now.
+      isCombo: normalizedType === "badge" ? Boolean(isCombo) : false,
+      comboItems: normalizedType === "badge" && isCombo ? normalizeComboItems(comboItems) : [],
       stock: parseInt(stock) || 0,
       weight: weight !== undefined && !isNaN(parseFloat(weight)) ? parseFloat(weight) : 0.1,
       length: length !== undefined && !isNaN(parseFloat(length)) ? parseFloat(length) : 10,
       width: width !== undefined && !isNaN(parseFloat(width)) ? parseFloat(width) : 10,
       height: height !== undefined && !isNaN(parseFloat(height)) ? parseFloat(height) : 5,
       sku: sku || "",
+      size: size ? String(size).trim().slice(0, 40) : "",
+      packCount: packCount !== undefined && !isNaN(parseInt(packCount)) ? Math.max(0, parseInt(packCount)) : 0,
     });
 
     await product.save();
@@ -303,7 +335,7 @@ router.post("/", auth, adminOnly, async (req, res) => {
 ======================== */
 router.patch("/:id", auth, adminOnly, async (req, res) => {
   try {
-    const { name, price, description, category, subcategory, image, printImage, images, stock, isActive, weight, length, width, height, sku, isCombo, comboItems } =
+    const { name, type, price, description, category, subcategory, image, printImage, images, stock, isActive, weight, length, width, height, sku, size, packCount, isCombo, comboItems } =
       req.body;
 
     const product = await Product.findById(req.params.id);
@@ -313,12 +345,13 @@ router.patch("/:id", auth, adminOnly, async (req, res) => {
 
     // Update fields if provided
     if (name) product.name = name;
+    if (type !== undefined) product.type = normalizeType(type);
     if (price !== undefined) product.price = parseFloat(price);
     if (description) product.description = description;
     if (category) {
-      const normalizedCategory = normalizeCategory(category);
+      const normalizedCategory = normalizeCategory(category, product.type);
       if (!normalizedCategory) {
-        return res.status(400).json({ error: "Invalid category" });
+        return res.status(400).json({ error: `Invalid category for ${product.type}` });
       }
       product.category = normalizedCategory;
     }
@@ -345,6 +378,8 @@ router.patch("/:id", auth, adminOnly, async (req, res) => {
     if (comboItems !== undefined) {
       product.comboItems = normalizeComboItems(comboItems);
     }
+    // Combos are badge-only; a sticker never carries a breakdown.
+    if (product.type !== "badge") product.isCombo = false;
     // Un-flagging a combo must not leave a stale breakdown behind.
     if (!product.isCombo) product.comboItems = [];
 
@@ -356,6 +391,8 @@ router.patch("/:id", auth, adminOnly, async (req, res) => {
     if (width !== undefined) product.width = parseFloat(width);
     if (height !== undefined) product.height = parseFloat(height);
     if (sku !== undefined) product.sku = sku;
+    if (size !== undefined) product.size = size ? String(size).trim().slice(0, 40) : "";
+    if (packCount !== undefined) product.packCount = !isNaN(parseInt(packCount)) ? Math.max(0, parseInt(packCount)) : 0;
 
     await product.save();
     invalidateProductCache();

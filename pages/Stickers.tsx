@@ -2,7 +2,18 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { STICKERS, STICKER_CATEGORIES, formatPrice } from '../constants';
 import { Sticker } from '../constants';
+import { API_BASE_URL } from '../config/api';
 import { Check, ShoppingCart, Sparkles } from 'lucide-react';
+
+// Map a DB product (type:"sticker") onto the Sticker shape the UI renders.
+const dbProductToSticker = (p: any): Sticker => ({
+  id: p._id,
+  name: p.name,
+  price: p.price,
+  category: String(p.category || '').toLowerCase(),
+  image: p.image,
+  details: p.description || '',
+});
 
 interface StickersProps {
   addToCart: (sticker: Sticker) => void;
@@ -116,6 +127,30 @@ export default function Stickers({ addToCart }: StickersProps) {
   const filterPanelRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
 
+  // Stickers come from the DB (admin-managed). Fall back to the bundled
+  // constant catalog if the API is empty or unreachable so the page is never blank.
+  const [stickers, setStickers] = useState<Sticker[]>(STICKERS);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/products?type=sticker&all=true`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = Array.isArray(data.products) ? data.products : [];
+        if (!cancelled && list.length > 0) {
+          setStickers(list.map(dbProductToSticker));
+        }
+      } catch (err) {
+        console.error('Error fetching stickers:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     if (catParam) setActiveCategory(catParam);
     else setActiveCategory('all');
@@ -134,13 +169,13 @@ export default function Stickers({ addToCart }: StickersProps) {
     setSearchParams(id === 'all' ? {} : { cat: id });
   };
 
-  const filteredStickers = activeCategory === 'all' 
-    ? STICKERS.filter(s => s.category !== 'sticker-pack')
-    : STICKERS.filter(s => s.category === activeCategory);
+  const filteredStickers = activeCategory === 'all'
+    ? stickers.filter(s => s.category !== 'sticker-pack')
+    : stickers.filter(s => s.category === activeCategory);
 
   // Group stickers by category (exclude packs from "all" view)
   const stickersByCategory = STICKER_CATEGORIES.filter(cat => cat.id !== 'sticker-pack').reduce((acc, cat) => {
-    acc[cat.id] = STICKERS.filter((s) => s.category === cat.id);
+    acc[cat.id] = stickers.filter((s) => s.category === cat.id);
     return acc;
   }, {} as Record<string, Sticker[]>);
 
@@ -247,7 +282,7 @@ export default function Stickers({ addToCart }: StickersProps) {
                       {/* Category Products Grid */}
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
                         {categoryStickers.map((sticker, i) => (
-                          <StickerCard key={sticker.image} sticker={sticker} addToCart={addToCart} index={i} />
+                          <StickerCard key={sticker.id} sticker={sticker} addToCart={addToCart} index={i} />
                         ))}
                       </div>
                     </div>
@@ -270,7 +305,7 @@ export default function Stickers({ addToCart }: StickersProps) {
                 {/* Single Category Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
                   {filteredStickers.map((sticker, i) => (
-                    <StickerCard key={sticker.image} sticker={sticker} addToCart={addToCart} index={i} />
+                    <StickerCard key={sticker.id} sticker={sticker} addToCart={addToCart} index={i} />
                   ))}
                 </div>
               </div>
