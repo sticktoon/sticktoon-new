@@ -7,6 +7,14 @@ const ProductSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    // What kind of product this is. Badges and stickers share one collection
+    // but have separate category sets and storefront pages.
+    type: {
+      type: String,
+      enum: ["badge", "sticker"],
+      default: "badge",
+      index: true,
+    },
     price: {
       type: Number,
       required: true,
@@ -19,7 +27,12 @@ const ProductSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ["Positive Vibes", "Moody", "Sports", "Religious", "Entertainment", "Events", "Animal", "Pet", "Couple", "Anime", "Custom"],
+      enum: [
+        // Badge categories
+        "Positive Vibes", "Moody", "Sports", "Religious", "Entertainment", "Events", "Animal", "Pet", "Couple", "Anime", "Custom",
+        // Sticker categories (kebab ids, match STICKER_CATEGORIES in constants)
+        "sticker-pack", "marvel", "dc-universe", "pet", "love", "anime", "cartoon", "sports", "random",
+      ],
       required: true,
     },
     subcategory: {
@@ -93,6 +106,17 @@ const ProductSchema = new mongoose.Schema(
     sku: {
       type: String,
       default: "",
+    },
+    // Sticker-only display info (issue #20: "how many sticker? size width?").
+    // size: physical dimensions e.g. "5×5 cm". packCount: stickers in a pack (0 = single).
+    size: {
+      type: String,
+      default: "",
+    },
+    packCount: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
   },
   {

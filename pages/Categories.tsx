@@ -496,7 +496,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
       try {
         setLoading(true);
         const res = await fetch(
-          `${API_BASE_URL}/api/products?limit=100&all=true&v=${PRODUCTS_FETCH_VERSION}`,
+          `${API_BASE_URL}/api/products?type=badge&limit=100&all=true&v=${PRODUCTS_FETCH_VERSION}`,
           { cache: 'no-store' },
         );
         if (res.ok) {
