@@ -74,14 +74,14 @@ const CircularCropperModal: React.FC<CircularCropperModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onCancel();
         }
       }}
     >
-      <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 shadow-2xl">
+      <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-gray-800">Crop Image to Circular Shape</h2>
           <button

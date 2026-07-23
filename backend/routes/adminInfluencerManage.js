@@ -14,9 +14,28 @@ const { adminOnly } = require("../middleware/roleMiddleware");
 ========================= */
 router.get("/", auth, adminOnly, async (req, res) => {
   try {
-    const influencers = await User.find({ role: "influencer" })
+    const rawInfluencers = await User.find({ role: "influencer" })
       .populate("influencerProfile.promoCodeId")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const influencerIds = rawInfluencers.map((i) => i._id);
+    const allPromos = await PromoCode.find({
+      $or: [
+        { createdBy: { $in: influencerIds } },
+        { promoType: "influencer" }
+      ]
+    }).lean();
+
+    const influencers = rawInfluencers.map((inf) => {
+      const userPromos = allPromos.filter(
+        (p) => String(p.createdBy) === String(inf._id) || (inf.influencerProfile?.promoCodeId && String(p._id) === String(inf.influencerProfile.promoCodeId._id || inf.influencerProfile.promoCodeId))
+      );
+      return {
+        ...inf,
+        allPromoCodes: userPromos,
+      };
+    });
 
     res.json(influencers);
   } catch (err) {
@@ -235,11 +254,15 @@ router.get("/:id", auth, adminOnly, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(50);
 
-    // Get withdrawals
-    const withdrawals = await WithdrawalRequest.find({ influencerId: req.params.id })
-      .sort({ createdAt: -1 });
+    // Get all promo codes assigned/created by this influencer
+    const promoCodes = await PromoCode.find({
+      $or: [
+        { createdBy: user._id },
+        { _id: user.influencerProfile?.promoCodeId }
+      ]
+    }).sort({ createdAt: -1 });
 
-    res.json({ user, earnings, withdrawals });
+    res.json({ user, earnings, withdrawals, promoCodes });
   } catch (err) {
     console.error("Get influencer error:", err);
     res.status(500).json({ message: "Failed to fetch influencer" });
@@ -251,7 +274,7 @@ router.get("/:id", auth, adminOnly, async (req, res) => {
 ========================= */
 router.patch("/withdrawals/:id/process", auth, adminOnly, async (req, res) => {
   try {
-    const { status, transactionId, adminNote } = req.body;
+    const { status, transactionId, adminNote, upiId } = req.body;
 
     if (!["pending", "approved", "rejected", "paid"].includes(status)) {
       return res.status(400).json({ message: "Invalid status" });
@@ -262,6 +285,15 @@ router.patch("/withdrawals/:id/process", auth, adminOnly, async (req, res) => {
 
     if (!withdrawal) {
       return res.status(404).json({ message: "Withdrawal not found" });
+    }
+
+    // Allow updating/correcting UPI ID
+    if (upiId && String(upiId).trim()) {
+      withdrawal.paymentDetails = withdrawal.paymentDetails || {};
+      withdrawal.paymentDetails.upiId = String(upiId).trim();
+      await User.findByIdAndUpdate(withdrawal.influencerId._id, {
+        "influencerProfile.upiId": String(upiId).trim(),
+      });
     }
 
     const previousStatus = withdrawal.status;
@@ -347,5 +379,62 @@ router.patch("/:id/earning-rate", auth, adminOnly, async (req, res) => {
   }
 });
 
+/* =========================
+   ASSIGN / EDIT INFLUENCER PROMO CODE
+========================= */
+router.patch("/:id/assign-promo", auth, adminOnly, async (req, res) => {
+  try {
+    const { code, discountType, discountValue, earningPerUnit, validUntil } = req.body;
+
+    const user = await User.findById(req.params.id);
+    if (!user || user.role !== "influencer") {
+      return res.status(404).json({ message: "Influencer not found" });
+    }
+
+    const cleanCode = code ? code.toUpperCase().trim() : `INF_${user.name.replace(/\s+/g, "").toUpperCase()}`;
+
+    // Check if code already exists under another user/promo
+    const existing = await PromoCode.findOne({ code: cleanCode });
+    let promo;
+
+    if (existing) {
+      // If code belongs to this user or is editable, update it
+      existing.discountType = discountType || existing.discountType || "percentage";
+      existing.discountValue = discountValue !== undefined ? discountValue : existing.discountValue;
+      existing.earningPerUnit = earningPerUnit !== undefined ? earningPerUnit : existing.earningPerUnit;
+      if (validUntil) existing.validUntil = validUntil;
+      existing.isActive = true;
+      existing.promoType = "influencer";
+      existing.createdBy = user._id;
+      await existing.save();
+      promo = existing;
+    } else {
+      // Create new promo code
+      const farFuture = new Date();
+      farFuture.setFullYear(farFuture.getFullYear() + 5);
+
+      promo = await PromoCode.create({
+        code: cleanCode,
+        promoType: "influencer",
+        discountType: discountType || "percentage",
+        discountValue: discountValue !== undefined ? discountValue : 10,
+        earningPerUnit: earningPerUnit !== undefined ? earningPerUnit : 5,
+        validUntil: validUntil || farFuture,
+        createdBy: user._id,
+        isActive: true,
+      });
+    }
+
+    // Link to user profile
+    user.influencerProfile = user.influencerProfile || {};
+    user.influencerProfile.promoCodeId = promo._id;
+    await user.save();
+
+    res.json({ message: "Promo code assigned successfully", promo, user });
+  } catch (err) {
+    console.error("Assign promo error:", err);
+    res.status(500).json({ message: "Failed to assign promo code" });
+  }
+});
 
 module.exports = router;

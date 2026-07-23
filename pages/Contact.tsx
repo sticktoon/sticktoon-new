@@ -53,33 +53,18 @@ export default function Contact() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 relative overflow-hidden">
-      {/* Ambient Background */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/3 w-[700px] h-[700px] bg-purple-600/[0.07] rounded-full blur-[150px]" />
-        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-indigo-600/[0.05] rounded-full blur-[130px]" />
-        <div className="absolute top-1/2 left-0 w-[400px] h-[400px] bg-fuchsia-600/[0.04] rounded-full blur-[120px]" />
-      </div>
-
-      {/* Grid Pattern Overlay */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.02]"
-        style={{
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-          backgroundSize: '60px 60px'
-        }}
-      />
-
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
+    <div className="min-h-screen bg-gradient-to-br from-white via-slate-50 to-yellow-50/40 relative overflow-hidden font-sans text-slate-900">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16">
         {/* Page Header - Compact */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 bg-purple-500/10 px-3 py-1.5 rounded-full border border-purple-500/20 mb-3">
-            <MessageCircle className="w-3.5 h-3.5 text-purple-400" />
-            <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-widest">Get In Touch</span>
+          <div className="inline-flex items-center gap-2 bg-yellow-100 px-3.5 py-1.5 rounded-full border border-yellow-300 mb-3">
+            <MessageCircle className="w-3.5 h-3.5 text-yellow-800" />
+            <span className="text-[10px] font-black text-yellow-900 uppercase tracking-widest">Get In Touch</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight mb-2">
+          <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight mb-2">
             Contact Us
           </h1>
-          <p className="text-slate-500 text-sm max-w-md mx-auto">
+          <p className="text-slate-500 text-sm font-medium max-w-md mx-auto">
             Have a question or feedback? We'll get back to you within 24 hours.
           </p>
         </div>
@@ -87,25 +72,25 @@ export default function Contact() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12 max-w-6xl mx-auto">
           {/* ===== FORM (3 cols) ===== */}
           <div className="lg:col-span-3">
-            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06] overflow-hidden">
+            <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
               {submitted ? (
                 /* Success State */
                 <div className="p-10 text-center">
-                  <div className="w-20 h-20 bg-emerald-500/15 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-emerald-500/20">
-                    <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+                  <div className="w-20 h-20 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-emerald-300">
+                    <CheckCircle2 className="w-10 h-10 text-emerald-700" />
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-2">Message Sent!</h3>
-                  <p className="text-slate-400 mb-2">Our team will get back to you within 24 hours.</p>
+                  <h3 className="text-2xl font-black text-slate-900 mb-2">Message Sent!</h3>
+                  <p className="text-slate-600 font-medium mb-2">Our team will get back to you within 24 hours.</p>
                   {submittedTicketId && (
-                    <div className="inline-flex items-center gap-2 bg-indigo-500/10 px-4 py-2 rounded-lg border border-indigo-500/20 mb-6">
-                      <span className="text-indigo-400 text-sm font-medium">Ticket ID:</span>
-                      <span className="text-white font-mono text-sm font-bold">{submittedTicketId}</span>
+                    <div className="inline-flex items-center gap-2 bg-yellow-50 px-4 py-2 rounded-xl border border-yellow-200 mb-6">
+                      <span className="text-yellow-800 text-sm font-bold">Ticket ID:</span>
+                      <span className="text-slate-900 font-mono text-sm font-black">{submittedTicketId}</span>
                     </div>
                   )}
                   <div className="mt-4">
                     <button
                       onClick={() => { setSubmitted(false); setSubmittedTicketId(''); }}
-                      className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl transition-all hover:scale-105 shadow-lg shadow-purple-500/20"
+                      className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-black rounded-xl transition-all shadow-md"
                     >
                       Send Another Message
                     </button>
@@ -114,41 +99,41 @@ export default function Contact() {
               ) : (
                 /* Form */
                 <form onSubmit={handleSubmit}>
-                  <div className="p-6 lg:p-8 border-b border-white/[0.04]">
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-purple-400" />
+                  <div className="p-6 lg:p-8 border-b border-slate-100">
+                    <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-yellow-500" />
                       Send us a message
                     </h2>
-                    <p className="text-slate-500 text-sm mt-1">Fill out the form below and we'll respond quickly.</p>
+                    <p className="text-slate-500 text-sm font-medium mt-1">Fill out the form below and we'll respond quickly.</p>
                   </div>
 
                   <div className="p-6 lg:p-8 space-y-5">
                     {submitError && (
-                      <div className="flex items-center gap-3 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3">
-                        <X className="w-4 h-4 text-red-400 flex-shrink-0" />
-                        <p className="text-red-400 text-sm font-medium">{submitError}</p>
+                      <div className="flex items-center gap-3 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
+                        <X className="w-4 h-4 text-red-600 flex-shrink-0" />
+                        <p className="text-red-700 text-sm font-bold">{submitError}</p>
                       </div>
                     )}
 
                     {/* Name & Phone Row */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-slate-500 text-xs font-medium uppercase tracking-wider mb-2">Your Name</label>
+                        <label className="block text-slate-900 text-xs font-black uppercase tracking-wider mb-2">Your Name</label>
                         <input
                           required
                           type="text"
-                          placeholder="John Doe"
+                          placeholder="Rahul Sharma"
                           value={formData.name}
                           onFocus={() => setFocusedField('name')}
                           onBlur={() => setFocusedField(null)}
                           onChange={e => setFormData({...formData, name: e.target.value})}
-                          className={`w-full px-4 py-3 bg-white/[0.04] border rounded-xl text-white placeholder:text-slate-600 focus:outline-none transition-all duration-300 ${
-                            focusedField === 'name' ? 'border-purple-500/50 ring-1 ring-purple-500/20 bg-white/[0.06]' : 'border-white/[0.08]'
+                          className={`w-full px-4 py-3 bg-white border-2 rounded-xl text-slate-900 placeholder:text-slate-500 font-semibold text-sm focus:outline-none transition-all duration-300 shadow-sm ${
+                            focusedField === 'name' ? 'border-yellow-500 ring-4 ring-yellow-400/20' : 'border-slate-300 hover:border-slate-400'
                           }`}
                         />
                       </div>
                       <div>
-                        <label className="block text-slate-500 text-xs font-medium uppercase tracking-wider mb-2">Phone</label>
+                        <label className="block text-slate-900 text-xs font-black uppercase tracking-wider mb-2">Phone</label>
                         <input
                           required
                           type="tel"
@@ -157,8 +142,8 @@ export default function Contact() {
                           onFocus={() => setFocusedField('phone')}
                           onBlur={() => setFocusedField(null)}
                           onChange={e => setFormData({...formData, phone: e.target.value})}
-                          className={`w-full px-4 py-3 bg-white/[0.04] border rounded-xl text-white placeholder:text-slate-600 focus:outline-none transition-all duration-300 ${
-                            focusedField === 'phone' ? 'border-purple-500/50 ring-1 ring-purple-500/20 bg-white/[0.06]' : 'border-white/[0.08]'
+                          className={`w-full px-4 py-3 bg-white border-2 rounded-xl text-slate-900 placeholder:text-slate-500 font-semibold text-sm focus:outline-none transition-all duration-300 shadow-sm ${
+                            focusedField === 'phone' ? 'border-yellow-500 ring-4 ring-yellow-400/20' : 'border-slate-300 hover:border-slate-400'
                           }`}
                         />
                       </div>
@@ -166,7 +151,7 @@ export default function Contact() {
 
                     {/* Email */}
                     <div>
-                      <label className="block text-slate-500 text-xs font-medium uppercase tracking-wider mb-2">Email Address</label>
+                      <label className="block text-slate-900 text-xs font-black uppercase tracking-wider mb-2">Email Address</label>
                       <input
                         required
                         type="email"
@@ -175,36 +160,35 @@ export default function Contact() {
                         onFocus={() => setFocusedField('email')}
                         onBlur={() => setFocusedField(null)}
                         onChange={e => setFormData({...formData, email: e.target.value})}
-                        className={`w-full px-4 py-3 bg-white/[0.04] border rounded-xl text-white placeholder:text-slate-600 focus:outline-none transition-all duration-300 ${
-                          focusedField === 'email' ? 'border-purple-500/50 ring-1 ring-purple-500/20 bg-white/[0.06]' : 'border-white/[0.08]'
+                        className={`w-full px-4 py-3 bg-white border-2 rounded-xl text-slate-900 placeholder:text-slate-500 font-semibold text-sm focus:outline-none transition-all duration-300 shadow-sm ${
+                          focusedField === 'email' ? 'border-yellow-500 ring-4 ring-yellow-400/20' : 'border-slate-300 hover:border-slate-400'
                         }`}
                       />
                     </div>
 
                     {/* Inquiry Type */}
                     <div>
-                      <label className="block text-slate-500 text-xs font-medium uppercase tracking-wider mb-2">Inquiry Type</label>
+                      <label className="block text-slate-900 text-xs font-black uppercase tracking-wider mb-2">Inquiry Type</label>
                       <select
                         required
                         value={formData.inquiryType}
                         onFocus={() => setFocusedField('type')}
                         onBlur={() => setFocusedField(null)}
                         onChange={e => setFormData({ ...formData, inquiryType: e.target.value })}
-                        className={`w-full px-4 py-3 bg-white/[0.04] border rounded-xl text-white focus:outline-none transition-all duration-300 ${
-                          focusedField === 'type' ? 'border-purple-500/50 ring-1 ring-purple-500/20 bg-white/[0.06]' : 'border-white/[0.08]'
-                        } ${!formData.inquiryType ? 'text-slate-600' : 'text-white'}`}
-                        style={{ colorScheme: 'dark' }}
+                        className={`w-full px-4 py-3 bg-white border-2 rounded-xl text-slate-900 font-semibold text-sm focus:outline-none transition-all duration-300 shadow-sm ${
+                          focusedField === 'type' ? 'border-yellow-500 ring-4 ring-yellow-400/20' : 'border-slate-300 hover:border-slate-400'
+                        }`}
                       >
-                        <option value="" disabled>Select an inquiry type</option>
+                        <option value="" disabled className="text-slate-500">Select an inquiry type</option>
                         {inquiryOptions.map((option) => (
-                          <option key={option} value={option} className="bg-slate-900 text-white">{option}</option>
+                          <option key={option} value={option} className="bg-white text-slate-900 font-medium">{option}</option>
                         ))}
                       </select>
                     </div>
 
                     {/* Message */}
                     <div>
-                      <label className="block text-slate-500 text-xs font-medium uppercase tracking-wider mb-2">Message</label>
+                      <label className="block text-slate-900 text-xs font-black uppercase tracking-wider mb-2">Message</label>
                       <textarea
                         required
                         placeholder="Tell us what's on your mind..."
@@ -213,8 +197,8 @@ export default function Contact() {
                         onFocus={() => setFocusedField('message')}
                         onBlur={() => setFocusedField(null)}
                         onChange={e => setFormData({...formData, message: e.target.value})}
-                        className={`w-full px-4 py-3 bg-white/[0.04] border rounded-xl text-white placeholder:text-slate-600 focus:outline-none transition-all duration-300 resize-none ${
-                          focusedField === 'message' ? 'border-purple-500/50 ring-1 ring-purple-500/20 bg-white/[0.06]' : 'border-white/[0.08]'
+                        className={`w-full px-4 py-3 bg-white border-2 rounded-xl text-slate-900 placeholder:text-slate-500 font-semibold text-sm focus:outline-none transition-all duration-300 resize-none shadow-sm ${
+                          focusedField === 'message' ? 'border-yellow-500 ring-4 ring-yellow-400/20' : 'border-slate-300 hover:border-slate-400'
                         }`}
                       />
                     </div>
@@ -223,10 +207,10 @@ export default function Contact() {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full py-3.5 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 hover:scale-[1.01] active:scale-[0.99] group"
+                      className="w-full py-4 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-slate-900 font-black text-sm uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-md hover:shadow-lg group"
                     >
                       {isSubmitting ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <Loader2 className="w-5 h-5 animate-spin text-slate-900" />
                       ) : (
                         <>
                           <Send className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -245,79 +229,57 @@ export default function Contact() {
             {/* Contact Cards */}
             <a
               href="mailto:sticktoon.xyz@gmail.com"
-              className="group flex items-center gap-4 p-5 bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06] hover:border-purple-500/30 transition-all duration-300"
+              className="group flex items-center gap-4 p-5 bg-white/95 backdrop-blur-sm rounded-3xl border border-slate-200/80 hover:border-yellow-400 transition-all duration-300 shadow-sm"
             >
-              <div className="w-12 h-12 bg-purple-500/15 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                <Mail className="w-5 h-5 text-purple-400" />
+              <div className="w-12 h-12 bg-yellow-100 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                <Mail className="w-5 h-5 text-yellow-700" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-slate-500 text-xs font-medium uppercase tracking-wider mb-0.5">Email Us</p>
-                <p className="text-white font-medium text-sm truncate">sticktoon.xyz@gmail.com</p>
+                <p className="text-slate-400 text-xs font-black uppercase tracking-wider mb-0.5">Email Us</p>
+                <p className="text-slate-900 font-bold text-sm truncate">sticktoon.xyz@gmail.com</p>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-purple-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-yellow-600 group-hover:translate-x-1 transition-all flex-shrink-0" />
             </a>
 
             <a
               href="https://www.instagram.com/sticktoon.shop"
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center gap-4 p-5 bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06] hover:border-pink-500/30 transition-all duration-300"
+              className="group flex items-center gap-4 p-5 bg-white/95 backdrop-blur-sm rounded-3xl border border-slate-200/80 hover:border-pink-400 transition-all duration-300 shadow-sm"
             >
-              <div className="w-12 h-12 bg-pink-500/15 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                <Instagram className="w-5 h-5 text-pink-400" />
+              <div className="w-12 h-12 bg-pink-100 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                <Instagram className="w-5 h-5 text-pink-600" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-slate-500 text-xs font-medium uppercase tracking-wider mb-0.5">Instagram</p>
-                <p className="text-white font-medium text-sm truncate">@sticktoon.shop</p>
+                <p className="text-slate-400 text-xs font-black uppercase tracking-wider mb-0.5">Instagram</p>
+                <p className="text-slate-900 font-bold text-sm truncate">@sticktoon.shop</p>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-pink-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-pink-600 group-hover:translate-x-1 transition-all flex-shrink-0" />
             </a>
 
-            {/* Response Time Card */}
-            {/* <div className="p-5 bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06]">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-emerald-500/15 rounded-xl flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-emerald-400" />
-                </div>
-                <div>
-                  <p className="text-white font-semibold text-sm">Quick Response</p>
-                  <p className="text-slate-500 text-xs">Usually within 24 hours</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-                  <div key={day} className="flex-1 text-center">
-                    <div className={`h-2 rounded-full mb-1 ${day === 'Sun' ? 'bg-slate-800' : 'bg-emerald-500/30'}`} />
-                    <span className={`text-[10px] font-medium ${day === 'Sun' ? 'text-slate-700' : 'text-slate-500'}`}>{day}</span>
-                  </div>
-                ))}
-              </div>
-            </div> */}
-
             {/* Brand Card */}
-            <div className="p-6 bg-gradient-to-br from-purple-500/10 via-slate-900/60 to-indigo-500/10 backdrop-blur-xl rounded-2xl border border-white/[0.06] overflow-hidden relative">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-[60px]" />
-              <div className="relative z-10 text-center space-y-4">
+            <div className="p-6 bg-gradient-to-br from-yellow-50 via-white to-orange-50 backdrop-blur-sm rounded-3xl border border-slate-200/80 overflow-hidden relative shadow-sm">
+              <div className="relative z-10 text-center space-y-3">
                 <img
                   src="/images/STICKTOON_LONG.jpeg"
                   alt="STICKTOON"
-                  className="h-14 w-auto mx-auto rounded-lg opacity-90"
+                  className="h-14 w-auto mx-auto rounded-lg shadow-sm"
                 />
-                <p className="text-slate-400 text-sm italic leading-relaxed">
+                <p className="text-slate-600 text-sm font-semibold italic leading-relaxed">
                   "Express yourself with badges that tell your story!"
                 </p>
-                <div className="flex items-center justify-center gap-2 text-slate-600 text-xs">
-                  <Sparkles className="w-3 h-3" />
+                <div className="flex items-center justify-center gap-2 text-slate-500 text-xs font-bold">
+                  <Sparkles className="w-3 h-3 text-yellow-500" />
                   <span>Premium Stickers & Badges</span>
-                  <Sparkles className="w-3 h-3" />
+                  <Sparkles className="w-3 h-3 text-yellow-500" />
                 </div>
               </div>
             </div>
 
             {/* FAQ Quick Links */}
-            <div className="p-5 bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06]">
-              <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2">
-                <MessageCircle className="w-4 h-4 text-purple-400" />
+            <div className="p-5 bg-white/95 backdrop-blur-sm rounded-3xl border border-slate-200/80 shadow-sm">
+              <h3 className="text-slate-900 font-black text-sm mb-4 flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-yellow-600" />
                 Common Questions
               </h3>
               <div className="space-y-2">
@@ -330,10 +292,10 @@ export default function Contact() {
                   <button
                     key={i}
                     onClick={() => setFormData({ ...formData, inquiryType: 'Customer Support (Existing Order Issue)', message: q })}
-                    className="w-full text-left px-4 py-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.04] hover:border-white/[0.1] text-slate-400 hover:text-white text-sm transition-all duration-200 group flex items-center justify-between"
+                    className="w-full text-left px-4 py-3 rounded-2xl bg-slate-50 hover:bg-yellow-50 border border-slate-200 hover:border-yellow-300 text-slate-700 hover:text-slate-900 text-xs font-bold transition-all duration-200 group flex items-center justify-between"
                   >
                     <span>{q}</span>
-                    <ArrowRight className="w-3 h-3 text-slate-700 group-hover:text-purple-400 group-hover:translate-x-1 transition-all" />
+                    <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-yellow-600 group-hover:translate-x-1 transition-all" />
                   </button>
                 ))}
               </div>

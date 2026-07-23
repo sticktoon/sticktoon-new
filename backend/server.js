@@ -41,6 +41,7 @@ connectDB();
 
 /* Routes */
 app.use("/api/auth", require("./routes/auth"));
+app.use("/api/addresses", require("./routes/addresses"));
 app.use("/api/razorpay", require("./routes/razorpayPayment"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/admin/orders", require("./routes/adminOrders"));

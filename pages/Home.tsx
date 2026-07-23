@@ -3,6 +3,9 @@ import React, { useState, useEffect, useRef } from 'react';
 
 import { BADGES, CATEGORIES, formatPrice } from '../constants.tsx';
 import { Badge } from '../types.ts';
+import { API_BASE_URL } from '../config/api';
+
+type FeaturedBadge = Badge & { stock?: number };
 import { 
   ArrowRight, 
   Sparkles, 
@@ -527,7 +530,41 @@ const CategoryGrid: React.FC = () => {
 
 
 const FeaturedSection: React.FC<{ addToCart: (badge: Badge) => void }> = ({ addToCart }) => {
-  const featuredBadges = BADGES.filter(b => b.isFeatured).slice(0, 8);
+  // Real DB products, in-stock first (priority); fall back to the bundled catalog.
+  const [featuredBadges, setFeaturedBadges] = useState<FeaturedBadge[]>(
+    () => BADGES.filter(b => b.isFeatured).slice(0, 8),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/products?type=badge&all=true`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const list: any[] = Array.isArray(data.products) ? data.products : [];
+        if (cancelled || list.length === 0) return;
+        const mapped: FeaturedBadge[] = list.map((p) => ({
+          id: p._id,
+          name: p.name,
+          price: p.price,
+          category: p.category,
+          image: p.image,
+          details: p.description || '',
+          color: 'bg-transparent',
+          isCombo: p.isCombo,
+          stock: typeof p.stock === 'number' ? p.stock : 0,
+        }));
+        // Priority: in-stock products first.
+        mapped.sort((a, b) => (b.stock! > 0 ? 1 : 0) - (a.stock! > 0 ? 1 : 0));
+        setFeaturedBadges(mapped.slice(0, 8));
+      } catch {
+        // keep constant fallback
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const navigate = useNavigate();
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
   const [isVisible, setIsVisible] = useState(false);
@@ -628,6 +665,13 @@ gap-4 sm:gap-6 md:gap-8
                 <Link to={`/badge/${badge.id}`} className="w-full">
                   <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-white flex items-center justify-center mb-3 overflow-hidden border-[3px] sm:border-[4px] border-slate-900/70 shadow-inner">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.06),transparent_65%)]" />
+                    {badge.stock === 0 && (
+                      <div className="absolute inset-0 z-20 bg-black/55 flex items-center justify-center">
+                        <span className="px-3 py-1 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wider">
+                          Out of Stock
+                        </span>
+                      </div>
+                    )}
                     
                     {/* Loading Skeleton */}
                     {!loadedImages.has(badge.id) && (
@@ -693,12 +737,17 @@ gap-4 sm:gap-6 md:gap-8
                 <div className="mt-auto">
                   <div className="flex flex-row items-center gap-2">
                     <button
-                      onClick={() => addToCart({ ...badge, quantity: 1 })}
-                      className="flex-1 py-2 sm:py-2.5 rounded-md bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 font-black hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300 active:scale-95 flex items-center justify-center gap-1"
-                      title="Add to cart"
+                      onClick={() => badge.stock !== 0 && addToCart({ ...badge, quantity: 1 })}
+                      disabled={badge.stock === 0}
+                      className={`flex-1 py-2 sm:py-2.5 rounded-md font-black transition-all duration-300 flex items-center justify-center gap-1 ${
+                        badge.stock === 0
+                          ? "bg-slate-700 text-slate-400 cursor-not-allowed"
+                          : "bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-yellow-500/20 active:scale-95"
+                      }`}
+                      title={badge.stock === 0 ? "Out of stock" : "Add to cart"}
                     >
                       <ShoppingCart className="w-3.5 h-3.5" />
-                      <span className="text-[9px] sm:text-xs font-black">ADD</span>
+                      <span className="text-[9px] sm:text-xs font-black">{badge.stock === 0 ? "SOLD OUT" : "ADD"}</span>
                     </button>
 
                     {/* Buy Now Button */}

@@ -33,6 +33,7 @@ export default function Login() {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -77,10 +78,12 @@ export default function Login() {
     setError("");
     setSuccess("");
 
-    const cleanedEmail = email.trim();
+    // Login identifier may be an email OR a phone number.
+    const identifier = email.trim();
+    const looksEmail = identifier.includes("@");
 
-    if (!isValidEmail(cleanedEmail)) {
-      setError("Please enter a valid email");
+    if (looksEmail ? !isValidEmail(identifier) : !/^\d{7,15}$/.test(identifier)) {
+      setError("Enter a valid email or phone number");
       return;
     }
 
@@ -94,7 +97,7 @@ export default function Login() {
       const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: cleanedEmail, password }),
+        body: JSON.stringify({ email: identifier, password }),
       });
 
       const data = await res.json();
@@ -157,6 +160,7 @@ export default function Login() {
         body: JSON.stringify({
           name: name.trim(),
           email: cleanedEmail,
+          phone: phone.trim(),
           password,
         }),
       });
@@ -373,7 +377,9 @@ export default function Login() {
             )}
 
             <div>
-              <label className="block text-xs font-bold text-slate-900 mb-1">Email Address 📧</label>
+              <label className="block text-xs font-bold text-slate-900 mb-1">
+                {isLogin ? "Email or Phone 📧" : "Email Address 📧"}
+              </label>
               <input
                 value={email}
                 onChange={(e) => {
@@ -381,11 +387,24 @@ export default function Login() {
                   setError("");
                   setSuccess("");
                 }}
-                type="email"
-                placeholder="your@email.com"
+                type={isLogin ? "text" : "email"}
+                placeholder={isLogin ? "your@email.com or phone" : "your@email.com"}
                   className="w-full px-3 py-2.5 rounded-lg bg-white border-2 border-yellow-500/20 focus:border-yellow-500 focus:outline-none transition-all text-sm text-slate-900 font-medium placeholder:text-slate-400"
               />
             </div>
+
+            {!isLogin && !forgotMode && (
+              <div>
+                <label className="block text-xs font-bold text-slate-900 mb-1">Phone 📱</label>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                  type="tel"
+                  placeholder="Phone number (for order updates)"
+                  className="w-full px-3 py-2.5 rounded-lg bg-white border-2 border-yellow-500/20 focus:border-yellow-500 focus:outline-none transition-all text-sm text-slate-900 font-medium placeholder:text-slate-400"
+                />
+              </div>
+            )}
 
             {!forgotMode && (
               <div>

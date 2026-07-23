@@ -142,6 +142,8 @@ router.get("/", async (req, res) => {
     const all = req.query.all === 'true';
     // Optional type filter (badge | sticker). Absent = both (admin & legacy callers).
     const typeFilter = req.query.type ? normalizeType(req.query.type) : null;
+    // Admin panel needs to see deactivated products too; the storefront never does.
+    const includeInactive = req.query.includeInactive === 'true';
 
     // Set cache headers for better performance
     res.set('Cache-Control', 'public, max-age=300');
@@ -149,12 +151,14 @@ router.get("/", async (req, res) => {
     const selectFields =
       'name type price category subcategory image printImage imageMagnetic images description isActive stock weight length width height sku size packCount isCombo comboItems createdAt';
 
-    const baseFilter = { isActive: true };
+    const baseFilter = {};
+    if (!includeInactive) baseFilter.isActive = true;
     if (typeFilter) baseFilter.type = typeFilter;
 
-    // Server-side cache is only for the unfiltered "all" query; type-filtered
-    // queries hit the DB directly so stickers never leak into badge results.
-    if (all && !typeFilter && productCache && (Date.now() - productCacheTime < CACHE_TTL)) {
+    // Server-side cache holds only the unfiltered, active-only "all" query; any
+    // filtered/admin query hits the DB directly so results never leak.
+    const cacheable = all && !typeFilter && !includeInactive;
+    if (cacheable && productCache && (Date.now() - productCacheTime < CACHE_TTL)) {
       return res.json({
         products: productCache,
         pagination: { total: productCache.length, page: 1, limit: productCache.length, pages: 1 },
@@ -176,8 +180,8 @@ router.get("/", async (req, res) => {
       Product.countDocuments(baseFilter),
     ]);
 
-    // Cache only the unfiltered "all" result
-    if (all && !typeFilter) {
+    // Cache only the unfiltered, active-only "all" result
+    if (cacheable) {
       productCache = products;
       productCacheTime = Date.now();
     }

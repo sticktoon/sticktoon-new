@@ -16,8 +16,8 @@ export default function InvoiceModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-blue/60 flex items-center justify-center z-[9999]">
-      <div className="relative bg-blue w-[90%] max-w-lg rounded-2xl p-8">
+    <div className="fixed inset-0 bg-blue/60 flex items-center justify-center z-[9999] p-4">
+      <div className="relative bg-blue w-[90%] max-w-lg rounded-2xl p-8 max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 font-black"

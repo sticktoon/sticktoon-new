@@ -168,325 +168,6 @@ const Influencer: React.FC = () => {
       if (!isAuthenticated) setCurrentView("login");
       else setCurrentView("dashboard");
     } else if (path.includes("/influencer/signup")) {
-      if (!isAuthenticated) setCurrentView("signup");
-      else setCurrentView("dashboard");
-    } else if (path.includes("/influencer/dashboard")) {
-      setCurrentView("dashboard");
-    } else if (path.includes("/influencer/promo")) {
-      setCurrentView("promo");
-    } else if (path.includes("/influencer/profile")) {
-      setCurrentView("profile");
-    } else if (path.includes("/influencer/withdraw")) {
-      setCurrentView("withdraw");
-    }
-  }, [location.pathname, isAuthenticated]);
-
-  const checkAuth = () => {
-    const token = localStorage.getItem("influencerToken");
-    const storedUser = localStorage.getItem("influencerUser");
-    
-    if (token && storedUser) {
-      setIsAuthenticated(true);
-      setUser(JSON.parse(storedUser));
-      fetchAllData(token);
-    } else {
-      setIsAuthenticated(false);
-      setCurrentView("login");
-    }
-  };
-
-  const fetchWithdrawalHistory = async (token: string) => {
-    const withdrawRes = await fetch(`${API_BASE_URL}/api/influencer/withdrawals`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (withdrawRes.ok) {
-      const withdrawData = await withdrawRes.json();
-      setWithdrawals(withdrawData.withdrawals || []);
-    }
-  };
-
-  const fetchDashboardSummary = async (token: string) => {
-    const dashRes = await fetch(`${API_BASE_URL}/api/influencer/earnings`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (dashRes.ok) {
-      const data = await dashRes.json();
-      setDashboardData(data);
-      setPromoCodes(data.promoCodes || []);
-    }
-  };
-
-  const fetchAllData = async (token: string) => {
-    try {
-      await fetchDashboardSummary(token);
-
-      // Fetch profile
-      const profileRes = await fetch(`${API_BASE_URL}/api/influencer/profile`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (profileRes.ok) {
-        const profileData = await profileRes.json();
-        setUser(profileData);
-        setProfileForm({
-          upiId: profileData.influencerProfile?.upiId || "",
-          bankDetails: {
-            accountNumber: profileData.influencerProfile?.bankDetails?.accountNumber || "",
-            ifscCode: profileData.influencerProfile?.bankDetails?.ifscCode || "",
-            accountHolder: profileData.influencerProfile?.bankDetails?.accountHolder || "",
-            bankName: profileData.influencerProfile?.bankDetails?.bankName || "",
-          },
-        });
-        setWithdrawForm(prev => ({
-          ...prev,
-          upiId: profileData.influencerProfile?.upiId || "",
-          bankDetails: profileData.influencerProfile?.bankDetails || prev.bankDetails,
-        }));
-      }
-
-      await fetchWithdrawalHistory(token);
-    } catch (err) {
-      console.error("Fetch data error:", err);
-    }
-  };
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    if (currentView !== "dashboard" && currentView !== "withdraw") return;
-
-    const token = localStorage.getItem("influencerToken");
-    if (!token) return;
-
-    fetchDashboardSummary(token).catch((err) =>
-      console.error("Dashboard refresh error:", err),
-    );
-    fetchWithdrawalHistory(token).catch((err) =>
-      console.error("Withdrawal refresh error:", err),
-    );
-
-    const interval = window.setInterval(() => {
-      fetchDashboardSummary(token).catch((err) =>
-        console.error("Dashboard refresh error:", err),
-      );
-      fetchWithdrawalHistory(token).catch((err) =>
-        console.error("Withdrawal refresh error:", err),
-      );
-    }, 15000);
-
-    return () => window.clearInterval(interval);
-  }, [isAuthenticated, currentView]);
-
-  /* ===========================
-     AUTH HANDLERS
-  =========================== */
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/influencer/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(loginForm),
-      });
-
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.message || "Login failed");
-      }
-
-      localStorage.setItem("influencerToken", data.token);
-      localStorage.setItem("influencerUser", JSON.stringify(data.user));
-      
-      setIsAuthenticated(true);
-      setUser(data.user);
-      setCurrentView("dashboard");
-      navigate("/influencer/dashboard");
-      
-      await fetchAllData(data.token);
-    } catch (err: any) {
-      setError(err.message || "Login failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/influencer/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(signupForm),
-      });
-
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.message || "Signup failed");
-      }
-
-      // Show success message - approval is pending
-      setSuccess("✅ Signup successful! Your request has been sent to the admin. You'll receive an email once approved.");
-      setSignupForm({
-        name: "",
-        email: "",
-        password: "",
-        phone: "",
-        instagram: "",
-        youtube: "",
-        bio: "",
-      });
-      
-      // After 3 seconds, redirect to login
-      setTimeout(() => {
-        setCurrentView("login");
-      }, 3000);
-    } catch (err: any) {
-      setError(err.message || "Signup failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("influencerToken");
-    localStorage.removeItem("influencerUser");
-    setIsAuthenticated(false);
-    setUser(null);
-    setCurrentView("login");
-    navigate("/influencer/login");
-  };
-
-  /* ===========================
-     PROMO CODE HANDLERS
-  =========================== */
-  const handleCreatePromo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    setSuccess("");
-
-    const token = localStorage.getItem("influencerToken");
-    if (!token) {
-      navigate("/influencer/login");
-      return;
-    }
-
-    const normalizedMinOrderAmount = Number.isFinite(promoForm.minOrderAmount)
-      ? Math.max(0, Math.round(promoForm.minOrderAmount))
-      : 0;
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/influencer/create-promo`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          code: promoForm.code,
-          discountType: "percentage",
-          discountValue: promoForm.discountValue,
-          minOrderAmount: normalizedMinOrderAmount,
-        }),
-      });
-
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to create promo");
-      }
-
-      setSuccess("Promo code created successfully!");
-      setPromoForm({ code: "", discountValue: 10, minOrderAmount: 0 });
-      await fetchAllData(token);
-    } catch (err: any) {
-      setError(err.message || "Failed to create promo code");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeletePromo = async (promoId: string) => {
-    if (!confirm("Are you sure you want to delete this promo code?")) return;
-
-    const token = localStorage.getItem("influencerToken");
-    if (!token) return;
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/influencer/delete-promo/${promoId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "Failed to delete");
-      }
-
-      setSuccess("Promo code deleted!");
-      await fetchAllData(token);
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  const copyPromoCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  /* ===========================
-     PROFILE HANDLERS
-  =========================== */
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    setSuccess("");
-
-    const token = localStorage.getItem("influencerToken");
-    if (!token) {
-      navigate("/influencer/login");
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/influencer/payment-details`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(profileForm),
-      });
-
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.message || "Update failed");
-      }
-
-      setSuccess("Payment details updated successfully!");
-      await fetchAllData(token);
-    } catch (err: any) {
-      setError(err.message || "Failed to update profile");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /* ===========================
-     WITHDRAWAL HANDLERS
-  =========================== */
   const handleWithdrawal = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -650,6 +331,37 @@ const Influencer: React.FC = () => {
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-purple-400 hover:text-purple-600 transition-colors"
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!loginForm.email) {
+                          setError("Please enter your email address above first.");
+                          return;
+                        }
+                        setLoading(true);
+                        setError("");
+                        setSuccess("");
+                        try {
+                          const res = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ email: loginForm.email }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.message || "Failed to send reset link");
+                          setSuccess("✅ Password reset link sent! Please check your email inbox.");
+                        } catch (err: any) {
+                          setError(err.message || "Failed to send reset email");
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className="text-xs font-bold text-purple-700 hover:text-purple-900 hover:underline transition-all"
+                    >
+                      Forgot Password? 🤔
                     </button>
                   </div>
                 </div>
@@ -1139,15 +851,20 @@ const Influencer: React.FC = () => {
 
                 {withdrawForm.paymentMethod === "upi" ? (
                   <div>
-                    <label className="block text-gray-300 text-sm mb-2">UPI ID</label>
+                    <label className="block text-gray-300 text-sm mb-1 font-bold">
+                      Enter Your UPI ID <span className="text-purple-400 font-normal">(e.g. 9876543210@paytm, name@ybl, etc.)</span>
+                    </label>
                     <input
                       type="text"
                       value={withdrawForm.upiId}
                       onChange={(e) => setWithdrawForm({ ...withdrawForm, upiId: e.target.value })}
                       required
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                      placeholder="yourname@upi"
+                      className="w-full px-4 py-3 bg-white/10 border border-purple-400/40 rounded-lg text-white font-mono font-bold placeholder-gray-400 focus:outline-none focus:border-purple-400"
+                      placeholder="e.g. yourname@upi or 9876543210@paytm"
                     />
+                    <p className="text-[11px] text-purple-300 mt-1 font-medium">
+                      ⚠️ Enter your active UPI VPA handle. Payment will be transferred directly to this UPI ID.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">

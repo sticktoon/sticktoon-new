@@ -63,6 +63,16 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
   const [rotation, setRotation] = useState(0);
   const [bgColor, setBgColor] = useState('#FFFFFF');
   
+  const imageStateRef = useRef<ImageState | null>(imageState);
+  const zoomRef = useRef(zoom);
+  const isDraggingRef = useRef(isDragging);
+  const pinchStartDist = useRef(0);
+  const pinchStartZoom = useRef(1);
+
+  useEffect(() => { imageStateRef.current = imageState; }, [imageState]);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  useEffect(() => { isDraggingRef.current = isDragging; }, [isDragging]);
+  
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -200,7 +210,20 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     const canvas = canvasRef.current;
     const preview = previewCanvasRef.current;
     if (!canvas) return;
+
+    const dpr = Math.max(window.devicePixelRatio || 1, 2);
+    const displaySize = CANVAS_PX;
+    if (canvas.width !== displaySize * dpr || canvas.height !== displaySize * dpr) {
+      canvas.width = displaySize * dpr;
+      canvas.height = displaySize * dpr;
+    }
+
     const ctx = canvas.getContext("2d")!;
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
     const cx = CANVAS_PX / 2;
     const cy = CANVAS_PX / 2;
     const OUTER_PX = CANVAS_PX;
@@ -240,10 +263,22 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.setLineDash([]);
+    ctx.restore();
 
     if (preview) {
+      const pDpr = Math.max(window.devicePixelRatio || 1, 2);
+      const pDisplaySize = 250;
+      if (preview.width !== pDisplaySize * pDpr || preview.height !== pDisplaySize * pDpr) {
+        preview.width = pDisplaySize * pDpr;
+        preview.height = pDisplaySize * pDpr;
+      }
       const pCtx = preview.getContext("2d")!;
-      const pSize = preview.width;
+      pCtx.save();
+      pCtx.scale(pDpr, pDpr);
+      pCtx.imageSmoothingEnabled = true;
+      pCtx.imageSmoothingQuality = "high";
+
+      const pSize = pDisplaySize;
       pCtx.clearRect(0, 0, pSize, pSize);
       pCtx.save();
       pCtx.beginPath();
@@ -270,6 +305,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
       pCtx.strokeStyle = "hsl(145, 55%, 42%)";
       pCtx.lineWidth = 2;
       pCtx.stroke();
+      pCtx.restore();
     }
   }, [imageState, bgColor, CANVAS_PX, BADGE_MM, OUTER_BADGE_MM]);
 
@@ -347,11 +383,93 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     setImageState((prev) => (prev ? { ...prev, rotation: newRot } : prev));
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.05 : 0.05;
-    handleZoomChange(Math.max(0.2, Math.min(5, zoom + delta)));
-  };
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        pinchStartDist.current = dist;
+        pinchStartZoom.current = zoomRef.current;
+      } else if (e.touches.length === 1 && imageStateRef.current) {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const scaleRatio = CANVAS_PX / rect.width;
+        const x = (e.touches[0].clientX - rect.left) * scaleRatio;
+        const y = (e.touches[0].clientY - rect.top) * scaleRatio;
+        setIsDragging(true);
+        dragStart.current = {
+          x,
+          y,
+          imgX: imageStateRef.current.x,
+          imgY: imageStateRef.current.y,
+        };
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinchStartDist.current > 0) {
+        e.preventDefault();
+        const currentDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const ratio = currentDist / pinchStartDist.current;
+        const newZoom = Math.max(0.2, Math.min(5, pinchStartZoom.current * ratio));
+        handleZoomChange(newZoom);
+      } else if (e.touches.length === 1 && isDraggingRef.current && imageStateRef.current) {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const scaleRatio = CANVAS_PX / rect.width;
+        const x = (e.touches[0].clientX - rect.left) * scaleRatio;
+        const y = (e.touches[0].clientY - rect.top) * scaleRatio;
+        setImageState((prev) =>
+          prev
+            ? {
+                ...prev,
+                x: dragStart.current.imgX + x - dragStart.current.x,
+                y: dragStart.current.imgY + y - dragStart.current.y,
+              }
+            : prev
+        );
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        pinchStartDist.current = 0;
+      }
+      if (e.touches.length === 0) {
+        setIsDragging(false);
+      }
+    };
+
+    const handleNativeWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      handleZoomChange(Math.max(0.2, Math.min(5, zoomRef.current + delta)));
+    };
+
+    canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+    canvas.addEventListener("touchend", handleTouchEnd);
+    canvas.addEventListener("touchcancel", handleTouchEnd);
+    canvas.addEventListener("wheel", handleNativeWheel, { passive: false });
+
+    return () => {
+      canvas.removeEventListener("touchstart", handleTouchStart);
+      canvas.removeEventListener("touchmove", handleTouchMove);
+      canvas.removeEventListener("touchend", handleTouchEnd);
+      canvas.removeEventListener("touchcancel", handleTouchEnd);
+      canvas.removeEventListener("wheel", handleNativeWheel);
+    };
+  }, [handleZoomChange]);
 
   const getFullCircleBlob = (): Promise<string> => {
     return new Promise((resolve) => {
@@ -457,37 +575,31 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 relative">
-      {/* Ambient Background */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-purple-600/[0.06] rounded-full blur-[150px]" />
-        <div className="absolute bottom-0 left-1/3 w-[500px] h-[500px] bg-indigo-600/[0.04] rounded-full blur-[120px]" />
-      </div>
-
+    <div className="min-h-screen bg-gradient-to-br from-white via-slate-50 to-yellow-50/40 relative font-sans text-slate-900">
       {/* Error Toast */}
       {errorMessage && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 backdrop-blur-xl text-white px-5 py-3 rounded-xl shadow-2xl shadow-red-500/30 flex items-center gap-2 border border-red-400/30">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-2 border border-red-700 font-bold text-sm">
           <X className="w-4 h-4" />
-          <span className="font-medium text-sm">{errorMessage}</span>
+          <span>{errorMessage}</span>
         </div>
       )}
 
       {/* Header */}
-      <header className="relative z-10 border-b border-white/[0.06] bg-slate-900/60 backdrop-blur-xl px-4 py-4 sm:px-6">
+      <header className="relative z-10 border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-4 py-4 sm:px-6 shadow-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-xl font-bold text-white sm:text-2xl flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-400" />
+            <h1 className="text-xl font-black text-slate-900 sm:text-2xl flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-yellow-500" />
               Badge Designer
             </h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Template: <span className="font-mono text-purple-400">{OUTER_BADGE_MM}mm / {BADGE_MM}mm</span>
+            <p className="text-xs font-bold text-slate-500 mt-0.5">
+              Template: <span className="font-mono text-yellow-700 font-black">{OUTER_BADGE_MM}mm / {BADGE_MM}mm</span>
             </p>
           </div>
           {/* Price Tag in Header */}
           <div className="text-right">
-            <p className="text-xs text-slate-500">Total</p>
-            <p className="text-xl font-bold text-white">{formatPrice(BASE_PRICE * quantity)}</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total</p>
+            <p className="text-xl font-black text-slate-900">{formatPrice(BASE_PRICE * quantity)}</p>
           </div>
         </div>
       </header>
@@ -499,79 +611,79 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
         <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 items-start lg:h-full">
           {/* ===== LEFT PANEL: Config + Controls ===== */}
           <div className="hidden lg:block lg:w-64 flex-shrink-0">
-            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06] p-4 space-y-4">
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                <Settings2 className="w-3.5 h-3.5" /> Configuration
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-4 space-y-4 shadow-sm">
+              <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <Settings2 className="w-3.5 h-3.5 text-yellow-600" /> Configuration
               </h3>
 
               {/* Fastener */}
               <div>
-                <label className="text-xs font-medium text-slate-400 mb-1 block">Fastener Type</label>
+                <label className="text-xs font-bold text-slate-700 mb-1 block">Fastener Type</label>
                 <select value={fastener} onChange={(e) => setFastener(e.target.value)}
-                  className="w-full h-9 px-3 bg-white/[0.04] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/50" style={{ colorScheme: 'dark' }}>
-                  {fasteners.map(f => <option key={f.id} value={f.id} className="bg-slate-900">{f.label}</option>)}
+                  className="w-full h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:border-yellow-500">
+                  {fasteners.map(f => <option key={f.id} value={f.id} className="bg-white">{f.label}</option>)}
                 </select>
               </div>
 
-              <div className="h-px bg-white/[0.06]" />
+              <div className="h-px bg-slate-100" />
 
               {/* Image Upload */}
               <div className="space-y-2">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                  <Upload className="w-3.5 h-3.5" /> Image
+                <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                  <Upload className="w-3.5 h-3.5 text-yellow-600" /> Image
                 </h3>
                 <button onClick={() => fileInputRef.current?.click()}
-                  className="w-full h-12 rounded-xl border-2 border-dashed border-white/[0.1] text-slate-400 font-medium text-xs flex items-center justify-center gap-2 hover:border-purple-500/40 hover:text-purple-400 hover:bg-purple-500/5 transition-all">
+                  className="w-full h-12 rounded-xl border-2 border-dashed border-slate-300 text-slate-600 font-bold text-xs flex items-center justify-center gap-2 hover:border-yellow-500 hover:text-yellow-800 hover:bg-yellow-50 transition-all">
                   <Upload className="h-3.5 w-3.5" /> Upload Image
                 </button>
                 {imageState && (
-                  <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-                    <p className="text-[11px] font-medium text-emerald-400 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3 h-3" /> Image loaded
+                  <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                    <p className="text-[11px] font-bold text-emerald-800 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Image loaded
                     </p>
                   </div>
                 )}
               </div>
 
-              <div className="h-px bg-white/[0.06]" />
+              <div className="h-px bg-slate-100" />
 
               {/* Canvas Controls */}
               <div className="space-y-3">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                  <ZoomIn className="w-3.5 h-3.5" /> Controls
+                <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                  <ZoomIn className="w-3.5 h-3.5 text-yellow-600" /> Controls
                 </h3>
 
                 {/* Zoom */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-medium text-slate-400">Zoom</label>
-                    <span className="text-[11px] font-mono text-purple-400">{Math.round(zoom * 100)}%</span>
+                    <label className="text-[11px] font-bold text-slate-700">Zoom</label>
+                    <span className="text-[11px] font-mono font-bold text-yellow-700">{Math.round(zoom * 100)}%</span>
                   </div>
                   <input type="range" min="0.2" max="5" step="0.01" value={zoom}
                     onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500" />
+                    className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-yellow-500" />
                 </div>
 
                 {/* Rotation */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-medium text-slate-400">Rotate</label>
-                    <span className="text-[11px] font-mono text-purple-400">{rotation}°</span>
+                    <label className="text-[11px] font-bold text-slate-700">Rotate</label>
+                    <span className="text-[11px] font-mono font-bold text-yellow-700">{rotation}°</span>
                   </div>
                   <input type="range" min="-180" max="180" step="1" value={rotation}
                     onChange={(e) => handleRotationChange(parseInt(e.target.value))}
-                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500" />
+                    className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-yellow-500" />
                 </div>
 
                 {/* Background */}
                 <div>
-                  <label className="text-[11px] font-medium text-slate-400 mb-1.5 block flex items-center gap-1">
-                    <Palette className="w-3 h-3" /> Background
+                  <label className="text-[11px] font-bold text-slate-700 mb-1.5 block flex items-center gap-1">
+                    <Palette className="w-3 h-3 text-yellow-600" /> Background
                   </label>
                   <div className="grid grid-cols-7 gap-1">
                     {backgroundPresets.map(color => (
                       <button key={color} onClick={() => setBgColor(color)}
-                        className={`w-full aspect-square rounded-md border-2 transition-all ${bgColor === color ? 'border-purple-500 scale-110' : 'border-white/[0.08] hover:border-white/[0.2]'}`}
+                        className={`w-full aspect-square rounded-md border-2 transition-all ${bgColor === color ? 'border-yellow-500 scale-110 shadow-sm' : 'border-slate-200 hover:border-slate-400'}`}
                         style={{ backgroundColor: color }} title={color} />
                     ))}
                   </div>
@@ -580,11 +692,11 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                 {/* Quick Actions */}
                 <div className="grid grid-cols-2 gap-2">
                   <button onClick={handleReset}
-                    className="px-2 py-1.5 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-slate-300 rounded-lg text-[11px] font-medium transition-colors flex items-center justify-center gap-1">
+                    className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 rounded-lg text-[11px] font-bold transition-colors flex items-center justify-center gap-1">
                     <RotateCcw className="w-3 h-3" /> Reset
                   </button>
                   <button onClick={() => fileInputRef.current?.click()}
-                    className="px-2 py-1.5 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-slate-300 rounded-lg text-[11px] font-medium transition-colors flex items-center justify-center gap-1">
+                    className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 rounded-lg text-[11px] font-bold transition-colors flex items-center justify-center gap-1">
                     <Upload className="w-3 h-3" /> Replace
                   </button>
                 </div>
@@ -595,37 +707,36 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
           {/* ===== CENTER: Canvas ===== */}
           <div className="flex-1 min-w-0 flex flex-col gap-3">
             {/* Canvas Area */}
-            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06] p-4 flex-1 flex flex-col"
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-4 flex-1 flex flex-col shadow-sm"
               onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-xs font-medium text-slate-400 flex items-center gap-2">
-                  <Info className="w-3.5 h-3.5 text-purple-400" />
+                <p className="text-xs font-bold text-slate-600 flex items-center gap-2">
+                  <Info className="w-3.5 h-3.5 text-yellow-600" />
                   {OUTER_BADGE_MM}mm Canvas
                 </p>
-                <p className="text-[10px] text-slate-600">Drag • Scroll to zoom</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Drag • Scroll to zoom</p>
               </div>
               <div className="flex-1 flex items-center justify-center">
                 <canvas
-                  ref={canvasRef} width={CANVAS_PX} height={CANVAS_PX}
-                  className="max-w-full max-h-full rounded-xl cursor-grab active:cursor-grabbing touch-none shadow-2xl shadow-black/40 ring-1 ring-white/[0.06]"
-                  style={{ aspectRatio: "1/1", width: "100%", maxWidth: "min(100%, 420px)" }}
+                  ref={canvasRef}
+                  className="max-w-full max-h-full rounded-xl cursor-grab active:cursor-grabbing shadow-lg ring-1 ring-slate-200"
+                  style={{ aspectRatio: "1/1", width: "100%", maxWidth: "min(100%, 420px)", touchAction: "none" }}
                   onMouseDown={handlePointerDown} onMouseMove={handlePointerMove} onMouseUp={handlePointerUp}
-                  onMouseLeave={handlePointerUp} onTouchStart={handlePointerDown} onTouchMove={handlePointerMove}
-                  onTouchEnd={handlePointerUp} onWheel={handleWheel} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
+                  onMouseLeave={handlePointerUp} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
                 />
               </div>
             </div>
 
             {/* Guide Legend */}
-            <div className="bg-slate-900/60 backdrop-blur-xl rounded-xl border border-white/[0.06] px-4 py-2.5">
+            <div className="bg-white/95 backdrop-blur-sm rounded-xl border border-slate-200/80 px-4 py-2.5 shadow-sm">
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2">
-                  <div className="h-0.5 w-6 bg-purple-400/50 rounded" />
-                  <span className="text-[10px] text-slate-500">{OUTER_BADGE_MM}mm Cut</span>
+                  <div className="h-0.5 w-6 bg-yellow-500 rounded" />
+                  <span className="text-[10px] font-bold text-slate-600">{OUTER_BADGE_MM}mm Cut</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="h-0.5 w-6 border-t-2 border-dashed border-green-500" />
-                  <span className="text-[10px] text-slate-500">{BADGE_MM}mm Visible</span>
+                  <div className="h-0.5 w-6 border-t-2 border-dashed border-emerald-500" />
+                  <span className="text-[10px] font-bold text-slate-600">{BADGE_MM}mm Visible</span>
                 </div>
               </div>
             </div>
@@ -633,53 +744,53 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
 
           {/* ===== RIGHT PANEL: Preview & Price ===== */}
           <div className="w-full lg:w-64 flex-shrink-0">
-            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/[0.06] p-4 space-y-4">
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-center flex items-center justify-center gap-2">
-                <Eye className="w-3.5 h-3.5" /> Final Preview
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-4 space-y-4 shadow-sm">
+              <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider text-center flex items-center justify-center gap-2">
+                <Eye className="w-3.5 h-3.5 text-yellow-600" /> Final Preview
               </h3>
               <div className="flex justify-center">
                 <canvas ref={previewCanvasRef} width={250} height={250}
-                  className="rounded-full shadow-2xl shadow-black/40 w-full max-w-[180px] h-auto ring-2 ring-white/[0.06]"
+                  className="rounded-full shadow-md w-full max-w-[180px] h-auto ring-2 ring-slate-200"
                   style={{ aspectRatio: '1 / 1' }} />
               </div>
 
               {/* Qty + Price */}
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center bg-white/[0.04] border border-white/[0.08] rounded-lg overflow-hidden h-8 flex-shrink-0">
+                  <div className="flex items-center bg-slate-100 border border-slate-200 rounded-xl overflow-hidden h-9 flex-shrink-0">
                     <button onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="w-7 h-full flex-shrink-0 text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors flex items-center justify-center border-r border-white/[0.06]">
+                      className="w-8 h-full flex-shrink-0 text-slate-700 hover:text-slate-900 hover:bg-slate-200 transition-colors flex items-center justify-center border-r border-slate-200">
                       <Minus className="w-3 h-3" />
                     </button>
                     <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-8 min-w-0 h-full bg-transparent text-center font-bold text-white focus:outline-none text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                      className="w-8 min-w-0 h-full bg-transparent text-center font-black text-slate-900 focus:outline-none text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                     <button onClick={() => setQuantity(quantity + 1)}
-                      className="w-7 h-full flex-shrink-0 text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors flex items-center justify-center border-l border-white/[0.06]">
+                      className="w-8 h-full flex-shrink-0 text-slate-700 hover:text-slate-900 hover:bg-slate-200 transition-colors flex items-center justify-center border-l border-slate-200">
                       <Plus className="w-3 h-3" />
                     </button>
                   </div>
                   <div className="flex-1 text-right">
-                    <span className="text-lg font-bold text-white">{formatPrice(BASE_PRICE * quantity)}</span>
+                    <span className="text-lg font-black text-slate-900">{formatPrice(BASE_PRICE * quantity)}</span>
                   </div>
                 </div>
                 <button onClick={handleAddToCart} disabled={loading || !imageState}
-                  className="w-full h-10 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20">
+                  className="w-full h-11 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-slate-900 font-black text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md">
                   <ShoppingCart className="w-4 h-4" /> Add to Cart
                 </button>
                 {isAdmin() && (
                   <button onClick={handleDownloadPrintFile} disabled={downloading || !imageState}
-                    className="w-full h-8 rounded-lg border border-white/[0.08] text-slate-400 font-medium text-[11px] flex items-center justify-center gap-1.5 hover:bg-white/[0.04] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                    className="w-full h-8 rounded-lg border border-slate-200 text-slate-700 font-bold text-[11px] flex items-center justify-center gap-1.5 hover:bg-slate-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                     {downloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />} {downloading ? 'Generating...' : 'Print File'}
                   </button>
                 )}
                 {isAdmin() && imageState && (
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={handleDownloadPreview}
-                      className="h-7 rounded-md bg-emerald-600/10 text-emerald-400 border border-emerald-500/15 text-[10px] font-medium flex items-center justify-center gap-1 hover:bg-emerald-600/20 transition-all">
+                      className="h-7 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-emerald-100 transition-all">
                       <Download className="w-2.5 h-2.5" /> Preview
                     </button>
                     <button onClick={handleDownloadTemplate}
-                      className="h-7 rounded-md bg-indigo-600/10 text-indigo-400 border border-indigo-500/15 text-[10px] font-medium flex items-center justify-center gap-1 hover:bg-indigo-600/20 transition-all">
+                      className="h-7 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-indigo-100 transition-all">
                       <Download className="w-2.5 h-2.5" /> Template
                     </button>
                   </div>
@@ -691,101 +802,83 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
       </main>
 
       {/* Mobile Bottom Bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.06] bg-slate-900/95 backdrop-blur-xl p-3 lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur-md p-3 lg:hidden shadow-lg">
         <button onClick={() => setMobileToolsOpen(true)}
-          className="w-full rounded-xl bg-purple-600 px-4 py-3 text-sm font-semibold text-white flex items-center justify-center gap-2">
+          className="w-full rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 px-4 py-3 text-sm font-black text-slate-900 flex items-center justify-center gap-2 shadow-md">
           <Settings2 className="w-4 h-4" /> Open Design Tools
         </button>
       </div>
 
       {/* Mobile Tools Drawer */}
       {mobileToolsOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm lg:hidden" onClick={() => setMobileToolsOpen(false)}>
-          <div className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-slate-900 border-t border-white/[0.06] p-5"
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm lg:hidden" onClick={() => setMobileToolsOpen(false)}>
+          <div className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl bg-white border-t border-slate-200 p-5 text-slate-900 shadow-2xl"
             onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-white">Design Tools</h3>
-              <button onClick={() => setMobileToolsOpen(false)} className="w-8 h-8 rounded-lg bg-white/[0.06] flex items-center justify-center text-slate-400">
+              <h3 className="text-sm font-black text-slate-900">Design Tools</h3>
+              <button onClick={() => setMobileToolsOpen(false)} className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-slate-400 mb-1.5 block">Fastener Type</label>
+                <label className="text-xs font-bold text-slate-700 mb-1.5 block">Fastener Type</label>
                 <select value={fastener} onChange={(e) => setFastener(e.target.value)}
-                  className="h-10 w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-sm text-white" style={{ colorScheme: 'dark' }}>
-                  {fasteners.map((f) => <option key={f.id} value={f.id} className="bg-slate-900">{f.label}</option>)}
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-900">
+                  {fasteners.map((f) => <option key={f.id} value={f.id} className="bg-white">{f.label}</option>)}
                 </select>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-400 mb-1.5 block">Quantity</label>
+                <label className="text-xs font-bold text-slate-700 mb-1.5 block">Quantity</label>
                 <div className="flex items-center gap-2">
                   <button onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="h-10 w-10 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white font-bold flex items-center justify-center">
+                    className="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 text-slate-900 font-bold flex items-center justify-center">
                     <Minus className="w-4 h-4" />
                   </button>
                   <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="h-10 flex-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-center font-bold text-white" />
+                    className="h-10 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 text-center font-bold text-slate-900" />
                   <button onClick={() => setQuantity(quantity + 1)}
-                    className="h-10 w-10 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white font-bold flex items-center justify-center">
+                    className="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 text-slate-900 font-bold flex items-center justify-center">
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
               <button onClick={() => fileInputRef.current?.click()}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/[0.1] text-sm font-medium text-slate-300 hover:border-purple-500/40 transition-all">
-                <Upload className="h-5 w-5" /> Upload Image
-              </button>
-
-              <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Describe your badge design..."
-                className="h-20 w-full resize-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder-slate-600" />
-
-              <button onClick={handleGenerateImage} disabled={loading || !prompt.trim()}
-                className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-sm font-semibold text-white disabled:opacity-40">
-                {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Wand2 className="h-4 w-4" /> Generate</>}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 text-sm font-bold text-slate-700 hover:border-yellow-500 transition-all">
+                <Upload className="h-5 w-5 text-yellow-600" /> Upload Image
               </button>
 
               {imageState && (
-                <div className="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Canvas Controls</h4>
+                <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">Canvas Controls</h4>
                   <div>
                     <div className="mb-2 flex items-center justify-between">
-                      <label className="text-xs font-medium text-slate-400">Zoom</label>
-                      <span className="text-xs font-mono text-purple-400">{Math.round(zoom * 100)}%</span>
+                      <label className="text-xs font-bold text-slate-700">Zoom</label>
+                      <span className="text-xs font-mono font-bold text-yellow-700">{Math.round(zoom * 100)}%</span>
                     </div>
                     <input type="range" min="0.2" max="5" step="0.01" value={zoom}
                       onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-                      className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-800 accent-purple-500" />
+                      className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-yellow-500" />
                   </div>
                   <div>
                     <div className="mb-2 flex items-center justify-between">
-                      <label className="text-xs font-medium text-slate-400">Rotate</label>
-                      <span className="text-xs font-mono text-purple-400">{rotation}°</span>
+                      <label className="text-xs font-bold text-slate-700">Rotate</label>
+                      <span className="text-xs font-mono font-bold text-yellow-700">{rotation}°</span>
                     </div>
                     <input type="range" min="-180" max="180" step="1" value={rotation}
                       onChange={(e) => handleRotationChange(parseInt(e.target.value))}
-                      className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-800 accent-purple-500" />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-xs font-medium text-slate-400">Background</label>
-                    <div className="grid grid-cols-7 gap-1.5">
-                      {backgroundPresets.map(color => (
-                        <button key={color} onClick={() => setBgColor(color)}
-                          className={`aspect-square w-full rounded-lg border-2 transition-all ${bgColor === color ? 'scale-110 border-purple-500' : 'border-white/[0.08] hover:border-white/[0.2]'}`}
-                          style={{ backgroundColor: color }} title={color} />
-                      ))}
-                    </div>
+                      className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-yellow-500" />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={handleReset}
-                      className="flex items-center justify-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06] px-3 py-2 text-xs font-medium text-slate-300">
+                      className="flex items-center justify-center gap-1.5 rounded-xl bg-slate-100 border border-slate-200 px-3 py-2 text-xs font-bold text-slate-800">
                       <RotateCcw className="h-3 w-3" /> Reset
                     </button>
                     <button onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center justify-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06] px-3 py-2 text-xs font-medium text-slate-300">
+                      className="flex items-center justify-center gap-1.5 rounded-xl bg-slate-100 border border-slate-200 px-3 py-2 text-xs font-bold text-slate-800">
                       <Upload className="h-3 w-3" /> Replace
                     </button>
                   </div>

@@ -45,7 +45,7 @@ const resolveFrontendBaseUrl = (req) => {
 ========================= */
 router.post("/signup", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, phone } = req.body;
 
     // Validate input
     if (!email || !password) {
@@ -66,6 +66,7 @@ router.post("/signup", async (req, res) => {
     const user = await User.create({
       name: name?.trim() || email.split("@")[0],
       email,
+      phone: phone ? String(phone).trim() : "",
       password: hashed,
       provider: "credentials",
       role: "user",
@@ -116,14 +117,21 @@ router.post("/signup", async (req, res) => {
 ========================= */
 router.post("/login", async (req, res) => {
   try {
+    // `email` field carries the identifier — either an email or a phone number.
     const { email, password } = req.body;
+    const identifier = email;
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password required" });
+    if (!identifier || !password) {
+      return res.status(400).json({ message: "Email/phone and password required" });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
-    const user = await User.findOne({ email: cleanEmail }).select("+password");
+    const cleanId = String(identifier).trim();
+    const isEmail = cleanId.includes("@");
+    const query = isEmail
+      ? { email: cleanId.toLowerCase() }
+      : { phone: cleanId };
+    const cleanEmail = cleanId.toLowerCase();
+    const user = await User.findOne(query).select("+password");
 
     // Failed attempts are logged against the typed email, since there may be no
     // account behind it. Never log the password that was tried.
@@ -429,7 +437,7 @@ router.post("/reset-password/:token", async (req, res) => {
       message: `${user.email} reset their password via email link`,
     });
 
-    res.json({ message: "Password reset successful" });
+    res.json({ message: "Password reset successful", role: user.role });
   } catch (err) {
     console.error("Reset password error:", err);
     res.status(500).json({ message: "Reset password failed" });
@@ -452,8 +460,10 @@ router.get("/profile", auth, async (req, res) => {
       _id: user._id,
       name: user.name,
       email: user.email,
+      phone: user.phone || "",
       avatar: user.avatar,
       role: user.role,
+      addresses: user.addresses || [],
       createdAt: user.createdAt,
     });
   } catch (err) {
@@ -467,7 +477,7 @@ router.get("/profile", auth, async (req, res) => {
 ========================= */
 router.put("/profile", auth, async (req, res) => {
   try {
-    const { name, avatar } = req.body;
+    const { name, avatar, phone } = req.body;
     const userId = req.user.id;
 
     const user = await User.findById(userId);
@@ -478,6 +488,9 @@ router.put("/profile", auth, async (req, res) => {
     // Update fields
     if (name !== undefined) {
       user.name = name.trim();
+    }
+    if (phone !== undefined) {
+      user.phone = String(phone).trim();
     }
     if (avatar !== undefined) {
       user.avatar = avatar; // Can be URL or null to remove
@@ -492,6 +505,7 @@ router.put("/profile", auth, async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone || "",
         avatar: user.avatar,
         role: user.role,
       },

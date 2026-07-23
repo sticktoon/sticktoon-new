@@ -1467,7 +1467,7 @@ export default function AdminProducts() {
       {/* Delete Confirmation Modal */}
       {confirmingDeleteProduct && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 max-w-md w-full shadow-2xl transform transition-all duration-300">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 max-w-md w-full shadow-2xl transform transition-all duration-300 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-center mb-4">
               <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center border border-red-200 text-red-500">
                 <AlertCircle className="w-8 h-8" />
