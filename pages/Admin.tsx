@@ -51,6 +51,7 @@ import {
   BriefcaseBusiness,
   Store,
   ScrollText,
+  ChevronDown,
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 
@@ -1022,6 +1023,22 @@ const Admin: React.FC = () => {
   };
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  // Which sidebar groups are collapsed. Persisted so the admin's layout sticks.
+  const [collapsedNavGroups, setCollapsedNavGroups] = useState<Record<string, boolean>>(
+    () => {
+      try {
+        return JSON.parse(localStorage.getItem("admin_nav_collapsed") || "{}");
+      } catch {
+        return {};
+      }
+    }
+  );
+  const toggleNavGroup = (group: string) =>
+    setCollapsedNavGroups((prev) => {
+      const next = { ...prev, [group]: !prev[group] };
+      localStorage.setItem("admin_nav_collapsed", JSON.stringify(next));
+      return next;
+    });
 
   // Login state
   const [loginEmail, setLoginEmail] = useState("");
@@ -1030,6 +1047,7 @@ const Admin: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   // Data states
   const [pendingInfluencers, setPendingInfluencers] = useState<
@@ -1062,7 +1080,7 @@ const Admin: React.FC = () => {
 
   const handleCreateUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = getStoredAdminToken();
+    const token = localStorage.getItem("adminToken");
     if (!token) return;
 
     setAddingUserLoading(true);
@@ -4575,6 +4593,12 @@ const Admin: React.FC = () => {
                 <p className="text-sm font-bold text-red-700">{error}</p>
               </div>
             )}
+            {successMsg && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-emerald-100 border-2 border-emerald-500 rounded-xl mb-4">
+                <CheckCircle className="w-5 h-5 text-emerald-600" />
+                <p className="text-sm font-bold text-emerald-700">{successMsg}</p>
+              </div>
+            )}
 
             <form onSubmit={handleAdminLogin} className="space-y-4">
               <div>
@@ -4727,116 +4751,106 @@ const Admin: React.FC = () => {
             </span>
           </div>
 
-          <nav className="space-y-2">
+          <nav className="space-y-4">
             {[
               {
-                id: "dashboard",
-                label: "Dashboard",
-                icon: <DashboardRoundedIcon sx={{ fontSize: 22 }} />,
+                group: "Overview",
+                items: [
+                  { id: "dashboard", label: "Dashboard", icon: <DashboardRoundedIcon sx={{ fontSize: 22 }} /> },
+                  { id: "notifications", label: "Notifications", icon: <NotificationsActiveRoundedIcon sx={{ fontSize: 22 }} />, badge: notifications.length },
+                  { id: "reports", label: "Reports", icon: <BarChart3 className="w-5 h-5" /> },
+                ],
               },
               {
-                id: "notifications",
-                label: "Notifications",
-                icon: <NotificationsActiveRoundedIcon sx={{ fontSize: 22 }} />,
-                badge: notifications.length,
+                group: "Shop",
+                items: [
+                  { id: "orders", label: "Orders", icon: <ShoppingCartRoundedIcon sx={{ fontSize: 22 }} /> },
+                  { id: "products", label: "Products", icon: <Inventory2RoundedIcon sx={{ fontSize: 22 }} /> },
+                  { id: "promo", label: "Promo Codes", icon: <LocalOfferRoundedIcon sx={{ fontSize: 22 }} /> },
+                ],
               },
               {
-                id: "leads",
-                label: "Leads",
-                icon: <DescriptionRoundedIcon sx={{ fontSize: 22 }} />,
+                group: "CRM",
+                items: [
+                  { id: "leads", label: "Leads", icon: <DescriptionRoundedIcon sx={{ fontSize: 22 }} /> },
+                  { id: "deals", label: "Deals", icon: <BriefcaseBusiness className="w-5 h-5" /> },
+                  { id: "invoices", label: "Invoices", icon: <ReceiptLongRoundedIcon sx={{ fontSize: 22 }} /> },
+                  { id: "support", label: "Support", icon: <SupportAgentRoundedIcon sx={{ fontSize: 22 }} /> },
+                  { id: "tasks", label: "Tasks", icon: <AssignmentTurnedInRoundedIcon sx={{ fontSize: 22 }} /> },
+                ],
               },
               {
-                id: "deals",
-                label: "Deals",
-                icon: <BriefcaseBusiness className="w-5 h-5" />,
+                group: "People",
+                items: [
+                  { id: "users", label: "All Users", icon: <PeopleAltRoundedIcon sx={{ fontSize: 22 }} /> },
+                  { id: "all-influencers", label: "Influencer Management", icon: <Groups2RoundedIcon sx={{ fontSize: 22 }} />, badge: (stats.pendingApprovals || 0) + (stats.pendingWithdrawals?.count || 0) || undefined },
+                  { id: "customers", label: "Customers", icon: <ContactsRoundedIcon sx={{ fontSize: 22 }} /> },
+                ],
               },
               {
-                id: "invoices",
-                label: "Invoices",
-                icon: <ReceiptLongRoundedIcon sx={{ fontSize: 22 }} />,
+                group: "System",
+                items: [
+                  { id: "logs", label: "Activity Logs", icon: <ScrollText className="w-5 h-5" /> },
+                ],
               },
-              {
-                id: "support",
-                label: "Support",
-                icon: <SupportAgentRoundedIcon sx={{ fontSize: 22 }} />,
-              },
-              {
-                id: "tasks",
-                label: "Tasks",
-                icon: <AssignmentTurnedInRoundedIcon sx={{ fontSize: 22 }} />,
-              },
-              {
-                id: "users",
-                label: "All Users",
-                icon: <PeopleAltRoundedIcon sx={{ fontSize: 22 }} />,
-              },
-              {
-                id: "all-influencers",
-                label: "Influencer Management",
-                icon: <Groups2RoundedIcon sx={{ fontSize: 22 }} />,
-                badge: (stats.pendingApprovals || 0) + (stats.pendingWithdrawals?.count || 0) || undefined,
-              },
-              {
-                id: "orders",
-                label: "Orders",
-                icon: <ShoppingCartRoundedIcon sx={{ fontSize: 22 }} />,
-              },
-              {
-                id: "customers",
-                label: "Customers",
-                icon: <ContactsRoundedIcon sx={{ fontSize: 22 }} />,
-              },
-              {
-                id: "reports",
-                label: "Reports",
-                icon: <BarChart3 className="w-5 h-5" />,
-              },
-              {
-                id: "products",
-                label: "Products",
-                icon: <Inventory2RoundedIcon sx={{ fontSize: 22 }} />,
-              },
-              {
-                id: "promo",
-                label: "Promo Codes",
-                icon: <LocalOfferRoundedIcon sx={{ fontSize: 22 }} />,
-              },
-              {
-                id: "logs",
-                label: "Activity Logs",
-                icon: <ScrollText className="w-5 h-5" />,
-              },
-            ].map((tab: { id: string; label: string; icon: JSX.Element; badge?: number; href?: string }) => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  if (tab.href) {
-                    navigate(tab.href);
-                  } else {
-                    setCurrentView(tab.id as any);
-                    const targetPath = tab.id === "dashboard" ? "/admin" : `/admin/${tab.id}`;
-                    if (location.pathname !== targetPath) {
-                      navigate(targetPath);
-                    }
-                  }
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-bold transition-all text-left ${
-                  currentView === tab.id
-                    ? "bg-white text-slate-950 shadow-lg"
-                    : "text-white admin-zoho-keep-white hover:bg-slate-800"
-                }`}
-              >
-                <span className="inline-flex items-center justify-center">
-                  {tab.icon}
-                </span>
-                <span className="text-base">{tab.label}</span>
-                {typeof tab.badge === "number" && tab.badge > 0 && (
-                  <span className="ml-auto mr-1 inline-flex min-w-6 h-6 items-center justify-center rounded-full bg-red-600 !text-white text-xs font-black px-1.5">
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            ))}
+            ].map((section: { group: string; items: { id: string; label: string; icon: JSX.Element; badge?: number; href?: string }[] }) => {
+              const hasActive = section.items.some((t) => currentView === t.id);
+              // Active group always shows its items even when the admin collapsed it.
+              const open = !collapsedNavGroups[section.group] || hasActive;
+              const groupBadge = section.items.reduce((n, t) => n + (t.badge || 0), 0);
+              return (
+                <div key={section.group}>
+                  <button
+                    type="button"
+                    onClick={() => toggleNavGroup(section.group)}
+                    className="w-full flex items-center gap-2 px-4 py-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 transition-transform ${open ? "" : "-rotate-90"}`}
+                    />
+                    <span>{section.group}</span>
+                    {!open && groupBadge > 0 && (
+                      <span className="ml-auto inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-red-600 !text-white text-[10px] font-black px-1.5">
+                        {groupBadge}
+                      </span>
+                    )}
+                  </button>
+                  {open && (
+                    <div className="mt-1 space-y-1">
+                      {section.items.map((tab) => (
+                        <button
+                          key={tab.id}
+                          onClick={() => {
+                            if (tab.href) {
+                              navigate(tab.href);
+                            } else {
+                              setCurrentView(tab.id as any);
+                              const targetPath = tab.id === "dashboard" ? "/admin" : `/admin/${tab.id}`;
+                              if (location.pathname !== targetPath) {
+                                navigate(targetPath);
+                              }
+                            }
+                          }}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg font-bold transition-all text-left ${
+                            currentView === tab.id
+                              ? "bg-white text-slate-950 shadow-lg"
+                              : "text-white admin-zoho-keep-white hover:bg-slate-800"
+                          }`}
+                        >
+                          <span className="inline-flex items-center justify-center">{tab.icon}</span>
+                          <span className="text-base">{tab.label}</span>
+                          {typeof tab.badge === "number" && tab.badge > 0 && (
+                            <span className="ml-auto mr-1 inline-flex min-w-6 h-6 items-center justify-center rounded-full bg-red-600 !text-white text-xs font-black px-1.5">
+                              {tab.badge}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </nav>
 
           <div className="mt-8 pt-6 border-t border-slate-700 space-y-2">
@@ -8148,7 +8162,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
                             <button
                               onClick={async () => {
-                                const token = getStoredAdminToken();
+                                const token = localStorage.getItem("adminToken");
                                 if (!token) return;
                                 if (!window.confirm(`Send password reset email link to ${u.email}?`)) return;
                                 try {

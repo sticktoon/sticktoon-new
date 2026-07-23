@@ -852,7 +852,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
           </div>
 
           {/* HORIZONTAL CATEGORY BAR */}
-          <div className="mb-8 -mx-4 sm:-mx-6 lg:-mx-10 px-4 sm:px-6 lg:px-10 py-3 bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-[4rem] z-[55]">
+          <div className="mb-8 -mx-4 sm:-mx-6 lg:-mx-10 px-4 sm:px-6 lg:px-10 py-3 bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-[80px] z-[55]">
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               <button
                 onClick={() => handleCategorySelect('all')}
