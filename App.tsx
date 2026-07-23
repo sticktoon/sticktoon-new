@@ -1342,7 +1342,7 @@ function App() {
           <Route path="/categories/:categoryId/:subcategory" element={<Categories addToCart={addToCart} user={user} />} />
           <Route path="/categories" element={<Categories addToCart={addToCart} user={user} />} />
           <Route path="/stickers" element={<Stickers addToCart={addToCart} />} />
-          <Route path="/stickers/:id" element={<StickerDetail addToCart={addToCart} />} />
+          <Route path="/stickers/:id" element={<StickerDetail addToCart={addToCart} user={user} />} />
           <Route path="/badge/:id" element={<BadgeDetail addToCart={addToCart} user={user} />} />
           <Route
             path="/checkout"
