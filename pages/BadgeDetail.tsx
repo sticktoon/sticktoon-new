@@ -550,7 +550,7 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
 
   const handleShareLink = () => {
     const shareUrl = `${window.location.origin}/badge/${id}`;
-    const shareText = `Check out *${badge.name}* from StickToon - ${badge.tagline || badge.details}\n\nStickToon - We Create for Soul\n\n${shareUrl}`;
+    const shareText = `Check out *${badge.name}* from StickToon - ${badge.tagline || badge.details}\n\nStickToon - We create for the souls\n\n${shareUrl}`;
     navigator.clipboard.writeText(shareText).then(() => {
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 2000);

@@ -169,23 +169,17 @@ export default function AdminLogs() {
     setFilters((f) => ({ ...f, [key]: value }));
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 md:p-10">
-      <div className="max-w-[1400px] mx-auto">
-        <AdminBackButton />
-
-        <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-          <div>
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-black">
-              Activity Logs
-            </h1>
-            <p className="mt-1 text-xs md:text-sm text-slate-500">
-              Every login, admin change, order and review — newest first.
-            </p>
-          </div>
-          <div className="text-sm text-slate-500">
-            {loading ? "Loading…" : `${total.toLocaleString("en-IN")} event(s)`}
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <p className="text-xs md:text-sm text-slate-500">
+            Every login, admin change, order and review — newest first.
+          </p>
         </div>
+        <div className="text-sm text-slate-500 font-bold">
+          {loading ? "Loading…" : `${total.toLocaleString("en-IN")} event(s)`}
+        </div>
+      </div>
 
         {/* ================= FILTERS ================= */}
         <div className="bg-white rounded-xl shadow border p-4 md:p-5 mb-6">
@@ -518,7 +512,6 @@ export default function AdminLogs() {
         {error && logs.length > 0 && (
           <p className="mt-4 text-sm text-red-600">{error}</p>
         )}
-      </div>
     </div>
   );
 }

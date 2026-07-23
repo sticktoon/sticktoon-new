@@ -7,6 +7,8 @@ const UserOrders = require("../models/User_Orders");
 
 const router = express.Router();
 
+const crypto = require("crypto");
+const sendEmail = require("../utils/sendEmail");
 const auth = require("../middleware/auth");
 const { adminOnly, superAdminOnly, isSuperAdmin, isAdminEmail, isOrdersEmail } = require("../middleware/roleMiddleware");
 const { logActivity } = require("../utils/activityLogger");
@@ -562,6 +564,108 @@ router.put("/users/:id/super-edit", auth, superAdminOnly, async (req, res) => {
   } catch (err) {
     console.error("Super admin edit user error:", err);
     res.status(500).json({ message: "Failed to update user" });
+  }
+});
+
+/* ======================
+   SEND RESET PASSWORD EMAIL TO USER
+====================== */
+router.post("/users/:id/send-reset-email", auth, adminOnly, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    user.resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
+    await user.save();
+
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
+
+    const { resetPasswordEmail } = require("../utils/emailTemplates");
+    await sendEmail({
+      to: user.email,
+      subject: "Reset your StickToon password",
+      html: resetPasswordEmail({ resetUrl }),
+    });
+
+    logActivity({
+      req,
+      action: "user.reset_email_sent",
+      category: "user",
+      message: `Admin sent password reset email to ${user.email}`,
+      target: { type: "User", id: user._id, label: user.email },
+    });
+
+    res.json({ message: `Password reset email sent to ${user.email}` });
+  } catch (err) {
+    console.error("Send reset email error:", err);
+    res.status(500).json({ message: "Failed to send reset email" });
+  }
+});
+
+/* ======================
+   CREATE NEW USER WITH ROLE
+====================== */
+router.post("/users/create", auth, adminOnly, async (req, res) => {
+  try {
+    const { name, email, password, role = "user", phone } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Name, email, and password are required" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+    if (existingUser) {
+      return res.status(400).json({ message: "User with this email already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = new User({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password: hashedPassword,
+      role: ["user", "influencer", "admin"].includes(role) ? role : "user",
+      phone: phone ? phone.trim() : "",
+      influencerProfile: role === "influencer" ? { isApproved: true, applicationStatus: "approved" } : undefined,
+    });
+
+    await newUser.save();
+
+    logActivity({
+      req,
+      action: "user.create",
+      category: "user",
+      message: `Admin created new ${role} account: ${newUser.email}`,
+      target: { type: "User", id: newUser._id, label: newUser.email },
+    });
+
+    res.status(201).json({
+      message: "User created successfully",
+      user: {
+        _id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        createdAt: newUser.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error("Create user error:", err);
+    res.status(500).json({ message: "Failed to create user" });
   }
 });
 

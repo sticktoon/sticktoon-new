@@ -37,14 +37,6 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers"));
 const AdminLogs = lazy(() => import("./pages/AdminLogs"));
-const AdminOrders = lazy(() => import("./pages/AdminOrders"));
-const AdminRevenue = lazy(() => import("./pages/AdminRevenue"));
-const AdminUserOrders = lazy(() => import("./pages/AdminUserOrders"));
-const AdminInvoice = lazy(() => import("./pages/AdminInvoice"));
-const AdminDealConvert = lazy(() => import("./pages/AdminDealConvert"));
-const AdminDealSend = lazy(() => import("./pages/AdminDealSend"));
-const AdminPromo = lazy(() => import("./pages/AdminPromo"));
-const AdminInfluencerManage = lazy(() => import("./pages/AdminInfluencerManage"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsConditions = lazy(() => import("./pages/TermsConditions"));
 const RefundCancellation = lazy(() => import("./pages/RefundCancellation"));
@@ -566,7 +558,7 @@ const Footer: React.FC = () => {
   const isAdminSection = location.pathname.startsWith("/admin");
 
   return (
-    <footer className={`bg-black text-white pt-8 pb-4 relative z-10 ${isAdminSection ? "lg:ml-64" : ""}`}>
+    <footer className={`bg-black text-white pt-8 pb-4 relative z-[30] ${isAdminSection ? "lg:ml-64" : ""}`}>
 
 
 
@@ -1265,7 +1257,7 @@ function App() {
       {/* Order Confirmation Modal */}
       {showOrderConfirmation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="bg-gradient-to-br from-white via-green-50/30 to-emerald-50/30 rounded-3xl shadow-2xl p-6 md:p-8 max-w-md w-full text-center transform animate-scaleIn border-4 border-green-500/20">
+          <div className="bg-gradient-to-br from-white via-green-50/30 to-emerald-50/30 rounded-3xl shadow-2xl p-6 md:p-8 max-w-md w-full text-center transform animate-scaleIn border-4 border-green-500/20 max-h-[90vh] overflow-y-auto">
             {/* Success Icon with Glow */}
             <div className="relative mx-auto mb-4">
               <div className="absolute inset-0 bg-green-500/30 rounded-full blur-2xl animate-pulse"></div>
@@ -1371,22 +1363,34 @@ function App() {
           <Route path="/returnsandrefunds" element={<RefundCancellation />} />
           <Route path="/about" element={<About />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
-          <Route path="/admin" element={<ProtectedAdminRoute user={user}><AdminDashboard /></ProtectedAdminRoute>} />
-          <Route path="/admin/users" element={<ProtectedAdminRoute user={user}><AdminUsers /></ProtectedAdminRoute>} />
-          <Route path="/admin/logs" element={<ProtectedAdminRoute user={user}><AdminLogs /></ProtectedAdminRoute>} />
-          <Route path="/admin/orders" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/revenue" element={<ProtectedAdminRoute user={user}><AdminRevenue /></ProtectedAdminRoute>} />
-          <Route path="/admin/user-orders" element={<ProtectedAdminRoute user={user}><AdminUserOrders /></ProtectedAdminRoute>} />
-          <Route path="/admin/invoice/:id" element={<ProtectedAdminRoute user={user}><AdminInvoice /></ProtectedAdminRoute>} />
-          <Route path="/admin/deal-convert" element={<ProtectedAdminRoute user={user}><AdminDealConvert /></ProtectedAdminRoute>} />
-          <Route path="/admin/deal-send" element={<ProtectedAdminRoute user={user}><AdminDealSend /></ProtectedAdminRoute>} />
-          <Route path="/admin/promo" element={<ProtectedAdminRoute user={user}><AdminPromo /></ProtectedAdminRoute>} />
-          <Route path="/admin/influencers" element={<ProtectedAdminRoute user={user}><AdminInfluencerManage /></ProtectedAdminRoute>} />
           {/* Admin Routes - Unified */}
+          <Route path="/admin" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
           <Route path="/admin/login" element={<Admin />} />
           <Route path="/admin/dashboard" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/withdrawals" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/users" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/orders" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
           <Route path="/admin/products" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/promo" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/influencers" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/all-influencers" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/influencer-manage" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/influencer-manage/*" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/withdrawals" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/leads" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/deals" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/invoices" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/support" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/tasks" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/notifications" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/customers" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/reports" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/profile" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/logs" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/revenue" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/user-orders" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/invoice/:id" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/deal-convert" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+          <Route path="/admin/deal-send" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
           {/* Influencer Portal Routes - Unified */}
           <Route path="/influencer/login" element={<Influencer />} />
           <Route path="/influencer/signup" element={<Influencer />} />

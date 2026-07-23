@@ -181,23 +181,24 @@ router.put("/payment-details", auth, approvedInfluencerOnly, async (req, res) =>
   try {
     const { upiId, bankDetails, phone } = req.body;
 
+    const updateObj = {};
+    if (upiId !== undefined) updateObj["influencerProfile.upiId"] = upiId;
+    if (bankDetails !== undefined) updateObj["influencerProfile.bankDetails"] = bankDetails;
+    if (phone !== undefined) updateObj["influencerProfile.phone"] = phone;
+
     const user = await User.findByIdAndUpdate(
       req.user.id,
-      {
-        "influencerProfile.upiId": upiId,
-        "influencerProfile.bankDetails": bankDetails,
-        "influencerProfile.phone": phone,
-      },
+      { $set: updateObj },
       { new: true }
     );
 
     res.json({
-      message: "Payment details updated",
+      message: "Payment details updated successfully",
       influencerProfile: user.influencerProfile,
     });
   } catch (err) {
     console.error("Update payment details error:", err);
-    res.status(500).json({ message: "Failed to update" });
+    res.status(500).json({ message: "Failed to update payment details" });
   }
 });
 
@@ -448,6 +449,17 @@ router.post("/withdraw", auth, approvedInfluencerOnly, async (req, res) => {
 
     if (!normalizedPaymentMethod) {
       return res.status(400).json({ message: "Payment method required" });
+    }
+
+    if (normalizedPaymentMethod === "upi") {
+      const upiId = paymentDetails?.upiId ? String(paymentDetails.upiId).trim() : "";
+      if (!upiId) {
+        return res.status(400).json({ message: "Please provide a valid UPI ID (e.g. username@upi or phone@paytm)" });
+      }
+      // Save UPI ID to user profile for future use
+      await User.findByIdAndUpdate(user._id, {
+        "influencerProfile.upiId": upiId,
+      });
     }
 
     let normalizedPromoCode = "";

@@ -212,6 +212,36 @@ const AdminLogin: React.FC = () => {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!loginEmail) {
+                      setError("Please enter your admin email address first.");
+                      return;
+                    }
+                    setLoading(true);
+                    setError("");
+                    try {
+                      const res = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ email: loginEmail }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.message || "Failed to send reset link");
+                      alert("✅ Password reset link sent! Check your admin email inbox.");
+                    } catch (err: any) {
+                      setError(err.message || "Failed to send reset email");
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  className="text-xs font-bold text-indigo-700 hover:text-indigo-900 hover:underline transition-all"
+                >
+                  Forgot Password? 🤔
+                </button>
+              </div>
             </div>
 
             <button

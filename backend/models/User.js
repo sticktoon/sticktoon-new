@@ -16,6 +16,32 @@ const UserSchema = new mongoose.Schema(
       index:true,
     },
 
+    // Top-level contact phone. Also usable as a sign-in identifier.
+    phone: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
+
+    // Saved delivery addresses (address book). One may be the default.
+    addresses: {
+      type: [
+        {
+          label: { type: String, default: "" }, // "Home", "Work", ...
+          fullName: { type: String, default: "" },
+          phone: { type: String, default: "" },
+          street: { type: String, default: "" },
+          city: { type: String, default: "" },
+          state: { type: String, default: "" },
+          pincode: { type: String, default: "" },
+          country: { type: String, default: "India" },
+          isDefault: { type: Boolean, default: false },
+        },
+      ],
+      default: [],
+    },
+
     password: {
       type: String,
       select: false, // 🔐 NEVER return password by default

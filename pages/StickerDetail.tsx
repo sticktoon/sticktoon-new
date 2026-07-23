@@ -1,55 +1,47 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ShoppingCart, ArrowLeft, Share2, Check, Star, Truck, Shield } from 'lucide-react';
+import { ShoppingCart, ArrowLeft, Share2, Check, Truck, Shield } from 'lucide-react';
+import { STICKERS, formatPrice } from '../constants';
+import { API_BASE_URL } from '../config/api';
 
-interface StickerProduct {
+interface StickerDetailData {
   id: string;
   name: string;
   price: number;
   image: string;
+  images?: string[];
   description: string;
-  details: string;
-  features: string[];
+  category?: string;
+  size?: string;
+  packCount?: number;
 }
 
-const STICKER_PRODUCTS: StickerProduct[] = [
-  {
-    id: 'sticker-1',
-    name: 'Vinyl Sticker Pack',
-    price: 99,
-    image: '/badge/mergesticker.jpeg',
-    description: 'Waterproof vinyl stickers perfect for laptops and water bottles',
-    details: 'Premium quality waterproof vinyl stickers that are durable and weather-resistant. Perfect for personalizing your laptop, water bottle, skateboard, or any smooth surface.',
-    features: ['Waterproof & Weather-resistant', 'High-quality printing', 'Easy to apply & remove', 'Long-lasting colors']
-  },
-  {
-    id: 'sticker-2',
-    name: 'Custom Print Stickers',
-    price: 149,
-    image: '/badge/mergesticker.jpeg',
-    description: 'Personalized stickers with your own design',
-    details: 'Create your own custom stickers with your unique design. Upload your image and we will print high-quality stickers in any size you want.',
-    features: ['Custom designs', 'Full color printing', 'Various sizes available', 'Fast turnaround']
-  },
-  {
-    id: 'sticker-3',
-    name: 'Holographic Stickers',
-    price: 199,
-    image: '/badge/mergesticker.jpeg',
-    description: 'Shimmering holographic effect stickers',
-    details: 'Stand out with our beautiful holographic stickers that shimmer and shine in different light. Perfect for adding a touch of magic to your belongings.',
-    features: ['Holographic finish', 'Eye-catching design', 'Durable material', 'Waterproof coating']
-  },
-  {
-    id: 'sticker-4',
-    name: 'Transparent Stickers',
-    price: 79,
-    image: '/badge/mergesticker.jpeg',
-    description: 'Clear transparent stickers with vibrant colors',
-    details: 'Transparent stickers with vibrant, crystal-clear colors. Perfect for window decals, glass surfaces, and creating a premium look on any transparent material.',
-    features: ['Crystal clear', 'Vibrant colors', 'UV resistant', 'Indoor & outdoor use']
-  },
-];
+// DB product (type:"sticker") -> detail shape.
+const mapDbProduct = (p: any): StickerDetailData => ({
+  id: p._id,
+  name: p.name,
+  price: p.price,
+  image: p.image,
+  images: Array.isArray(p.images) ? p.images : [],
+  description: p.description || '',
+  category: p.category,
+  size: p.size || '',
+  packCount: p.packCount || 0,
+});
+
+// Bundled constant sticker (fallback when the id is not a DB product).
+const mapConstantSticker = (id: string): StickerDetailData | null => {
+  const s = STICKERS.find((x) => x.id === id);
+  if (!s) return null;
+  return {
+    id: s.id,
+    name: s.name,
+    price: s.price,
+    image: s.image,
+    description: s.details || '',
+    category: s.category,
+  };
+};
 
 interface StickerDetailProps {
   addToCart?: (product: any) => void;
@@ -60,8 +52,50 @@ export default function StickerDetail({ addToCart }: StickerDetailProps) {
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
   const [shareCopied, setShareCopied] = useState(false);
+  const [sticker, setSticker] = useState<StickerDetailData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeImage, setActiveImage] = useState('');
 
-  const sticker = STICKER_PRODUCTS.find((s) => s.id === id);
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/products/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && data?._id) {
+            const mapped = mapDbProduct(data);
+            setSticker(mapped);
+            setActiveImage(mapped.image);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching sticker:', err);
+      }
+      // Fallback: bundled constant catalog (older string ids).
+      if (!cancelled) {
+        const fallback = mapConstantSticker(id);
+        setSticker(fallback);
+        if (fallback) setActiveImage(fallback.image);
+      }
+    })().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500" />
+      </div>
+    );
+  }
 
   if (!sticker) {
     return (
@@ -79,10 +113,11 @@ export default function StickerDetail({ addToCart }: StickerDetailProps) {
     );
   }
 
+  const gallery = [sticker.image, ...(sticker.images || [])].filter(Boolean);
+
   const handleShareLink = async () => {
     const shareUrl = `${window.location.origin}/stickers/${sticker.id}`;
-    const shareText = `Check out *${sticker.name}* from StickToon - ${sticker.description}\n\nStickToon - We Create for Soul\n\n${shareUrl}`;
-
+    const shareText = `Check out *${sticker.name}* from StickToon - ${sticker.description}\n\nStickToon - We create for the souls\n\n${shareUrl}`;
     try {
       await navigator.clipboard.writeText(shareText);
       setShareCopied(true);
@@ -95,9 +130,13 @@ export default function StickerDetail({ addToCart }: StickerDetailProps) {
   const handleAddToCart = () => {
     if (addToCart) {
       addToCart({
-        ...sticker,
+        id: sticker.id,
+        name: sticker.name,
+        price: sticker.price,
+        image: sticker.image,
+        category: sticker.category,
         quantity,
-        type: 'sticker'
+        type: 'sticker',
       });
     }
   };
@@ -108,12 +147,11 @@ export default function StickerDetail({ addToCart }: StickerDetailProps) {
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute top-[-200px] left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-yellow-500/8 rounded-full blur-[140px]" />
         <div className="absolute bottom-[-100px] right-[-200px] w-[600px] h-[600px] bg-orange-400/8 rounded-full blur-[120px]" />
-        <div className="absolute top-1/2 left-[-150px] w-[500px] h-[500px] bg-red-400/6 rounded-full blur-[100px]" />
       </div>
 
-      <div className="relative z-10 flex">
+      <div className="relative z-[50] flex">
         {/* STICKY SIDEBAR */}
-        <aside className="hidden lg:flex flex-col w-64 fixed left-0 top-24 h-[calc(100vh-6rem)] pt-4 px-4 border-r border-slate-200/60 overflow-y-auto">
+        <aside className="hidden lg:flex flex-col w-64 fixed left-0 top-24 h-[calc(100vh-6rem)] pt-4 px-4 border-r border-slate-200/60 overflow-y-auto z-[60]">
           <button
             onClick={() => navigate('/stickers')}
             className="w-full flex items-center gap-2 px-4 py-3.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition-all text-sm"
@@ -136,34 +174,50 @@ export default function StickerDetail({ addToCart }: StickerDetailProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
             {/* Left: Image */}
-            <div className="flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
               <div className="relative w-full max-w-md">
                 <div className="rounded-2xl overflow-hidden border-[3px] border-black shadow-lg">
                   <img
-                    src={sticker.image}
+                    src={activeImage || sticker.image}
                     alt={sticker.name}
                     className="w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
                   />
                 </div>
               </div>
+              {gallery.length > 1 && (
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {gallery.map((img) => (
+                    <button
+                      key={img}
+                      onClick={() => setActiveImage(img)}
+                      className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                        activeImage === img ? 'border-yellow-500' : 'border-slate-200 hover:border-slate-400'
+                      }`}
+                    >
+                      <img src={img} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Right: Product Info */}
             <div className="flex flex-col justify-between">
-              {/* Header */}
               <div>
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-2">
                       {sticker.name}
                     </h1>
-                    <p className="text-lg text-slate-600 font-semibold">
-                      {sticker.description}
-                    </p>
+                    {sticker.description && (
+                      <p className="text-lg text-slate-600 font-semibold">
+                        {sticker.description}
+                      </p>
+                    )}
                   </div>
                   <button
                     onClick={handleShareLink}
-                    className="p-3 rounded-full bg-yellow-500/20 hover:bg-yellow-500/30 transition-colors"
+                    className="p-3 rounded-full bg-yellow-500/20 hover:bg-yellow-500/30 transition-colors flex-shrink-0"
                   >
                     {shareCopied ? (
                       <Check className="w-6 h-6 text-green-600" />
@@ -175,28 +229,35 @@ export default function StickerDetail({ addToCart }: StickerDetailProps) {
 
                 {/* Price */}
                 <div className="text-5xl font-black text-yellow-600 mb-6">
-                  ₹{sticker.price}
+                  {formatPrice(sticker.price)}
                 </div>
+
+                {/* Specs: size / pack count */}
+                {(sticker.size || (sticker.packCount ?? 0) > 0) && (
+                  <div className="flex flex-wrap gap-3 mb-6">
+                    {sticker.size && (
+                      <div className="px-4 py-2 rounded-lg bg-slate-100 border border-slate-200">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Size</span>
+                        <p className="text-sm font-bold text-slate-900">{sticker.size}</p>
+                      </div>
+                    )}
+                    {(sticker.packCount ?? 0) > 0 && (
+                      <div className="px-4 py-2 rounded-lg bg-slate-100 border border-slate-200">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">In this pack</span>
+                        <p className="text-sm font-bold text-slate-900">{sticker.packCount} stickers</p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Details */}
-                <div className="bg-slate-50 rounded-xl p-6 mb-6 border-2 border-slate-200">
-                  <p className="text-slate-700 font-medium leading-relaxed">
-                    {sticker.details}
-                  </p>
-                </div>
-
-                {/* Features */}
-                <div className="mb-8">
-                  <h3 className="text-lg font-black text-slate-900 mb-4">Features</h3>
-                  <ul className="space-y-3">
-                    {sticker.features.map((feature, idx) => (
-                      <li key={idx} className="flex items-center gap-3">
-                        <Star className="w-5 h-5 text-yellow-600 flex-shrink-0" />
-                        <span className="text-slate-700 font-semibold">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                {sticker.description && (
+                  <div className="bg-slate-50 rounded-xl p-6 mb-6 border-2 border-slate-200">
+                    <p className="text-slate-700 font-medium leading-relaxed">
+                      {sticker.description}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Bottom Actions */}

@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate, useParams } from 'react-router-dom';
 import { BADGES, CATEGORIES, formatPrice } from '../constants';
 import { Badge } from '../types';
-import { Plus, SlidersHorizontal, Check, ShoppingCart, Crown, Package, Sparkles } from 'lucide-react';
+import { Check, ShoppingCart, Crown, Package, Sparkles } from 'lucide-react';
 import { API_BASE_URL } from '../config/api';
 
 interface CategoriesProps {
@@ -346,9 +346,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
   // Products from database
   const [products, setProducts] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Check if user is admin
-  const isAdmin = user?.role === 'admin';
+
 
   const normalizeImagePath = (path?: string) => {
     if (!path) return undefined;
@@ -602,25 +600,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
 
   const subcategoryOptions = getSubcategoryOptions(filteredBadges);
 
-  const handleAddProduct = (category?: string) => {
-    // Map frontend category to backend product category
-    const categoryMap: Record<string, string> = {
-      'moody': 'Moody',
-      'positive-vibes': 'Positive Vibes',
-      'sports': 'Sports',
-      'religious': 'Religious',
-      'entertainment': 'Entertainment',
-      'events': 'Events',
-      'pet': 'Animal',
-      'animal': 'Animal',
-      'couple': 'Couple',
-      'anime': 'Anime',
-      'custom': 'Custom'
-    };
-    const targetCategory = category || activeCategory;
-    const productCategory = categoryMap[targetCategory] || 'Custom';
-    navigate(`/admin/dashboard?view=products&category=${productCategory}`);
-  };
+
 
   const toTitleCase = (value: string) =>
     value
@@ -825,48 +805,9 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
         <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
       </div>
 
-      <div className="relative z-10 flex">
-        {/* STICKY SIDEBAR */}
-        <aside className="hidden lg:flex flex-col w-64 fixed left-0 top-24 h-[calc(100vh-6rem)] pt-4 px-4 bg-white/80 backdrop-blur-md border-r border-slate-200/60 overflow-y-auto">
-          <div className="flex flex-col h-full">
-            <button
-              onClick={() => handleCategorySelect('all')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold uppercase tracking-wide transition-all duration-300 text-sm ${
-                activeCategory === 'all'
-                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25 border border-yellow-400'
-                  : 'text-slate-600 hover:bg-slate-100/80 border border-transparent hover:border-slate-200'
-              }`}
-            >
-              All Badges
-              {activeCategory === 'all' && <Check className="w-4 h-4" />}
-            </button>
-
-            <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent my-3"></div>
-
-            <div className="flex flex-col flex-1 justify-between gap-1.5 pb-2">
-              {CATEGORIES.map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => handleCategorySelect(cat.id)}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl font-bold uppercase tracking-wide transition-all duration-300 text-sm ${
-                    activeCategory === cat.id
-                      ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25 border border-yellow-400'
-                      : 'text-slate-600 hover:bg-slate-100/80 border border-transparent hover:border-slate-200'
-                  }`}
-                >
-                  <span className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-base flex-shrink-0">{cat.icon}</span>
-                    <span className="truncate text-xs">{cat.name}</span>
-                  </span>
-                  {activeCategory === cat.id && <Check className="w-4 h-4 flex-shrink-0" />}
-                </button>
-              ))}
-            </div>
-          </div>
-        </aside>
-
+      <div className="relative z-10">
         {/* MAIN CONTENT */}
-        <main ref={mainRef} className="w-full lg:ml-64 px-4 sm:px-6 lg:pl-8 lg:pr-10 pt-10 lg:pt-14 pb-16">
+        <main ref={mainRef} className="w-full px-4 sm:px-6 lg:px-10 pt-10 lg:pt-14 pb-16">
           {/* Header */}
           <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-end md:gap-6 mb-8 md:mb-10">
             <div>
@@ -883,18 +824,6 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
             </div>
 
             <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto">
-              {/* Admin Add Product Button */}
-              {isAdmin && activeCategory !== 'all' && (
-                <button
-                  onClick={() => handleAddProduct()}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-xl font-bold text-xs transition-all shadow-lg"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Add to {currentCategoryName}</span>
-                  <span className="sm:hidden">Add</span>
-                </button>
-              )}
-
               {/* Badge Count + Combo Selection Status */}
               {activeCategory !== 'all' && (
                 <div className="flex flex-col gap-2 w-full sm:w-auto">
@@ -918,52 +847,39 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
                 </div>
               )}
 
-              {/* Mobile Filter Dropdown */}
-              <div className="lg:hidden relative" ref={filterPanelRef}>
-                <button
-                  onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={`flex items-center gap-2 font-bold px-4 py-2.5 rounded-xl transition-all duration-300 text-xs ${
-                    isFilterOpen
+
+            </div>
+          </div>
+
+          {/* HORIZONTAL CATEGORY BAR */}
+          <div className="mb-8 -mx-4 sm:-mx-6 lg:-mx-10 px-4 sm:px-6 lg:px-10 py-3 bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-[4rem] z-[55]">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <button
+                onClick={() => handleCategorySelect('all')}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full font-bold uppercase tracking-wide transition-all duration-300 text-xs whitespace-nowrap ${
+                  activeCategory === 'all'
                     ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25 border border-yellow-400'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:border-yellow-400'
+                    : 'text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-yellow-400'
+                }`}
+              >
+                All Badges
+                {activeCategory === 'all' && <Check className="w-3.5 h-3.5 ml-1" />}
+              </button>
+              {CATEGORIES.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => handleCategorySelect(cat.id)}
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full font-bold uppercase tracking-wide transition-all duration-300 text-xs whitespace-nowrap ${
+                    activeCategory === cat.id
+                      ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25 border border-yellow-400'
+                      : 'text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-yellow-400'
                   }`}
                 >
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
-                  <span className="uppercase tracking-wide">{currentCategoryName}</span>
+                  <span className="text-sm">{cat.icon}</span>
+                  <span>{cat.name}</span>
+                  {activeCategory === cat.id && <Check className="w-3.5 h-3.5 ml-1" />}
                 </button>
-
-                {isFilterOpen && (
-                  <div className="absolute left-0 md:left-auto md:right-0 mt-3 w-full sm:w-72 bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] border border-slate-200/60 z-50 overflow-hidden">
-                    <div className="p-3 space-y-1.5">
-                      <button
-                        onClick={() => handleCategorySelect('all')}
-                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ${
-                          activeCategory === 'all' ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25' : 'text-slate-600 hover:bg-slate-50'
-                        }`}
-                      >
-                        All Badges
-                        {activeCategory === 'all' && <Check className="w-4 h-4" />}
-                      </button>
-                      <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent my-2"></div>
-                      {CATEGORIES.map(cat => (
-                        <button
-                          key={cat.id}
-                          onClick={() => handleCategorySelect(cat.id)}
-                          className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ${
-                            activeCategory === cat.id ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25' : 'text-slate-600 hover:bg-slate-50'
-                          }`}
-                        >
-                          <span className="flex items-center gap-2">
-                            <span className="text-sm">{cat.icon}</span>
-                            <span className="truncate">{cat.name}</span>
-                          </span>
-                          {activeCategory === cat.id && <Check className="w-4 h-4" />}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
           </div>
 
@@ -1005,15 +921,6 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
                               {getComboSelectionCount(category.id)}/{CUSTOM_COMBO_SIZE}
                             </span>
                           </div>
-                          {isAdmin && (
-                            <button
-                              onClick={() => handleAddProduct(category.id)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-[10px] transition-all shadow-sm"
-                            >
-                              <Plus className="w-3 h-3" />
-                              <span className="hidden md:inline">Add</span>
-                            </button>
-                          )}
                         </div>
 
                         {getComboFeedbackForCategory(category.id) && (
@@ -1084,16 +991,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
                       <p className="text-xs text-slate-400 font-medium mt-0.5">{categoryDescriptions[activeCategory] || ''}</p>
                     </div>
                     <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent ml-4"></div>
-                    {isAdmin && (
-                      <button
-                        onClick={() => handleAddProduct()}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-[10px] transition-all shadow-sm"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span className="hidden md:inline">Add Product</span>
-                        <span className="md:hidden">Add</span>
-                      </button>
-                    )}
+
                   </div>
 
                   {getComboFeedbackForCategory(activeCategory) && (

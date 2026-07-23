@@ -24,14 +24,18 @@ function StickerCard({ sticker, addToCart, index }: { sticker: Sticker; addToCar
   const [imgLoaded, setImgLoaded] = useState(false);
   const [added, setAdded] = useState(false);
 
-  const handleAdd = () => {
+  // Card links to the sticker detail page; the add buttons must not navigate.
+  const handleAdd = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     addToCart(sticker);
     setAdded(true);
     setTimeout(() => setAdded(false), 1200);
   };
 
   return (
-    <div
+    <Link
+      to={`/stickers/${sticker.id}`}
       className="group relative bg-white rounded-2xl overflow-hidden flex flex-col transition-all duration-500 hover:-translate-y-1.5
         shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)]
         border border-slate-200/80 hover:border-yellow-400/60"
@@ -116,7 +120,7 @@ function StickerCard({ sticker, addToCart, index }: { sticker: Sticker; addToCar
           </button>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 

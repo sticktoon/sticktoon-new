@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef, JSX } from "react";
 
 import { useNavigate, useLocation } from "react-router-dom";
+import AdminLogs from "./AdminLogs";
+import AdminInfluencerManage from "./AdminInfluencerManage";
+import AdminDealConvert from "./AdminDealConvert";
+import AdminDealSend from "./AdminDealSend";
+import AdminInvoice from "./AdminInvoice";
+import AdminRevenue from "./AdminRevenue";
+import AdminUserOrders from "./AdminUserOrders";
 import { API_BASE_URL } from "../config/api";
 import {
   formatDate,
@@ -456,6 +463,7 @@ interface Product {
   sku?: string;
   size?: string;
   packCount?: number;
+  isActive?: boolean;
   isCombo?: boolean;
   comboItems?: ComboItemForm[];
   createdAt: string;
@@ -641,6 +649,7 @@ const normalizeAdminProduct = (product: Product): Product => {
     image: sanitizeProductImagePath(product.image),
     size: product.size ?? "",
     packCount: product.packCount ?? 0,
+    isActive: product.isActive !== false,
     isCombo: type === "badge" && Boolean(product.isCombo),
     comboItems: Array.isArray(product.comboItems)
       ? product.comboItems.map((item) => ({
@@ -996,7 +1005,22 @@ const Admin: React.FC = () => {
     | "orders"
     | "reports"
     | "profile"
+    | "logs"
+    | "deal-convert"
+    | "deal-send"
+    | "invoice"
+    | "revenue"
+    | "user-orders"
   >(() => (getStoredAdminUser() ? "dashboard" : "login"));
+
+  const changeView = (targetView: typeof currentView) => {
+    setCurrentView(targetView);
+    const targetPath = targetView === "dashboard" ? "/admin" : `/admin/${targetView}`;
+    if (location.pathname !== targetPath) {
+      navigate(targetPath);
+    }
+  };
+
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Login state
@@ -1021,8 +1045,50 @@ const Admin: React.FC = () => {
   const [syncingOrderId, setSyncingOrderId] = useState<string | null>(null);
   const [shiprocketAutoApprove, setShiprocketAutoApprove] = useState<boolean>(false);
   const [viewingOrder, setViewingOrder] = useState<any>(null);
+  const [viewingInfluencerModal, setViewingInfluencerModal] = useState<any>(null);
   const [viewingCustomerId, setViewingCustomerId] = useState<string | null>(null);
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
+
+  // ➕ ADD USER STATE & HANDLER
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    phone: "",
+    role: "user",
+  });
+  const [addingUserLoading, setAddingUserLoading] = useState(false);
+
+  const handleCreateUserSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = getStoredAdminToken();
+    if (!token) return;
+
+    setAddingUserLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/users/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(newUserForm),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || "Failed to create user");
+        return;
+      }
+
+      alert("✅ User created successfully!");
+      setShowAddUserModal(false);
+      setNewUserForm({ name: "", email: "", password: "", phone: "", role: "user" });
+      fetchUsersData();
+    } catch (err: any) {
+      alert("Failed to create user");
+    } finally {
+      setAddingUserLoading(false);
+    }
+  };
 
   // 🔍 CRM FILTER STATE
   const [search, setSearch] = useState("");
@@ -2670,9 +2736,37 @@ const Admin: React.FC = () => {
     const category = params.get("category");
 
     if (isAuthenticated) {
-      if (location.pathname === "/admin/orders") {
-        setCurrentView("orders");
-        return;
+      const pathname = location.pathname.toLowerCase().replace(/\/$/, "");
+      const pathToViewMap: Record<string, typeof currentView> = {
+        "/admin": "dashboard",
+        "/admin/dashboard": "dashboard",
+        "/admin/orders": "orders",
+        "/admin/products": "products",
+        "/admin/users": "users",
+        "/admin/promo": "promo",
+        "/admin/influencers": "influencers",
+        "/admin/all-influencers": "all-influencers",
+        "/admin/withdrawals": "withdrawals",
+        "/admin/leads": "leads",
+        "/admin/deals": "deals",
+        "/admin/invoices": "invoices",
+        "/admin/support": "support",
+        "/admin/tasks": "tasks",
+        "/admin/notifications": "notifications",
+        "/admin/customers": "customers",
+        "/admin/reports": "reports",
+        "/admin/logs": "logs",
+        "/admin/profile": "profile",
+        "/admin/deal-convert": "deal-convert",
+        "/admin/deal-send": "deal-send",
+        "/admin/revenue": "revenue",
+        "/admin/user-orders": "user-orders",
+      };
+
+      if (pathname.startsWith("/admin/invoice/")) {
+        setCurrentView("invoice" as any);
+      } else if (pathToViewMap[pathname]) {
+        setCurrentView(pathToViewMap[pathname]);
       }
 
       if (view === "products") {
@@ -2695,6 +2789,12 @@ const Admin: React.FC = () => {
             }));
           }
         }
+      } else if (view && [
+        "dashboard", "notifications", "leads", "deals", "invoices", "support",
+        "tasks", "users", "all-influencers", "influencers", "withdrawals",
+        "customers", "products", "promo", "orders", "reports", "profile"
+      ].includes(view)) {
+        setCurrentView(view as any);
       }
     }
   }, [location.pathname, location.search, isAuthenticated]);
@@ -2911,7 +3011,7 @@ const Admin: React.FC = () => {
         fetch(`${API_BASE_URL}/api/admin/orders?days=30`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${API_BASE_URL}/api/products?all=true`, { cache: "no-store" }),
+        fetch(`${API_BASE_URL}/api/products?all=true&includeInactive=true`, { cache: "no-store" }),
       ]);
 
       if (!handleUnauthorized(usersRes) && usersRes.ok) {
@@ -3184,7 +3284,7 @@ const Admin: React.FC = () => {
     try {
       // `all=true` bypasses the 100-item page limit, otherwise the admin list
       // silently drops every product past the first page.
-      const productsRes = await fetch(`${API_BASE_URL}/api/products?all=true`, {
+      const productsRes = await fetch(`${API_BASE_URL}/api/products?all=true&includeInactive=true`, {
         cache: "no-store",
       });
       if (productsRes.ok) {
@@ -4367,6 +4467,40 @@ const Admin: React.FC = () => {
     }
   };
 
+  // Show/hide a product on the storefront without deleting it.
+  const handleToggleActive = async (product: Product) => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+    const nextActive = !(product.isActive !== false);
+
+    // Optimistic flip.
+    setProducts((prev) =>
+      prev.map((p) => (p._id === product._id ? { ...p, isActive: nextActive } : p)),
+    );
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/products/${product._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ isActive: nextActive }),
+      });
+      if (res.ok) {
+        showToast("success", nextActive ? "✅ Product is now live" : "🙈 Product hidden from website");
+      } else {
+        // Revert on failure.
+        setProducts((prev) =>
+          prev.map((p) => (p._id === product._id ? { ...p, isActive: !nextActive } : p)),
+        );
+        showToast("error", "❌ Failed to update visibility");
+      }
+    } catch {
+      setProducts((prev) =>
+        prev.map((p) => (p._id === product._id ? { ...p, isActive: !nextActive } : p)),
+      );
+      showToast("error", "❌ Failed to update visibility");
+    }
+  };
+
   const handleDeleteProduct = async (productId: string) => {
     const token = localStorage.getItem("adminToken");
     if (!token) return;
@@ -4478,6 +4612,38 @@ const Admin: React.FC = () => {
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
+                <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!loginEmail) {
+                          setError("Please enter your admin email address first.");
+                          return;
+                        }
+                        setLoading(true);
+                        setError("");
+                        setSuccessMsg("Sending reset link...");
+                        try {
+                          const res = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ email: loginEmail }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.message || "Failed to send reset link");
+                          setSuccessMsg("✅ Reset link sent! Check your email inbox.");
+                        } catch (err: any) {
+                          setError(err.message || "Failed to send reset email");
+                          setSuccessMsg("");
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className="text-xs font-bold text-indigo-700 hover:text-indigo-900 hover:underline transition-all"
+                    >
+                      Forgot Password? 🤔
+                    </button>
+                  </div>
               </div>
 
               <button
@@ -4606,20 +4772,9 @@ const Admin: React.FC = () => {
               },
               {
                 id: "all-influencers",
-                label: "All Influencers",
+                label: "Influencer Management",
                 icon: <Groups2RoundedIcon sx={{ fontSize: 22 }} />,
-              },
-              {
-                id: "influencers",
-                label: "Pending Approvals",
-                icon: <PendingActionsRoundedIcon sx={{ fontSize: 22 }} />,
-                badge: stats.pendingApprovals,
-              },
-              {
-                id: "withdrawals",
-                label: "Withdrawals",
-                icon: <AccountBalanceWalletRoundedIcon sx={{ fontSize: 22 }} />,
-                badge: stats.pendingWithdrawals.count,
+                badge: (stats.pendingApprovals || 0) + (stats.pendingWithdrawals?.count || 0) || undefined,
               },
               {
                 id: "orders",
@@ -4650,15 +4805,21 @@ const Admin: React.FC = () => {
                 id: "logs",
                 label: "Activity Logs",
                 icon: <ScrollText className="w-5 h-5" />,
-                // Lives on its own route rather than as a view in this panel.
-                href: "/admin/logs",
               },
-            ].map((tab) => (
+            ].map((tab: { id: string; label: string; icon: JSX.Element; badge?: number; href?: string }) => (
               <button
                 key={tab.id}
-                onClick={() =>
-                  tab.href ? navigate(tab.href) : setCurrentView(tab.id as any)
-                }
+                onClick={() => {
+                  if (tab.href) {
+                    navigate(tab.href);
+                  } else {
+                    setCurrentView(tab.id as any);
+                    const targetPath = tab.id === "dashboard" ? "/admin" : `/admin/${tab.id}`;
+                    if (location.pathname !== targetPath) {
+                      navigate(targetPath);
+                    }
+                  }
+                }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-bold transition-all text-left ${
                   currentView === tab.id
                     ? "bg-white text-slate-950 shadow-lg"
@@ -4691,7 +4852,10 @@ const Admin: React.FC = () => {
               <span className="text-base">Go to Shop</span>
             </button>
             <button
-              onClick={() => setCurrentView("profile")}
+              onClick={() => {
+                setCurrentView("profile");
+                navigate("/admin/profile");
+              }}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-bold transition-all text-left text-white admin-zoho-keep-white hover:bg-slate-800"
             >
               <Edit2 className="w-5 h-5" />
@@ -4738,6 +4902,7 @@ const Admin: React.FC = () => {
                 {currentView === "reports" && "Reports"}
                 {currentView === "products" && "Products"}
                 {currentView === "promo" && "Promo Codes"}
+                {currentView === "logs" && "Activity Logs"}
                 {currentView === "profile" && "Edit Profile"}
               </h2>
             </div>
@@ -4758,7 +4923,7 @@ const Admin: React.FC = () => {
 
                 {/* Total Users */}
                 <button
-                  onClick={() => setCurrentView("users")}
+                  onClick={() => changeView("users")}
                   className="bg-white rounded-xl p-5 border border-gray-200 hover:shadow-lg transition-all hover:border-gray-400 cursor-pointer text-left"
                 >
                   <div className="flex items-center justify-between mb-3">
@@ -4782,7 +4947,7 @@ const Admin: React.FC = () => {
 
                 {/* Total Influencers */}
                 <button
-                  onClick={() => setCurrentView("all-influencers")}
+                  onClick={() => changeView("all-influencers")}
                   className="bg-white rounded-xl p-5 border border-gray-200 hover:shadow-lg transition-all hover:border-gray-400 cursor-pointer text-left"
                 >
                   <div className="flex items-center justify-between mb-3">
@@ -4806,7 +4971,7 @@ const Admin: React.FC = () => {
 
                 {/* Total Orders */}
                 <button
-                  onClick={() => setCurrentView("orders")}
+                  onClick={() => changeView("orders")}
                   className="bg-white rounded-xl p-5 border border-gray-200 hover:shadow-lg transition-all hover:border-gray-400 cursor-pointer text-left"
                 >
                   <div className="flex items-center justify-between mb-3">
@@ -4830,7 +4995,7 @@ const Admin: React.FC = () => {
 
                 {/* Total Products */}
                 <button
-                  onClick={() => setCurrentView("products")}
+                  onClick={() => changeView("products")}
                   className="bg-white rounded-xl p-5 border border-gray-200 hover:shadow-lg transition-all hover:border-gray-400 cursor-pointer text-left"
                 >
                   <div className="flex items-center justify-between mb-3">
@@ -5341,8 +5506,8 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 )}
 
                 {showDeleteModal && (
-                  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                    <div className="bg-white border-2 border-black-500 w-full max-w-[420px] mx-4 rounded-xl p-6 space-y-5 shadow-xl">
+                  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white border-2 border-black-500 w-full max-w-[420px] mx-4 rounded-xl p-6 space-y-5 shadow-xl max-h-[90vh] overflow-y-auto">
                       <h3 className="text-lg font-bold text-red-600">
                         Delete Lead
                       </h3>
@@ -5890,7 +6055,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
               {replyingSupportMessage && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white w-full max-w-xl rounded-xl border p-6 space-y-4">
+                  <div className="bg-white w-full max-w-xl rounded-xl border p-6 space-y-4 max-h-[90vh] overflow-y-auto">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <h4 className="text-lg font-bold text-slate-900">
@@ -5946,7 +6111,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
               {supportMessageToDelete && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white w-full max-w-md rounded-xl border p-6 space-y-5 shadow-xl">
+                  <div className="bg-white w-full max-w-md rounded-xl border p-6 space-y-5 shadow-xl max-h-[90vh] overflow-y-auto">
                     <h4 className="text-lg font-bold text-red-600">
                       Delete Support Message
                     </h4>
@@ -6149,7 +6314,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
               {showCreateTask && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white w-full max-w-3xl rounded-xl p-6 space-y-5 border">
+                  <div className="bg-white w-full max-w-3xl rounded-xl p-6 space-y-5 border max-h-[90vh] overflow-y-auto">
                     <div className="flex justify-between items-center">
                       <h3 className="text-xl font-bold">
                         {editingTask ? "Edit Task" : "Create Task"}
@@ -6377,8 +6542,8 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
               )}
 
               {showDeleteTaskModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                  <div className="bg-white rounded-xl p-6 w-full max-w-[400px] mx-4 space-y-4 shadow-xl">
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-xl p-6 w-full max-w-[400px] mx-4 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
                     <h3 className="text-lg font-bold text-red-600">Delete Task?</h3>
                     <p className="text-sm text-slate-600">
                       Are you sure you want to delete this task?
@@ -6406,163 +6571,15 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
           {/* INFLUENCERS VIEW */}
           {currentView === "influencers" && (
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-white mb-6">
-                Pending Influencer Approvals
-              </h2>
-              {pendingInfluencers.length === 0 ? (
-                <div className="bg-white/10 border border-white/20 rounded-2xl p-8 text-center">
-                  <p className="text-gray-400">No pending requests</p>
-                </div>
-              ) : (
-                pendingInfluencers.map((inf) => (
-                  <div
-                    key={inf._id}
-                    className="bg-white/10 border border-white/20 rounded-2xl p-6"
-                  >
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                      <div>
-                        <h3 className="text-white font-bold text-lg">
-                          {inf.name}
-                        </h3>
-                        <p className="text-gray-400 text-sm">{inf.email}</p>
-                        {inf.instagram && (
-                          <p className="text-purple-300 text-sm">
-                            @{inf.instagram}
-                          </p>
-                        )}
-                        {inf.youtube && (
-                          <p className="text-red-300 text-sm">{inf.youtube}</p>
-                        )}
-                        {inf.bio && (
-                          <p className="text-gray-300 text-sm mt-2">
-                            "{inf.bio}"
-                          </p>
-                        )}
-                        <p className="text-gray-500 text-xs mt-2">
-                          {formatDate(inf.createdAt)}
-                        </p>
-                      </div>
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => handleApproveInfluencer(inf._id, true)}
-                          className="flex items-center gap-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 rounded-lg text-green-300 font-medium transition-colors"
-                        >
-                          <Check className="w-4 h-4" /> Approve
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleApproveInfluencer(inf._id, false)
-                          }
-                          className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-lg text-red-300 font-medium transition-colors"
-                        >
-                          <X className="w-4 h-4" /> Reject
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
+            <div>
+              <AdminInfluencerManage initialTab="pending" />
             </div>
           )}
 
           {/* WITHDRAWALS VIEW */}
           {currentView === "withdrawals" && (
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-white mb-6">
-                Withdrawal Requests
-              </h2>
-              {loadingData.withdrawals ? (
-                <div className="bg-white/10 border border-white/20 rounded-2xl p-8 text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400 mx-auto mb-4"></div>
-                  <p className="text-gray-400">
-                    Loading withdrawal requests...
-                  </p>
-                </div>
-              ) : withdrawals.length === 0 ? (
-                <div className="bg-white/10 border border-white/20 rounded-2xl p-8 text-center">
-                  <p className="text-gray-400">No withdrawals found</p>
-                </div>
-              ) : (
-                withdrawals.map((w) => (
-                  <div
-                    key={w._id}
-                    className="bg-white/10 border border-white/20 rounded-2xl p-6 cursor-pointer transition-all hover:bg-white/15 hover:border-indigo-400/40"
-                    onClick={() => setViewingWithdrawal(w)}
-                  >
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                      <div>
-                        <h3 className="text-white font-bold text-lg">
-                          {w.influencerId.name}
-                        </h3>
-                        <p className="text-gray-400 text-sm">
-                          {w.influencerId.email}
-                        </p>
-                        <p className="text-green-400 font-bold mt-2">
-                          ₹{w.amount}
-                        </p>
-                        <p className="text-gray-500 text-xs mt-1">
-                          {w.paymentMethod.toUpperCase()} •{" "}
-                          {formatDate(w.createdAt)}
-                        </p>
-                        <span
-                          className={`inline-flex mt-2 px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                            w.status === "approved"
-                              ? "bg-blue-500/20 text-blue-300"
-                              : w.status === "paid"
-                                ? "bg-green-500/20 text-green-300"
-                                : w.status === "rejected"
-                                  ? "bg-red-500/20 text-red-300"
-                                  : "bg-yellow-500/20 text-yellow-300"
-                          }`}
-                        >
-                          {w.status.toUpperCase()}
-                        </span>
-                        <p className="text-indigo-300 text-xs mt-2">
-                          Click to view submitted payment details
-                        </p>
-                      </div>
-                      <div className="flex gap-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleProcessWithdrawal(
-                              w._id,
-                              w.status === "approved" ? "pending" : "approved",
-                            );
-                          }}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors text-sm ${
-                            w.status === "approved"
-                              ? "bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/50 text-yellow-300"
-                              : "bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-300"
-                          }`}
-                        >
-                          <Check className="w-4 h-4" />{" "}
-                          {w.status === "approved" ? "Set Pending" : "Approve"}
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleProcessWithdrawal(w._id, "rejected");
-                          }}
-                          className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-lg text-red-300 font-medium transition-colors text-sm"
-                        >
-                          <X className="w-4 h-4" /> Reject
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleProcessWithdrawal(w._id, "paid");
-                          }}
-                          className="flex items-center gap-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 rounded-lg text-green-300 font-medium transition-colors text-sm"
-                        >
-                          💰 Mark Paid
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
+            <div>
+              <AdminInfluencerManage initialTab="withdrawals" />
             </div>
           )}
 
@@ -6784,14 +6801,19 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
               {/* Add Product Form (only show when not editing) */}
               {showProductForm && !editingProduct && (
-                <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-md">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-12 h-12 rounded-lg bg-indigo-600 flex items-center justify-center shadow-md">
+                <div className="bg-white border border-gray-200 rounded-2xl p-6 md:p-8 shadow-lg">
+                  <div className="-mx-6 md:-mx-8 -mt-6 md:-mt-8 mb-8 px-6 md:px-8 py-5 bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 rounded-t-2xl flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shadow-inner">
                       <Plus className="w-6 h-6 text-white" />
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-900">
-                      Add New Product
-                    </h3>
+                    <div>
+                      <h3 className="text-xl md:text-2xl font-black text-white leading-tight">
+                        Add New Product
+                      </h3>
+                      <p className="text-indigo-100 text-xs md:text-sm font-medium">
+                        List a new badge or sticker on the storefront
+                      </p>
+                    </div>
                   </div>
                   <form
                     onSubmit={handleAddProduct}
@@ -7395,19 +7417,32 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                 {categoryProducts.map((product) => (
                                   <div
                                     key={product._id}
-                                    className="group bg-white border border-gray-200 rounded-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
+                                    className={`group bg-white border rounded-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] ${
+                                      product.isActive === false
+                                        ? "border-red-200 ring-1 ring-red-100 opacity-70"
+                                        : "border-gray-200"
+                                    }`}
                                   >
                                     {/* Image */}
                                     <div className="relative h-56 bg-gray-100 overflow-hidden">
                                       <img
                                         src={product.image || PLACEHOLDER_IMAGE}
                                         alt={product.name}
-                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                        className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${
+                                          product.isActive === false ? "grayscale" : ""
+                                        }`}
                                         onError={(e) => {
                                           if (e.currentTarget.src.endsWith(PLACEHOLDER_IMAGE)) return;
                                           e.currentTarget.src = PLACEHOLDER_IMAGE;
                                         }}
                                       />
+                                      {product.isActive === false && (
+                                        <div className="absolute inset-0 bg-white/30 flex items-center justify-center">
+                                          <span className="px-3 py-1.5 rounded-full text-xs font-black bg-red-600 text-white shadow-lg">
+                                            HIDDEN
+                                          </span>
+                                        </div>
+                                      )}
                                       {/* Stock badge overlay */}
                                       <div className="absolute top-3 right-3">
                                         <span
@@ -7453,11 +7488,32 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                             </p>
                                           )}
 
-                                      {/* Price */}
-                                      <div className="flex items-baseline gap-2 pt-2">
+                                      {/* Price + visibility toggle */}
+                                      <div className="flex items-center justify-between pt-2">
                                         <span className="text-3xl font-bold text-indigo-600">
                                           ₹{product.price}
                                         </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleToggleActive(product)}
+                                          title={product.isActive === false ? "Hidden — click to show on website" : "Live — click to hide from website"}
+                                          className="flex items-center gap-2 group/toggle"
+                                        >
+                                          <span className={`text-[11px] font-bold uppercase tracking-wide ${product.isActive === false ? "text-gray-400" : "text-green-600"}`}>
+                                            {product.isActive === false ? "Hidden" : "Live"}
+                                          </span>
+                                          <span
+                                            className={`relative w-10 h-6 rounded-full transition-colors ${
+                                              product.isActive === false ? "bg-gray-300" : "bg-green-500"
+                                            }`}
+                                          >
+                                            <span
+                                              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                                                product.isActive === false ? "" : "translate-x-4"
+                                              }`}
+                                            />
+                                          </span>
+                                        </button>
                                       </div>
 
                                       {/* Actions */}
@@ -7705,7 +7761,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
               {showPromoModal && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white w-full max-w-2xl rounded-xl border p-6 space-y-4">
+                  <div className="bg-white w-full max-w-2xl rounded-xl border p-6 space-y-4 max-h-[90vh] overflow-y-auto">
                     <div className="flex items-center justify-between">
                       <h3 className="text-xl font-bold">
                         {editingPromoId ? "Edit Promo Code" : "Create Promo Code"}
@@ -7990,8 +8046,14 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
               {/* ================= USERS TABLE ================= */}
               <section className="flex-1 bg-white rounded-xl border overflow-hidden">
-                <div className="px-4 sm:px-6 py-4 border-b font-black">
-                  Users ({filteredUsers.length})
+                <div className="px-4 sm:px-6 py-4 border-b font-black flex items-center justify-between">
+                  <span>Users ({filteredUsers.length})</span>
+                  <button
+                    onClick={() => setShowAddUserModal(true)}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                  >
+                    ＋ Add New User
+                  </button>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -8084,6 +8146,32 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                               Edit
                             </button>
 
+                            <button
+                              onClick={async () => {
+                                const token = getStoredAdminToken();
+                                if (!token) return;
+                                if (!window.confirm(`Send password reset email link to ${u.email}?`)) return;
+                                try {
+                                  const res = await fetch(`${API_BASE_URL}/api/admin/users/${u._id}/send-reset-email`, {
+                                    method: "POST",
+                                    headers: { Authorization: `Bearer ${token}` },
+                                  });
+                                  const data = await res.json();
+                                  if (res.ok) {
+                                    alert(data.message || `Password reset link sent to ${u.email}`);
+                                  } else {
+                                    alert(data.message || "Failed to send reset email.");
+                                  }
+                                } catch {
+                                  alert("Failed to send reset email.");
+                                }
+                              }}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition flex items-center gap-1"
+                              title="Send password reset email link to user"
+                            >
+                              ✉️ Reset Email
+                            </button>
+
                             {isSuperAdmin && (
                               <button
                                 onClick={() => {
@@ -8093,7 +8181,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                 className="px-3 py-1.5 rounded-lg text-xs font-bold bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border border-yellow-300 transition"
                                 title="Reset this user's password"
                               >
-                                Password
+                                Direct Password
                               </button>
                             )}
 
@@ -8135,179 +8223,44 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
           )}
 
           {/* ALL INFLUENCERS VIEW */}
-          {/* ================= ALL INFLUENCERS VIEW ================= */}
           {currentView === "all-influencers" && (
-            <div className="flex flex-col xl:flex-row gap-4 xl:gap-8">
-              {/* ================= SIDEBAR ================= */}
-              <aside className="w-full xl:w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
-                <h3 className="font-black text-sm">Filters</h3>
+            <div>
+              <AdminInfluencerManage initialTab="approved" />
+            </div>
+          )}
 
-                {/* STATUS */}
-                <div className="space-y-2 text-sm">
-                  <p className="text-xs font-black uppercase text-slate-600">
-                    Status
-                  </p>
+          {/* DEAL CONVERT VIEW */}
+          {currentView === "deal-convert" && (
+            <div>
+              <AdminDealConvert />
+            </div>
+          )}
 
-                  <label className="flex gap-2 items-center">
-                    <input
-                      type="checkbox"
-                      checked={showApprovedInf}
-                      onChange={(e) => setShowApprovedInf(e.target.checked)}
-                    />
-                    Approved
-                  </label>
+          {/* DEAL SEND VIEW */}
+          {currentView === "deal-send" && (
+            <div>
+              <AdminDealSend />
+            </div>
+          )}
 
-                  <label className="flex gap-2 items-center">
-                    <input
-                      type="checkbox"
-                      checked={showPendingInf}
-                      onChange={(e) => setShowPendingInf(e.target.checked)}
-                    />
-                    Pending
-                  </label>
-                </div>
+          {/* INVOICE DETAIL VIEW */}
+          {currentView === "invoice" && (
+            <div>
+              <AdminInvoice />
+            </div>
+          )}
 
-                {/* DATE (same as Users) */}
-                <div className="space-y-2">
-                  <p className="text-xs font-black uppercase text-slate-600">
-                    Date
-                  </p>
+          {/* REVENUE VIEW */}
+          {currentView === "revenue" && (
+            <div>
+              <AdminRevenue />
+            </div>
+          )}
 
-                  <input
-                    type="date"
-                    value={infFromDate}
-                    onChange={(e) => setInfFromDate(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  />
-
-                  <input
-                    type="date"
-                    value={infToDate}
-                    onChange={(e) => setInfToDate(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  />
-                </div>
-
-                {/* SORT */}
-                <div className="space-y-2">
-                  <p className="text-xs font-black uppercase text-slate-600">
-                    Sort
-                  </p>
-
-                  <select
-                    value={infSort}
-                    onChange={(e) =>
-                      setInfSort(e.target.value as "asc" | "desc")
-                    }
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  >
-                    <option value="desc">Newest first</option>
-                    <option value="asc">Oldest first</option>
-                  </select>
-                </div>
-              </aside>
-
-              {/* ================= CONTENT ================= */}
-              <section className="flex-1 flex flex-col gap-6">
-                {/* HEADER */}
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-black">
-                    All Influencers ({filteredInfluencers.length})
-                  </h2>
-
-                  <div className="flex gap-6 text-sm">
-                    <span className="flex items-center gap-1">
-                      ✅ Approved:{" "}
-                      {
-                        filteredInfluencers.filter(
-                          (i) => i.influencerProfile?.isApproved,
-                        ).length
-                      }
-                    </span>
-                    <span className="flex items-center gap-1">
-                      ⏳ Pending:{" "}
-                      {
-                        filteredInfluencers.filter(
-                          (i) => !i.influencerProfile?.isApproved,
-                        ).length
-                      }
-                    </span>
-                  </div>
-                </div>
-
-                {/* CARDS GRID */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {filteredInfluencers.map((inf) => (
-                    <div
-                      key={inf._id}
-                      className="bg-white border rounded-xl p-5 hover:shadow-lg transition"
-                    >
-                      {/* HEADER */}
-                      <div className="flex justify-between mb-3">
-                        <div>
-                          <p className="font-bold">{inf.name}</p>
-                          <p className="text-xs text-slate-500">{inf.email}</p>
-                        </div>
-
-                        <span
-                          className={`px-3 py-1 text-xs font-bold rounded-full ${
-                            inf.influencerProfile?.isApproved
-                              ? "bg-green-100 text-green-700"
-                              : "bg-yellow-100 text-yellow-700"
-                          }`}
-                        >
-                          {inf.influencerProfile?.isApproved
-                            ? "Approved"
-                            : "Pending"}
-                        </span>
-                      </div>
-
-                      {/* STATS */}
-                      <div className="grid grid-cols-2 gap-3 bg-slate-50 rounded-lg p-3 text-sm">
-                        <div>
-                          <p className="text-xs text-slate-500">Total</p>
-                          <p className="font-bold text-green-600">
-                            ₹{inf.influencerProfile?.totalEarnings || 0}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-slate-500">Pending</p>
-                          <p className="font-bold">
-                            ₹{inf.influencerProfile?.pendingEarnings || 0}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-slate-500">Withdrawn</p>
-                          <p className="font-bold text-blue-600">
-                            ₹{inf.influencerProfile?.withdrawnAmount || 0}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-slate-500">
-                            Min Withdrawal
-                          </p>
-                          <p className="font-bold">
-                            ₹{inf.influencerProfile?.minWithdrawalAmount || 100}
-                          </p>
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-slate-500 mt-3">
-                        Joined: {formatDate(inf.createdAt)}
-                      </p>
-                    </div>
-                  ))}
-
-                  {filteredInfluencers.length === 0 && (
-                    <p className="col-span-full text-center text-slate-400 py-10">
-                      No influencers match selected filters
-                    </p>
-                  )}
-                </div>
-              </section>
+          {/* USER ORDERS VIEW */}
+          {currentView === "user-orders" && (
+            <div>
+              <AdminUserOrders />
             </div>
           )}
 
@@ -9017,41 +8970,41 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
           {/* PROFILE VIEW */}
           {currentView === "profile" && (
-            <div className="max-w-2xl mx-auto space-y-6">
-              <div className="bg-gradient-to-br from-indigo-500/20 via-purple-500/10 to-transparent backdrop-blur-xl rounded-3xl p-8 border-2 border-white/20">
-                <div className="flex items-center gap-4 mb-6">
+            <div className="max-w-3xl mx-auto">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+                <div className="flex items-center gap-4 pb-6 border-b border-slate-200">
                   {(user as any)?.avatar ? (
                     <img
                       src={(user as any).avatar}
                       alt="Profile"
-                      className="w-16 h-16 rounded-full border-4 border-white/20 object-cover"
+                      className="w-16 h-16 rounded-full border-2 border-indigo-600 object-cover shadow-sm"
                       onError={(e) => {
                         e.currentTarget.style.display = "none";
                         const fallback = document.createElement("div");
                         fallback.className =
-                          "w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-3xl font-black text-white border-4 border-white/20";
+                          "w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center text-2xl font-black text-white shadow-sm";
                         fallback.textContent =
                           user?.name?.charAt(0).toUpperCase() || "A";
                         e.currentTarget.parentElement?.appendChild(fallback);
                       }}
                     />
                   ) : (
-                    <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-3xl font-black text-white border-4 border-white/20">
+                    <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center text-2xl font-black text-white shadow-sm">
                       {user?.name?.charAt(0).toUpperCase() || "A"}
                     </div>
                   )}
                   <div>
-                    <h2 className="text-2xl font-black text-white">
+                    <h2 className="text-xl sm:text-2xl font-black text-slate-900">
                       Edit Profile
                     </h2>
-                    <p className="text-indigo-300 text-sm">
-                      Update your account information
+                    <p className="text-slate-500 text-sm font-medium">
+                      Update your administrator account details and password
                     </p>
                   </div>
                 </div>
 
                 {error && (
-                  <div className="flex items-center gap-2 px-4 py-3 bg-red-100 border-2 border-red-500 rounded-xl mb-6">
+                  <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
                     <AlertCircle className="w-5 h-5 text-red-600" />
                     <p className="text-sm font-bold text-red-700">{error}</p>
                   </div>
@@ -9060,51 +9013,53 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 <form onSubmit={handleUpdateProfile} className="space-y-6">
                   {/* Basic Info */}
                   <div className="space-y-4">
-                    <h3 className="text-lg font-bold text-white border-b border-white/20 pb-2">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 border-b border-slate-100 pb-2">
                       Basic Information
                     </h3>
 
-                    <div>
-                      <label className="block text-sm font-bold text-white mb-2">
-                        Name
-                      </label>
-                      <input
-                        type="text"
-                        value={profileForm.name}
-                        onChange={(e) =>
-                          setProfileForm({
-                            ...profileForm,
-                            name: e.target.value,
-                          })
-                        }
-                        required
-                        className="w-full px-4 py-3 rounded-xl bg-white/10 border-2 border-white/20 focus:border-indigo-500 focus:outline-none transition-all text-white font-medium placeholder:text-gray-400"
-                        placeholder="Your name"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                          Name
+                        </label>
+                        <input
+                          type="text"
+                          value={profileForm.name}
+                          onChange={(e) =>
+                            setProfileForm({
+                              ...profileForm,
+                              name: e.target.value,
+                            })
+                          }
+                          required
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-medium focus:bg-white focus:border-indigo-600 focus:outline-none transition-all text-sm"
+                          placeholder="Your name"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                          Email Address
+                        </label>
+                        <input
+                          type="email"
+                          value={profileForm.email}
+                          onChange={(e) =>
+                            setProfileForm({
+                              ...profileForm,
+                              email: e.target.value,
+                            })
+                          }
+                          required
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-medium focus:bg-white focus:border-indigo-600 focus:outline-none transition-all text-sm"
+                          placeholder="your@email.com"
+                        />
+                      </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-bold text-white mb-2">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        value={profileForm.email}
-                        onChange={(e) =>
-                          setProfileForm({
-                            ...profileForm,
-                            email: e.target.value,
-                          })
-                        }
-                        required
-                        className="w-full px-4 py-3 rounded-xl bg-white/10 border-2 border-white/20 focus:border-indigo-500 focus:outline-none transition-all text-white font-medium placeholder:text-gray-400"
-                        placeholder="your@email.com"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-bold text-white mb-2">
-                        Avatar URL
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Avatar Image URL
                       </label>
                       <input
                         type="text"
@@ -9115,91 +9070,250 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                             avatar: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-3 rounded-xl bg-white/10 border-2 border-white/20 focus:border-indigo-500 focus:outline-none transition-all text-white font-medium placeholder:text-gray-400"
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-medium focus:bg-white focus:border-indigo-600 focus:outline-none transition-all text-sm"
                         placeholder="https://example.com/avatar.jpg (optional)"
                       />
                       {profileForm.avatar && (
-                        <div className="mt-3 flex items-center gap-3">
+                        <div className="mt-3 flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 w-fit">
                           <img
                             src={profileForm.avatar}
                             alt="Avatar preview"
-                            className="w-16 h-16 rounded-full border-2 border-indigo-500 object-cover"
+                            className="w-12 h-12 rounded-full border border-indigo-600 object-cover"
                             onError={(e) => {
                               e.currentTarget.style.display = "none";
                             }}
                           />
-                          <span className="text-xs text-gray-400">Preview</span>
+                          <span className="text-xs font-bold text-slate-600">Avatar Preview</span>
                         </div>
                       )}
                     </div>
                   </div>
 
                   {/* Change Password */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-bold text-white border-b border-white/20 pb-2">
-                      Change Password (Optional)
+                  <div className="space-y-4 pt-2">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 border-b border-slate-100 pb-2">
+                      Security & Password (Optional)
                     </h3>
 
-                    <div>
-                      <label className="block text-sm font-bold text-white mb-2">
-                        Current Password
-                      </label>
-                      <input
-                        type="password"
-                        value={profileForm.currentPassword}
-                        onChange={(e) =>
-                          setProfileForm({
-                            ...profileForm,
-                            currentPassword: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-3 rounded-xl bg-white/10 border-2 border-white/20 focus:border-indigo-500 focus:outline-none transition-all text-white font-medium placeholder:text-gray-400"
-                        placeholder="Enter current password"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                          Current Password
+                        </label>
+                        <input
+                          type="password"
+                          value={profileForm.currentPassword}
+                          onChange={(e) =>
+                            setProfileForm({
+                              ...profileForm,
+                              currentPassword: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-medium focus:bg-white focus:border-indigo-600 focus:outline-none transition-all text-sm"
+                          placeholder="Enter current password"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                          New Password
+                        </label>
+                        <input
+                          type="password"
+                          value={profileForm.newPassword}
+                          onChange={(e) =>
+                            setProfileForm({
+                              ...profileForm,
+                              newPassword: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-medium focus:bg-white focus:border-indigo-600 focus:outline-none transition-all text-sm"
+                          placeholder="Min 6 characters"
+                        />
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-bold text-white mb-2">
-                        New Password
-                      </label>
-                      <input
-                        type="password"
-                        value={profileForm.newPassword}
-                        onChange={(e) =>
-                          setProfileForm({
-                            ...profileForm,
-                            newPassword: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-3 rounded-xl bg-white/10 border-2 border-white/20 focus:border-indigo-500 focus:outline-none transition-all text-white font-medium placeholder:text-gray-400"
-                        placeholder="Enter new password (min 6 characters)"
-                      />
-                    </div>
-
-                    <p className="text-xs text-gray-400">
-                      💡 Leave password fields empty to keep your current
-                      password
+                    <p className="text-xs text-slate-500 font-medium">
+                      💡 Leave password fields empty if you do not wish to change your password.
                     </p>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-4 pt-4">
+                  <div className="flex items-center gap-3 pt-4 border-t border-slate-200">
                     <button
                       type="submit"
                       disabled={updatingProfile}
-                      className="flex-1 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-black text-sm uppercase tracking-wide disabled:opacity-50 border-3 border-white/20 shadow-lg transition-all"
+                      className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 admin-zoho-keep-white text-white rounded-xl font-bold text-sm uppercase tracking-wide disabled:opacity-50 transition-all shadow-md"
                     >
                       {updatingProfile ? "Updating... ⏳" : "Save Changes ✓"}
                     </button>
                     <button
                       type="button"
-                      onClick={() => setCurrentView("dashboard")}
-                      className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold border-2 border-white/20 transition-all"
+                      onClick={() => changeView("dashboard")}
+                      className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm uppercase tracking-wide transition-all"
                     >
                       Cancel
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+
+          {/* LOGS VIEW */}
+          {currentView === "logs" && (
+            <div>
+              <AdminLogs />
+            </div>
+          )}
+
+          {/* INFLUENCER DETAIL MODAL */}
+          {viewingInfluencerModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+              <div className="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full shadow-2xl transform transition-all duration-300 max-h-[90vh] flex flex-col overflow-hidden text-slate-900">
+                {/* Header */}
+                <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-black text-xl shadow-md">
+                      {viewingInfluencerModal.name?.charAt(0).toUpperCase() || "I"}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                        {viewingInfluencerModal.name}
+                        <span
+                          className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${
+                            viewingInfluencerModal.influencerProfile?.isApproved
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                              : "bg-amber-100 text-amber-800 border border-amber-300"
+                          }`}
+                        >
+                          {viewingInfluencerModal.influencerProfile?.isApproved
+                            ? "Approved"
+                            : "Pending Approval"}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-500 font-medium">
+                        {viewingInfluencerModal.email} • Joined {formatDate(viewingInfluencerModal.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setViewingInfluencerModal(null)}
+                    className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 font-bold transition-all"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-6 overflow-y-auto space-y-6">
+                  {/* Earnings Grid */}
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                      Earnings & Payout Overview
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                        <p className="text-[11px] font-bold text-slate-500 uppercase">Total Earnings</p>
+                        <p className="text-lg font-black text-emerald-600">
+                          ₹{viewingInfluencerModal.influencerProfile?.totalEarnings || 0}
+                        </p>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                        <p className="text-[11px] font-bold text-slate-500 uppercase">Pending Balance</p>
+                        <p className="text-lg font-black text-amber-600">
+                          ₹{viewingInfluencerModal.influencerProfile?.pendingEarnings || 0}
+                        </p>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                        <p className="text-[11px] font-bold text-slate-500 uppercase">Total Withdrawn</p>
+                        <p className="text-lg font-black text-indigo-600">
+                          ₹{viewingInfluencerModal.influencerProfile?.withdrawnAmount || 0}
+                        </p>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                        <p className="text-[11px] font-bold text-slate-500 uppercase">Min Withdrawal</p>
+                        <p className="text-lg font-black text-slate-900">
+                          ₹{viewingInfluencerModal.influencerProfile?.minWithdrawalAmount || 100}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Social & Details */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div>
+                      <p className="text-xs font-bold text-slate-500 uppercase mb-1">Phone Number</p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {viewingInfluencerModal.phone || "Not provided"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-500 uppercase mb-1">Instagram Handle</p>
+                      {viewingInfluencerModal.influencerProfile?.instagram ? (
+                        <a
+                          href={`https://instagram.com/${viewingInfluencerModal.influencerProfile.instagram.replace("@", "")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm font-bold text-indigo-600 hover:underline"
+                        >
+                          @{viewingInfluencerModal.influencerProfile.instagram.replace("@", "")}
+                        </a>
+                      ) : (
+                        <p className="text-sm text-slate-400">Not linked</p>
+                      )}
+                    </div>
+                    {viewingInfluencerModal.influencerProfile?.bio && (
+                      <div className="sm:col-span-2">
+                        <p className="text-xs font-bold text-slate-500 uppercase mb-1">Bio</p>
+                        <p className="text-sm text-slate-700 font-medium">
+                          {viewingInfluencerModal.influencerProfile.bio}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+                    {!viewingInfluencerModal.influencerProfile?.isApproved ? (
+                      <div className="flex items-center gap-3 w-full">
+                        <button
+                          onClick={() => {
+                            handleApproveInfluencer(viewingInfluencerModal._id, true);
+                            setViewingInfluencerModal(null);
+                          }}
+                          className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm uppercase tracking-wide transition-all shadow-sm"
+                        >
+                          Approve Influencer ✓
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleApproveInfluencer(viewingInfluencerModal._id, false);
+                            setViewingInfluencerModal(null);
+                          }}
+                          className="px-6 py-3 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl font-bold text-sm uppercase tracking-wide transition-all"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg">
+                          ✓ Influencer Account Active
+                        </span>
+                        <button
+                          onClick={() => {
+                            handleApproveInfluencer(viewingInfluencerModal._id, false);
+                            setViewingInfluencerModal(null);
+                          }}
+                          className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl font-bold text-xs uppercase tracking-wide transition-all"
+                        >
+                          Suspend Account
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -9742,7 +9856,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
           {/* Edit User Modal */}
           {editingUser && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-              <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-indigo-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-indigo-500/20 transform transition-all duration-300">
+              <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-indigo-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-indigo-500/20 transform transition-all duration-300 max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="mb-6 pb-4 border-b border-indigo-500/20">
                   <h3 className="text-white font-bold text-xl flex items-center gap-2">
@@ -9883,7 +9997,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
           {/* Reset Password Modal */}
           {resettingPassword && isSuperAdmin && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-              <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-yellow-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-yellow-500/20 transform transition-all duration-300">
+              <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-yellow-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-yellow-500/20 transform transition-all duration-300 max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="mb-6 pb-4 border-b border-yellow-500/20">
                   <h3 className="text-white font-bold text-xl flex items-center gap-2">
@@ -9969,7 +10083,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
           {/* Delete Confirmation Modal */}
           {confirmingDelete && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-              <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-red-500/30 rounded-2xl p-8 max-w-md w-full shadow-2xl shadow-red-500/20 transform transition-all duration-300">
+              <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-red-500/30 rounded-2xl p-8 max-w-md w-full shadow-2xl shadow-red-500/20 transform transition-all duration-300 max-h-[90vh] overflow-y-auto">
                 {/* Icon */}
                 <div className="flex justify-center mb-6">
                   <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center border border-red-500/30">
@@ -10016,7 +10130,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
           {/* Delete Product Confirmation Modal */}
           {confirmingDeleteProduct && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-              <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-red-500/30 rounded-2xl p-8 max-w-md w-full shadow-2xl shadow-red-500/20 transform transition-all duration-300">
+              <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-red-500/30 rounded-2xl p-8 max-w-md w-full shadow-2xl shadow-red-500/20 transform transition-all duration-300 max-h-[90vh] overflow-y-auto">
                 {/* Icon */}
                 <div className="flex justify-center mb-6">
                   <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center border border-red-500/30">
@@ -10064,8 +10178,8 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
           {/* Edit Product Modal */}
           {editingProduct && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn overflow-y-auto">
-              <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-indigo-500/30 rounded-2xl p-8 max-w-3xl w-full shadow-2xl shadow-indigo-500/20 my-8">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+              <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-indigo-500/30 rounded-2xl p-6 sm:p-8 max-w-3xl w-full shadow-2xl shadow-indigo-500/20 max-h-[90vh] overflow-y-auto">
                 <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
                   ✏️ Edit Product
                 </h3>
@@ -10616,6 +10730,112 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
           );
         })}
       </div>
+      {/* ➕ ADD USER MODAL */}
+      {showAddUserModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl text-white">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
+              <h3 className="text-xl font-black">Add New User</h3>
+              <button
+                onClick={() => setShowAddUserModal(false)}
+                className="text-slate-400 hover:text-white text-xl font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUserSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newUserForm.name}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
+                  placeholder="e.g. Rahul Sharma"
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-500 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={newUserForm.email}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                  placeholder="user@example.com"
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-500 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                  Password *
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={newUserForm.password}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                  placeholder="At least 6 characters"
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-500 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={newUserForm.phone}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, phone: e.target.value.replace(/\D/g, "") })}
+                  placeholder="10-digit mobile number"
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-500 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                  Account Role *
+                </label>
+                <select
+                  value={newUserForm.role}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold text-white focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="user">Customer (User)</option>
+                  <option value="influencer">Influencer</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddUserModal(false)}
+                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingUserLoading}
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-indigo-600/30 disabled:opacity-50"
+                >
+                  {addingUserLoading ? "Creating..." : "Create User ✓"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

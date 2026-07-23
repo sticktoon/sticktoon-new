@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Trash2, ShoppingCart, Tag, X, CheckCircle, Sparkles } from "lucide-react";
+import { Trash2, ShoppingCart, Tag, X, CheckCircle, Sparkles, MapPin } from "lucide-react";
 import { CartItem, ComboItemPreview } from "../types";
 import { BADGES, formatPrice } from "../constants";
 import { API_BASE_URL } from "../config/api";
@@ -124,15 +124,31 @@ const decodeComboItemsFromCartId = (item: CartItem) => {
 
   const candidates = BADGES.filter(
     (badge) => !badge.isCombo && normalizeCategoryKey(String(badge.category)) === categoryKey,
-  ).sort((a, b) => a.id.localeCompare(b.id));
+  );
 
   if (candidates.length < 4) return [];
 
-  for (let i = 0; i < candidates.length - 3; i += 1) {
-    for (let j = i + 1; j < candidates.length - 2; j += 1) {
-      for (let k = j + 1; k < candidates.length - 1; k += 1) {
-        for (let l = k + 1; l < candidates.length; l += 1) {
-          const comboSet = [candidates[i], candidates[j], candidates[k], candidates[l]];
+  // O(N) direct seed ID matching
+  const seedParts = encodedSeed.split(/[^a-z0-9]+/g).filter(Boolean);
+  const matched = candidates.filter((b) =>
+    seedParts.some((part) => b.id.toLowerCase().includes(part) || part.includes(b.id.toLowerCase()))
+  );
+
+  if (matched.length >= 4) {
+    return matched.slice(0, 4).map((badge) => ({
+      id: badge.id,
+      name: badge.name,
+      image: badge.image,
+    }));
+  }
+
+  // Capped candidates array (max 12) fallback
+  const safeCandidates = candidates.slice(0, 12);
+  for (let i = 0; i < safeCandidates.length - 3; i += 1) {
+    for (let j = i + 1; j < safeCandidates.length - 2; j += 1) {
+      for (let k = j + 1; k < safeCandidates.length - 1; k += 1) {
+        for (let l = k + 1; l < safeCandidates.length; l += 1) {
+          const comboSet = [safeCandidates[i], safeCandidates[j], safeCandidates[k], safeCandidates[l]];
           const seed = comboSet
             .map((badge) => badge.id)
             .sort()
@@ -152,7 +168,11 @@ const decodeComboItemsFromCartId = (item: CartItem) => {
     }
   }
 
-  return [];
+  return safeCandidates.slice(0, 4).map((badge) => ({
+    id: badge.id,
+    name: badge.name,
+    image: badge.image,
+  }));
 };
 
 const getComboItemsForDisplay = (item: CartItem) => {
@@ -212,6 +232,7 @@ export default function Checkout({
   const total = subtotal + deliveryCharges - discount;
 
   const [address, setAddress] = useState<{
+    label: string;
     name: string;
     email: string;
     street: string;
@@ -223,6 +244,7 @@ export default function Checkout({
   }>(() => {
     const draft = loadCheckoutDraft();
     return {
+      label: "Home",
       name: "",
       email: "",
       street: "",
@@ -253,12 +275,179 @@ export default function Checkout({
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
 
+  // Saved address book (only for logged-in users).
+  type SavedAddress = {
+    _id: string;
+    label?: string;
+    fullName: string;
+    phone: string;
+    street: string;
+    city: string;
+    state: string;
+    pincode: string;
+    country: string;
+    isDefault?: boolean;
+  };
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [saveAddress, setSaveAddress] = useState(true);
+  const [savingAddressNow, setSavingAddressNow] = useState(false);
+  const [saveAddressSuccess, setSaveAddressSuccess] = useState("");
+
   // "Login & Continue": remember to come back to checkout after login,
   // then send the user to the login page. The guest cart is merged into the
   // account on the next app load, so nothing in the cart is lost.
   const handleLoginAndContinue = () => {
     localStorage.setItem("postLoginRedirect", "/checkout");
     navigate("/login");
+  };
+
+  // Copy a saved address into the live form/order state and select it.
+  const applySavedAddress = (a: SavedAddress) => {
+    setSelectedAddressId(a._id);
+    setShowAddressForm(false);
+    setAddress((prev) => ({
+      ...prev,
+      label: a.label || "Home",
+      name: a.fullName || "",
+      phone: a.phone || "",
+      street: a.street || "",
+      city: a.city || "",
+      state: a.state || "",
+      pincode: a.pincode || "",
+      country: a.country || prev.country,
+    }));
+  };
+
+  const handleSetDefaultAddressInCheckout = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/addresses/${id}/default`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const list: SavedAddress[] = Array.isArray(data.addresses) ? data.addresses : [];
+        setSavedAddresses(list);
+      }
+    } catch (err) {
+      console.error("Failed to set default address", err);
+    }
+  };
+
+  const handleManualSaveAddress = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Please login to save addresses to your account.");
+      return;
+    }
+
+    if (!address.name || !address.phone || !address.street || !address.city || !address.state || !address.pincode) {
+      alert("Please fill in all address fields before saving.");
+      return;
+    }
+
+    setSavingAddressNow(true);
+    setSaveAddressSuccess("");
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/addresses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          label: address.label || "Home",
+          fullName: address.name,
+          phone: address.phone,
+          street: address.street,
+          city: address.city,
+          state: address.state,
+          pincode: address.pincode,
+          country: address.country || HOME_COUNTRY,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const list: SavedAddress[] = Array.isArray(data.addresses) ? data.addresses : [];
+        setSavedAddresses(list);
+        const newlyCreated = list[list.length - 1] || list[0];
+        if (newlyCreated) {
+          setSelectedAddressId(newlyCreated._id);
+        }
+        setSaveAddressSuccess("Address saved to your account!");
+        setTimeout(() => setSaveAddressSuccess(""), 3500);
+      } else {
+        const errData = await res.json();
+        alert(errData.message || "Failed to save address.");
+      }
+    } catch (err) {
+      console.error("Save address error:", err);
+      alert("Failed to save address. Please check network connection.");
+    } finally {
+      setSavingAddressNow(false);
+    }
+  };
+
+  // Load the user's saved addresses; auto-select the default.
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/addresses`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const list: SavedAddress[] = Array.isArray(data.addresses) ? data.addresses : [];
+        if (cancelled) return;
+        setSavedAddresses(list);
+        if (list.length > 0) {
+          applySavedAddress(list.find((a) => a.isDefault) || list[0]);
+        } else {
+          setShowAddressForm(true);
+        }
+      } catch {
+        // ignore — form stays available
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Persist a newly typed address to the account before paying, so it appears
+  // in the address book next time. No-op for guests or when re-using a saved one.
+  const persistNewAddressIfNeeded = async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !saveAddress || selectedAddressId) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/addresses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          label: address.label || "Home",
+          fullName: address.name,
+          phone: address.phone,
+          street: address.street,
+          city: address.city,
+          state: address.state,
+          pincode: address.pincode,
+          country: address.country,
+          isDefault: savedAddresses.length === 0,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSavedAddresses(Array.isArray(data.addresses) ? data.addresses : []);
+      }
+    } catch {
+      // ignore — order placement continues
+    }
   };
 
   useEffect(() => {
@@ -507,11 +696,11 @@ export default function Checkout({
 
     if (!address.street.trim()) e.street = "Address is required";
 
-    if (!address.phone.trim()) e.phone = "Phone number is required";
+    if (!address.phone.trim()) e.phone = "Receiver's phone number is required";
     else if (!/^\d+$/.test(address.phone))
-      e.phone = "Phone must contain only numbers";
+      e.phone = "Receiver's phone must contain only numbers";
     else if (address.phone.length < 10)
-      e.phone = "Phone must be at least 10 digits";
+      e.phone = "Receiver's phone must be at least 10 digits";
 
     if (!address.city.trim()) e.city = "City is required";
     if (!address.state.trim()) e.state = "State is required";
@@ -553,6 +742,9 @@ export default function Checkout({
         ?.scrollIntoView({ behavior: "smooth" });
       return;
     }
+
+    // Save a freshly typed address to the account before paying.
+    await persistNewAddressIfNeeded();
 
     const token = localStorage.getItem("token");
 
@@ -879,101 +1071,330 @@ export default function Checkout({
                 Shipping Details <span className="text-red-500 text-xs font-bold uppercase tracking-tighter">(All Fields Required)</span>
               </h3>
 
-              <div className="mb-4">
-                <label
-                  htmlFor="country"
-                  className="block mb-1.5 text-sm font-bold text-slate-700"
-                >
-                  Country
-                </label>
-                <select
-                  id="country"
-                  className="w-full p-3 rounded-xl border bg-white"
-                  value={address.country}
-                  onChange={(e) =>
-                    setAddress({ ...address, country: e.target.value })
-                  }
-                >
-                  {COUNTRIES.map((country) => (
-                    <option key={country} value={country}>
-                      {country}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Saved address book (logged-in users) */}
+              {isLoggedIn && savedAddresses.length > 0 && !showAddressForm && (
+                <div className="mb-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-yellow-600" />
+                      Select Delivery Address ({savedAddresses.length})
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedAddressId(null);
+                        setShowAddressForm(true);
+                        setAddress((prev) => ({
+                          ...prev,
+                          label: "Home",
+                          name: "",
+                          phone: "",
+                          street: "",
+                          city: "",
+                          state: "",
+                          pincode: "",
+                        }));
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-xs font-black transition-all shadow-sm flex items-center gap-1"
+                    >
+                      ＋ Add New Address
+                    </button>
+                  </div>
 
-              {isInternational && (
-                <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-4">
-                  <p className="text-sm font-black text-amber-900">
-                    International orders (outside India)
-                  </p>
-                  <p className="mt-1 text-sm text-amber-800">
-                    Pricing for international customers is different from the
-                    prices shown here, because of shipping and customs duties.
-                    We can't take these orders online yet.
-                  </p>
-                  <p className="mt-3 text-sm font-bold text-amber-900">
-                    Call or WhatsApp{" "}
-                    <a
-                      href={`tel:${INTERNATIONAL_SALES_PHONE.replace(/\s/g, "")}`}
-                      className="underline"
-                    >
-                      {INTERNATIONAL_SALES_PHONE}
-                    </a>{" "}
-                    or email{" "}
-                    <a
-                      href={`mailto:${INTERNATIONAL_SALES_EMAIL}?subject=International order enquiry`}
-                      className="underline"
-                    >
-                      {INTERNATIONAL_SALES_EMAIL}
-                    </a>{" "}
-                    for a quote.
-                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {savedAddresses.map((a) => {
+                      const selected = selectedAddressId === a._id;
+                      return (
+                        <div
+                          key={a._id}
+                          onClick={() => applySavedAddress(a)}
+                          className={`cursor-pointer text-left p-4 rounded-2xl border-2 transition-all relative flex flex-col justify-between ${
+                            selected
+                              ? "border-yellow-500 bg-yellow-50/70 shadow-md ring-2 ring-yellow-400/20"
+                              : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between mb-2 gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <input
+                                  type="radio"
+                                  checked={selected}
+                                  onChange={() => applySavedAddress(a)}
+                                  className="w-4 h-4 text-yellow-600 accent-yellow-500"
+                                />
+                                <span className="font-black text-slate-900 text-sm truncate">
+                                  {a.fullName || "Saved Address"}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {a.label && (
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                                    {a.label === "Home" ? "🏠 Home" : a.label === "Work" ? "💼 Work" : a.label === "Office" ? "📍 Office" : `🏷️ ${a.label}`}
+                                  </span>
+                                )}
+                                {a.isDefault && (
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-yellow-800 bg-yellow-200 px-2 py-0.5 rounded-md border border-yellow-300">
+                                    ⭐ Default
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <p className="text-xs text-slate-600 leading-relaxed font-medium pl-6">
+                              {a.street}, {a.city}, {a.state} - {a.pincode}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-1 pl-6">📞 {a.phone}</p>
+                          </div>
+
+                          {!a.isDefault && (
+                            <div className="mt-3 pt-2 border-t border-slate-100 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={(e) => handleSetDefaultAddressInCheckout(a._id, e)}
+                                className="text-[11px] font-bold text-yellow-700 hover:text-yellow-900 hover:underline"
+                              >
+                                Set as Default
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
-              {(["name", "email", "street", "city", "state", "pincode", "phone"] as const).map(
-                (field) => (
-                  <div key={field} className="mb-4">
+              {(!isLoggedIn || showAddressForm || savedAddresses.length === 0) && (
+                <div className="space-y-4">
+                  {/* Cancel / Back to Saved Addresses Button */}
+                  {isLoggedIn && savedAddresses.length > 0 && (
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
+                      <p className="text-sm font-bold text-slate-800">Add New Delivery Address</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddressForm(false);
+                          const def = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
+                          if (def) applySavedAddress(def);
+                        }}
+                        className="text-xs font-bold text-slate-600 hover:text-slate-900 underline"
+                      >
+                        ← Back to Saved Addresses
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Save Address As Label Field */}
+                  <div>
+                    <label className="block mb-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      Save Address As (Label)
+                    </label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {["Home", "Work", "Office", "Other"].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setAddress({ ...address, label: preset })}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                            address.label === preset
+                              ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                              : "bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200"
+                          }`}
+                        >
+                          {preset === "Home" && "🏠 "}
+                          {preset === "Work" && "💼 "}
+                          {preset === "Office" && "📍 "}
+                          {preset === "Other" && "🏷️ "}
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
                     <input
-                      className={`w-full p-3 rounded-xl border ${
-                        errors[field] ? "border-red-500" : ""
-                      }`}
-                      placeholder={
-                        field === "name"
-                          ? "Full Name"
-                          : field === "email"
-                          ? "Email Address"
-                          : field === "street"
-                          ? "Street Address (House No, Building, Area)"
-                          : field === "city"
-                          ? "City"
-                          : field === "state"
-                          ? "State"
-                          : field === "pincode"
-                          ? "Pincode (6 digits)"
-                          : "Phone Number"
-                      }
-                      value={address[field]}
-                      onChange={(e) =>
-                        setAddress({
-                          ...address,
-                          [field]:
-                            field === "phone"
-                              ? e.target.value.replace(/\D/g, "")
-                              : field === "pincode"
-                              ? e.target.value.replace(/\D/g, "").slice(0, 6)
-                              : e.target.value,
-                        })
-                      }
+                      type="text"
+                      className="w-full p-3 rounded-xl border border-slate-200 text-sm font-medium focus:border-yellow-500 focus:outline-none"
+                      placeholder="e.g. Home, Work, Mom's Place"
+                      value={address.label}
+                      onChange={(e) => setAddress({ ...address, label: e.target.value })}
                     />
-                    {errors[field] && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {errors[field]}
+                  </div>
+
+                  <div className="mb-4">
+                    <label
+                      htmlFor="country"
+                      className="block mb-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider"
+                    >
+                      Country
+                    </label>
+                    <select
+                      id="country"
+                      className="w-full p-3 rounded-xl border bg-white text-sm font-medium"
+                      value={address.country}
+                      onChange={(e) =>
+                        setAddress({ ...address, country: e.target.value })
+                      }
+                    >
+                      {COUNTRIES.map((country) => (
+                        <option key={country} value={country}>
+                          {country}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {isInternational && (
+                    <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-4">
+                      <p className="text-sm font-black text-amber-900">
+                        International orders (outside India)
                       </p>
+                      <p className="mt-1 text-sm text-amber-800">
+                        Pricing for international customers is different from the
+                        prices shown here, because of shipping and customs duties.
+                        We can't take these orders online yet.
+                      </p>
+                      <p className="mt-3 text-sm font-bold text-amber-900">
+                        Call or WhatsApp{" "}
+                        <a
+                          href={`tel:${INTERNATIONAL_SALES_PHONE.replace(/\s/g, "")}`}
+                          className="underline"
+                        >
+                          {INTERNATIONAL_SALES_PHONE}
+                        </a>{" "}
+                        or email{" "}
+                        <a
+                          href={`mailto:${INTERNATIONAL_SALES_EMAIL}?subject=International order enquiry`}
+                          className="underline"
+                        >
+                          {INTERNATIONAL_SALES_EMAIL}
+                        </a>{" "}
+                        for a quote.
+                      </p>
+                    </div>
+                  )}
+
+                  {(["name", "email", "street", "city", "state", "pincode", "phone"] as const).map(
+                    (field) => (
+                      <div key={field} className="mb-4">
+                        <label className="block text-slate-900 text-xs font-black uppercase tracking-wider mb-1.5">
+                          {field === "name"
+                            ? "Receiver's Full Name"
+                            : field === "email"
+                            ? "Email Address"
+                            : field === "street"
+                            ? "Street Address"
+                            : field === "city"
+                            ? "City"
+                            : field === "state"
+                            ? "State"
+                            : field === "pincode"
+                            ? "Pincode"
+                            : "Receiver's Phone Number"}
+                        </label>
+                        <input
+                          className={`w-full p-3.5 rounded-xl border-2 bg-white text-slate-900 placeholder:text-slate-500 font-semibold text-sm focus:outline-none focus:border-yellow-500 focus:ring-4 focus:ring-yellow-400/20 shadow-sm transition-all ${
+                            errors[field] ? "border-red-500 ring-2 ring-red-200" : "border-slate-300 hover:border-slate-400"
+                          }`}
+                          placeholder={
+                            field === "name"
+                              ? "Receiver's Full Name"
+                              : field === "email"
+                              ? "Email Address (for order updates)"
+                              : field === "street"
+                              ? "Street Address (House No, Building, Area)"
+                              : field === "city"
+                              ? "City"
+                              : field === "state"
+                              ? "State"
+                              : field === "pincode"
+                              ? "Pincode (6 digits)"
+                              : "Receiver's Phone Number (for delivery updates)"
+                          }
+                          value={address[field]}
+                          onChange={(e) =>
+                            setAddress({
+                              ...address,
+                              [field]:
+                                field === "phone"
+                                  ? e.target.value.replace(/\D/g, "")
+                                  : field === "pincode"
+                                  ? e.target.value.replace(/\D/g, "").slice(0, 6)
+                                  : e.target.value,
+                            })
+                          }
+                        />
+                        {errors[field] && (
+                          <p className="text-red-500 text-sm mt-1">
+                            {errors[field]}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  )}
+
+                  {/* Save Address Buttons & Actions */}
+                  <div className="pt-4 border-t border-slate-100 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      {isLoggedIn ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={handleManualSaveAddress}
+                            disabled={savingAddressNow}
+                            className="px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
+                          >
+                            💾 {savingAddressNow ? "Saving Address..." : "Save Address"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedAddressId(null);
+                              setShowAddressForm(true);
+                              setAddress((prev) => ({
+                                ...prev,
+                                label: "Home",
+                                name: "",
+                                phone: "",
+                                street: "",
+                                city: "",
+                                state: "",
+                                pincode: "",
+                              }));
+                            }}
+                            className="px-4 py-3 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-xs font-black uppercase tracking-wider transition-all shadow-sm flex items-center gap-1.5"
+                          >
+                            ＋ Add New Address
+                          </button>
+                        </>
+                      ) : (
+                        <p className="text-xs text-slate-600 font-medium">
+                          💡 <button type="button" onClick={handleLoginAndContinue} className="text-yellow-700 font-bold underline">Login</button> to save addresses to your profile for faster checkout.
+                        </p>
+                      )}
+                    </div>
+
+                    {isLoggedIn && (
+                      <label className="flex items-center gap-2 cursor-pointer pt-1">
+                        <input
+                          type="checkbox"
+                          checked={saveAddress}
+                          onChange={(e) => setSaveAddress(e.target.checked)}
+                          className="w-4 h-4 rounded text-yellow-600 accent-yellow-500"
+                        />
+                        <span className="text-xs font-bold text-slate-600">
+                          Auto-save this address to account on order completion
+                        </span>
+                      </label>
+                    )}
+
+                    {saveAddressSuccess && (
+                      <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center gap-2 animate-fadeIn">
+                        <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>{saveAddressSuccess}</span>
+                      </div>
                     )}
                   </div>
-                )
+                </div>
               )}
             </div>
 
@@ -1001,7 +1422,10 @@ export default function Checkout({
           <img
             src={item.image}
             alt={item.name}
-            className="w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-lg shrink-0"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "/images/STICKTOON_LONG.jpeg";
+            }}
+            className="w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-lg shrink-0 border border-slate-200"
           />
 
           <div className="flex-1 min-w-0">
@@ -1230,30 +1654,18 @@ export default function Checkout({
     </button>
   ) : (
     <div className="space-y-3">
-      {/* Option 1: guest checkout — no login needed */}
-      <button
-        onClick={handlePlaceOrder}
-        className="w-full py-5 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 transition text-slate-900 font-black rounded-2xl shadow-lg hover:shadow-xl hover:shadow-yellow-500/25"
-      >
-        CONTINUE AS GUEST
-      </button>
-
-      <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-wider text-slate-400">
-        <span className="h-px flex-1 bg-slate-200" />
-        or
-        <span className="h-px flex-1 bg-slate-200" />
-      </div>
-
-      {/* Option 2: login first, then come back to checkout */}
+      {/* Login required before payment — orders must be tied to an account
+          so they can be saved, tracked, and delivered to a saved address. */}
       <button
         onClick={handleLoginAndContinue}
-        className="w-full py-4 bg-white border-2 border-slate-900 text-slate-900 font-black rounded-2xl hover:bg-slate-900 hover:text-white transition"
+        className="w-full py-5 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 transition text-slate-900 font-black rounded-2xl shadow-lg hover:shadow-xl hover:shadow-yellow-500/25"
       >
         LOGIN &amp; CONTINUE
       </button>
 
       <p className="text-center text-xs text-slate-500">
-        Login to save this order to your profile and track it later. Your cart stays intact.
+        Please log in to place your order — it lets you save your address, track
+        the order, and see it in your profile. Your cart stays intact.
       </p>
     </div>
   )}
