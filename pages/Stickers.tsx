@@ -19,33 +19,29 @@ interface StickersProps {
   addToCart: (sticker: Sticker) => void;
 }
 
-// Premium Sticker Card Component
+// Premium Sticker Card Component (matches the badge card style)
 function StickerCard({ sticker, addToCart, index }: { sticker: Sticker; addToCart: (s: Sticker) => void; index: number }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [added, setAdded] = useState(false);
 
-  // Card links to the sticker detail page; the add buttons must not navigate.
-  const handleAdd = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleAdd = () => {
     addToCart(sticker);
     setAdded(true);
     setTimeout(() => setAdded(false), 1200);
   };
 
   return (
-    <Link
-      to={`/stickers/${sticker.id}`}
-      className="group relative bg-white rounded-2xl overflow-hidden flex flex-col transition-all duration-500 hover:-translate-y-1.5
-        shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)]
-        border border-slate-200/80 hover:border-yellow-400/60"
-      style={{ animationDelay: `${index * 60}ms` }}
+    <div
+      className="group relative bg-white rounded-2xl overflow-hidden flex flex-col transition-all duration-500 hover:-translate-y-2
+        shadow-[0_1px_6px_rgba(0,0,0,0.05)] hover:shadow-[0_16px_48px_rgba(245,158,11,0.15)]
+        border border-slate-200/60 hover:border-yellow-400/50"
+      style={{ animationDelay: `${index * 50}ms` }}
     >
       {/* Hover glow effect */}
-      <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-br from-yellow-400/0 via-orange-400/0 to-red-400/0 group-hover:from-yellow-400/20 group-hover:via-orange-400/10 group-hover:to-red-400/20 transition-all duration-500 pointer-events-none z-0" />
+      <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-br from-yellow-400/0 via-orange-400/0 to-red-400/0 group-hover:from-yellow-400/15 group-hover:via-orange-400/8 group-hover:to-red-400/15 transition-all duration-500 pointer-events-none z-0" />
 
       {/* Image Container */}
-      <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100 z-10">
+      <Link to={`/stickers/${sticker.id}`} className="relative aspect-square overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100 z-10 block">
         {/* Shimmer loader */}
         {!imgLoaded && (
           <div className="absolute inset-0 bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 animate-pulse" />
@@ -53,10 +49,21 @@ function StickerCard({ sticker, addToCart, index }: { sticker: Sticker; addToCar
         <img
           src={sticker.image}
           alt={sticker.name}
-          className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+          className={`w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-700 ease-out ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
           loading="lazy"
           decoding="async"
           onLoad={() => setImgLoaded(true)}
+          onError={(e) => {
+            const target = e.currentTarget;
+            if (!target.src.startsWith('http') && !target.dataset.retried) {
+              target.dataset.retried = 'true';
+              const cleanPath = sticker.image.startsWith('/') ? sticker.image.substring(1) : sticker.image;
+              target.src = `/${cleanPath}`;
+            } else {
+              target.style.display = 'none';
+              setImgLoaded(true);
+            }
+          }}
         />
         {/* Overlay gradient on hover */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -71,56 +78,62 @@ function StickerCard({ sticker, addToCart, index }: { sticker: Sticker; addToCar
 
         {/* Quick add button on hover */}
         <button
-          onClick={handleAdd}
+          onClick={(e) => { e.preventDefault(); handleAdd(); }}
           className={`absolute bottom-3 right-3 p-2.5 rounded-xl transition-all duration-300 shadow-lg
-            ${added 
-              ? 'bg-green-500 scale-110' 
+            ${added
+              ? 'bg-green-500 scale-110'
               : 'bg-white/90 backdrop-blur-sm opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 hover:bg-yellow-500 hover:scale-110'
             }`}
         >
-          {added 
-            ? <Check className="w-4 h-4 text-white" /> 
+          {added
+            ? <Check className="w-4 h-4 text-white" />
             : <ShoppingCart className="w-4 h-4 text-slate-700 group-hover:text-slate-900" />
           }
         </button>
-      </div>
+      </Link>
 
       {/* Content */}
-      <div className="relative z-10 p-3.5 sm:p-4 flex flex-col flex-1 bg-white">
-        {/* Category pill */}
-        {sticker.tagline && (
-          <p className="text-[10px] font-bold text-orange-600/80 uppercase tracking-widest mb-1 truncate">
-            {sticker.tagline}
-          </p>
-        )}
+      <div className="relative z-10 p-3 sm:p-3.5 flex flex-col flex-1 bg-white">
+        {/* Tagline / Category */}
+        <p className="text-[9px] sm:text-[10px] font-bold text-orange-600/80 uppercase tracking-widest mb-0.5 truncate">
+          {sticker.tagline || sticker.category}
+        </p>
 
-        <h3 className="text-sm sm:text-base font-extrabold text-slate-900 mb-0.5 leading-tight tracking-tight line-clamp-1">
+        <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mb-0.5 leading-tight tracking-tight line-clamp-1">
           {sticker.name}
         </h3>
-        <p className="text-xs text-slate-500 mb-3 line-clamp-1 flex-1 font-medium">
+        <p className="text-[10px] sm:text-xs text-slate-500 mb-2 line-clamp-1 flex-1 font-medium">
           {sticker.details}
         </p>
 
-        {/* Price & Action */}
-        <div className="flex items-center justify-between pt-2.5 border-t border-slate-100">
+        {/* Price & Actions */}
+        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
           <div className="flex flex-col">
-            <span className="text-base sm:text-lg font-black bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
+            <span className="text-sm sm:text-base font-black bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
               {formatPrice(sticker.price)}
             </span>
           </div>
-          <button
-            onClick={handleAdd}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-300
-              ${added
-                ? 'bg-green-500 text-white scale-95'
-                : 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600 hover:shadow-md active:scale-95'
-              }`}
-          >
-            {added ? '✓ Added' : 'Add'}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleAdd}
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300
+                ${added
+                  ? 'bg-green-500 text-white scale-95'
+                  : 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600 hover:shadow-md active:scale-95'
+                }`}
+            >
+              {added ? '✓' : 'Add'}
+            </button>
+            <Link
+              to={`/stickers/${sticker.id}`}
+              className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider border border-slate-200 text-slate-600 hover:border-yellow-400 hover:text-yellow-700 transition-all duration-300"
+            >
+              View
+            </Link>
+          </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -194,48 +207,9 @@ export default function Stickers({ addToCart }: StickersProps) {
         <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
       </div>
 
-      <div className="relative z-10 flex">
-        {/* STICKY SIDEBAR */}
-        <aside className="hidden lg:flex flex-col w-64 fixed left-0 top-24 h-[calc(100vh-6rem)] pt-4 px-4 bg-white/80 backdrop-blur-md border-r border-slate-200/60 overflow-y-auto z-[60]">
-          <div className="flex flex-col h-full">
-            <button
-              onClick={() => handleCategorySelect('all')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold uppercase tracking-wide transition-all duration-300 text-sm ${
-                activeCategory === 'all' 
-                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25 border border-yellow-400' 
-                  : 'text-slate-600 hover:bg-slate-100/80 border border-transparent hover:border-slate-200'
-              }`}
-            >
-              All Stickers
-              {activeCategory === 'all' && <Check className="w-4 h-4" />}
-            </button>
-            
-            <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent my-3"></div>
-
-            <div className="flex flex-col flex-1 justify-between gap-1.5 pb-2">
-              {STICKER_CATEGORIES.map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => handleCategorySelect(cat.id)}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl font-bold uppercase tracking-wide transition-all duration-300 text-sm ${
-                    activeCategory === cat.id 
-                      ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25 border border-yellow-400' 
-                      : 'text-slate-600 hover:bg-slate-100/80 border border-transparent hover:border-slate-200'
-                  }`}
-                >
-                  <span className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-base flex-shrink-0">{cat.icon}</span>
-                    <span className="truncate text-xs">{cat.name}</span>
-                  </span>
-                  {activeCategory === cat.id && <Check className="w-4 h-4 flex-shrink-0" />}
-                </button>
-              ))}
-            </div>
-          </div>
-        </aside>
-
+      <div className="relative z-10">
         {/* MAIN CONTENT */}
-        <main ref={mainRef} className="w-full lg:ml-64 px-4 sm:px-6 lg:pl-8 lg:pr-10 pt-10 lg:pt-14 pb-16">
+        <main ref={mainRef} className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pt-10 lg:pt-14 pb-16">
           {/* Header */}
           <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-end md:gap-6 mb-8 md:mb-10">
             <div>
@@ -256,6 +230,38 @@ export default function Stickers({ addToCart }: StickersProps) {
                 <span className="text-sm font-bold text-slate-700">{filteredStickers.length} stickers</span>
               </div>
             )}
+          </div>
+
+          {/* HORIZONTAL CATEGORY BAR (sticky on scroll) */}
+          <div className="mb-8 -mx-4 sm:-mx-6 lg:-mx-10 px-4 sm:px-6 lg:px-10 py-3 bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-[80px] z-[55]">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <button
+                onClick={() => handleCategorySelect('all')}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full font-bold uppercase tracking-wide transition-all duration-300 text-xs whitespace-nowrap ${
+                  activeCategory === 'all'
+                    ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25 border border-yellow-400'
+                    : 'text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-yellow-400'
+                }`}
+              >
+                All Stickers
+                {activeCategory === 'all' && <Check className="w-3.5 h-3.5 ml-1" />}
+              </button>
+              {STICKER_CATEGORIES.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => handleCategorySelect(cat.id)}
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full font-bold uppercase tracking-wide transition-all duration-300 text-xs whitespace-nowrap ${
+                    activeCategory === cat.id
+                      ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25 border border-yellow-400'
+                      : 'text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-yellow-400'
+                  }`}
+                >
+                  <span className="text-sm">{cat.icon}</span>
+                  <span>{cat.name}</span>
+                  {activeCategory === cat.id && <Check className="w-3.5 h-3.5 ml-1" />}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Content with key to force remount on category change */}
@@ -284,7 +290,7 @@ export default function Stickers({ addToCart }: StickersProps) {
                       </div>
 
                       {/* Category Products Grid */}
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
                         {categoryStickers.map((sticker, i) => (
                           <StickerCard key={sticker.id} sticker={sticker} addToCart={addToCart} index={i} />
                         ))}
@@ -307,7 +313,7 @@ export default function Stickers({ addToCart }: StickersProps) {
                 </div>
 
                 {/* Single Category Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
                   {filteredStickers.map((sticker, i) => (
                     <StickerCard key={sticker.id} sticker={sticker} addToCart={addToCart} index={i} />
                   ))}
@@ -322,7 +328,7 @@ export default function Stickers({ addToCart }: StickersProps) {
                 <span className="text-5xl">🎲</span>
               </div>
               <h3 className="text-2xl font-black text-slate-900 uppercase">No stickers found</h3>
-              <p className="text-slate-500 mt-2 text-sm max-w-sm mx-auto font-medium">Try selecting a different category from the sidebar.</p>
+              <p className="text-slate-500 mt-2 text-sm max-w-sm mx-auto font-medium">Try selecting a different category from the bar above.</p>
             </div>
           )}
         </main>

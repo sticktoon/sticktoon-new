@@ -149,9 +149,9 @@ export default function StickerDetail({ addToCart }: StickerDetailProps) {
         <div className="absolute bottom-[-100px] right-[-200px] w-[600px] h-[600px] bg-orange-400/8 rounded-full blur-[120px]" />
       </div>
 
-      <div className="relative z-[50] flex">
+      <div className="relative z-10 flex">
         {/* STICKY SIDEBAR */}
-        <aside className="hidden lg:flex flex-col w-64 fixed left-0 top-24 h-[calc(100vh-6rem)] pt-4 px-4 border-r border-slate-200/60 overflow-y-auto z-[60]">
+        <aside className="hidden lg:flex flex-col w-64 fixed left-0 top-24 h-[calc(100vh-6rem)] pt-4 px-4 border-r border-slate-200/60 overflow-y-auto z-30">
           <button
             onClick={() => navigate('/stickers')}
             className="w-full flex items-center gap-2 px-4 py-3.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition-all text-sm"
