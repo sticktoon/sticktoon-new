@@ -1192,6 +1192,45 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
             </div>
           )}
         </div>
+
+        {/* ===== RELATED BADGES ===== */}
+        {(() => {
+          const relatedBadges = (categoryBadges.length > 0 ? categoryBadges : BADGES)
+            .filter((b) => b.id !== badge?.id && b.name)
+            .slice(0, 4);
+
+          if (!relatedBadges.length) return null;
+
+          return (
+            <div className="mt-12 space-y-4">
+              <h2 className="text-xl font-black text-slate-900">You Might Also Like</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {relatedBadges.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      navigate(`/badge/${item.id}`);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="group bg-white rounded-xl border border-slate-200/80 p-3 hover:shadow-lg hover:border-yellow-400 transition-all cursor-pointer flex flex-col justify-between"
+                  >
+                    <div className="aspect-square bg-slate-50 rounded-lg overflow-hidden flex items-center justify-center p-3 mb-2">
+                      <img
+                        src={normalizeImagePath(item.image) || item.image || '/badge/placeholder.png'}
+                        alt={item.name}
+                        className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                      />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-900 truncate">{item.name}</h3>
+                      <p className="text-xs font-black text-yellow-600 mt-0.5">{formatPrice(item.price)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

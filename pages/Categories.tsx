@@ -795,7 +795,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 relative overflow-x-clip">
       {/* Subtle Background Effects */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-yellow-400/5 rounded-full blur-[150px]" />
@@ -852,7 +852,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
           </div>
 
           {/* HORIZONTAL CATEGORY BAR */}
-          <div className="mb-8 -mx-4 sm:-mx-6 lg:-mx-10 px-4 sm:px-6 lg:px-10 py-3 bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-[80px] z-[55]">
+          <div className="mb-8 -mx-4 sm:-mx-6 lg:-mx-10 px-4 sm:px-6 lg:px-10 py-3 bg-white/95 backdrop-blur-md border-y border-slate-200/80 shadow-sm sticky top-[80px] z-[55]">
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               <button
                 onClick={() => handleCategorySelect('all')}
