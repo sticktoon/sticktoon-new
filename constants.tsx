@@ -126,7 +126,7 @@ export const BADGES: Badge[] = [
   // { id: 'sports-5', name: 'ACTIVE VIBE', price: 49, category: Category.SPORTS, image: '/badge/sports4.png', details: 'Keep moving.', color: 'bg-transparent' },
   
   // --- RELIGIOUS ---
-  { id: 'spiritual-1', name: 'Vighnaharta', price: 49, category: Category.RELIGIOUS, image: '/badge/R1.png', details: 'Find your peace.', tagline: 'We create for the soul', color: 'bg-transparent'},
+  { id: 'spiritual-1', name: 'Vighnaharta', price: 49, category: Category.RELIGIOUS, image: '/badge/R1.png', details: 'Find your peace.', tagline: 'We create for the souls', color: 'bg-transparent'},
   { id: 'spiritual-2', name: 'Divine Shiva', price: 49, category: Category.RELIGIOUS, image: '/badge/R2.png', details: 'Sacred energy.', tagline: 'Spiritual connection awakens', color: 'bg-transparent'  },
   { id: 'spiritual-3', name: 'Flute of Faith', price: 49, category: Category.RELIGIOUS, image: '/badge/R5.png', details: 'Universal love.', tagline: 'Divine harmony in every heart', color: 'bg-transparent'},
   { id: 'spiritual-4', name: 'Sacred Strength', price: 49, category: Category.RELIGIOUS, image: '/badge/R4.png', details: 'Ancient symbols.', tagline: 'Bond with timeless traditions', color: 'bg-transparent', isFeatured: true },

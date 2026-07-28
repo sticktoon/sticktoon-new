@@ -53,6 +53,7 @@ import {
   ScrollText,
   ChevronDown,
   Filter,
+  ArrowLeft,
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 
@@ -4945,6 +4946,19 @@ const Admin: React.FC = () => {
               >
                 {mobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
+
+              {currentView !== "dashboard" && (
+                <button
+                  type="button"
+                  onClick={() => changeView("dashboard")}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-bold transition-all shadow-sm active:scale-95"
+                  title="Back to Dashboard"
+                >
+                  <ArrowLeft className="w-4 h-4 text-indigo-600" />
+                  <span className="hidden sm:inline">Back</span>
+                </button>
+              )}
+
               <h2 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-900 truncate">
                 {currentView === "dashboard" && "Dashboard"}
                 {currentView === "notifications" && "Notifications"}
