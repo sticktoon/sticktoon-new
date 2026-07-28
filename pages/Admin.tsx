@@ -2672,6 +2672,7 @@ const Admin: React.FC = () => {
     createDefaultProductForm(),
   );
   const [isCustomSubcategory, setIsCustomSubcategory] = useState(false);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
   // Products list filters (type tab + search).
   const [productTypeFilter, setProductTypeFilter] = useState<"all" | ProductType>("all");
   const [productSearchQuery, setProductSearchQuery] = useState("");
@@ -4418,6 +4419,8 @@ const Admin: React.FC = () => {
         console.log("New product created:", data);
         setProducts((prev) => [...prev, normalizeAdminProduct(data)]);
         setProductForm(createDefaultProductForm());
+        setIsCustomCategory(false);
+        setIsCustomSubcategory(false);
         setShowProductForm(false);
         showToast("success", "✅ Product added successfully!");
       } else {
@@ -6805,6 +6808,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     setEditingProduct(null);
                     setProductForm(createDefaultProductForm());
                     setIsCustomSubcategory(false);
+                    setIsCustomCategory(false);
                   }}
                   className="group flex items-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white-500 font-bold tracking-wide transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 text-white-800"
                 >
@@ -6910,24 +6914,52 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       <label className="block text-gray-700 font-bold text-sm mb-2">
                         Category
                       </label>
-                      <select
-                        value={productForm.category}
-                        onChange={(e) => {
-                          setProductForm({
-                            ...productForm,
-                            category: e.target.value,
-                            subcategory: "",
-                          });
-                        }}
-                        required
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300 cursor-pointer"
-                      >
-                        {categoryOptionsForType(productForm.type).map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.emoji} {option.label}
+                      <div className="space-y-3">
+                        <select
+                          value={isCustomCategory ? "custom-category-new" : productForm.category}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "custom-category-new") {
+                              setIsCustomCategory(true);
+                              setProductForm({ ...productForm, category: "", subcategory: "" });
+                            } else {
+                              setIsCustomCategory(false);
+                              setProductForm({
+                                ...productForm,
+                                category: val,
+                                subcategory: "",
+                              });
+                            }
+                          }}
+                          required={!isCustomCategory}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300 cursor-pointer"
+                        >
+                          {categoryOptionsForType(productForm.type).map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.emoji} {option.label}
+                            </option>
+                          ))}
+                          <option value="custom-category-new" className="font-bold text-indigo-600">
+                            ➕ Create New Category
                           </option>
-                        ))}
-                      </select>
+                        </select>
+
+                        {isCustomCategory && (
+                          <input
+                            type="text"
+                            placeholder="Type new category name (e.g., Gaming)"
+                            value={productForm.category}
+                            onChange={(e) =>
+                              setProductForm({
+                                ...productForm,
+                                category: e.target.value,
+                              })
+                            }
+                            required
+                            className="w-full px-4 py-3 bg-white border border-indigo-400 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300 animate-fadeIn"
+                          />
+                        )}
+                      </div>
                     </div>
 
                     {productForm.type === "badge" ? (
@@ -7317,6 +7349,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                           setShowProductForm(false);
                           setProductForm(createDefaultProductForm());
                           setIsCustomSubcategory(false);
+                          setIsCustomCategory(false);
                         }}
                         className="px-8 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-gray-700 font-bold transition-all duration-300 hover:scale-105 active:scale-95"
                       >

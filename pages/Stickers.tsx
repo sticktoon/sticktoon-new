@@ -237,7 +237,7 @@ export default function Stickers({ addToCart, cart, updateQuantity }: StickersPr
 
       <div className="relative z-10">
         {/* MAIN CONTENT */}
-        <main ref={mainRef} className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pt-10 lg:pt-14 pb-16">
+        <main ref={mainRef} className="w-full px-4 sm:px-6 lg:px-10 pt-10 lg:pt-14 pb-16">
           {/* Header */}
           <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-end md:gap-6 mb-8 md:mb-10">
             <div>
@@ -318,7 +318,7 @@ export default function Stickers({ addToCart, cart, updateQuantity }: StickersPr
                       </div>
 
                       {/* Category Products Grid */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 sm:gap-4">
                         {categoryStickers.map((sticker, i) => (
                           <StickerCard key={sticker.id} sticker={sticker} addToCart={addToCart} index={i} quantityInCart={qtyById[sticker.id] || 0} onUpdateQty={updateQuantity} />
                         ))}
@@ -341,7 +341,7 @@ export default function Stickers({ addToCart, cart, updateQuantity }: StickersPr
                 </div>
 
                 {/* Single Category Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 sm:gap-4">
                   {filteredStickers.map((sticker, i) => (
                     <StickerCard key={sticker.id} sticker={sticker} addToCart={addToCart} index={i} quantityInCart={qtyById[sticker.id] || 0} onUpdateQty={updateQuantity} />
                   ))}
