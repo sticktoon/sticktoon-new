@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { generateBadgeMockup } from '../geminiService.ts';
 import { 
   Upload, Wand2, Loader2, ShoppingCart, Download, RotateCcw, RotateCw,
-  Plus, Minus, X, Info, CheckCircle2, Sparkles, Eye, Palette, Settings2, ZoomIn
+  Plus, Minus, X, Info, CheckCircle2, Sparkles, Eye, Palette, Settings2, ZoomIn, Trash2
 } from 'lucide-react';
 import { API_BASE_URL } from '../config/api.ts';
 import { formatPrice } from '../constants.tsx';
@@ -610,7 +610,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
 
         <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 items-start lg:h-full">
           {/* ===== LEFT PANEL: Config + Controls ===== */}
-          <div className="hidden lg:block lg:w-64 flex-shrink-0">
+          <div className="hidden lg:block lg:w-64 flex-shrink-0 lg:h-full lg:overflow-y-auto pr-1">
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-4 space-y-4 shadow-sm">
               <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-2">
                 <Settings2 className="w-3.5 h-3.5 text-yellow-600" /> Configuration
@@ -637,10 +637,22 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                   <Upload className="h-3.5 w-3.5" /> Upload Image
                 </button>
                 {imageState && (
-                  <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between">
                     <p className="text-[11px] font-bold text-emerald-800 flex items-center gap-1.5">
                       <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Image loaded
                     </p>
+                    <button
+                      onClick={() => {
+                        setImageState(null);
+                        setOriginalImage(null);
+                        setCroppedImage(null);
+                        setZoom(1);
+                        setRotation(0);
+                      }}
+                      className="text-[11px] font-bold text-red-600 hover:text-red-800 flex items-center gap-1 hover:underline"
+                    >
+                      <Trash2 className="w-3 h-3" /> Remove
+                    </button>
                   </div>
                 )}
               </div>

@@ -25,6 +25,7 @@ import { Badge, CartItem, User as UserType } from './types.ts';
 import { CATEGORIES, STICKER_CATEGORIES } from "./constants";
 import { API_BASE_URL } from "./config/api";
 import { migrateOldUserSession } from "./utils/apiClient";
+import ToastNotification, { ToastItem } from "./ToastNotification";
 
 const Home = lazy(() => import("./pages/Home"));
 const Categories = lazy(() => import("./pages/Categories"));
@@ -974,6 +975,7 @@ function App() {
   const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
   const [cartLoaded, setCartLoaded] = useState(false);
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
+  const [toastItem, setToastItem] = useState<ToastItem | null>(null);
 
   const saveGuestCartLocally = (nextCart: CartItem[]) => {
     try {
@@ -1111,8 +1113,17 @@ function App() {
       return;
     }
 
-    // A real add (not a decrement) should surface the cart drawer as feedback.
-    if (qty > 0) setCartDrawerOpen(true);
+    // A real add (not a decrement) should surface the cart drawer and toast notification as feedback.
+    if (qty > 0) {
+      setCartDrawerOpen(true);
+      setToastItem({
+        id: String(badge.id),
+        name: String(badge.name),
+        image: badge.image ? String(badge.image) : undefined,
+        price,
+        variant: badge.size || badge.category || undefined,
+      });
+    }
 
     const token = localStorage.getItem("token");
     const comboItems = Array.isArray(badge?.comboItems)
@@ -1581,6 +1592,7 @@ function App() {
         </Suspense>
       </main>
       <Footer />
+      <ToastNotification item={toastItem} onClose={() => setToastItem(null)} />
     </BrowserRouter>
   );
 }
