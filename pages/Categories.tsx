@@ -11,6 +11,7 @@ interface CategoriesProps {
   user?: any;
   cart?: CartItem[];
   updateQuantity?: (id: string, q: number) => void;
+  removeFromCart?: (id: string) => void | Promise<void>;
 }
 
 const CUSTOM_COMBO_SIZE = 4;
@@ -369,14 +370,14 @@ function ComboCard({ badge, addToCart, index, quantityInCart = 0, onUpdateQty }:
   );
 }
 
-export default function Categories({ addToCart, user, cart, updateQuantity }: CategoriesProps) {
+export default function Categories({ addToCart, user, cart, updateQuantity, removeFromCart }: CategoriesProps) {
   const navigate = useNavigate();
   const qtyById = React.useMemo(() => {
     const m: Record<string, number> = {};
     (cart || []).forEach((it) => { m[it.id] = it.quantity; });
     return m;
   }, [cart]);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { categoryId: categoryPathParam, subcategory: subcategoryPathParam } =
     useParams<{ categoryId?: string; subcategory?: string }>();
   const catParam = searchParams.get('cat');
@@ -680,8 +681,27 @@ export default function Categories({ addToCart, user, cart, updateQuantity }: Ca
     setComboMsg(null);
   };
 
-  // Explicit "Add Combo" — any 4 from any category, flat price.
-  const addComboToCart = () => {
+  const editComboId = searchParams.get('editCombo');
+  const prefilledFor = useRef<string | null>(null);
+
+  // Pre-fill combo selection when editing a cart combo. Once per editCombo id —
+  // cart changes on every mutation and must not wipe an in-progress re-pick.
+  useEffect(() => {
+    if (!editComboId) {
+      prefilledFor.current = null;
+      return;
+    }
+    if (prefilledFor.current === editComboId) return;
+    const ids = ((cart || []).find((c) => c.id === editComboId)?.comboItems || [])
+      .map((i) => i.id)
+      .filter(Boolean);
+    if (ids.length === 0) return; // cart not loaded yet — retry on next cart change
+    prefilledFor.current = editComboId;
+    setComboSelection(ids.slice(0, CUSTOM_COMBO_SIZE));
+  }, [editComboId, cart]);
+
+  // Explicit "Add / Update Combo" — any 4 from any category, flat price.
+  const addComboToCart = async () => {
     if (comboSelection.length !== CUSTOM_COMBO_SIZE) {
       setComboMsg({ type: 'error', text: `Pick exactly ${CUSTOM_COMBO_SIZE} badges for a combo.` });
       return;
@@ -693,6 +713,13 @@ export default function Categories({ addToCart, user, cart, updateQuantity }: Ca
       setComboMsg({ type: 'error', text: 'Some picked items are unavailable — re-pick.' });
       return;
     }
+
+    const existingCartItem = editComboId ? (cart || []).find((c) => c.id === editComboId) : undefined;
+
+    // Edit = drop the old line, then add the re-picked one. addToCart only ever
+    // merges quantity into an existing id, it never rewrites its comboItems.
+    if (editComboId) await removeFromCart?.(editComboId);
+
     const comboSeed = comboSelection.slice().sort().join('-').toLowerCase().replace(/[^a-z0-9-]/g, '');
     addToCart({
       id: `custom-combo-${comboSeed}`,
@@ -704,10 +731,19 @@ export default function Categories({ addToCart, user, cart, updateQuantity }: Ca
       details: `Custom combo: ${items.map((item) => item.name).join(', ')}`,
       color: 'bg-transparent',
       isCombo: true,
-      quantity: 1,
+      quantity: existingCartItem?.quantity || 1,
     });
+
     setComboSelection([]);
-    setComboMsg({ type: 'success', text: 'Custom combo added to cart!' });
+    if (editComboId) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('editCombo');
+      setSearchParams(nextParams, { replace: true });
+    }
+    setComboMsg({
+      type: 'success',
+      text: editComboId ? 'Custom combo updated in cart!' : 'Custom combo added to cart!',
+    });
     setTimeout(() => setComboMsg(null), 2500);
   };
 
@@ -1067,7 +1103,7 @@ export default function Categories({ addToCart, user, cart, updateQuantity }: Ca
                         : 'bg-white/10 text-white/40 cursor-not-allowed'
                     }`}
                   >
-                    Add Combo
+                    {editComboId ? '✓ Update Combo' : 'Add Combo'}
                   </button>
                 </div>
               </div>

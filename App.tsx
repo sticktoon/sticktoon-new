@@ -892,53 +892,85 @@ const CartDrawer: React.FC<{
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-            {cart.map((item) => (
-              <div
-                key={item.id}
-                className="flex gap-3 p-3 rounded-2xl border border-slate-100 bg-slate-50/50"
-              >
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-16 h-16 rounded-xl object-cover bg-white flex-shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="font-bold text-sm text-slate-900 truncate">{item.name}</p>
-                    <button
-                      onClick={() => removeFromCart(item.id)}
-                      aria-label={`Remove ${item.name}`}
-                      className="p-1 text-slate-400 hover:text-red-500 flex-shrink-0"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-400 uppercase tracking-wide">{item.category}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200">
+            {cart.map((item) => {
+              // Only the user-picked "any 4" combo is editable — catalog combo
+              // packs are fixed SKUs and the badge picker cannot represent them.
+              const isComboItem = String(item.id).startsWith("custom-combo-");
+
+              return (
+                <div
+                  key={item.id}
+                  className="flex gap-3 p-3 rounded-2xl border border-slate-100 bg-slate-50/50"
+                >
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="w-16 h-16 rounded-xl object-cover bg-white flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-sm text-slate-900 truncate">{item.name}</p>
+                        {item.comboItems && item.comboItems.length > 0 && (
+                          <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
+                            Selected: {item.comboItems.map((c) => c.name).join(", ")}
+                          </p>
+                        )}
+                      </div>
                       <button
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        aria-label="Decrease quantity"
-                        className="p-1.5 text-slate-600 hover:text-slate-900"
+                        onClick={() => removeFromCart(item.id)}
+                        aria-label={`Remove ${item.name}`}
+                        className="p-1 text-slate-400 hover:text-red-500 flex-shrink-0"
                       >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-sm font-bold w-6 text-center">{item.quantity}</span>
-                      <button
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        aria-label="Increase quantity"
-                        className="p-1.5 text-slate-600 hover:text-slate-900"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-                    <p className="font-black text-sm text-slate-900">
-                      ₹{(item.price * item.quantity).toFixed(0)}
-                    </p>
+
+                    <div className="flex items-center justify-between gap-2 mt-1">
+                      <p className="text-xs text-slate-400 uppercase tracking-wide">
+                        {item.category}
+                      </p>
+                      {isComboItem && (
+                        <button
+                          onClick={() => {
+                            onClose();
+                            // No cat filter: a combo spans categories, all 4 picks
+                            // must stay visible in the grid.
+                            navigate(`/categories?editCombo=${item.id}`);
+                          }}
+                          className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm active:scale-95"
+                        >
+                          ✏️ Edit Badges
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200">
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          aria-label="Decrease quantity"
+                          className="p-1.5 text-slate-600 hover:text-slate-900"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="text-sm font-bold w-6 text-center">{item.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          aria-label="Increase quantity"
+                          className="p-1.5 text-slate-600 hover:text-slate-900"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <p className="font-black text-sm text-slate-900">
+                        ₹{(item.price * item.quantity).toFixed(0)}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -1524,8 +1556,8 @@ function App() {
         >
           <Routes>
           <Route path="/" element={<Home addToCart={addToCart} />} />
-          <Route path="/categories/:categoryId/:subcategory" element={<Categories addToCart={addToCart} user={user} cart={cart} updateQuantity={updateQuantity} />} />
-          <Route path="/categories" element={<Categories addToCart={addToCart} user={user} cart={cart} updateQuantity={updateQuantity} />} />
+          <Route path="/categories/:categoryId/:subcategory" element={<Categories addToCart={addToCart} user={user} cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} />} />
+          <Route path="/categories" element={<Categories addToCart={addToCart} user={user} cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} />} />
           <Route path="/stickers" element={<Stickers addToCart={addToCart} cart={cart} updateQuantity={updateQuantity} />} />
           <Route path="/stickers/:id" element={<StickerDetail addToCart={addToCart} user={user} />} />
           <Route path="/badge/:id" element={<BadgeDetail addToCart={addToCart} user={user} />} />

@@ -51,3 +51,14 @@ backend/.env.local
 # But keep example files
 !.env.example
 !backend/.env.example
+
+# Local dev scratch — kept on disk, out of git
+tmp_*.js
+check_db.js
+check_db.cjs
+backend/scripts/testShiprocket.js
+
+# Working docs / notes
+*.docx
+CANVA_THEME_CHANGES.md
+REMAINING.md
