@@ -506,9 +506,11 @@ export default function AdminProducts() {
     () =>
       products.filter(
         (product) =>
-          product.type === "badge" && !product.isCombo && product._id !== editingProduct?._id,
+          product.type === productForm.type &&
+          !product.isCombo &&
+          product._id !== editingProduct?._id,
       ),
-    [products, editingProduct],
+    [products, editingProduct, productForm.type],
   );
 
   const availableSubcategories = useMemo(() => {
@@ -1214,14 +1216,12 @@ export default function AdminProducts() {
                 </div>
               </div>
 
-              {productForm.type === "badge" && (
-                <ComboPackPicker
-                  form={productForm}
-                  setForm={setProductForm}
-                  options={comboPickerOptions}
-                  theme="light"
-                />
-              )}
+              <ComboPackPicker
+                form={productForm}
+                setForm={setProductForm}
+                options={comboPickerOptions}
+                theme="light"
+              />
 
               <div className="md:col-span-2">
                 <label className="block text-gray-700 font-bold text-sm mb-2">

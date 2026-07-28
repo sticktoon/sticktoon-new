@@ -2647,18 +2647,23 @@ const Admin: React.FC = () => {
   // Product form
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [productForm, setProductForm] = useState<ProductFormState>(
+    createDefaultProductForm(),
+  );
+  const [isCustomSubcategory, setIsCustomSubcategory] = useState(false);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
 
-  // Badges that may be bundled into a combo: real badge products only, minus other
+  // Products that may be bundled into a combo: real products of matching type, minus other
   // combos and the product currently being edited (a combo can't contain itself).
   const comboPickerOptions = useMemo(
     () =>
       products.filter(
         (product) =>
-          product.type === "badge" &&
+          product.type === productForm.type &&
           !product.isCombo &&
           product._id !== editingProduct?._id,
       ),
-    [products, editingProduct],
+    [products, editingProduct, productForm.type],
   );
   const [isLoadingPromos, setIsLoadingPromos] = useState(false);
   const [showPromoModal, setShowPromoModal] = useState(false);
@@ -2670,11 +2675,6 @@ const Admin: React.FC = () => {
   const [isSavingPromo, setIsSavingPromo] = useState(false);
   const [confirmingDeleteProduct, setConfirmingDeleteProduct] =
     useState<any>(null);
-  const [productForm, setProductForm] = useState<ProductFormState>(
-    createDefaultProductForm(),
-  );
-  const [isCustomSubcategory, setIsCustomSubcategory] = useState(false);
-  const [isCustomCategory, setIsCustomCategory] = useState(false);
   // Products list filters (type tab, category, stock, status, search & sort).
   const [productTypeFilter, setProductTypeFilter] = useState<"all" | ProductType>("all");
   const [productCategoryFilter, setProductCategoryFilter] = useState("all");
@@ -7362,14 +7362,12 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       </div>
                     </div>
 
-                    {productForm.type === "badge" && (
-                      <ComboPackPicker
-                        form={productForm}
-                        setForm={setProductForm}
-                        options={comboPickerOptions}
-                        theme="light"
-                      />
-                    )}
+                    <ComboPackPicker
+                      form={productForm}
+                      setForm={setProductForm}
+                      options={comboPickerOptions}
+                      theme="light"
+                    />
 
                     <div className="md:col-span-2">
                       <label className="block text-gray-700 font-bold text-sm mb-2">
@@ -10820,14 +10818,12 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     </div>
                   </div>
 
-                  {productForm.type === "badge" && (
-                    <ComboPackPicker
-                      form={productForm}
-                      setForm={setProductForm}
-                      options={comboPickerOptions}
-                      theme="dark"
-                    />
-                  )}
+                  <ComboPackPicker
+                    form={productForm}
+                    setForm={setProductForm}
+                    options={comboPickerOptions}
+                    theme="dark"
+                  />
 
                   <div className="md:col-span-2">
                     <label className="block text-white font-semibold mb-2">

@@ -902,20 +902,34 @@ const CartDrawer: React.FC<{
                   key={item.id}
                   className="flex gap-3 p-3 rounded-2xl border border-slate-100 bg-slate-50/50"
                 >
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-16 h-16 rounded-xl object-cover bg-white flex-shrink-0"
-                  />
+                  {/* A combo is 4 badges — show all 4, not just the first one. */}
+                  {item.comboItems && item.comboItems.length > 1 ? (
+                    <div className="w-16 h-16 rounded-xl bg-white border border-slate-200 grid grid-cols-2 gap-0.5 p-0.5 flex-shrink-0 overflow-hidden">
+                      {item.comboItems.slice(0, 4).map((c, i) => (
+                        <img
+                          key={`${c.id}-${i}`}
+                          src={c.image || item.image}
+                          alt=""
+                          className="w-full h-full object-contain"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-16 h-16 rounded-xl object-contain bg-white border border-slate-200 flex-shrink-0"
+                    />
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <div>
+                      {/* min-w-0 or a long combo list shoves the delete button off the card. */}
+                      <div className="flex-1 min-w-0">
                         <p className="font-bold text-sm text-slate-900 truncate">{item.name}</p>
-                        {item.comboItems && item.comboItems.length > 0 && (
-                          <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
-                            Selected: {item.comboItems.map((c) => c.name).join(", ")}
-                          </p>
-                        )}
+                        <p className="text-[11px] text-slate-400 uppercase tracking-wide mt-0.5">
+                          {/* Picks span categories — item.category is just the first pick's. */}
+                          {isComboItem ? `${item.comboItems?.length ?? 0} badges` : item.category}
+                        </p>
                       </div>
                       <button
                         onClick={() => removeFromCart(item.id)}
@@ -926,42 +940,44 @@ const CartDrawer: React.FC<{
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 mt-1">
-                      <p className="text-xs text-slate-400 uppercase tracking-wide">
-                        {item.category}
+                    {item.comboItems && item.comboItems.length > 0 && (
+                      <p className="text-[11px] text-slate-500 leading-snug line-clamp-2 mt-1">
+                        {item.comboItems.map((c) => c.name).join(" · ")}
                       </p>
-                      {isComboItem && (
-                        <button
-                          onClick={() => {
-                            onClose();
-                            // No cat filter: a combo spans categories, all 4 picks
-                            // must stay visible in the grid.
-                            navigate(`/categories?editCombo=${item.id}`);
-                          }}
-                          className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm active:scale-95"
-                        >
-                          ✏️ Edit Badges
-                        </button>
-                      )}
-                    </div>
+                    )}
 
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200">
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          aria-label="Decrease quantity"
-                          className="p-1.5 text-slate-600 hover:text-slate-900"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="text-sm font-bold w-6 text-center">{item.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          aria-label="Increase quantity"
-                          className="p-1.5 text-slate-600 hover:text-slate-900"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
+                    <div className="flex items-center justify-between gap-2 mt-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200">
+                          <button
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            aria-label="Decrease quantity"
+                            className="p-1.5 text-slate-600 hover:text-slate-900"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="text-sm font-bold w-6 text-center">{item.quantity}</span>
+                          <button
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            aria-label="Increase quantity"
+                            className="p-1.5 text-slate-600 hover:text-slate-900"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {isComboItem && (
+                          <button
+                            onClick={() => {
+                              onClose();
+                              // No cat filter: a combo spans categories, all 4 picks
+                              // must stay visible in the grid.
+                              navigate(`/categories?editCombo=${item.id}`);
+                            }}
+                            className="text-[11px] font-bold text-amber-700 hover:text-amber-900 underline underline-offset-2 decoration-amber-300 whitespace-nowrap"
+                          >
+                            Edit badges
+                          </button>
+                        )}
                       </div>
                       <p className="font-black text-sm text-slate-900">
                         ₹{(item.price * item.quantity).toFixed(0)}
