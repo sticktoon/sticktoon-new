@@ -670,3 +670,40 @@ body {
     font-size: 0.7rem;
   }
 }
+
+/* ============================================================
+   A4 PRINT & PDF EXPORT STYLES FOR INVOICES & PROPOSALS
+   ============================================================ */
+.a4-invoice-container {
+  box-sizing: border-box;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide headers, sidebars, buttons, and non-printable elements */
+  nav, footer, aside, header, .print\:hidden, button {
+    display: none !important;
+  }
+
+  #invoice-root, #invoice-a4-page, .a4-invoice-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 100vh !important;
+    margin: 0 !important;
+    padding: 12mm 15mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+}

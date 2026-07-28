@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
+import InvoiceView from "./InvoiceView";
 
 export default function Invoice() {
   const { orderId } = useParams();
   const token = localStorage.getItem("token");
   const [invoice, setInvoice] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/invoice/${orderId}`, {
@@ -13,45 +15,38 @@ export default function Invoice() {
         Authorization: `Bearer ${token}`,
       },
     })
-      .then(res => res.json())
-      .then(setInvoice);
-  }, []);
+      .then((res) => res.json())
+      .then((data) => {
+        setInvoice(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to load invoice", err);
+        setLoading(false);
+      });
+  }, [orderId, token]);
 
-  if (!invoice) return null;
-
-  return (
-    <div className="max-w-3xl mx-auto p-10 bg-white print:p-0">
-      <h1 className="text-3xl font-black mb-6">INVOICE</h1>
-
-      <p className="text-sm text-gray-500">
-        Invoice No: {invoice.invoiceNumber}
-      </p>
-
-      <hr className="my-6" />
-
-      <h3 className="font-bold">Billed To</h3>
-      <p>{invoice.address.name}</p>
-      <p>{invoice.address.street}</p>
-      <p>{invoice.address.phone}</p>
-
-      <hr className="my-6" />
-
-      <div className="flex justify-between">
-        <span>Amount</span>
-        <span className="font-black">₹{invoice.amount}</span>
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto mb-3" />
+          <p className="text-sm font-bold text-slate-600">Loading invoice details...</p>
+        </div>
       </div>
+    );
+  }
 
-      <div className="flex justify-between">
-        <span>Payment Method</span>
-        <span>{invoice.paymentMethod}</span>
+  if (!invoice || invoice.error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-xl text-center max-w-md w-full">
+          <p className="text-lg font-bold text-slate-800 mb-2">Invoice Not Found</p>
+          <p className="text-xs text-slate-500">Could not retrieve invoice details for this order ID.</p>
+        </div>
       </div>
+    );
+  }
 
-      <button
-        onClick={() => window.print()}
-        className="mt-10 bg-blue-600 text-white px-6 py-3 rounded-xl print:hidden"
-      >
-        Print Invoice
-      </button>
-    </div>
-  );
+  return <InvoiceView invoice={invoice} />;
 }

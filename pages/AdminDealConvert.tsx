@@ -440,7 +440,10 @@ export default function AdminDealConvert() {
   }, [gstRate, items]);
 
   const firstPageRows = 3;
-  const otherPageRows = 8;
+  // 8 rows (120px each) + header + tfoot overflows the fixed 297mm .a4-page and clips the
+  // Grand Total row. 7 leaves ~100px slack.
+  // ponytail: hand-tuned against fixed A4 height; measure rows at runtime if layout changes.
+  const otherPageRows = 7;
 
   const itemPages = useMemo(() => {
     const pages: QuoteItem[][] = [];
@@ -785,6 +788,7 @@ export default function AdminDealConvert() {
           #deal-quotation-preview.exporting input,
           #deal-quotation-preview.exporting textarea,
           #deal-quotation-preview.exporting select {
+            color: #0f172a !important;
             border: 0 !important;
             background: transparent !important;
             box-shadow: none !important;
@@ -793,6 +797,28 @@ export default function AdminDealConvert() {
             -webkit-appearance: none !important;
             padding: 0 !important;
             margin: 0 !important;
+          }
+
+          #deal-quotation-preview tbody td,
+          #deal-quotation-preview thead th {
+            color: #0f172a !important;
+          }
+
+          #deal-quotation-preview tfoot,
+          #deal-quotation-preview tfoot tr,
+          #deal-quotation-preview tfoot td,
+          #deal-quotation-preview tfoot th,
+          #deal-quotation-preview tfoot span,
+          #deal-quotation-preview tfoot div,
+          #deal-quotation-preview tfoot p {
+            color: #ffffff !important;
+            background-color: #0f172a !important;
+          }
+
+          #deal-quotation-preview tfoot .grand-total-val,
+          #deal-quotation-preview tfoot .grand-total-val span {
+            color: #fde047 !important;
+            background-color: #020617 !important;
           }
 
           #deal-quotation-preview button,
@@ -1284,12 +1310,20 @@ export default function AdminDealConvert() {
                       })}
                     </tbody>
                     {pageIndex === itemPages.length - 1 && (
-                      <tfoot className="bg-slate-900 text-white">
-                        <tr>
-                          <td colSpan={5} className="border px-3 py-3 text-center font-black">Grand Total</td>
-                          <td className="border px-3 py-3 text-center">{formatMoney(totals.subtotal)}</td>
-                          <td className="border px-3 py-3 text-center">{formatMoney(totals.gstAmount)}</td>
-                          <td className="border px-4 py-3 text-center font-black">{money(totals.grandTotal)}</td>
+                      <tfoot style={{ backgroundColor: "#0f172a", color: "#ffffff" }} className="border-t-2 border-slate-900">
+                        <tr style={{ backgroundColor: "#0f172a", color: "#ffffff" }}>
+                          <td colSpan={5} style={{ color: "#ffffff", backgroundColor: "#0f172a" }} className="border border-slate-700 px-3 py-3.5 text-center font-black text-sm uppercase tracking-wider">
+                            <span style={{ color: "#ffffff", display: "inline-block" }}>Grand Total</span>
+                          </td>
+                          <td style={{ color: "#ffffff", backgroundColor: "#0f172a" }} className="border border-slate-700 px-3 py-3.5 text-center font-black text-sm">
+                            <span style={{ color: "#ffffff", display: "inline-block" }}>{formatMoney(totals.subtotal)}</span>
+                          </td>
+                          <td style={{ color: "#ffffff", backgroundColor: "#0f172a" }} className="border border-slate-700 px-3 py-3.5 text-center font-black text-sm">
+                            <span style={{ color: "#ffffff", display: "inline-block" }}>{formatMoney(totals.gstAmount)}</span>
+                          </td>
+                          <td style={{ color: "#fde047", backgroundColor: "#020617" }} className="border border-slate-700 px-4 py-3.5 text-center font-black text-base font-mono grand-total-val">
+                            <span style={{ color: "#fde047", display: "inline-block" }}>{money(totals.grandTotal)}</span>
+                          </td>
                         </tr>
                       </tfoot>
                     )}
