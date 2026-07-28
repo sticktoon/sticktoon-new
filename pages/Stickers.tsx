@@ -3,7 +3,8 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { STICKERS, STICKER_CATEGORIES, formatPrice } from '../constants';
 import { Sticker } from '../constants';
 import { API_BASE_URL } from '../config/api';
-import { Check, ShoppingCart, Sparkles } from 'lucide-react';
+import { Check, ShoppingCart, Sparkles, Plus, Minus } from 'lucide-react';
+import { CartItem } from '../types';
 
 // Map a DB product (type:"sticker") onto the Sticker shape the UI renders.
 const dbProductToSticker = (p: any): Sticker => ({
@@ -17,10 +18,12 @@ const dbProductToSticker = (p: any): Sticker => ({
 
 interface StickersProps {
   addToCart: (sticker: Sticker) => void;
+  cart?: CartItem[];
+  updateQuantity?: (id: string, q: number) => void;
 }
 
 // Premium Sticker Card Component (matches the badge card style)
-function StickerCard({ sticker, addToCart, index }: { sticker: Sticker; addToCart: (s: Sticker) => void; index: number }) {
+function StickerCard({ sticker, addToCart, index, quantityInCart = 0, onUpdateQty }: { sticker: Sticker; addToCart: (s: Sticker) => void; index: number; quantityInCart?: number; onUpdateQty?: (id: string, q: number) => void }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [added, setAdded] = useState(false);
 
@@ -114,16 +117,36 @@ function StickerCard({ sticker, addToCart, index }: { sticker: Sticker; addToCar
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <button
-              onClick={handleAdd}
-              className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300
-                ${added
-                  ? 'bg-green-500 text-white scale-95'
-                  : 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600 hover:shadow-md active:scale-95'
-                }`}
-            >
-              {added ? '✓' : 'Add'}
-            </button>
+            {quantityInCart > 0 && onUpdateQty ? (
+              <div className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-1">
+                <button
+                  onClick={() => onUpdateQty(sticker.id, quantityInCart - 1)}
+                  aria-label="Decrease quantity"
+                  className="p-1 hover:bg-white/20 rounded active:scale-90 transition"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-xs font-black w-5 text-center tabular-nums">{quantityInCart}</span>
+                <button
+                  onClick={() => onUpdateQty(sticker.id, quantityInCart + 1)}
+                  aria-label="Increase quantity"
+                  className="p-1 hover:bg-white/20 rounded active:scale-90 transition"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleAdd}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300
+                  ${added
+                    ? 'bg-green-500 text-white scale-95'
+                    : 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600 hover:shadow-md active:scale-95'
+                  }`}
+              >
+                {added ? '✓' : 'Add'}
+              </button>
+            )}
             <Link
               to={`/stickers/${sticker.id}`}
               className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider border border-slate-200 text-slate-600 hover:border-yellow-400 hover:text-yellow-700 transition-all duration-300"
@@ -137,7 +160,12 @@ function StickerCard({ sticker, addToCart, index }: { sticker: Sticker; addToCar
   );
 }
 
-export default function Stickers({ addToCart }: StickersProps) {
+export default function Stickers({ addToCart, cart, updateQuantity }: StickersProps) {
+  const qtyById = React.useMemo(() => {
+    const m: Record<string, number> = {};
+    (cart || []).forEach((it) => { m[it.id] = it.quantity; });
+    return m;
+  }, [cart]);
   const [searchParams, setSearchParams] = useSearchParams();
   const catParam = searchParams.get('cat');
   const [activeCategory, setActiveCategory] = useState(catParam || 'all');
@@ -292,7 +320,7 @@ export default function Stickers({ addToCart }: StickersProps) {
                       {/* Category Products Grid */}
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
                         {categoryStickers.map((sticker, i) => (
-                          <StickerCard key={sticker.id} sticker={sticker} addToCart={addToCart} index={i} />
+                          <StickerCard key={sticker.id} sticker={sticker} addToCart={addToCart} index={i} quantityInCart={qtyById[sticker.id] || 0} onUpdateQty={updateQuantity} />
                         ))}
                       </div>
                     </div>
@@ -315,7 +343,7 @@ export default function Stickers({ addToCart }: StickersProps) {
                 {/* Single Category Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
                   {filteredStickers.map((sticker, i) => (
-                    <StickerCard key={sticker.id} sticker={sticker} addToCart={addToCart} index={i} />
+                    <StickerCard key={sticker.id} sticker={sticker} addToCart={addToCart} index={i} quantityInCart={qtyById[sticker.id] || 0} onUpdateQty={updateQuantity} />
                   ))}
                 </div>
               </div>

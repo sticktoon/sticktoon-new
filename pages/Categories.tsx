@@ -2,13 +2,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate, useParams } from 'react-router-dom';
 import { BADGES, CATEGORIES, formatPrice } from '../constants';
-import { Badge } from '../types';
-import { Check, ShoppingCart, Crown, Package, Sparkles } from 'lucide-react';
+import { Badge, CartItem } from '../types';
+import { Check, ShoppingCart, Crown, Package, Sparkles, Plus, Minus, X } from 'lucide-react';
 import { API_BASE_URL } from '../config/api';
 
 interface CategoriesProps {
   addToCart: (badge: Badge) => void;
   user?: any;
+  cart?: CartItem[];
+  updateQuantity?: (id: string, q: number) => void;
 }
 
 const CUSTOM_COMBO_SIZE = 4;
@@ -61,6 +63,8 @@ function BadgeCard({
   onToggleComboSelection,
   isSelectedForCombo,
   disableComboSelection,
+  quantityInCart = 0,
+  onUpdateQty,
 }: {
   badge: Badge;
   addToCart: (b: Badge) => void;
@@ -68,6 +72,8 @@ function BadgeCard({
   onToggleComboSelection?: (badgeId: string) => void;
   isSelectedForCombo?: boolean;
   disableComboSelection?: boolean;
+  quantityInCart?: number;
+  onUpdateQty?: (id: string, q: number) => void;
 }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [added, setAdded] = useState(false);
@@ -189,16 +195,36 @@ function BadgeCard({
                 {isSelectedForCombo ? 'Picked' : 'Combo'}
               </button>
             )}
-            <button
-              onClick={handleAdd}
-              className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300
-                ${added
-                  ? 'bg-green-500 text-white scale-95'
-                  : 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600 hover:shadow-md active:scale-95'
-                }`}
-            >
-              {added ? '✓' : 'Add'}
-            </button>
+            {quantityInCart > 0 && onUpdateQty ? (
+              <div className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-1">
+                <button
+                  onClick={() => onUpdateQty(badge.id, quantityInCart - 1)}
+                  aria-label="Decrease quantity"
+                  className="p-1 hover:bg-white/20 rounded active:scale-90 transition"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-xs font-black w-5 text-center tabular-nums">{quantityInCart}</span>
+                <button
+                  onClick={() => onUpdateQty(badge.id, quantityInCart + 1)}
+                  aria-label="Increase quantity"
+                  className="p-1 hover:bg-white/20 rounded active:scale-90 transition"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleAdd}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300
+                  ${added
+                    ? 'bg-green-500 text-white scale-95'
+                    : 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600 hover:shadow-md active:scale-95'
+                  }`}
+              >
+                {added ? '✓' : 'Add'}
+              </button>
+            )}
             <Link
               to={`/badge/${badge.id}`}
               className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider border border-slate-200 text-slate-600 hover:border-yellow-400 hover:text-yellow-700 transition-all duration-300"
@@ -213,7 +239,7 @@ function BadgeCard({
 }
 
 // Premium Combo Card Component
-function ComboCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: Badge) => void; index: number }) {
+function ComboCard({ badge, addToCart, index, quantityInCart = 0, onUpdateQty }: { badge: Badge; addToCart: (b: Badge) => void; index: number; quantityInCart?: number; onUpdateQty?: (id: string, q: number) => void }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [added, setAdded] = useState(false);
 
@@ -307,24 +333,49 @@ function ComboCard({ badge, addToCart, index }: { badge: Badge; addToCart: (b: B
               {formatPrice(49 * 4)}
             </span>
           </div>
-          <button
-            onClick={handleAdd}
-            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300
-              ${added
-                ? 'bg-green-500 text-white scale-95'
-                : 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-900 hover:from-yellow-300 hover:to-amber-400 hover:shadow-md hover:shadow-yellow-500/30 active:scale-95'
-              }`}
-          >
-            {added ? '✓' : 'Add Combo'}
-          </button>
+          {quantityInCart > 0 && onUpdateQty ? (
+            <div className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-900 px-1">
+              <button
+                onClick={() => onUpdateQty(badge.id, quantityInCart - 1)}
+                aria-label="Decrease quantity"
+                className="p-1 hover:bg-black/10 rounded active:scale-90 transition"
+              >
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-xs font-black w-5 text-center tabular-nums">{quantityInCart}</span>
+              <button
+                onClick={() => onUpdateQty(badge.id, quantityInCart + 1)}
+                aria-label="Increase quantity"
+                className="p-1 hover:bg-black/10 rounded active:scale-90 transition"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleAdd}
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300
+                ${added
+                  ? 'bg-green-500 text-white scale-95'
+                  : 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-900 hover:from-yellow-300 hover:to-amber-400 hover:shadow-md hover:shadow-yellow-500/30 active:scale-95'
+                }`}
+            >
+              {added ? '✓' : 'Add Combo'}
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-export default function Categories({ addToCart, user }: CategoriesProps) {
+export default function Categories({ addToCart, user, cart, updateQuantity }: CategoriesProps) {
   const navigate = useNavigate();
+  const qtyById = React.useMemo(() => {
+    const m: Record<string, number> = {};
+    (cart || []).forEach((it) => { m[it.id] = it.quantity; });
+    return m;
+  }, [cart]);
   const [searchParams] = useSearchParams();
   const { categoryId: categoryPathParam, subcategory: subcategoryPathParam } =
     useParams<{ categoryId?: string; subcategory?: string }>();
@@ -338,10 +389,9 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterPanelRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
-  const [comboSelections, setComboSelections] = useState<Record<string, string[]>>({});
-  const [comboFeedback, setComboFeedback] = useState<
-    Record<string, { type: 'success' | 'error'; text: string } | null>
-  >({});
+  // Single cross-category combo selection (any 4 badges from anywhere).
+  const [comboSelection, setComboSelection] = useState<string[]>([]);
+  const [comboMsg, setComboMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
   // Products from database
   const [products, setProducts] = useState<Badge[]>([]);
@@ -602,165 +652,69 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
 
 
 
-  const toTitleCase = (value: string) =>
-    value
-      .toLowerCase()
-      .split(' ')
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(' ');
-
-  const getCategoryDisplayName = (categoryId: string) => {
-    const normalizedCategory = normalizeCategoryId(categoryId);
-    const categoryMeta = CATEGORIES.find(
-      (category) => normalizeCategoryId(category.id) === normalizedCategory,
-    );
-    if (categoryMeta?.name) return toTitleCase(categoryMeta.name);
-    return toTitleCase(String(categoryId || 'Custom').replace(/[-_]+/g, ' ').trim());
-  };
-
-  const getCategoryComboCandidates = (categoryId: string, sourceItems?: Badge[]) => {
-    const normalizedCategory = normalizeCategoryId(categoryId);
-    if (!normalizedCategory) return [];
-
-    const seenIds = new Set<string>();
-    const source = [
-      ...(Array.isArray(sourceItems) ? sourceItems : []),
-      ...products,
-      ...BADGES,
-    ];
-
-    const candidates: Badge[] = [];
-    source.forEach((item) => {
-      if (!item?.id || item.isCombo) return;
-      if (normalizeCategoryId(String(item.category)) !== normalizedCategory) return;
-      if (seenIds.has(item.id)) return;
-
-      seenIds.add(item.id);
-      candidates.push({
-        ...item,
-        image: normalizeImagePath(item.image) || item.image,
-      });
+  // Resolve any badge by id across DB products + static BADGES (non-combo only).
+  const badgeById = React.useMemo(() => {
+    const m = new Map<string, Badge>();
+    [...products, ...BADGES].forEach((item) => {
+      if (!item?.id || item.isCombo || m.has(item.id)) return;
+      m.set(item.id, { ...item, image: normalizeImagePath(item.image) || item.image });
     });
+    return m;
+  }, [products]);
 
-    return candidates;
+  // Toggle a badge in the single cross-category combo selection (max 4). No auto-fire.
+  const toggleComboBadge = (badgeId: string) => {
+    setComboMsg(null);
+    setComboSelection((prev) => {
+      if (prev.includes(badgeId)) return prev.filter((id) => id !== badgeId);
+      if (prev.length >= CUSTOM_COMBO_SIZE) {
+        setComboMsg({ type: 'error', text: `Combo is full — remove one to swap (max ${CUSTOM_COMBO_SIZE}).` });
+        return prev;
+      }
+      return [...prev, badgeId];
+    });
   };
 
-  const addCustomComboFromSelection = (
-    categoryId: string,
-    selectedBadgeIds: string[],
-    sourceItems?: Badge[],
-  ) => {
-    const normalizedCategory = normalizeCategoryId(categoryId);
-    if (!normalizedCategory) return false;
+  const clearComboSelection = () => {
+    setComboSelection([]);
+    setComboMsg(null);
+  };
 
-    const candidates = getCategoryComboCandidates(normalizedCategory, sourceItems);
-    const byId = new Map(candidates.map((item) => [item.id, item]));
-    const selectedBadges = selectedBadgeIds
-      .map((id) => byId.get(id))
-      .filter((item): item is Badge => Boolean(item));
-
-    if (selectedBadges.length !== CUSTOM_COMBO_SIZE) {
-      return false;
+  // Explicit "Add Combo" — any 4 from any category, flat price.
+  const addComboToCart = () => {
+    if (comboSelection.length !== CUSTOM_COMBO_SIZE) {
+      setComboMsg({ type: 'error', text: `Pick exactly ${CUSTOM_COMBO_SIZE} badges for a combo.` });
+      return;
     }
-
-    const comboSeed = selectedBadges
-      .map((item) => item.id)
-      .sort()
-      .join('-')
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, '');
-
+    const items = comboSelection
+      .map((id) => badgeById.get(id))
+      .filter((item): item is Badge => Boolean(item));
+    if (items.length !== CUSTOM_COMBO_SIZE) {
+      setComboMsg({ type: 'error', text: 'Some picked items are unavailable — re-pick.' });
+      return;
+    }
+    const comboSeed = comboSelection.slice().sort().join('-').toLowerCase().replace(/[^a-z0-9-]/g, '');
     addToCart({
-      id: `custom-combo-${normalizedCategory}-${comboSeed}`,
-      name: `${getCategoryDisplayName(normalizedCategory)} Custom Combo (Any 4)`,
+      id: `custom-combo-${comboSeed}`,
+      name: 'Custom Combo (Any 4)',
       price: CUSTOM_COMBO_PRICE,
-      category: selectedBadges[0].category,
-      image: selectedBadges[0]?.image || '/badge/placeholder.png',
-      comboItems: selectedBadges.map((item) => ({
-        id: item.id,
-        name: item.name,
-        image: item.image,
-      })),
-      details: `Custom combo: ${selectedBadges.map((item) => item.name).join(', ')}`,
+      category: items[0].category,
+      image: items[0]?.image || '/badge/placeholder.png',
+      comboItems: items.map((item) => ({ id: item.id, name: item.name, image: item.image })),
+      details: `Custom combo: ${items.map((item) => item.name).join(', ')}`,
       color: 'bg-transparent',
       isCombo: true,
       quantity: 1,
     });
-
-    return true;
+    setComboSelection([]);
+    setComboMsg({ type: 'success', text: 'Custom combo added to cart!' });
+    setTimeout(() => setComboMsg(null), 2500);
   };
 
-  const handleToggleComboBadge = (categoryId: string, badgeId: string, sourceItems?: Badge[]) => {
-    const normalizedCategory = normalizeCategoryId(categoryId);
-    if (!normalizedCategory) return;
-
-    const currentSelection = comboSelections[normalizedCategory] || [];
-
-    if (currentSelection.includes(badgeId)) {
-      setComboSelections((prev) => ({
-        ...prev,
-        [normalizedCategory]: currentSelection.filter((id) => id !== badgeId),
-      }));
-      setComboFeedback((prev) => ({ ...prev, [normalizedCategory]: null }));
-      return;
-    }
-
-    if (currentSelection.length >= CUSTOM_COMBO_SIZE) {
-      setComboFeedback((prev) => ({
-        ...prev,
-        [normalizedCategory]: {
-          type: 'error',
-          text: `You can select only ${CUSTOM_COMBO_SIZE} badges.`,
-        },
-      }));
-      return;
-    }
-
-    const nextSelection = [...currentSelection, badgeId];
-
-    if (nextSelection.length === CUSTOM_COMBO_SIZE) {
-      const added = addCustomComboFromSelection(normalizedCategory, nextSelection, sourceItems);
-
-      if (added) {
-        setComboSelections((prev) => ({ ...prev, [normalizedCategory]: [] }));
-        setComboFeedback((prev) => ({
-          ...prev,
-          [normalizedCategory]: {
-            type: 'success',
-            text: 'Custom combo added to cart from selected cards.',
-          },
-        }));
-        return;
-      }
-
-      setComboFeedback((prev) => ({
-        ...prev,
-        [normalizedCategory]: {
-          type: 'error',
-          text: `Select exactly ${CUSTOM_COMBO_SIZE} valid badges to continue.`,
-        },
-      }));
-      return;
-    }
-
-    setComboSelections((prev) => ({
-      ...prev,
-      [normalizedCategory]: nextSelection,
-    }));
-    setComboFeedback((prev) => ({ ...prev, [normalizedCategory]: null }));
-  };
-
-  const getComboSelectionCount = (categoryId: string) => {
-    const normalizedCategory = normalizeCategoryId(categoryId);
-    if (!normalizedCategory) return 0;
-    return (comboSelections[normalizedCategory] || []).length;
-  };
-
-  const getComboFeedbackForCategory = (categoryId: string) => {
-    const normalizedCategory = normalizeCategoryId(categoryId);
-    if (!normalizedCategory) return null;
-    return comboFeedback[normalizedCategory] || null;
-  };
+  // Render shims so existing per-category JSX now reflects the single global combo.
+  const handleToggleComboBadge = (_categoryId: string, badgeId: string) => toggleComboBadge(badgeId);
+  const getComboSelectionCount = (_categoryId?: string) => comboSelection.length;
+  const getComboFeedbackForCategory = (_categoryId?: string) => comboMsg;
 
   // Group products by category for section-wise display
   const productsByCategory = CATEGORIES.reduce((acc, cat) => {
@@ -780,7 +734,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
     return 0;
   });
 
-  const activeCategorySelection = comboSelections[normalizeCategoryId(activeCategory)] || [];
+  const activeCategorySelection = comboSelection;
 
   const categoryDescriptions: Record<string, string> = {
     'moody': '😊 Express Your Mood, Wear Your Vibe',
@@ -807,7 +761,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
 
       <div className="relative z-10">
         {/* MAIN CONTENT */}
-        <main ref={mainRef} className="w-full px-4 sm:px-6 lg:px-10 pt-10 lg:pt-14 pb-16">
+        <main ref={mainRef} className={`w-full px-4 sm:px-6 lg:px-10 pt-10 lg:pt-14 ${comboSelection.length > 0 ? 'pb-40' : 'pb-16'}`}>
           {/* Header */}
           <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-end md:gap-6 mb-8 md:mb-10">
             <div>
@@ -899,7 +853,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
                     if (categoryProducts.length === 0) return null;
 
                     const normalizedCategoryId = normalizeCategoryId(category.id);
-                    const categorySelection = comboSelections[normalizedCategoryId] || [];
+                    const categorySelection = comboSelection;
 
                     return (
                       <div key={category.id} className="space-y-5">
@@ -915,19 +869,7 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
                             <p className="text-xs text-slate-400 font-medium mt-0.5">{categoryDescriptions[category.id] || `${categoryProducts.length} badges`}</p>
                           </div>
                           <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent ml-4"></div>
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg">
-                            <Package className="w-3 h-3 text-orange-600" />
-                            <span className="font-black text-[10px] uppercase tracking-wide text-slate-700">
-                              {getComboSelectionCount(category.id)}/{CUSTOM_COMBO_SIZE}
-                            </span>
-                          </div>
                         </div>
-
-                        {getComboFeedbackForCategory(category.id) && (
-                          <p className={`text-xs font-semibold ${getComboFeedbackForCategory(category.id)?.type === 'success' ? 'text-emerald-600' : 'text-rose-500'}`}>
-                            {getComboFeedbackForCategory(category.id)?.text}
-                          </p>
-                        )}
 
                         {categorySubcategoryOptions.length > 0 && (
                           <div className="flex flex-wrap items-center gap-2 mb-5">
@@ -953,15 +895,17 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
                           {categoryProducts.map((badge, i) =>
                             badge.isCombo ? (
-                              <ComboCard key={badge.id} badge={badge} addToCart={addToCart} index={i} />
+                              <ComboCard key={badge.id} badge={badge} addToCart={addToCart} index={i} quantityInCart={qtyById[badge.id] || 0} onUpdateQty={updateQuantity} />
                             ) : (
                               <BadgeCard
                                 key={badge.id}
                                 badge={badge}
                                 addToCart={addToCart}
                                 index={i}
+                                quantityInCart={qtyById[badge.id] || 0}
+                                onUpdateQty={updateQuantity}
                                 onToggleComboSelection={(badgeId) =>
-                                  handleToggleComboBadge(normalizedCategoryId, badgeId, categoryProducts)
+                                  handleToggleComboBadge(normalizedCategoryId, badgeId)
                                 }
                                 isSelectedForCombo={categorySelection.includes(badge.id)}
                                 disableComboSelection={
@@ -1037,15 +981,17 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
                     {sortedFilteredBadges.map((badge, i) =>
                       badge.isCombo ? (
-                        <ComboCard key={badge.id} badge={badge} addToCart={addToCart} index={i} />
+                        <ComboCard key={badge.id} badge={badge} addToCart={addToCart} index={i} quantityInCart={qtyById[badge.id] || 0} onUpdateQty={updateQuantity} />
                       ) : (
                         <BadgeCard
                           key={badge.id}
                           badge={badge}
                           addToCart={addToCart}
                           index={i}
+                          quantityInCart={qtyById[badge.id] || 0}
+                          onUpdateQty={updateQuantity}
                           onToggleComboSelection={(badgeId) =>
-                            handleToggleComboBadge(activeCategory, badgeId, filteredBadges)
+                            handleToggleComboBadge(activeCategory, badgeId)
                           }
                           isSelectedForCombo={activeCategorySelection.includes(badge.id)}
                           disableComboSelection={
@@ -1071,6 +1017,69 @@ export default function Categories({ addToCart, user }: CategoriesProps) {
             </div>
           )}
         </main>
+
+        {/* Sticky cross-category Combo Tray — pick ANY 4 badges, flat price, explicit add */}
+        {comboSelection.length > 0 && (
+          <div className="fixed bottom-0 inset-x-0 z-[58] px-3 pb-3 pointer-events-none">
+            <div className="pointer-events-auto max-w-3xl mx-auto rounded-2xl bg-slate-900 text-white shadow-2xl border border-yellow-500/30 p-3 sm:p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Package className="w-4 h-4 text-yellow-400" />
+                  <span className="text-xs font-black uppercase tracking-wide whitespace-nowrap">
+                    Combo {comboSelection.length}/{CUSTOM_COMBO_SIZE}
+                  </span>
+                </div>
+
+                {/* Picked slots + empty placeholders */}
+                <div className="flex items-center gap-2 flex-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                  {comboSelection.map((id) => {
+                    const b = badgeById.get(id);
+                    return (
+                      <div key={id} className="relative shrink-0 w-11 h-11 rounded-lg bg-white/10 border border-white/15 overflow-hidden">
+                        {b?.image && <img src={b.image} alt={b?.name || ''} className="w-full h-full object-contain p-0.5" />}
+                        <button
+                          onClick={() => toggleComboBadge(id)}
+                          aria-label="Remove from combo"
+                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center shadow"
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {Array.from({ length: Math.max(0, CUSTOM_COMBO_SIZE - comboSelection.length) }).map((_, i) => (
+                    <div key={`empty-${i}`} className="shrink-0 w-11 h-11 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-white/30 text-lg">+</div>
+                  ))}
+                </div>
+
+                {/* Price + actions */}
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  <span className="text-sm font-black text-yellow-400 whitespace-nowrap">{formatPrice(CUSTOM_COMBO_PRICE)}</span>
+                  <button onClick={clearComboSelection} className="px-2 py-2 rounded-lg text-[11px] font-bold text-white/70 hover:text-white hover:bg-white/10 transition">
+                    Clear
+                  </button>
+                  <button
+                    onClick={addComboToCart}
+                    disabled={comboSelection.length !== CUSTOM_COMBO_SIZE}
+                    className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition whitespace-nowrap ${
+                      comboSelection.length === CUSTOM_COMBO_SIZE
+                        ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-900 hover:from-yellow-300 hover:to-amber-400'
+                        : 'bg-white/10 text-white/40 cursor-not-allowed'
+                    }`}
+                  >
+                    Add Combo
+                  </button>
+                </div>
+              </div>
+
+              {comboMsg && (
+                <p className={`mt-2 text-[11px] font-semibold ${comboMsg.type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {comboMsg.text}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

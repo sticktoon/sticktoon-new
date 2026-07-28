@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, useLocation, Navigate, useNavigate } from "react-router-dom";
 import { 
   ShoppingCart, 
   User as UserIcon, 
@@ -15,7 +15,10 @@ import {
   ChevronDown,
   Mail,
   ContactIcon,
-  Contact2
+  Contact2,
+  Trash2,
+  Plus,
+  Minus
 } from 'lucide-react';
 
 import { Badge, CartItem, User as UserType } from './types.ts';
@@ -141,9 +144,10 @@ style={{ transform: `scale(${scale})` }}>
 /* =======================
    NAVBAR
 ======================= */
-const Navbar: React.FC<{ cartCount: number; user: AuthUser | null }> = ({
+const Navbar: React.FC<{ cartCount: number; user: AuthUser | null; onCartClick: () => void }> = ({
   cartCount,
   user,
+  onCartClick,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -353,9 +357,11 @@ useEffect(() => {
     {/* RIGHT ICONS */}
 <div className="flex items-center gap-4 justify-end min-w-[90px] sm:min-w-0">
 
-  {/* 🛒 CART — ALWAYS VISIBLE */}
-  <Link
-    to="/checkout"
+  {/* 🛒 CART — ALWAYS VISIBLE (opens right-side drawer) */}
+  <button
+    type="button"
+    onClick={onCartClick}
+    aria-label="Open cart"
      className="relative p-2 sm:p-3 rounded-2xl text-slate-300 hover:bg-slate-800 hover:text-white transition"
   >
     <ShoppingCart className="w-6 h-6" />
@@ -374,7 +380,7 @@ useEffect(() => {
         {cartCount}
       </span>
     )}
-  </Link>
+  </button>
 
   {/* 👤 USER */}
   {user ? (
@@ -801,6 +807,161 @@ const Footer: React.FC = () => {
 };
 
 /* =======================
+   CART DRAWER (right-side slide-over)
+======================= */
+const CartDrawer: React.FC<{
+  open: boolean;
+  onClose: () => void;
+  cart: CartItem[];
+  updateQuantity: (id: string, q: number) => void;
+  removeFromCart: (id: string) => void;
+}> = ({ open, onClose, cart, updateQuantity, removeFromCart }) => {
+  const navigate = useNavigate();
+  const count = cart.reduce((a, b) => a + b.quantity, 0);
+  const subtotal = cart.reduce((a, b) => a + b.price * b.quantity, 0);
+
+  // Esc to close + lock body scroll while open.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open, onClose]);
+
+  const goCheckout = () => {
+    onClose();
+    navigate("/checkout");
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] transition-opacity duration-300 ${
+          open ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+      />
+      {/* Panel */}
+      <aside
+        role="dialog"
+        aria-label="Shopping cart"
+        className={`fixed top-0 right-0 h-full w-full max-w-md bg-white z-[70] shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
+          open ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+            <ShoppingCart className="w-5 h-5" /> Your Cart
+            <span className="text-slate-400 font-bold text-sm">
+              ({count} {count === 1 ? "item" : "items"})
+            </span>
+          </h2>
+          <button
+            onClick={onClose}
+            aria-label="Close cart"
+            className="p-2 rounded-full hover:bg-slate-100 text-slate-500"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        {cart.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
+              <ShoppingCart className="w-8 h-8 text-slate-400" />
+            </div>
+            <p className="font-bold text-slate-700">Your cart is empty</p>
+            <p className="text-sm text-slate-400 -mt-2">Add some badges to get started.</p>
+            <button
+              onClick={onClose}
+              className="mt-2 px-6 py-3 rounded-xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-700 transition"
+            >
+              Continue Shopping
+            </button>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+            {cart.map((item) => (
+              <div
+                key={item.id}
+                className="flex gap-3 p-3 rounded-2xl border border-slate-100 bg-slate-50/50"
+              >
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  className="w-16 h-16 rounded-xl object-cover bg-white flex-shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-bold text-sm text-slate-900 truncate">{item.name}</p>
+                    <button
+                      onClick={() => removeFromCart(item.id)}
+                      aria-label={`Remove ${item.name}`}
+                      className="p-1 text-slate-400 hover:text-red-500 flex-shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wide">{item.category}</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200">
+                      <button
+                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        aria-label="Decrease quantity"
+                        className="p-1.5 text-slate-600 hover:text-slate-900"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-sm font-bold w-6 text-center">{item.quantity}</span>
+                      <button
+                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        aria-label="Increase quantity"
+                        className="p-1.5 text-slate-600 hover:text-slate-900"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <p className="font-black text-sm text-slate-900">
+                      ₹{(item.price * item.quantity).toFixed(0)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Footer */}
+        {cart.length > 0 && (
+          <div className="border-t border-slate-100 px-5 py-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-slate-500">Subtotal</span>
+              <span className="text-xl font-black text-slate-900">₹{subtotal.toFixed(0)}</span>
+            </div>
+            <button
+              onClick={goCheckout}
+              className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-slate-900 text-white font-black text-sm uppercase tracking-wide hover:bg-slate-700 transition"
+            >
+              Checkout <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </aside>
+    </>
+  );
+};
+
+/* =======================
    APP
 ======================= */
 const GUEST_CART_STORAGE_KEY = "guest_cart";
@@ -812,6 +973,7 @@ function App() {
   const [showOrderConfirmation, setShowOrderConfirmation] = useState(false);
   const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
   const [cartLoaded, setCartLoaded] = useState(false);
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
 
   const saveGuestCartLocally = (nextCart: CartItem[]) => {
     try {
@@ -948,6 +1110,9 @@ function App() {
       });
       return;
     }
+
+    // A real add (not a decrement) should surface the cart drawer as feedback.
+    if (qty > 0) setCartDrawerOpen(true);
 
     const token = localStorage.getItem("token");
     const comboItems = Array.isArray(badge?.comboItems)
@@ -1250,6 +1415,15 @@ function App() {
       <Navbar
         cartCount={cart.reduce((a, b) => a + b.quantity, 0)}
         user={user}
+        onCartClick={() => setCartDrawerOpen(true)}
+      />
+
+      <CartDrawer
+        open={cartDrawerOpen}
+        onClose={() => setCartDrawerOpen(false)}
+        cart={cart}
+        updateQuantity={updateQuantity}
+        removeFromCart={removeFromCart}
       />
 
       {/* Login Prompt Modal */}
@@ -1339,9 +1513,9 @@ function App() {
         >
           <Routes>
           <Route path="/" element={<Home addToCart={addToCart} />} />
-          <Route path="/categories/:categoryId/:subcategory" element={<Categories addToCart={addToCart} user={user} />} />
-          <Route path="/categories" element={<Categories addToCart={addToCart} user={user} />} />
-          <Route path="/stickers" element={<Stickers addToCart={addToCart} />} />
+          <Route path="/categories/:categoryId/:subcategory" element={<Categories addToCart={addToCart} user={user} cart={cart} updateQuantity={updateQuantity} />} />
+          <Route path="/categories" element={<Categories addToCart={addToCart} user={user} cart={cart} updateQuantity={updateQuantity} />} />
+          <Route path="/stickers" element={<Stickers addToCart={addToCart} cart={cart} updateQuantity={updateQuantity} />} />
           <Route path="/stickers/:id" element={<StickerDetail addToCart={addToCart} user={user} />} />
           <Route path="/badge/:id" element={<BadgeDetail addToCart={addToCart} user={user} />} />
           <Route
