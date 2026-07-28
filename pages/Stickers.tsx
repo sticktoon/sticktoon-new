@@ -318,7 +318,7 @@ export default function Stickers({ addToCart, cart, updateQuantity }: StickersPr
                       </div>
 
                       {/* Category Products Grid */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 sm:gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                         {categoryStickers.map((sticker, i) => (
                           <StickerCard key={sticker.id} sticker={sticker} addToCart={addToCart} index={i} quantityInCart={qtyById[sticker.id] || 0} onUpdateQty={updateQuantity} />
                         ))}
@@ -341,7 +341,7 @@ export default function Stickers({ addToCart, cart, updateQuantity }: StickersPr
                 </div>
 
                 {/* Single Category Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 sm:gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                   {filteredStickers.map((sticker, i) => (
                     <StickerCard key={sticker.id} sticker={sticker} addToCart={addToCart} index={i} quantityInCart={qtyById[sticker.id] || 0} onUpdateQty={updateQuantity} />
                   ))}

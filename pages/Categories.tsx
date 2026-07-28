@@ -892,7 +892,7 @@ export default function Categories({ addToCart, user, cart, updateQuantity }: Ca
                         )}
 
                         {/* Category Products Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 sm:gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                           {categoryProducts.map((badge, i) =>
                             badge.isCombo ? (
                               <ComboCard key={badge.id} badge={badge} addToCart={addToCart} index={i} quantityInCart={qtyById[badge.id] || 0} onUpdateQty={updateQuantity} />
@@ -978,7 +978,7 @@ export default function Categories({ addToCart, user, cart, updateQuantity }: Ca
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                     {sortedFilteredBadges.map((badge, i) =>
                       badge.isCombo ? (
                         <ComboCard key={badge.id} badge={badge} addToCart={addToCart} index={i} quantityInCart={qtyById[badge.id] || 0} onUpdateQty={updateQuantity} />
