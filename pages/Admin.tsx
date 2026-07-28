@@ -52,6 +52,7 @@ import {
   Store,
   ScrollText,
   ChevronDown,
+  Filter,
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 
@@ -2673,9 +2674,23 @@ const Admin: React.FC = () => {
   );
   const [isCustomSubcategory, setIsCustomSubcategory] = useState(false);
   const [isCustomCategory, setIsCustomCategory] = useState(false);
-  // Products list filters (type tab + search).
+  // Products list filters (type tab, category, stock, status, search & sort).
   const [productTypeFilter, setProductTypeFilter] = useState<"all" | ProductType>("all");
+  const [productCategoryFilter, setProductCategoryFilter] = useState("all");
+  const [productStockFilter, setProductStockFilter] = useState("all"); // "all", "in-stock", "out-of-stock"
+  const [productStatusFilter, setProductStatusFilter] = useState("all"); // "all", "live", "hidden"
+  const [productSortBy, setProductSortBy] = useState("default"); // "default", "price-asc", "price-desc", "stock-asc", "name-asc"
   const [productSearchQuery, setProductSearchQuery] = useState("");
+
+  const availableCategoriesForFilter = useMemo(() => {
+    let list = products;
+    if (productTypeFilter !== "all") {
+      list = list.filter((p) => p.type === productTypeFilter);
+    }
+    const cats = Array.from(new Set(list.map((p) => p.category).filter(Boolean)));
+    return cats.sort();
+  }, [products, productTypeFilter]);
+
   const availableSubcategories = useMemo(() => {
     // Subcategories are a badge-only concept.
     if (productForm.type !== "badge") return [];
@@ -2689,11 +2704,16 @@ const Admin: React.FC = () => {
     return Array.from(new Set([...fromProducts, ...fromSuggestions])).filter(Boolean);
   }, [productForm.type, productForm.category, products]);
 
-  // Real products only, filtered by the active type tab + search query.
+  // Real products only, filtered by active type tab, category, stock, status, search & sort.
   const productsForDisplay = useMemo(() => {
     const q = productSearchQuery.trim().toLowerCase();
-    return products.filter((p) => {
+    const filtered = products.filter((p) => {
       if (productTypeFilter !== "all" && p.type !== productTypeFilter) return false;
+      if (productCategoryFilter !== "all" && p.category !== productCategoryFilter) return false;
+      if (productStockFilter === "in-stock" && (p.stock || 0) <= 0) return false;
+      if (productStockFilter === "out-of-stock" && (p.stock || 0) > 0) return false;
+      if (productStatusFilter === "live" && p.isActive === false) return false;
+      if (productStatusFilter === "hidden" && p.isActive !== false) return false;
       if (!hasValidImage(p.image)) return false;
       if (!q) return true;
       return (
@@ -2703,7 +2723,30 @@ const Admin: React.FC = () => {
         (p.category || "").toLowerCase().includes(q)
       );
     });
-  }, [products, productTypeFilter, productSearchQuery]);
+
+    if (productSortBy === "price-asc") {
+      return [...filtered].sort((a, b) => (a.price || 0) - (b.price || 0));
+    }
+    if (productSortBy === "price-desc") {
+      return [...filtered].sort((a, b) => (b.price || 0) - (a.price || 0));
+    }
+    if (productSortBy === "stock-asc") {
+      return [...filtered].sort((a, b) => (a.stock || 0) - (b.stock || 0));
+    }
+    if (productSortBy === "name-asc") {
+      return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    return filtered;
+  }, [
+    products,
+    productTypeFilter,
+    productCategoryFilter,
+    productStockFilter,
+    productStatusFilter,
+    productSortBy,
+    productSearchQuery,
+  ]);
 
   const badgeCount = useMemo(() => products.filter((p) => p.type === "badge").length, [products]);
   const stickerCount = useMemo(() => products.filter((p) => p.type === "sticker").length, [products]);
@@ -7360,45 +7403,130 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 </div>
               )}
 
-              {/* Type filter tabs + search */}
+              {/* Type filter tabs + search + Advanced Filters */}
               {!loadingData.products && products.length > 0 && (
-                <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-                  <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 gap-1 shadow-sm overflow-x-auto">
-                    {(
-                      [
-                        { key: "all", label: `All (${products.length})` },
-                        { key: "badge", label: `🎖️ Badges (${badgeCount})` },
-                        { key: "sticker", label: `🎨 Stickers (${stickerCount})` },
-                      ] as { key: "all" | ProductType; label: string }[]
-                    ).map((tab) => (
-                      <button
-                        key={tab.key}
-                        onClick={() => setProductTypeFilter(tab.key)}
-                        className={`px-4 py-2 rounded-md text-sm font-bold whitespace-nowrap transition-all ${
-                          productTypeFilter === tab.key
-                            ? "bg-indigo-600 text-white shadow"
-                            : "text-gray-600 hover:bg-gray-100"
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
+                <div className="space-y-4">
+                  {/* Top Bar: Tabs + Search */}
+                  <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                    <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 gap-1 shadow-sm overflow-x-auto">
+                      {(
+                        [
+                          { key: "all", label: `All (${products.length})` },
+                          { key: "badge", label: `🎖️ Badges (${badgeCount})` },
+                          { key: "sticker", label: `🎨 Stickers (${stickerCount})` },
+                        ] as { key: "all" | ProductType; label: string }[]
+                      ).map((tab) => (
+                        <button
+                          key={tab.key}
+                          onClick={() => {
+                            setProductTypeFilter(tab.key);
+                            setProductCategoryFilter("all");
+                          }}
+                          className={`px-4 py-2 rounded-md text-sm font-bold whitespace-nowrap transition-all ${
+                            productTypeFilter === tab.key
+                              ? "bg-indigo-600 text-white shadow"
+                              : "text-gray-600 hover:bg-gray-100"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="relative sm:w-72">
+                      <input
+                        type="text"
+                        placeholder="🔍 Search products…"
+                        value={productSearchQuery}
+                        onChange={(e) => setProductSearchQuery(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none shadow-sm"
+                      />
+                      {productSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setProductSearchQuery("")}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 font-bold"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="relative sm:w-72">
-                    <input
-                      type="text"
-                      placeholder="🔍 Search products…"
-                      value={productSearchQuery}
-                      onChange={(e) => setProductSearchQuery(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none shadow-sm"
-                    />
-                    {productSearchQuery && (
+
+                  {/* Filter controls row */}
+                  <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl shadow-inner">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-gray-600 uppercase tracking-wider">
+                      <Filter className="w-3.5 h-3.5 text-indigo-600" />
+                      Filters:
+                    </div>
+
+                    {/* Category Filter */}
+                    <select
+                      value={productCategoryFilter}
+                      onChange={(e) => setProductCategoryFilter(e.target.value)}
+                      className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none cursor-pointer"
+                    >
+                      <option value="all">📁 All Categories ({availableCategoriesForFilter.length})</option>
+                      {availableCategoriesForFilter.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* Stock Filter */}
+                    <select
+                      value={productStockFilter}
+                      onChange={(e) => setProductStockFilter(e.target.value)}
+                      className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none cursor-pointer"
+                    >
+                      <option value="all">📦 All Stock</option>
+                      <option value="in-stock">✅ In Stock</option>
+                      <option value="out-of-stock">❌ Out of Stock</option>
+                    </select>
+
+                    {/* Visibility Status Filter */}
+                    <select
+                      value={productStatusFilter}
+                      onChange={(e) => setProductStatusFilter(e.target.value)}
+                      className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none cursor-pointer"
+                    >
+                      <option value="all">👁️ All Visibility</option>
+                      <option value="live">🟢 Live Only</option>
+                      <option value="hidden">🔴 Hidden Only</option>
+                    </select>
+
+                    {/* Sort By Filter */}
+                    <select
+                      value={productSortBy}
+                      onChange={(e) => setProductSortBy(e.target.value)}
+                      className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none cursor-pointer sm:ml-auto"
+                    >
+                      <option value="default">🔃 Sort: Default</option>
+                      <option value="price-asc">💰 Price: Low to High</option>
+                      <option value="price-desc">💎 Price: High to Low</option>
+                      <option value="stock-asc">📉 Stock: Low to High</option>
+                      <option value="name-asc">🔤 Name: A to Z</option>
+                    </select>
+
+                    {/* Clear Filters Button */}
+                    {(productCategoryFilter !== "all" ||
+                      productStockFilter !== "all" ||
+                      productStatusFilter !== "all" ||
+                      productSortBy !== "default" ||
+                      productSearchQuery !== "") && (
                       <button
                         type="button"
-                        onClick={() => setProductSearchQuery("")}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 font-bold"
+                        onClick={() => {
+                          setProductCategoryFilter("all");
+                          setProductStockFilter("all");
+                          setProductStatusFilter("all");
+                          setProductSortBy("default");
+                          setProductSearchQuery("");
+                        }}
+                        className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
                       >
-                        ✕
+                        <X className="w-3.5 h-3.5" />
+                        Clear Filters
                       </button>
                     )}
                   </div>
