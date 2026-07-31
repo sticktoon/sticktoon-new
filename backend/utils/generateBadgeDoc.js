@@ -57,7 +57,10 @@ async function generateBadgeDoc({ orderId, customBadges }) {
     return null;
   };
 
-  const DISPLAY_DPI = 96;
+  // Word sizes images in pixels-at-96-DPI (docx multiplies by 9525 to get EMU).
+  // Left unrounded this lands on an exact millimetre: 70mm -> 2520000 EMU.
+  // Rounding here is what used to print badges 0.1mm oversized.
+  const mmToDocxPx = (mm) => (mm / 25.4) * 96;
 
   const buildImageRun = async (imageSource, sizeMm) => {
     if (!imageSource || !imageSource.startsWith("data:image")) return null;
@@ -65,50 +68,33 @@ async function generateBadgeDoc({ orderId, customBadges }) {
     const imageBuffer = extractImageBuffer(imageSource);
     if (!imageBuffer) throw new Error("Badge image buffer is empty");
 
-    const px = Math.round((sizeMm / 25.4) * DISPLAY_DPI);
+    // Keep the designer's own pixels — they already come in at 300 DPI.
+    // Resizing to the display size would bake the print file down to 96 DPI.
+    const meta = await sharp(imageBuffer).metadata();
+    const px = Math.min(meta.width || 0, meta.height || 0);
+    if (!px) throw new Error("Badge image has no dimensions");
 
-    // 1. Resize first
-    const resized = await sharp(imageBuffer)
+    // Anti-aliased circular crop (a raw pixel mask leaves a stair-stepped edge).
+    const mask = Buffer.from(
+      `<svg width="${px}" height="${px}"><circle cx="${px / 2}" cy="${px / 2}" r="${px / 2}" fill="#fff"/></svg>`
+    );
+
+    const dpi = Math.round(px / (sizeMm / 25.4));
+
+    const circular = await sharp(imageBuffer)
       .resize(px, px, { fit: "cover" })
-      .png()
-      .toBuffer();
-
-    // 2. ALWAYS create perfect circle mask to ensure circular output
-    const radius = px / 2;
-    const centerX = radius;
-    const centerY = radius;
-    const maskBuffer = Buffer.alloc(px * px * 4, 0);
-
-    for (let y = 0; y < px; y++) {
-      for (let x = 0; x < px; x++) {
-        const dx = x - centerX;
-        const dy = y - centerY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance <= radius) {
-          const idx = (y * px + x) * 4;
-          maskBuffer[idx + 3] = 255; // Alpha only
-        }
-      }
-    }
-
-    const maskPng = await sharp(maskBuffer, {
-      raw: { width: px, height: px, channels: 4 },
-    }).png().toBuffer();
-
-    // 3. Composite with dest-in for circular crop
-    const circular = await sharp(resized)
       .ensureAlpha()
-      .composite([{
-        input: maskPng,
-        blend: "dest-in",
-      }])
+      .composite([{ input: mask, blend: "dest-in" }])
+      .withMetadata({ density: dpi })
       .png()
       .toBuffer();
 
     return {
       data: Uint8Array.from(circular),
-      width: px,
-      height: px,
+      width: mmToDocxPx(sizeMm),
+      height: mmToDocxPx(sizeMm),
+      px,
+      dpi,
     };
   };
 
@@ -372,13 +358,26 @@ async function generateBadgeDoc({ orderId, customBadges }) {
         })
       );
 
+      // The canvas always exports at 300 DPI, so its own dimensions prove nothing
+      // about the customer's upload. sourceDpi is what the designer actually
+      // measured off the original pixels — trust the lower of the two.
+      const printDpi = Math.min(
+        outerImage ? outerImage.dpi : Infinity,
+        innerImage ? innerImage.dpi : Infinity,
+        badge.sourceDpi || Infinity
+      );
+      const dpiOk = printDpi >= 250;
+
       children.push(
         new Paragraph({
           children: [
             new TextRun({
-              text: "↑ Circular cropped badge images ready for printing",
+              text: dpiOk
+                ? `↑ Print at exact size — 70mm and 58mm circles, ${printDpi} DPI. Do not scale.`
+                : `⚠️ LOW RESOLUTION: ${printDpi} DPI. Print will look soft — ask for a larger source image.`,
               size: 18,
-              color: "10B981",
+              color: dpiOk ? "10B981" : "EF4444",
+              bold: !dpiOk,
               italics: true,
             }),
           ],

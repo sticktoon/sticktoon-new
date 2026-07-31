@@ -1571,7 +1571,7 @@ function App() {
           }
         >
           <Routes>
-          <Route path="/" element={<Home addToCart={addToCart} />} />
+          <Route path="/" element={<Home addToCart={addToCart} cart={cart} updateQuantity={updateQuantity} />} />
           <Route path="/categories/:categoryId/:subcategory" element={<Categories addToCart={addToCart} user={user} cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} />} />
           <Route path="/categories" element={<Categories addToCart={addToCart} user={user} cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} />} />
           <Route path="/stickers" element={<Stickers addToCart={addToCart} cart={cart} updateQuantity={updateQuantity} />} />

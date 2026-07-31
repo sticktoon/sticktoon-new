@@ -8,7 +8,7 @@ const { adminOnly } = require("../middleware/roleMiddleware");
 // Accepts badge image data and returns a Word document for download
 router.post("/download", auth, adminOnly, async (req, res) => {
   try {
-    const { image, printImage, name, quantity } = req.body;
+    const { image, printImage, name, quantity, sourceDpi } = req.body;
 
     if (!image && !printImage) {
       return res.status(400).json({ error: "No badge image provided" });
@@ -20,6 +20,7 @@ router.post("/download", auth, adminOnly, async (req, res) => {
         quantity: quantity || 1,
         image: image || null,
         printImage: printImage || null,
+        sourceDpi: Number(sourceDpi) || null,
       },
     ];
 

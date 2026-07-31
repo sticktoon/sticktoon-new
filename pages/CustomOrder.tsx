@@ -33,6 +33,19 @@ interface CustomOrderDraft {
   imageY?: number;
 }
 
+// Mockup composition, in fractions of the stage box. Both the on-screen layout and
+// the downloaded PNG read these, so the download always matches what is shown.
+// The back badge uses rotate+scaleX rather than CSS perspective() precisely so a
+// 2D canvas can reproduce it exactly.
+const STAGE = {
+  ratio: 0.88,        // stage height / width
+  backW: 0.60,
+  backTilt: -7,       // degrees
+  backSquash: 0.88,   // stands in for rotateY
+  frontW: 0.76,
+  frontBottom: 0.03,
+};
+
 const CUSTOM_ORDER_DRAFT_KEY = 'sticktoon-custom-order-draft-v1';
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -50,6 +63,7 @@ const readStoredAuthUser = (key: string): StoredAuthUser | null => {
 export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const backCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [fastener, setFastener] = useState('Pin-Badge');
@@ -122,7 +136,14 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
   
   const CANVAS_SIZE = Math.round((BADGE_MM * PRINT_DPI) / MM_TO_INCH);
   const OUTER_CANVAS_SIZE = Math.round((OUTER_BADGE_MM * PRINT_DPI) / MM_TO_INCH);
+  const INNER_PX = (BADGE_MM / OUTER_BADGE_MM) * CANVAS_PX;
   const BASE_PRICE = 69;
+
+  // Source pixels landing on each printed inch of the 58mm face. Zooming in spends
+  // resolution, so this drops live as the customer scales up.
+  const effectiveDpi = imageState
+    ? Math.round((INNER_PX / imageState.scale) / (BADGE_MM / MM_TO_INCH))
+    : 0;
 
   useEffect(() => {
     try {
@@ -206,9 +227,257 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     setImageState(prev => prev ? { ...prev, scale: baseScale * zoom } : prev);
   }, []);
 
+  // Both badge faces paint into any square context at any size, so the on-screen
+  // preview and the exported mockup render natively instead of one upscaling the
+  // other. `k` rescales the handful of genuinely fixed widths (strokes, the pin)
+  // that would otherwise turn into hairlines at export size.
+  const paintFront = useCallback((ctx: CanvasRenderingContext2D, size: number) => {
+    const k = size / 300;
+    const r = size / 2;
+    const c = r;
+    ctx.clearRect(0, 0, size, size);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(c, c, r, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor;
+    ctx.fillRect(0, 0, size, size);
+
+    if (imageState) {
+      // Only the 58mm face is ever visible — 58-70mm is bleed that wraps the
+      // shell edge and gets crimped behind. So the face fills the whole circle.
+      //
+      // The face is domed, not flat: flat paper pressed onto a convex shell
+      // magnifies the middle and compresses toward the rim. Screen radius is
+      // sin(theta), paper radius is arc length theta, so band i pulls its art
+      // from asin(u*sin(CAP))/CAP. The 58mm boundary still lands exactly on the
+      // rim, so nothing outside the visible area leaks in.
+      const CAP = 0.8;            // ~46 degree shell cap => ~10% centre bulge
+      const BANDS = 28;
+      const sinCap = Math.sin(CAP);
+      const paperFrac = (u: number) => Math.asin(u * sinCap) / CAP;
+      const facePaperR = INNER_PX / 2;
+
+      for (let i = 0; i < BANDS; i++) {
+        const u0 = i / BANDS;
+        const u1 = (i + 1) / BANDS;
+        const uMid = (u0 + u1) / 2;
+        const pMid = (paperFrac(u0) + paperFrac(u1)) / 2;
+        const s = (r * uMid) / (facePaperR * pMid);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(c, c, r * u1 + 0.5 * k, 0, Math.PI * 2);
+        if (i > 0) ctx.arc(c, c, r * u0 - 0.5 * k, 0, Math.PI * 2, true);
+        ctx.clip();
+        ctx.translate(c, c);
+        ctx.scale(s, s);
+        ctx.translate(imageState.x, imageState.y);
+        ctx.rotate((imageState.rotation * Math.PI) / 180);
+        ctx.scale(imageState.scale, imageState.scale);
+        ctx.drawImage(imageState.img, -imageState.img.width / 2, -imageState.img.height / 2);
+        ctx.restore();
+      }
+    }
+
+    // dome falls away from the light toward the rim
+    const rim = ctx.createRadialGradient(c, c, r * 0.55, c, c, r);
+    rim.addColorStop(0, 'rgba(0,0,0,0)');
+    rim.addColorStop(0.62, 'rgba(0,0,0,0.10)');
+    rim.addColorStop(0.9, 'rgba(0,0,0,0.30)');
+    rim.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = rim;
+    ctx.fillRect(0, 0, size, size);
+
+    // broad soft sheen across the top of the dome
+    const sheen = ctx.createLinearGradient(0, 0, 0, size);
+    sheen.addColorStop(0, 'rgba(255,255,255,0.34)');
+    sheen.addColorStop(0.42, 'rgba(255,255,255,0.05)');
+    sheen.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sheen;
+    ctx.fillRect(0, 0, size, size);
+
+    // tight specular hotspot — the giveaway that the surface is glossy and curved
+    ctx.save();
+    ctx.translate(c - r * 0.30, c - r * 0.40);
+    ctx.rotate(-0.5);
+    ctx.scale(1, 0.55);
+    const hot = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.46);
+    hot.addColorStop(0, 'rgba(255,255,255,0.62)');
+    hot.addColorStop(0.5, 'rgba(255,255,255,0.16)');
+    hot.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = hot;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.46, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // light bouncing back up off the lower rim
+    const bounce = ctx.createRadialGradient(
+      c + r * 0.12, c + r * 0.80, r * 0.02,
+      c + r * 0.12, c + r * 0.80, r * 0.50
+    );
+    bounce.addColorStop(0, 'rgba(255,255,255,0.30)');
+    bounce.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = bounce;
+    ctx.fillRect(0, 0, size, size);
+    ctx.restore();
+
+    // glossy crimped edge: catches light top-left, falls dark bottom-right
+    const edge = ctx.createLinearGradient(0, 0, size, size);
+    edge.addColorStop(0, 'rgba(255,255,255,0.85)');
+    edge.addColorStop(0.45, 'rgba(255,255,255,0.12)');
+    edge.addColorStop(1, 'rgba(0,0,0,0.40)');
+    ctx.beginPath();
+    ctx.arc(c, c, r - 1.5 * k, 0, Math.PI * 2);
+    ctx.strokeStyle = edge;
+    ctx.lineWidth = 3 * k;
+    ctx.stroke();
+  }, [imageState, bgColor, INNER_PX]);
+
+  const paintBack = useCallback((ctx: CanvasRenderingContext2D, size: number) => {
+    const k = size / 300;
+    const r = size / 2;
+    const c = r;
+    const plateR = r * 0.86;
+    ctx.clearRect(0, 0, size, size);
+
+    // The 58-70mm bleed folds over the rim, so from the back it reads inside-out:
+    // the 58mm fold line sits at the outer edge and the 70mm cut tucks inward.
+    // Also mirrored — same paper, other side. Drawn as thin bands because that
+    // radial flip is not a plain scale.
+    // ponytail: 20 bands is smooth up to export size; raise it if the ring bands.
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(c, c, r, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor;
+    ctx.fillRect(0, 0, size, size);
+    ctx.restore();
+
+    if (imageState) {
+      const BANDS = 20;
+      const paperFold = INNER_PX / 2;   // 58mm, lands on the back's outer edge
+      const paperCut = CANVAS_PX / 2;   // 70mm, tucked innermost
+      for (let i = 0; i < BANDS; i++) {
+        const t0 = i / BANDS;
+        const t1 = (i + 1) / BANDS;
+        const bandOuter = r - t0 * (r - plateR);
+        const bandInner = r - t1 * (r - plateR);
+        const paperR = paperFold + ((t0 + t1) / 2) * (paperCut - paperFold);
+        const s = ((bandInner + bandOuter) / 2) / paperR;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(c, c, bandOuter + 0.5 * k, 0, Math.PI * 2);
+        ctx.arc(c, c, Math.max(bandInner - 0.5 * k, 0), 0, Math.PI * 2, true);
+        ctx.clip();
+        ctx.translate(c, c);
+        ctx.scale(-s, s);
+        ctx.translate(imageState.x, imageState.y);
+        ctx.rotate((imageState.rotation * Math.PI) / 180);
+        ctx.scale(imageState.scale, imageState.scale);
+        ctx.drawImage(imageState.img, -imageState.img.width / 2, -imageState.img.height / 2);
+        ctx.restore();
+      }
+    }
+
+    // crease where the paper tucks under the crimped rim
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(c, c, r, 0, Math.PI * 2);
+    ctx.clip();
+    // darkest where it disappears under the shell, lit at the folded-over crest
+    const tuck = ctx.createRadialGradient(c, c, plateR, c, c, r);
+    tuck.addColorStop(0, 'rgba(0,0,0,0.50)');
+    tuck.addColorStop(0.5, 'rgba(0,0,0,0.14)');
+    tuck.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = tuck;
+    ctx.fillRect(0, 0, size, size);
+    ctx.restore();
+
+    ctx.beginPath();
+    ctx.arc(c, c, r - 1 * k, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.30)';
+    ctx.lineWidth = 2 * k;
+    ctx.stroke();
+
+    // metal back shell
+    const plate = ctx.createLinearGradient(c - plateR, c - plateR, c + plateR, c + plateR);
+    plate.addColorStop(0, '#f8fafc');
+    plate.addColorStop(0.3, '#cbd5e1');
+    plate.addColorStop(0.62, '#8fa0b4');
+    plate.addColorStop(1, '#e2e8f0');
+    ctx.beginPath();
+    ctx.arc(c, c, plateR, 0, Math.PI * 2);
+    ctx.fillStyle = plate;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(15,23,42,0.28)';
+    ctx.lineWidth = 1.5 * k;
+    ctx.stroke();
+
+    if (fastener === 'Pin-Badge') {
+      const pinY = c + plateR * 0.05;
+      ctx.strokeStyle = 'rgba(15,23,42,0.30)';
+      ctx.lineWidth = 5 * k;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(c - plateR * 0.52, pinY + 3 * k);
+      ctx.lineTo(c + plateR * 0.62, pinY + 3 * k);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 3.5 * k;
+      ctx.beginPath();
+      ctx.moveTo(c - plateR * 0.52, pinY);
+      ctx.lineTo(c + plateR * 0.62, pinY);
+      ctx.stroke();
+
+      // hinge barrel + clasp
+      ctx.fillStyle = '#94a3b8';
+      ctx.beginPath();
+      ctx.arc(c - plateR * 0.58, pinY, plateR * 0.11, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(15,23,42,0.35)';
+      ctx.lineWidth = 1 * k;
+      ctx.stroke();
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(c + plateR * 0.52, pinY - plateR * 0.15, plateR * 0.2, plateR * 0.3);
+      ctx.strokeRect(c + plateR * 0.52, pinY - plateR * 0.15, plateR * 0.2, plateR * 0.3);
+    } else {
+      const magR = plateR * 0.6;
+      const mag = ctx.createRadialGradient(
+        c - magR * 0.35, c - magR * 0.35, magR * 0.05, c, c, magR
+      );
+      mag.addColorStop(0, '#64748b');
+      mag.addColorStop(1, '#1e293b');
+      ctx.beginPath();
+      ctx.arc(c, c, magR, 0, Math.PI * 2);
+      ctx.fillStyle = mag;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(15,23,42,0.55)';
+      ctx.lineWidth = 1 * k;
+      ctx.stroke();
+    }
+  }, [imageState, bgColor, fastener, INNER_PX, CANVAS_PX]);
+
+  const paintTo = useCallback((paint: (c: CanvasRenderingContext2D, s: number) => void, size: number) => {
+    const el = document.createElement('canvas');
+    el.width = size;
+    el.height = size;
+    const ctx = el.getContext('2d')!;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    paint(ctx, size);
+    return el;
+  }, []);
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const preview = previewCanvasRef.current;
+    const back = backCanvasRef.current;
     if (!canvas) return;
 
     const dpr = Math.max(window.devicePixelRatio || 1, 2);
@@ -227,7 +496,6 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     const cx = CANVAS_PX / 2;
     const cy = CANVAS_PX / 2;
     const OUTER_PX = CANVAS_PX;
-    const INNER_PX = (BADGE_MM / OUTER_BADGE_MM) * CANVAS_PX;
 
     ctx.clearRect(0, 0, CANVAS_PX, CANVAS_PX);
     ctx.fillStyle = "hsl(222, 47%, 8%)";
@@ -265,49 +533,22 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     ctx.setLineDash([]);
     ctx.restore();
 
-    if (preview) {
-      const pDpr = Math.max(window.devicePixelRatio || 1, 2);
-      const pDisplaySize = 250;
-      if (preview.width !== pDisplaySize * pDpr || preview.height !== pDisplaySize * pDpr) {
-        preview.width = pDisplaySize * pDpr;
-        preview.height = pDisplaySize * pDpr;
+    const paintOnto = (target: HTMLCanvasElement, paint: (c: CanvasRenderingContext2D, s: number) => void) => {
+      const dprSize = Math.round(300 * Math.max(window.devicePixelRatio || 1, 2));
+      if (target.width !== dprSize || target.height !== dprSize) {
+        target.width = dprSize;
+        target.height = dprSize;
       }
-      const pCtx = preview.getContext("2d")!;
-      pCtx.save();
-      pCtx.scale(pDpr, pDpr);
-      pCtx.imageSmoothingEnabled = true;
-      pCtx.imageSmoothingQuality = "high";
+      const c2d = target.getContext("2d")!;
+      c2d.imageSmoothingEnabled = true;
+      c2d.imageSmoothingQuality = "high";
+      paint(c2d, dprSize);
+    };
 
-      const pSize = pDisplaySize;
-      pCtx.clearRect(0, 0, pSize, pSize);
-      pCtx.save();
-      pCtx.beginPath();
-      pCtx.arc(pSize / 2, pSize / 2, pSize / 2, 0, Math.PI * 2);
-      pCtx.clip();
-      pCtx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor;
-      pCtx.fill();
+    if (preview) paintOnto(preview, paintFront);
+    if (back) paintOnto(back, paintBack);
+  }, [imageState, bgColor, paintFront, paintBack, CANVAS_PX, BADGE_MM, OUTER_BADGE_MM]);
 
-      if (imageState) {
-        const previewScale = pSize / INNER_PX;
-        pCtx.save();
-        pCtx.translate(pSize / 2, pSize / 2);
-        pCtx.scale(previewScale, previewScale);
-        pCtx.translate(imageState.x, imageState.y);
-        pCtx.rotate((imageState.rotation * Math.PI) / 180);
-        pCtx.scale(imageState.scale, imageState.scale);
-        pCtx.drawImage(imageState.img, -imageState.img.width / 2, -imageState.img.height / 2);
-        pCtx.restore();
-      }
-      pCtx.restore();
-
-      pCtx.beginPath();
-      pCtx.arc(pSize / 2, pSize / 2, pSize / 2 - 1, 0, Math.PI * 2);
-      pCtx.strokeStyle = "hsl(145, 55%, 42%)";
-      pCtx.lineWidth = 2;
-      pCtx.stroke();
-      pCtx.restore();
-    }
-  }, [imageState, bgColor, CANVAS_PX, BADGE_MM, OUTER_BADGE_MM]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -477,6 +718,10 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
       const offCanvas = document.createElement("canvas");
       offCanvas.width = EXPORT_OUTER; offCanvas.height = EXPORT_OUTER;
       const ctx = offCanvas.getContext("2d")!;
+      // Without this the export resamples at "low" quality and a big upload comes
+      // out visibly aliased — the on-screen canvas looks fine, the print file does not.
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       const cx = EXPORT_OUTER / 2;
       const scale = EXPORT_OUTER / CANVAS_PX;
       ctx.beginPath(); ctx.arc(cx, cx, EXPORT_OUTER / 2, 0, Math.PI * 2); ctx.clip();
@@ -495,11 +740,12 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
 
   const getInnerCircleBlob = (): Promise<string> => {
     return new Promise((resolve) => {
-      const INNER_PX = (BADGE_MM / OUTER_BADGE_MM) * CANVAS_PX;
       const EXPORT_SIZE = CANVAS_SIZE;
       const offCanvas = document.createElement("canvas");
       offCanvas.width = EXPORT_SIZE; offCanvas.height = EXPORT_SIZE;
       const ctx = offCanvas.getContext("2d")!;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       const cx = EXPORT_SIZE / 2;
       ctx.beginPath(); ctx.arc(cx, cx, EXPORT_SIZE / 2, 0, Math.PI * 2); ctx.clip();
       ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor; ctx.fill();
@@ -532,7 +778,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${adminAuthToken}`,
         },
-        body: JSON.stringify({ image: innerDataUrl, printImage: outerDataUrl, name: `Custom ${fastener}`, quantity }),
+        body: JSON.stringify({ image: innerDataUrl, printImage: outerDataUrl, name: `Custom ${fastener}`, quantity, sourceDpi: effectiveDpi }),
       });
       if (!response.ok) throw new Error('Download failed');
       const blob = await response.blob();
@@ -560,18 +806,79 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
 
   const handleReset = () => { setImageState(prev => prev ? { ...prev, x: 0, y: 0 } : prev); setZoom(1); setRotation(0); };
 
-  const handleDownloadPreview = async () => {
-    if (!imageState) return;
-    const dataUrl = await getInnerCircleBlob();
-    const a = document.createElement('a'); a.href = dataUrl; a.download = `badge-preview-58mm-${Date.now()}.png`;
+  // Replays the on-screen stage into one PNG, reading the same STAGE numbers the
+  // layout uses. Each badge is repainted at its final export size rather than
+  // scaled up from the 300px preview canvas, which is what made this soft before.
+  const getMockupBlob = (): Promise<string> => {
+    return new Promise((resolve) => {
+      const SW = 2000;
+      const front = paintTo(paintFront, Math.round(SW * STAGE.frontW));
+      const back = paintTo(paintBack, Math.round(SW * STAGE.backW));
+      const SH = Math.round(SW * STAGE.ratio);
+      const out = document.createElement('canvas');
+      out.width = SW;
+      out.height = SH;
+      const ctx = out.getContext('2d')!;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(15,23,42,0.30)';
+      ctx.shadowBlur = SW * 0.03;
+      ctx.shadowOffsetY = SW * 0.02;
+      ctx.translate(back.width / 2, back.width / 2);
+      ctx.rotate((STAGE.backTilt * Math.PI) / 180);
+      ctx.scale(STAGE.backSquash, 1);
+      ctx.drawImage(back, -back.width / 2, -back.width / 2);
+      ctx.restore();
+
+      // contact shadow — a squashed radial, so no dependency on ctx.filter
+      ctx.save();
+      ctx.translate(SW * 0.625, SH * 0.965);
+      ctx.scale(1, 0.13);
+      const ground = ctx.createRadialGradient(0, 0, 0, 0, 0, SW * 0.36);
+      ground.addColorStop(0, 'rgba(15,23,42,0.35)');
+      ground.addColorStop(1, 'rgba(15,23,42,0)');
+      ctx.fillStyle = ground;
+      ctx.beginPath();
+      ctx.arc(0, 0, SW * 0.36, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(15,23,42,0.38)';
+      ctx.shadowBlur = SW * 0.045;
+      ctx.shadowOffsetY = SW * 0.035;
+      ctx.drawImage(front, SW - front.width, SH - SH * STAGE.frontBottom - front.width);
+      ctx.restore();
+
+      resolve(out.toDataURL('image/png'));
+    });
+  };
+
+  const saveDataUrl = (dataUrl: string, filename: string) => {
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
+  const handleDownloadPreview = async () => {
+    if (!imageState) {
+      setErrorMessage('Please upload or generate an image first');
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+    saveDataUrl(await getMockupBlob(), `badge-mockup-${BADGE_MM}mm-${Date.now()}.png`);
+  };
+
   const handleDownloadTemplate = async () => {
-    if (!imageState) return;
-    const dataUrl = await getFullCircleBlob();
-    const a = document.createElement('a'); a.href = dataUrl; a.download = `badge-template-70mm-${Date.now()}.png`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    if (!imageState) {
+      setErrorMessage('Please upload or generate an image first');
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+    saveDataUrl(await getFullCircleBlob(), `badge-${OUTER_BADGE_MM}mm-print-${effectiveDpi}dpi.png`);
   };
 
   return (
@@ -585,8 +892,8 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
       )}
 
       {/* Header */}
-      <header className="relative z-10 border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-4 py-4 sm:px-6 shadow-sm">
-        <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3">
+      <header className="relative z-10 border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-4 py-3 sm:px-8 shadow-sm">
+        <div className="max-w-[1920px] mx-auto flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-black text-slate-900 sm:text-2xl flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-yellow-500" />
@@ -604,13 +911,13 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-7xl px-3 py-4 pb-20 sm:px-4 sm:py-5 lg:pb-5 lg:h-[calc(100vh-73px)] lg:overflow-hidden">
+      <main className="relative z-10 mx-auto max-w-[1920px] px-4 py-4 pb-20 sm:px-6 sm:py-5 lg:px-8 lg:pb-5 lg:h-[calc(100vh-73px)] lg:overflow-hidden">
         <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/gif" className="hidden"
           onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
 
-        <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 items-start lg:h-full">
+        <div className="flex flex-col lg:flex-row gap-5 lg:gap-6 items-start lg:h-full">
           {/* ===== LEFT PANEL: Config + Controls ===== */}
-          <div className="hidden lg:block lg:w-64 flex-shrink-0 lg:h-full lg:overflow-y-auto pr-1">
+          <div className="hidden lg:block lg:w-72 xl:w-80 flex-shrink-0 lg:h-full lg:overflow-y-auto pr-1">
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-4 space-y-4 shadow-sm">
               <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-2">
                 <Settings2 className="w-3.5 h-3.5 text-yellow-600" /> Configuration
@@ -644,10 +951,9 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                     <button
                       onClick={() => {
                         setImageState(null);
-                        setOriginalImage(null);
-                        setCroppedImage(null);
                         setZoom(1);
                         setRotation(0);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
                       className="text-[11px] font-bold text-red-600 hover:text-red-800 flex items-center gap-1 hover:underline"
                     >
@@ -717,22 +1023,22 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
           </div>
 
           {/* ===== CENTER: Canvas ===== */}
-          <div className="flex-1 min-w-0 flex flex-col gap-3">
+          <div className="flex-1 min-w-0 flex flex-col gap-3 lg:h-full">
             {/* Canvas Area */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-4 flex-1 flex flex-col shadow-sm"
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-4 flex-1 flex flex-col shadow-sm justify-center items-center overflow-hidden"
               onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
-              <div className="mb-3 flex items-center justify-between">
+              <div className="w-full mb-2 flex items-center justify-between">
                 <p className="text-xs font-bold text-slate-600 flex items-center gap-2">
                   <Info className="w-3.5 h-3.5 text-yellow-600" />
                   {OUTER_BADGE_MM}mm Canvas
                 </p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Drag • Scroll to zoom</p>
               </div>
-              <div className="flex-1 flex items-center justify-center">
+              <div className="flex-1 w-full flex items-center justify-center overflow-hidden">
                 <canvas
                   ref={canvasRef}
                   className="max-w-full max-h-full rounded-xl cursor-grab active:cursor-grabbing shadow-lg ring-1 ring-slate-200"
-                  style={{ aspectRatio: "1/1", width: "100%", maxWidth: "min(100%, 420px)", touchAction: "none" }}
+                  style={{ aspectRatio: "1/1", width: "100%", maxWidth: "min(100%, 560px)", maxHeight: "min(100%, 560px)", touchAction: "none" }}
                   onMouseDown={handlePointerDown} onMouseMove={handlePointerMove} onMouseUp={handlePointerUp}
                   onMouseLeave={handlePointerUp} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
                 />
@@ -755,16 +1061,56 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
           </div>
 
           {/* ===== RIGHT PANEL: Preview & Price ===== */}
-          <div className="w-full lg:w-64 flex-shrink-0">
+          <div className="w-full lg:w-80 xl:w-96 flex-shrink-0 lg:h-full lg:overflow-y-auto">
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-4 space-y-4 shadow-sm">
               <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider text-center flex items-center justify-center gap-2">
                 <Eye className="w-3.5 h-3.5 text-yellow-600" /> Final Preview
               </h3>
-              <div className="flex justify-center">
-                <canvas ref={previewCanvasRef} width={250} height={250}
-                  className="rounded-full shadow-md w-full max-w-[180px] h-auto ring-2 ring-slate-200"
-                  style={{ aspectRatio: '1 / 1' }} />
+              {/* Product shot: back badge angled behind, domed front badge in front */}
+              <div className="rounded-2xl bg-gradient-to-b from-white via-slate-50 to-slate-200/80 border border-slate-200 px-3 pt-4 pb-4">
+                <div className="relative mx-auto w-full max-w-[250px]" style={{ aspectRatio: `1 / ${STAGE.ratio}` }}>
+                  <div
+                    className="absolute top-0"
+                    style={{
+                      left: 0,
+                      width: `${STAGE.backW * 100}%`,
+                      transform: `rotate(${STAGE.backTilt}deg) scaleX(${STAGE.backSquash})`,
+                    }}
+                  >
+                    <canvas ref={backCanvasRef} width={300} height={300}
+                      className="block w-full h-auto rounded-full drop-shadow-[0_8px_12px_rgba(15,23,42,0.30)]"
+                      style={{ aspectRatio: '1 / 1' }} />
+                  </div>
+
+                  {/* contact shadow on the surface */}
+                  <div className="absolute left-[24%] right-[1%] bottom-[1%] h-4 rounded-[50%] bg-slate-900/25 blur-md" />
+
+                  <div
+                    className="absolute right-0"
+                    style={{ bottom: `${STAGE.frontBottom * 100}%`, width: `${STAGE.frontW * 100}%` }}
+                  >
+                    <canvas ref={previewCanvasRef} width={300} height={300}
+                      className="block w-full h-auto rounded-full drop-shadow-[0_14px_18px_rgba(15,23,42,0.38)]"
+                      style={{ aspectRatio: '1 / 1' }} />
+                  </div>
+                </div>
+                <p className="mt-2 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Actual {BADGE_MM}mm {fastener} — front &amp; back
+                </p>
               </div>
+
+              {imageState && (
+                <div className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-bold text-center ${
+                  effectiveDpi >= 300 ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : effectiveDpi >= 150 ? 'bg-amber-50 border-amber-200 text-amber-800'
+                  : 'bg-red-50 border-red-200 text-red-800'
+                }`}>
+                  {effectiveDpi} DPI —{' '}
+                  {effectiveDpi >= 300 ? 'sharp at print size'
+                    : effectiveDpi >= 150 ? 'usable, slightly soft'
+                    : 'too low, use a bigger image or zoom out'}
+                </div>
+              )}
 
               {/* Qty + Price */}
               <div className="space-y-2.5">
@@ -799,7 +1145,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={handleDownloadPreview}
                       className="h-7 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-emerald-100 transition-all">
-                      <Download className="w-2.5 h-2.5" /> Preview
+                      <Download className="w-2.5 h-2.5" /> Mockup
                     </button>
                     <button onClick={handleDownloadTemplate}
                       className="h-7 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-indigo-100 transition-all">

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 import { BADGES, CATEGORIES, formatPrice } from '../constants.tsx';
-import { Badge } from '../types.ts';
+import { Badge, CartItem } from '../types.ts';
 import { API_BASE_URL } from '../config/api';
 
 type FeaturedBadge = Badge & { stock?: number };
@@ -32,6 +32,8 @@ import { Link, useNavigate } from "react-router-dom";
 
 interface HomeProps {
   addToCart: (badge: Badge) => void;
+  cart?: CartItem[];
+  updateQuantity?: (id: string, q: number) => void;
 }
 
 const IconRenderer = ({ iconName, className }: { iconName: string; className?: string }) => {
@@ -212,10 +214,7 @@ const HowItWorksSection: React.FC = () => (
       <div className="absolute bottom-[-100px] right-[-200px] w-[600px] h-[600px] bg-orange-400/5 rounded-full blur-[120px]" />
       <div className="absolute top-1/2 left-[-150px] w-[500px] h-[500px] bg-red-400/5 rounded-full blur-[100px]" />
       
-      {/* Floating Circles - Lighter */}
-      <div className="absolute top-20 -left-8 w-24 h-24 rounded-full border-[6px] border-yellow-500/20 animate-bounce" style={{ animationDuration: '5s' }} />
-      <div className="absolute top-40 -right-10 w-28 h-28 rounded-full border-[6px] border-orange-500/15 animate-pulse" style={{ animationDuration: '4s' }} />
-      <div className="absolute bottom-32 -left-12 w-32 h-32 rounded-full border-[8px] border-red-500/15 animate-bounce" style={{ animationDuration: '6s', animationDelay: '1s' }} />
+
     </div>
     
     <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 w-full">
@@ -310,10 +309,7 @@ const CustomisedProductsSection: React.FC = () => {
         <div className="absolute bottom-[-100px] right-[-200px] w-[500px] h-[500px] bg-orange-400/8 rounded-full blur-[100px]" />
         <div className="absolute top-1/3 left-[-150px] w-[400px] h-[400px] bg-red-400/6 rounded-full blur-[90px]" />
         
-        {/* Floating Circles */}
-        <div className="absolute top-20 -left-8 w-24 h-24 rounded-full border-[8px] border-yellow-400/25 animate-bounce" style={{ animationDuration: '5s' }} />
-        <div className="absolute top-40 -right-10 w-28 h-28 rounded-full border-[8px] border-orange-400/20 animate-pulse" style={{ animationDuration: '4s' }} />
-        <div className="absolute bottom-32 -left-12 w-32 h-32 rounded-full border-[8px] border-red-400/15 animate-bounce" style={{ animationDuration: '6s', animationDelay: '1s' }} />
+
       </div>
       
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
@@ -529,7 +525,7 @@ const CategoryGrid: React.FC = () => {
 };
 
 
-const FeaturedSection: React.FC<{ addToCart: (badge: Badge) => void }> = ({ addToCart }) => {
+const FeaturedSection: React.FC<{ addToCart: (badge: Badge) => void; cart?: CartItem[]; updateQuantity?: (id: string, q: number) => void }> = ({ addToCart, cart = [], updateQuantity }) => {
   // Real DB products, in-stock first (priority); fall back to the bundled catalog.
   const [featuredBadges, setFeaturedBadges] = useState<FeaturedBadge[]>(
     () => BADGES.filter(b => b.isFeatured).slice(0, 8),
@@ -617,11 +613,7 @@ const FeaturedSection: React.FC<{ addToCart: (badge: Badge) => void }> = ({ addT
   <div className="absolute top-1/3 right-[-300px] w-[600px] h-[600px] bg-orange-400/10 rounded-full blur-[120px]" />
   <div className="absolute bottom-1/4 left-[-200px] w-[500px] h-[500px] bg-red-400/10 rounded-full blur-[100px]" />
   
-  {/* Funny Floating Circles - Outer Edges Only */}
-  <div className="absolute top-32 -left-8 w-24 h-24 rounded-full border-[8px] border-yellow-400/30 animate-bounce" style={{ animationDuration: '4s' }} />
-  <div className="absolute top-64 -right-12 w-32 h-32 rounded-full border-[10px] border-orange-400/25 animate-pulse" style={{ animationDuration: '3s' }} />
-  <div className="absolute bottom-40 -left-16 w-28 h-28 rounded-full border-[8px] border-red-400/20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }} />
-  <div className="absolute bottom-72 -right-8 w-20 h-20 rounded-full border-[6px] border-yellow-500/35 animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }} />
+
 </div>
 
   
@@ -660,7 +652,7 @@ gap-4 sm:gap-6 md:gap-8
               <div
                 key={`${badge.id}-${animKey}`}
                 className={`group relative hot-drop-card bg-[#0b1320] rounded-[20px] sm:rounded-[24px] border-2 border-yellow-500/30 shadow-[0_18px_50px_rgba(15,23,42,0.45)] p-3 sm:p-4 md:p-5 flex flex-col ${index % 2 === 0 ? 'slide-in-left' : 'slide-in-right'} ${isVisible ? 'animate-in' : ''}`}
-                style={{ animationDelay: `${index * 0.15}s` }}
+                style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <Link to={`/badge/${badge.id}`} className="w-full">
                   <div className="relative w-full aspect-square rounded-xl sm:rounded-2xl bg-white flex items-center justify-center mb-3 overflow-hidden border-[3px] sm:border-[4px] border-slate-900/70 shadow-inner">
@@ -717,21 +709,33 @@ gap-4 sm:gap-6 md:gap-8
                     {badge.name}
                   </h3>
                   
-                  <div className="flex items-center gap-0.5 bg-slate-800 rounded-md p-0.5 sm:p-1 flex-shrink-0">
-                    <button
-                      onClick={() => addToCart({ ...badge, quantity: -1 })}
-                      className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-yellow-400 hover:bg-slate-700 transition text-[8px] sm:text-[9px] md:text-xs font-black"
-                    >
-                      −
-                    </button>
-                    <span className="w-3 sm:w-4 text-center text-white text-[8px] sm:text-[9px] md:text-xs font-black">1</span>
-                    <button
-                      onClick={() => addToCart({ ...badge, quantity: 1 })}
-                      className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-yellow-400 hover:bg-slate-700 transition text-[8px] sm:text-[9px] md:text-xs font-black"
-                    >
-                      +
-                    </button>
-                  </div>
+                  {(() => {
+                    const qtyInCart = cart.find(c => c.id === badge.id)?.quantity || 0;
+                    if (qtyInCart === 0) return null;
+                    return (
+                      <div className="flex items-center gap-0.5 bg-slate-800 rounded-md p-0.5 sm:p-1 flex-shrink-0">
+                        <button
+                          onClick={() => {
+                            if (qtyInCart > 1 && updateQuantity) {
+                              updateQuantity(badge.id, qtyInCart - 1);
+                            } else if (qtyInCart === 1 && updateQuantity) {
+                              updateQuantity(badge.id, 0);
+                            }
+                          }}
+                          className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-yellow-400 hover:bg-slate-700 transition text-[8px] sm:text-[9px] md:text-xs font-black"
+                        >
+                          −
+                        </button>
+                        <span className="w-3 sm:w-4 text-center text-yellow-400 text-[8px] sm:text-[9px] md:text-xs font-black">{qtyInCart}</span>
+                        <button
+                          onClick={() => addToCart({ ...badge, quantity: 1 })}
+                          className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-yellow-400 hover:bg-slate-700 transition text-[8px] sm:text-[9px] md:text-xs font-black"
+                        >
+                          +
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="mt-auto">
@@ -768,13 +772,13 @@ gap-4 sm:gap-6 md:gap-8
   );
 };
 
-export default function Home({ addToCart }: HomeProps) {
+export default function Home({ addToCart, cart, updateQuantity }: HomeProps) {
   return (
     <div className="bg-white">
       <Hero />
       <CustomisedProductsSection />
       {/* <CategoryGrid /> */}
-      <FeaturedSection addToCart={addToCart} />
+      <FeaturedSection addToCart={addToCart} cart={cart} updateQuantity={updateQuantity} />
       <HowItWorksSection />
     </div>
   );
