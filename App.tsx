@@ -818,6 +818,7 @@ const CartDrawer: React.FC<{
   removeFromCart: (id: string) => void;
 }> = ({ open, onClose, cart, updateQuantity, removeFromCart }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const count = cart.reduce((a, b) => a + b.quantity, 0);
   const subtotal = cart.reduce((a, b) => a + b.price * b.quantity, 0);
 
@@ -840,6 +841,14 @@ const CartDrawer: React.FC<{
     onClose();
     navigate("/checkout");
   };
+//  bug fixed now users gets directed to category page
+const continueShopping = () => {
+  onClose();
+
+  if (location.pathname !== "/categories") {
+    navigate("/categories");
+  }
+};
 
   return (
     <>
@@ -884,7 +893,7 @@ const CartDrawer: React.FC<{
             <p className="font-bold text-slate-700">Your cart is empty</p>
             <p className="text-sm text-slate-400 -mt-2">Add some badges to get started.</p>
             <button
-              onClick={onClose}
+              onClick={continueShopping}
               className="mt-2 px-6 py-3 rounded-xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-700 transition"
             >
               Continue Shopping
