@@ -154,7 +154,7 @@ export default function AdminDealSend() {
 
   useEffect(() => {
     if (!isImportModalOpen) return;
-    
+
     const fetchProducts = async () => {
       setLoadingProducts(true);
       try {
@@ -171,7 +171,7 @@ export default function AdminDealSend() {
         setLoadingProducts(false);
       }
     };
-    
+
     fetchProducts();
   }, [isImportModalOpen]);
 
@@ -1102,7 +1102,8 @@ export default function AdminDealSend() {
                       <p className="catalog-tagline">
                         {normalizedTagline}
                       </p>
-                      <h2 className="mt-1.5 text-[18px] font-black uppercase tracking-tight text-slate-900">
+                      
+                      <h2 className="mt-1.5 text-[18px] font-black  tracking-tight text-slate-900 whitespace-pre-wrap">
                         {subject}
                       </h2>
                       <div className="catalog-highlight-line">
@@ -1316,11 +1317,10 @@ export default function AdminDealSend() {
                       <div
                         key={prod._id}
                         onClick={() => toggleProductSelection(prod._id)}
-                        className={`relative flex cursor-pointer flex-col overflow-hidden rounded-xl border p-2 transition hover:shadow-md ${
-                          isSelected
+                        className={`relative flex cursor-pointer flex-col overflow-hidden rounded-xl border p-2 transition hover:shadow-md ${isSelected
                             ? "border-indigo-600 bg-indigo-50/20 ring-1 ring-indigo-600"
                             : "border-slate-200 bg-white hover:border-slate-300"
-                        }`}
+                          }`}
                       >
                         <div className="relative flex aspect-square items-center justify-center rounded-lg bg-slate-50 p-2 overflow-hidden border border-slate-100">
                           {prod.image ? (
@@ -1332,13 +1332,12 @@ export default function AdminDealSend() {
                           ) : (
                             <div className="text-[10px] text-slate-400 uppercase font-black">No image</div>
                           )}
-                          
+
                           {/* Selection Checkmark Bubble */}
-                          <div className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border transition ${
-                            isSelected
+                          <div className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border transition ${isSelected
                               ? "border-indigo-600 bg-indigo-600 text-white"
                               : "border-slate-300 bg-white/80"
-                          }`}>
+                            }`}>
                             {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
                           </div>
                         </div>

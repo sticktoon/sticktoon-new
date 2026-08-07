@@ -1148,7 +1148,7 @@ export default function AdminDealConvert() {
                     </div>
 
                     <div className="mt-6">
-                      <p className="text-sm font-black uppercase underline">{subject}</p>
+                      <p className="text-sm font-black  underline whitespace-pre-wrap">{subject}</p>
                       <p className="mt-4 whitespace-pre-line text-sm leading-7 text-slate-700">{intro}</p>
                     </div>
                   </>
