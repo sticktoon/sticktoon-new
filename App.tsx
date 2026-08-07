@@ -1131,6 +1131,30 @@ function App() {
     };
   }, []);
 
+  /* 🔄 REAL-TIME AUTH STATE SYNC (No refresh required) */
+  useEffect(() => {
+    const handleAuthChange = () => {
+      const savedUser = localStorage.getItem("user") || localStorage.getItem("adminUser");
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch {
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+      }
+    };
+
+    window.addEventListener("auth-change", handleAuthChange);
+    window.addEventListener("storage", handleAuthChange);
+
+    return () => {
+      window.removeEventListener("auth-change", handleAuthChange);
+      window.removeEventListener("storage", handleAuthChange);
+    };
+  }, []);
+
   /* =======================
    CART MANAGEMENT (Prevent Multiplication)
 ======================= */

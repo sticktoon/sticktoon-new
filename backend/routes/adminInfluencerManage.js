@@ -6,6 +6,7 @@ const InfluencerEarning = require("../models/InfluencerEarning");
 const WithdrawalRequest = require("../models/WithdrawalRequest");
 const auth = require("../middleware/auth");
 const sendEmail = require("../utils/sendEmail");
+const esc = require("../utils/escapeHtml");
 
 const { adminOnly } = require("../middleware/roleMiddleware");
 
@@ -92,7 +93,7 @@ router.patch("/:id/approve", auth, adminOnly, async (req, res) => {
         subject: "Your Influencer Account is Approved!",
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
-            <h1 style="color: #10b981;">Congratulations, ${user.name}!</h1>
+            <h1 style="color: #10b981;">Congratulations, ${esc(user.name)}!</h1>
             <p>Your influencer account on StickToon has been approved.</p>
             <p>You can now:</p>
             <ul>
@@ -146,9 +147,9 @@ router.patch("/:id/reject", auth, adminOnly, async (req, res) => {
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
             <h1 style="color: #ef4444;">Application Not Approved</h1>
-            <p>Hi ${user.name},</p>
+            <p>Hi ${esc(user.name)},</p>
             <p>Unfortunately, your influencer application was not approved at this time.</p>
-            ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ""}
+            ${reason ? `<p><strong>Reason:</strong> ${esc(reason)}</p>` : ""}
             <p>You can try again later or contact us for more information.</p>
           </div>
         `,
@@ -324,11 +325,11 @@ router.patch("/withdrawals/:id/process", auth, adminOnly, async (req, res) => {
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
               <h1 style="color: #10b981;">Payment Successful!</h1>
-              <p>Hi ${withdrawal.influencerId.name},</p>
+              <p>Hi ${esc(withdrawal.influencerId.name)},</p>
               <p>Your withdrawal request has been processed.</p>
               <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0;">
                 <p style="margin: 0; font-size: 24px; font-weight: bold; color: #10b981;">Rs${withdrawal.amount}</p>
-                <p style="margin: 5px 0 0; color: #6b7280;">Transaction ID: ${transactionId || "N/A"}</p>
+                <p style="margin: 5px 0 0; color: #6b7280;">Transaction ID: ${esc(transactionId || "N/A")}</p>
               </div>
               <p>Thank you for being a StickToon influencer!</p>
             </div>

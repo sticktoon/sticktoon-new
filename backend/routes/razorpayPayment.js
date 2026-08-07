@@ -11,6 +11,7 @@ const {
 } = require("../config/razorpay");
 const Order = require("../models/Order");
 const Invoice = require("../models/Invoice");
+const esc = require("../utils/escapeHtml");
 const UserOrders = require("../models/User_Orders");
 const PromoCode = require("../models/PromoCode");
 const InfluencerEarning = require("../models/InfluencerEarning");
@@ -568,7 +569,7 @@ for (const earn of earnings) {
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
               <h1 style="color: #10b981;">Order Confirmed!</h1>
-              <p>Hi ${order.address?.name || "Customer"},</p>
+              <p>Hi ${esc(order.address?.name || "Customer")},</p>
               <p>Your order has been confirmed and will be shipped soon.</p>
               <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
                 <p style="margin: 0;"><strong>Order ID:</strong> ${order._id.toString().slice(-8).toUpperCase()}</p>
@@ -647,8 +648,8 @@ for (const earn of earnings) {
         return `<tr>
           <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              ${imageUrl ? `<img src="${imageUrl}" alt="${item.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb;">` : (isCustom ? '<span style="display: inline-block; width: 60px; height: 60px; background: #fef3c7; border-radius: 8px; text-align: center; line-height: 60px; font-size: 24px;">🎨</span>' : '')}
-              <span style="font-weight: 500;">${item.name}${isCustom ? ' <span style="color: #f59e0b; font-size: 11px;">(CUSTOM - See Word Doc)</span>' : ''}</span>
+              ${imageUrl ? `<img src="${esc(imageUrl)}" alt="${esc(item.name)}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb;">` : (isCustom ? '<span style="display: inline-block; width: 60px; height: 60px; background: #fef3c7; border-radius: 8px; text-align: center; line-height: 60px; font-size: 24px;">🎨</span>' : '')}
+              <span style="font-weight: 500;">${esc(item.name)}${isCustom ? ' <span style="color: #f59e0b; font-size: 11px;">(CUSTOM - See Word Doc)</span>' : ''}</span>
             </div>
           </td>
           <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center; font-weight: bold;">${item.quantity}</td>
@@ -713,20 +714,20 @@ for (const earn of earnings) {
               <p style="margin: 5px 0;"><strong>Subtotal:</strong> ₹${order.subtotal}</p>
               <p style="margin: 5px 0;"><strong>Delivery:</strong> ₹${order.deliveryCharges}</p>
               ${order.discount > 0 ? `<p style="margin: 5px 0; color: #16a34a;"><strong>Discount:</strong> -₹${order.discount}</p>` : ''}
-              ${order.promoCode ? `<p style="margin: 5px 0;"><strong>Promo Code:</strong> ${order.promoCode}</p>` : ''}
+              ${order.promoCode ? `<p style="margin: 5px 0;"><strong>Promo Code:</strong> ${esc(order.promoCode)}</p>` : ''}
               <hr style="border: 1px solid #d1d5db; margin: 10px 0;">
               <p style="margin: 5px 0; font-size: 18px;"><strong>Total:</strong> ₹${order.amount}</p>
             </div>
 
             <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">📍 Shipping Address</h3>
             <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-              <p style="margin: 5px 0;"><strong>Name:</strong> ${order.address?.name || 'N/A'}</p>
-              <p style="margin: 5px 0;"><strong>Address:</strong> ${order.address?.street || 'N/A'}</p>
-              <p style="margin: 5px 0;"><strong>Phone:</strong> ${order.address?.phone || 'N/A'}</p>
+              <p style="margin: 5px 0;"><strong>Name:</strong> ${esc(order.address?.name || 'N/A')}</p>
+              <p style="margin: 5px 0;"><strong>Address:</strong> ${esc(order.address?.street || 'N/A')}</p>
+              <p style="margin: 5px 0;"><strong>Phone:</strong> ${esc(order.address?.phone || 'N/A')}</p>
             </div>
 
             <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">👤 Customer Info</h3>
-            <p><strong>Email:</strong> ${buyerEmail || 'N/A'}</p>
+            <p><strong>Email:</strong> ${esc(buyerEmail || 'N/A')}</p>
             <p><strong>Payment ID:</strong> ${razorpay_payment_id}</p>
             <p><strong>Invoice:</strong> ${invoice.invoiceNumber}</p>
 

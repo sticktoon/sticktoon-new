@@ -6,6 +6,7 @@ const User = require("../models/User");
 const sendEmail = require("../utils/sendEmail");
 const { resetPasswordEmail } = require("../utils/emailTemplates");
 const { logActivity } = require("../utils/activityLogger");
+const handleValidationError = require("../utils/handleValidationError");
 
 const router = express.Router();
 
@@ -56,6 +57,11 @@ router.post("/signup", async (req, res) => {
       return res.status(400).json({ message: "Password must be at least 6 characters" });
     }
 
+    const cleanName = name ? String(name).trim() : "";
+    if (cleanName.length > 100 || /[<>]/.test(cleanName)) {
+      return res.status(400).json({ message: "Invalid name" });
+    }
+
     const exists = await User.findOne({ email: email.toLowerCase().trim() });
     if (exists) {
       return res.status(400).json({ message: "User already exists" });
@@ -86,7 +92,7 @@ router.post("/signup", async (req, res) => {
   
 
     const user = await User.create({
-      name: name?.trim() || email.split("@")[0],
+      name: cleanName || email.split("@")[0],
       email,
       phone: phoneNumber,
       password: hashed,
@@ -242,7 +248,11 @@ router.post("/google", async (req, res) => {
     if (!user) {
       // Create new user with Google provider
       user = await User.create({
-        name: name?.trim() || email.split("@")[0],
+        // Client-supplied, so strip markup rather than reject — a bad name
+        // must not block the Google sign-in itself.
+        name:
+          String(name ?? "").replace(/[<>]/g, "").trim().slice(0, 100) ||
+          email.split("@")[0],
         email,
         provider: "google",
         avatar,
@@ -533,6 +543,7 @@ router.put("/profile", auth, async (req, res) => {
       },
     });
   } catch (err) {
+    if (handleValidationError(res, err)) return;
     console.error("Update profile error:", err);
     res.status(500).json({ message: "Failed to update profile" });
   }

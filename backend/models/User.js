@@ -5,6 +5,10 @@ const UserSchema = new mongoose.Schema(
     name: {
       type: String,
       trim: true,
+      maxlength: [100, "Name is too long"],
+      // Names land in raw HTML emails, so no markup is allowed through here.
+      // Kept permissive otherwise: any script/language, digits, punctuation.
+      match: [/^[^<>]*$/, "Invalid name"],
     },
 
     email: {

@@ -9,6 +9,7 @@ const router = express.Router();
 
 const crypto = require("crypto");
 const sendEmail = require("../utils/sendEmail");
+const handleValidationError = require("../utils/handleValidationError");
 const auth = require("../middleware/auth");
 const { adminOnly, superAdminOnly, requirePermission, hasPermission, ADMIN_PERMISSIONS, isSuperAdmin, isAdminEmail, isOrdersEmail } = require("../middleware/roleMiddleware");
 const { logActivity } = require("../utils/activityLogger");
@@ -246,6 +247,7 @@ router.put("/profile", auth, adminOnly, async (req, res) => {
       },
     });
   } catch (err) {
+    if (handleValidationError(res, err)) return;
     console.error("Update profile error:", err);
     res.status(500).json({ message: "Failed to update profile" });
   }
@@ -576,7 +578,7 @@ router.patch("/users/:id", auth, requirePermission("users"), async (req, res) =>
     const user = await User.findByIdAndUpdate(
       req.params.id,
       updateData,
-      { new: true }
+      { new: true, runValidators: true }
     ).select("_id name email role provider createdAt adminPermissions");
 
     logActivity({
@@ -594,6 +596,7 @@ router.patch("/users/:id", auth, requirePermission("users"), async (req, res) =>
 
     res.json({ message: "User updated successfully", user });
   } catch (err) {
+    if (handleValidationError(res, err)) return;
     console.error("Update user error:", err);
     res.status(500).json({ message: "Failed to update user" });
   }
@@ -642,7 +645,7 @@ router.put("/users/:id/super-edit", auth, superAdminOnly, async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.params.id,
       updateData,
-      { new: true }
+      { new: true, runValidators: true }
     ).select("_id name email role provider avatar createdAt");
 
     logActivity({
@@ -657,6 +660,7 @@ router.put("/users/:id/super-edit", auth, superAdminOnly, async (req, res) => {
 
     res.json({ message: "User updated successfully by super admin", user });
   } catch (err) {
+    if (handleValidationError(res, err)) return;
     console.error("Super admin edit user error:", err);
     res.status(500).json({ message: "Failed to update user" });
   }

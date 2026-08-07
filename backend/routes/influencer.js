@@ -6,6 +6,7 @@ const User = require("../models/User");
 const PromoCode = require("../models/PromoCode");
 const InfluencerEarning = require("../models/InfluencerEarning");
 const WithdrawalRequest = require("../models/WithdrawalRequest");
+const esc = require("../utils/escapeHtml");
 const auth = require("../middleware/auth");
 const sendEmail = require("../utils/sendEmail");
 
@@ -64,12 +65,12 @@ router.post("/signup", async (req, res) => {
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h2 style="color: #7c3aed;">New Influencer Application</h2>
-            <p><strong>Name:</strong> ${name}</p>
-            <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Phone:</strong> ${phone || "N/A"}</p>
-            <p><strong>Instagram:</strong> @${instagram || "N/A"}</p>
-            <p><strong>YouTube:</strong> ${youtube || "N/A"}</p>
-            <p><strong>Bio:</strong> ${bio || "N/A"}</p>
+            <p><strong>Name:</strong> ${esc(name)}</p>
+            <p><strong>Email:</strong> ${esc(email)}</p>
+            <p><strong>Phone:</strong> ${esc(phone || "N/A")}</p>
+            <p><strong>Instagram:</strong> @${esc(instagram || "N/A")}</p>
+            <p><strong>YouTube:</strong> ${esc(youtube || "N/A")}</p>
+            <p><strong>Bio:</strong> ${esc(bio || "N/A")}</p>
             <p style="margin-top: 20px;">Please review this application in the admin panel and approve or reject.</p>
             <a href="${process.env.FRONTEND_URL || "http://localhost:3000"}/admin/login" 
                style="display: inline-block; background: #7c3aed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin-top: 20px;">
@@ -495,13 +496,13 @@ router.post("/withdraw", auth, approvedInfluencerOnly, async (req, res) => {
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h2 style="color: #7c3aed;">New Influencer Withdrawal Request</h2>
-            <p><strong>Influencer:</strong> ${user.name} (${user.email})</p>
+            <p><strong>Influencer:</strong> ${esc(user.name)} (${esc(user.email)})</p>
             <p><strong>Amount:</strong> ₹${amount}</p>
-            <p><strong>Method:</strong> ${normalizedPaymentMethod}</p>
-            <p><strong>Promo Code:</strong> ${normalizedPromoCode || "-"}</p>
+            <p><strong>Method:</strong> ${esc(normalizedPaymentMethod)}</p>
+            <p><strong>Promo Code:</strong> ${esc(normalizedPromoCode || "-")}</p>
             <p><strong>Requested At:</strong> ${new Date().toLocaleString("en-GB", { timeZone: "Asia/Kolkata" })}</p>
             <h3 style="margin-top: 20px;">Payment Details</h3>
-            <pre style="background: #f3f4f6; padding: 12px; border-radius: 8px; overflow-x: auto;">${JSON.stringify(paymentDetails || {}, null, 2)}</pre>
+            <pre style="background: #f3f4f6; padding: 12px; border-radius: 8px; overflow-x: auto;">${esc(JSON.stringify(paymentDetails || {}, null, 2))}</pre>
             <p style="margin-top: 20px;">Please review and process this request in the admin panel.</p>
           </div>
         `,

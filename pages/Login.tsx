@@ -64,6 +64,7 @@ export default function Login() {
       })
     );
 
+    window.dispatchEvent(new Event("auth-change"));
     // If the user came here via "Login & Continue" (e.g. from checkout),
     // send them back where they started; otherwise go home.
     const postLoginRedirect = localStorage.getItem("postLoginRedirect");

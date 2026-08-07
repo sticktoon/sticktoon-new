@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const sendEmail = require("../utils/sendEmail");
+const esc = require("../utils/escapeHtml");
 const SupportMessage = require("../models/SupportMessage");
 
 const getNextTicketId = async () => {
@@ -65,12 +66,12 @@ router.post("/", async (req, res) => {
     const html = `
       <h2>New Contact Form Submission</h2>
       <p><strong>Ticket ID:</strong> ${supportMessage.ticketId}</p>
-      <p><strong>Name:</strong> ${name}</p>
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>Phone:</strong> ${phone}</p>
-      <p><strong>Inquiry Type:</strong> ${inquiryType}</p>
+      <p><strong>Name:</strong> ${esc(name)}</p>
+      <p><strong>Email:</strong> ${esc(email)}</p>
+      <p><strong>Phone:</strong> ${esc(phone)}</p>
+      <p><strong>Inquiry Type:</strong> ${esc(inquiryType)}</p>
       <p><strong>Message:</strong></p>
-      <p>${message.replace(/\n/g, "<br/>")}</p>
+      <p>${esc(message).replace(/\n/g, "<br/>")}</p>
     `;
 
     const adminResult = await sendEmail({
@@ -88,7 +89,7 @@ router.post("/", async (req, res) => {
       subject: `We received your support request [${supportMessage.ticketId}]`,
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
-          <p>Hi ${name},</p>
+          <p>Hi ${esc(name)},</p>
           <p>Thanks for contacting StickToon support. We have received your request.</p>
           <p><strong>Ticket ID:</strong> ${supportMessage.ticketId}</p>
           <p>Please keep this ticket ID for future follow-up.</p>

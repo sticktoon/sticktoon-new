@@ -22,6 +22,28 @@ export default function AdminDashboard() {
   });
 
   const [loading, setLoading] = useState(true);
+  const [backingUp, setBackingUp] = useState(false);
+  const [backupMsg, setBackupMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const createBackup = async () => {
+    setBackingUp(true);
+    setBackupMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/backup`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setBackupMsg({
+        text: res.ok ? data.message : data.message || "Backup failed",
+        ok: res.ok,
+      });
+    } catch {
+      setBackupMsg({ text: "Backup failed. Check your connection.", ok: false });
+    } finally {
+      setBackingUp(false);
+    }
+  };
 
   useEffect(() => {
    fetch(`${API_BASE_URL}/api/admin/stats`, {
@@ -183,6 +205,36 @@ export default function AdminDashboard() {
             </span>
           </Link>
 
+        </div>
+
+        {/* 🗄️ DATA BACKUP */}
+        <div className="bg-white p-4 md:p-6 rounded-xl shadow border mt-6">
+          <h3 className="text-xs md:text-sm font-black text-slate-500 uppercase">
+            Data Backup
+          </h3>
+          <p className="mt-2 text-xs md:text-sm text-slate-500">
+            Emails a CSV of users, orders, invoices, leads, products and promos to the
+            admin inbox. Runs automatically every Sunday at 9:00 AM.
+          </p>
+
+          <button
+            onClick={createBackup}
+            disabled={backingUp}
+            className="mt-4 bg-slate-900 text-white font-bold text-xs md:text-sm px-5 py-2.5 rounded-lg hover:bg-slate-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {backingUp ? "Creating backup..." : "🗄️ Create Backup"}
+          </button>
+
+          {backupMsg && (
+            <p
+              className={`mt-3 text-xs md:text-sm font-bold ${
+                backupMsg.ok ? "text-emerald-600" : "text-rose-600"
+              }`}
+            >
+              {backupMsg.ok ? "✅ " : "❌ "}
+              {backupMsg.text}
+            </p>
+          )}
         </div>
       </div>
     </div>

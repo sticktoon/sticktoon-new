@@ -6,6 +6,7 @@ const path = require("path");
 const fs = require("fs");
 const connectDB = require("./config/db");
 const { initializeFileWatcher } = require("./services/fileWatcher");
+const { startWeeklyBackup } = require("./services/weeklyBackup");
 const { uploadImageToAll } = require("./utils/imageUploadService");
 const ImageUpload = require("./models/ImageUpload");
 
@@ -68,6 +69,7 @@ app.use("/api/admin/support", auth, requirePermission("support"), require("./rou
 // Settings currently holds only the Shiprocket toggle on the Orders screen.
 app.use("/api/admin/settings", auth, requirePermission("orders"), require("./routes/adminSettings"));
 app.use("/api/admin/logs", auth, requirePermission("logs"), require("./routes/adminLogs"));
+app.use("/api/admin/backup", require("./routes/adminBackup"));
 app.use("/api/contact", require("./routes/contact"));
 app.use("/api/reviews", require("./routes/reviews"));
 
@@ -143,6 +145,11 @@ const startServer = (port) => {
 
     // Scan and upload any images added while backend was offline
     scanAndUploadOfflineImages();
+
+    // Sunday data backup. Production only, so local dev never mails admin.
+    if (process.env.RENDER || process.env.NODE_ENV === "production") {
+      startWeeklyBackup();
+    }
   });
 
   server.on("error", (error) => {

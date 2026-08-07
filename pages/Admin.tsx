@@ -1044,6 +1044,7 @@ const syncStorefrontSession = (token: string, adminUser: any) => {
         adminPermissions: adminUser?.adminPermissions || [],
       }),
     );
+    window.dispatchEvent(new Event("auth-change"));
   } catch {
     // ignore storage errors
   }

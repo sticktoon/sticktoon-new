@@ -5,6 +5,7 @@ const User = require("../models/User");
 const router = express.Router();
 
 const auth = require("../middleware/auth");
+const handleValidationError = require("../utils/handleValidationError");
 const { adminOnly, superAdminOnly } = require("../middleware/roleMiddleware");
 
 /* 👥 GET ALL USERS */
@@ -61,6 +62,7 @@ router.post("/create-admin", auth, superAdminOnly, async (req, res) => {
     delete result.password;
     res.status(201).json({ message: "Admin account created successfully", user: result });
   } catch (err) {
+    if (handleValidationError(res, err)) return;
     console.error("Create admin error:", err);
     res.status(500).json({ message: "Failed to create admin user" });
   }
