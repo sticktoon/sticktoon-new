@@ -448,9 +448,9 @@ useEffect(() => {
         My Orders
       </Link>
 
-      {user.role === "admin" && (
+      {(user.role === "admin" || user.role === "superadmin") && (
         <Link
-          to="/admin/login"
+          to="/admin"
           className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
         >
           Admin Panel
@@ -509,9 +509,9 @@ useEffect(() => {
                   My Orders
                 </Link>
 
-                {user.role === "admin" && (
+                {(user.role === "admin" || user.role === "superadmin") && (
                   <Link
-                    to="/admin/login"
+                    to="/admin"
                     onClick={() => setIsOpen(false)}
                     className="block mt-3 text-lg font-bold text-white focus:outline-none focus-visible:outline-none focus-visible:ring-0"
                   >
@@ -1061,8 +1061,8 @@ function App() {
       // First, handle old user migration if needed
       await migrateOldUserSession();
 
-      const token = localStorage.getItem("token");
-      const savedUser = localStorage.getItem("user");
+      const token = localStorage.getItem("token") || localStorage.getItem("adminToken");
+      const savedUser = localStorage.getItem("user") || localStorage.getItem("adminUser");
       const guestCartJson = localStorage.getItem(GUEST_CART_STORAGE_KEY);
       let guestCart: CartItem[] = [];
 
@@ -1074,19 +1074,17 @@ function App() {
         }
       }
 
+      if (savedUser && isMounted) {
+        try {
+          const parsedUser = JSON.parse(savedUser);
+          setUser(parsedUser);
+        } catch (parseErr) {
+          console.error("Failed to parse saved user", parseErr);
+        }
+      }
+
       if (token) {
         try {
-          if (savedUser) {
-            try {
-              const parsedUser = JSON.parse(savedUser);
-              if (isMounted) {
-                setUser(parsedUser);
-              }
-            } catch (parseErr) {
-              console.error("Failed to parse saved user", parseErr);
-            }
-          }
-
           if (guestCart.length > 0) {
             const syncRes = await fetch(`${API_BASE_URL}/api/cart/sync`, {
               method: "POST",

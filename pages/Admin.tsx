@@ -10234,130 +10234,171 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
           {/* Edit User Modal */}
           {editingUser && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-              <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-indigo-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-indigo-500/20 transform transition-all duration-300 max-h-[90vh] overflow-y-auto">
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4 sm:p-6 animate-fadeIn">
+              <div className="bg-white border-2 border-slate-200 rounded-3xl p-6 sm:p-8 max-w-4xl w-full shadow-2xl transform transition-all duration-300 max-h-[90vh] flex flex-col overflow-hidden">
                 {/* Header */}
-                <div className="mb-6 pb-4 border-b border-indigo-500/20">
-                  <h3 className="text-white font-bold text-xl flex items-center gap-2">
-                    ✏️ Edit User
-                  </h3>
-                  <p className="text-gray-400 text-sm mt-1">
-                    {editingUser.email}
-                  </p>
+                <div className="flex-shrink-0 mb-6 pb-4 border-b border-slate-200 flex items-start justify-between">
+                  <div>
+                    <h3 className="text-slate-900 font-black text-2xl sm:text-3xl flex items-center gap-2">
+                      <span>✏️</span> Edit User
+                    </h3>
+                    <p className="text-slate-600 text-sm mt-1 font-bold">
+                      {editingUser.email}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setEditingUser(null)}
+                    className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 text-xl font-black transition-all"
+                  >
+                    ✕
+                  </button>
                 </div>
 
-                {/* Form */}
-                <div className="space-y-4 mb-6">
-                  <div>
-                    <label className="text-gray-300 text-sm font-medium block mb-2">
-                      Name
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter user name"
-                      defaultValue={editingUser.name}
-                      onChange={(e) =>
-                        setEditingUser({ ...editingUser, name: e.target.value })
-                      }
-                      className="w-full px-4 py-2.5 bg-white/10 border border-indigo-500/30 hover:border-indigo-500/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-gray-300 text-sm font-medium block mb-2">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="Enter email address"
-                      defaultValue={editingUser.email}
-                      onChange={(e) =>
-                        setEditingUser({
-                          ...editingUser,
-                          email: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2.5 bg-white/10 border border-indigo-500/30 hover:border-indigo-500/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
-                    />
-                  </div>
-
-                  {/* Super Admin Password Field */}
-                  {isSuperAdmin && (
+                {/* Form Body - Scrollable */}
+                <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+                  {/* Basic Details Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div>
-                      <label className="text-gray-300 text-sm font-medium block mb-2">
-                        🔐 Password (Super Admin Only)
+                      <label className="text-slate-900 text-xs font-black uppercase tracking-wider block mb-2">
+                        Full Name
                       </label>
                       <input
-                        type="password"
-                        placeholder="Leave empty to keep unchanged"
-                        value={editingUser.password || ""}
+                        type="text"
+                        placeholder="Enter user name"
+                        defaultValue={editingUser.name}
+                        onChange={(e) =>
+                          setEditingUser({ ...editingUser, name: e.target.value })
+                        }
+                        className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-300 focus:bg-white focus:border-indigo-600 rounded-xl text-slate-900 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-600/20 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-900 text-xs font-black uppercase tracking-wider block mb-2">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="Enter email address"
+                        defaultValue={editingUser.email}
                         onChange={(e) =>
                           setEditingUser({
                             ...editingUser,
-                            password: e.target.value,
+                            email: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-2.5 bg-yellow-500/10 border border-yellow-500/30 hover:border-yellow-500/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 transition-all"
+                        className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-300 focus:bg-white focus:border-indigo-600 rounded-xl text-slate-900 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-600/20 transition-all"
                       />
-                      {editingUser.password &&
-                        editingUser.password.length < 6 && (
-                          <p className="text-yellow-300 text-xs mt-1">
-                            ⚠️ Password must be at least 6 characters
+                    </div>
+                  </div>
+
+                  {/* Super Admin Fields Grid */}
+                  {isSuperAdmin && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 bg-amber-50 p-5 rounded-2xl border-2 border-amber-200">
+                      <div>
+                        <label className="text-amber-950 text-xs font-black uppercase tracking-wider block mb-2">
+                          🔐 New Password (Super Admin)
+                        </label>
+                        <input
+                          type="password"
+                          placeholder="Leave empty to keep unchanged"
+                          value={editingUser.password || ""}
+                          onChange={(e) =>
+                            setEditingUser({
+                              ...editingUser,
+                              password: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-3 bg-white border-2 border-amber-300 rounded-xl text-slate-900 placeholder-slate-400 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+                        />
+                        {editingUser.password && editingUser.password.length < 6 && (
+                          <p className="text-red-600 text-xs font-black mt-1.5">
+                            ⚠️ Min 6 characters required
                           </p>
                         )}
+                      </div>
+
+                      <div>
+                        <label className="text-amber-950 text-xs font-black uppercase tracking-wider block mb-2">
+                          🖼️ Avatar URL (Super Admin)
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="Image URL (empty to remove)"
+                          value={editingUser.avatar || ""}
+                          onChange={(e) =>
+                            setEditingUser({
+                              ...editingUser,
+                              avatar: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-3 bg-white border-2 border-amber-300 rounded-xl text-slate-900 placeholder-slate-400 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+                        />
+                        {editingUser.avatar && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <img
+                              src={editingUser.avatar}
+                              alt="preview"
+                              className="w-8 h-8 rounded-full object-cover border-2 border-amber-400"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                            <span className="text-amber-900 text-xs font-black">Avatar Preview</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
-                  {/* Super Admin Avatar Field */}
-                  {isSuperAdmin && (
-                    <div>
-                      <label className="text-gray-300 text-sm font-medium block mb-2">
-                        🖼️ Avatar URL (Super Admin Only)
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="Enter image URL (leave empty to remove avatar)"
-                        value={editingUser.avatar || ""}
-                        onChange={(e) =>
-                          setEditingUser({
-                            ...editingUser,
-                            avatar: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-2.5 bg-yellow-500/10 border border-yellow-500/30 hover:border-yellow-500/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 transition-all"
-                      />
-                      {editingUser.avatar && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <img
-                            src={editingUser.avatar}
-                            alt="preview"
-                            className="w-8 h-8 rounded-full object-cover border border-indigo-500/30"
-                            onError={(e) => {
-                              e.currentTarget.style.display = "none";
-                            }}
-                          />
-                          <span className="text-gray-400 text-xs">Preview</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Section access - super admin decides what an admin can open */}
+                  {/* Section Access Permissions */}
                   {isSuperAdmin && editingUser.role === "admin" && (
-                    <div>
-                      <label className="text-gray-300 text-sm font-medium block mb-2">
-                        🔑 Section Access (Super Admin Only)
-                      </label>
-                      <p className="text-gray-500 text-xs mb-3">
-                        Unticked sections are hidden from the panel and refused by
-                        the API. An admin with nothing ticked sees only the dashboard.
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                    <div className="bg-slate-50 p-5 rounded-2xl border-2 border-slate-200">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b-2 border-slate-200">
+                        <div>
+                          <label className="text-slate-900 text-sm font-black uppercase tracking-wider block">
+                            🔑 Section Access Permissions
+                          </label>
+                          <p className="text-slate-600 text-xs mt-0.5 font-bold">
+                            Select which modules this admin can access in the panel.
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditingUser({
+                                ...editingUser,
+                                adminPermissions: [...ADMIN_PERMISSIONS],
+                              })
+                            }
+                            className="px-4 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-xs font-black transition-all shadow-sm"
+                          >
+                            Select All
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditingUser({ ...editingUser, adminPermissions: [] })
+                            }
+                            className="px-4 py-1.5 bg-slate-300 text-slate-900 hover:bg-slate-400 rounded-xl text-xs font-black transition-all"
+                          >
+                            Clear All
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                         {ADMIN_PERMISSIONS.map((permission) => {
                           const granted = (editingUser.adminPermissions || []).includes(permission);
                           return (
                             <label
                               key={permission}
-                              className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 border border-indigo-500/20 rounded-lg cursor-pointer transition-all"
+                              style={{ color: "#0f172a" }}
+                              className={`flex items-center gap-3 px-3.5 py-3 rounded-xl cursor-pointer border-2 transition-all select-none ${
+                                granted
+                                  ? "bg-indigo-100 border-indigo-600 shadow-sm"
+                                  : "bg-white border-slate-300 hover:bg-slate-100"
+                              }`}
                             >
                               <input
                                 type="checkbox"
@@ -10371,45 +10412,35 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                       : current.filter((p) => p !== permission),
                                   });
                                 }}
-                                className="accent-indigo-500 w-4 h-4"
+                                className="accent-indigo-600 w-5 h-5 rounded shrink-0 cursor-pointer"
                               />
-                              <span className="text-gray-200 text-xs">
+                              <span
+                                style={{ color: granted ? "#0f172a" : "#334155" }}
+                                className={`text-xs sm:text-sm font-black ${
+                                  granted ? "text-slate-900" : "text-slate-700"
+                                }`}
+                              >
                                 {ADMIN_PERMISSION_LABELS[permission] || permission}
                               </span>
                             </label>
                           );
                         })}
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setEditingUser({
-                              ...editingUser,
-                              adminPermissions: [...ADMIN_PERMISSIONS],
-                            })
-                          }
-                          className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded text-gray-200 text-xs font-semibold transition-all"
-                        >
-                          Select all
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setEditingUser({ ...editingUser, adminPermissions: [] })
-                          }
-                          className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded text-gray-200 text-xs font-semibold transition-all"
-                        >
-                          Clear all
-                        </button>
-                      </div>
                     </div>
                   )}
                 </div>
 
-                {/* Actions */}
-                <div className="flex gap-3">
+                {/* Actions Footer */}
+                <div className="flex-shrink-0 pt-4 mt-4 border-t-2 border-slate-100 flex items-center justify-end gap-3">
                   <button
+                    type="button"
+                    onClick={() => setEditingUser(null)}
+                    className="px-6 py-3 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl font-black text-sm transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
                     onClick={async () => {
                       const updates: any = {
                         name: editingUser.name,
@@ -10428,21 +10459,13 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                           : null;
 
                       await handleUpdateUser(targetId, updates);
-                      // Applied after the profile save so the merge is not
-                      // overwritten by that endpoint's narrower response.
                       if (nextPermissions) {
                         await handleUpdatePermissions(targetId, nextPermissions);
                       }
                     }}
-                    className="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 rounded-lg text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-lg hover:shadow-indigo-500/30"
+                    className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-sm transition-all shadow-lg hover:shadow-indigo-600/30"
                   >
                     ✓ Save Changes
-                  </button>
-                  <button
-                    onClick={() => setEditingUser(null)}
-                    className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white font-semibold transition-all duration-200"
-                  >
-                    Cancel
                   </button>
                 </div>
               </div>

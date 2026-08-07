@@ -474,56 +474,60 @@ export default function AdminUsers() {
 
       {/* ================= EDIT USER MODAL ================= */}
       {editing && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 sm:p-6">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
             {/* Fixed header */}
-            <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-slate-200 flex items-start justify-between">
+            <div className="flex-shrink-0 px-6 sm:px-8 pt-6 pb-4 border-b border-slate-100 flex items-start justify-between">
               <div>
-                <h3 className="text-slate-900 font-black text-xl">Edit User</h3>
-                <p className="text-slate-400 text-xs font-mono mt-1">{editing._id}</p>
+                <h3 className="text-slate-900 font-extrabold text-2xl flex items-center gap-2">
+                  <span>✏️</span> Edit User
+                </h3>
+                <p className="text-slate-500 text-xs font-mono mt-1">{editing.email || editing._id}</p>
               </div>
               <button
                 onClick={closeEdit}
-                className="text-slate-400 hover:text-slate-900 text-2xl leading-none"
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-900 text-xl font-bold transition-all"
               >
                 ✕
               </button>
             </div>
 
             {/* Scrollable body */}
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                />
+            <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:bg-white focus:border-indigo-600 transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:bg-white focus:border-indigo-600 transition-all"
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
                   Role
                 </label>
                 <select
                   value={form.role}
                   onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm bg-white capitalize focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 capitalize focus:outline-none focus:bg-white focus:border-indigo-600 transition-all"
                 >
                   {ROLES.map((r) => (
                     <option key={r} value={r} className="capitalize">
@@ -533,36 +537,36 @@ export default function AdminUsers() {
                 </select>
               </div>
 
-              <div className="pt-2 border-t border-slate-200">
-                <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">
-                  Change Password
+              <div className="pt-4 border-t border-slate-100 bg-amber-50/60 p-4 rounded-2xl border border-amber-200/80">
+                <label className="block text-xs font-bold uppercase tracking-wider text-amber-900 mb-2">
+                  🔐 Change Password (Super Admin)
                 </label>
                 <input
                   type="text"
                   value={form.newPassword}
                   onChange={(e) => setForm((f) => ({ ...f, newPassword: e.target.value }))}
                   placeholder="Leave blank to keep current password"
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="w-full px-4 py-3 bg-white border border-amber-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
                 />
-                <p className="text-[11px] text-slate-400 mt-1.5">
-                  Min 6 characters. Requires super-admin access.
+                <p className="text-[11px] text-amber-800 font-semibold mt-2">
+                  ⚠️ Min 6 characters. Requires super-admin access.
                 </p>
               </div>
             </div>
 
             {/* Fixed footer */}
-            <div className="flex-shrink-0 px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
+            <div className="flex-shrink-0 px-6 sm:px-8 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50/50">
               <button
                 onClick={closeEdit}
                 disabled={saving}
-                className="px-4 py-2.5 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100 transition disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="px-5 py-2.5 rounded-lg text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition disabled:opacity-50"
+                className="px-6 py-2.5 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-md hover:shadow-indigo-500/20 disabled:opacity-50"
               >
                 {saving ? "Saving…" : "Save Changes"}
               </button>
