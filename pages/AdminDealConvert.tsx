@@ -741,7 +741,7 @@ export default function AdminDealConvert() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 p-6 md:p-8">
+    <div className="h-screen overflow-hidden bg-slate-100 p-4 md:p-6 print:h-auto print:overflow-visible">
       <style>{`
         @page {
           size: A4;
@@ -913,8 +913,8 @@ export default function AdminDealConvert() {
           }
         }
       `}</style>
-      <div id="deal-convert-layout" className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <div id="deal-editor-panel" className="rounded-2xl border bg-white p-5 print:hidden">
+      <div id="deal-convert-layout" className="mx-auto grid h-full max-w-[1600px] gap-6 xl:grid-cols-[400px_minmax(0,1fr)] overflow-hidden print:h-auto print:overflow-visible">
+        <div id="deal-editor-panel" className="h-full overflow-y-auto rounded-2xl border bg-white p-5 shadow-sm print:hidden">
           <div className="mb-5 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-black text-slate-900">{pageTitle}</h1>
@@ -1107,7 +1107,7 @@ export default function AdminDealConvert() {
 
         <div
           id="deal-quotation-preview"
-          className={`min-w-0 text-black ${isStaticPreview ? "exporting" : ""}`}
+          className={`h-full overflow-y-auto rounded-2xl border bg-slate-200/50 p-4 md:p-6 shadow-inner min-w-0 text-black print:h-auto print:overflow-visible print:bg-white print:p-0 print:shadow-none ${isStaticPreview ? "exporting" : ""}`}
         >
           {isScreenProtected && (
             <ScreenshotPrivacyOverlay message="Hidden while this window is out of focus, so quotation pricing stays off task-switcher previews." />
