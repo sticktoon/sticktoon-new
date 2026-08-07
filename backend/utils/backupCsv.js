@@ -7,6 +7,7 @@ const Invoice = require("../models/Invoice");
 const Lead = require("../models/Lead");
 const Product = require("../models/Product");
 const PromoCode = require("../models/PromoCode");
+const { EJSON } = require("bson");
 const sendEmail = require("./sendEmail");
 const { backupEmail } = require("./emailTemplates");
 
@@ -90,6 +91,7 @@ const sendBackup = async ({ trigger = "manual", triggeredBy = "" } = {}) => {
   const stamp = new Date().toISOString().slice(0, 10);
   const attachments = [];
   const counts = {};
+  const restore = {};
 
   for (const [name, Model] of COLLECTIONS) {
     const rows = (await Model.find({}).lean()).map(stripSensitive);
@@ -102,7 +104,18 @@ const sendBackup = async ({ trigger = "manual", triggeredBy = "" } = {}) => {
       name: `${name}-${stamp}.csv`,
       content: Buffer.from(csv, "utf8").toString("base64"),
     });
+
+    restore[name] = rows;
   }
+
+  /* The CSVs are for reading. This is the one that can actually be restored:
+     Extended JSON keeps ObjectId, Date and number types intact, so relations
+     between collections survive the round trip. CSV flattens them to strings. */
+  const restoreJson = EJSON.stringify(restore, { relaxed: false });
+  attachments.push({
+    name: `RESTORE-${stamp}.json`,
+    content: Buffer.from(restoreJson, "utf8").toString("base64"),
+  });
 
   const html = backupEmail({ trigger, triggeredBy, counts, stamp });
   const subject = `StickToon ${trigger === "weekly" ? "Weekly" : "Manual"} Data Backup — ${stamp}`;

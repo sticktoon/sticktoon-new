@@ -223,9 +223,16 @@ exports.backupEmail = ({ trigger, triggeredBy, counts, stamp }) => {
     </table>
 
     <p style="font-size:13px;color:#6b7280;margin-top:20px;">
-      Each collection is attached as a separate CSV file (UTF-8, opens in Excel or Google Sheets).
-      Passwords and reset tokens are excluded from the export.
-      Store these files somewhere safe — they contain customer data.
+      Each collection is attached as a CSV file (UTF-8, opens in Excel or Google Sheets)
+      for reading. The <b>RESTORE-${esc(stamp)}.json</b> file is the one to keep for
+      recovery — it preserves record IDs and links between collections, which the CSVs do not.
+      Restore with <b>node scripts/restoreBackup.js RESTORE-${esc(stamp)}.json --yes</b>.
+    </p>
+
+    <p style="font-size:13px;color:#6b7280;">
+      Passwords and reset tokens are excluded from every file, so restored users must use
+      Forgot Password to sign in again. Store these attachments somewhere safe —
+      they contain customer data.
     </p>
   `);
 };

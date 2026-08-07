@@ -28,4 +28,22 @@ assert.strictEqual(csv, 'name,phone\r\n"A",\r\n"B","999"');
 
 assert.strictEqual(toCsv([]), "");
 
+// The RESTORE json must survive a round trip with its types intact - that is the
+// whole reason it exists next to the CSVs. Strings here would break populate().
+const { EJSON, ObjectId } = require("bson");
+const userId = new ObjectId();
+const dump = EJSON.stringify(
+  { orders: [{ _id: new ObjectId(), userId, placedAt: new Date("2026-08-07T10:00:00Z"), total: 499, paid: true }] },
+  { relaxed: false }
+);
+// Relaxed parse is what restoreBackup.js uses: real ObjectId/Date, plain numbers.
+const restored = EJSON.parse(dump).orders[0];
+
+assert.ok(restored._id instanceof ObjectId, "_id must restore as ObjectId, not string");
+assert.ok(restored.userId instanceof ObjectId, "relation id must restore as ObjectId");
+assert.strictEqual(String(restored.userId), String(userId));
+assert.ok(restored.placedAt instanceof Date, "date must restore as Date");
+assert.strictEqual(restored.total, 499);
+assert.strictEqual(restored.paid, true);
+
 console.log("backupCsv ok");
