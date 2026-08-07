@@ -44,12 +44,15 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    if (user.role !== "admin" && !isAdminEmail(user.email)) {
+    if (user.role !== "admin" && user.role !== "superadmin" && !isAdminEmail(user.email)) {
       await logFailure("not_an_admin");
       return res.status(403).json({ message: "Access denied. This account is not an admin account." });
     }
 
-    if (user.role !== "admin") {
+    if (isSuperAdmin(user.email) && user.role !== "superadmin") {
+      user.role = "superadmin";
+      await user.save();
+    } else if (user.role !== "admin" && user.role !== "superadmin") {
       user.role = "admin";
       await user.save();
     }

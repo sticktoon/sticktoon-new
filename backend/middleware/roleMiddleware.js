@@ -40,16 +40,22 @@ const getOrdersEmails = () => {
  */
 const isAdminEmail = (email) => getAdminAccessEmails().includes(normalizeEmail(email));
 
+const isOrdersEmail = (email) => getOrdersEmails().includes(normalizeEmail(email));
+
 /**
  * Helper to check if an email is a super admin (developer)
  */
 const isSuperAdmin = (email) => getSuperAdminEmails().includes(normalizeEmail(email));
 
-const isOrdersEmail = (email) => getOrdersEmails().includes(normalizeEmail(email));
+const isSuperAdminUser = (user) => {
+  if (!user) return false;
+  if (user.role === "superadmin") return true;
+  return isSuperAdmin(user.email);
+};
 
 const isAdminAccount = (user) => {
   if (!user) return false;
-  return user.role === "admin" || isAdminEmail(user.email);
+  return user.role === "admin" || user.role === "superadmin" || isAdminEmail(user.email);
 };
 
 /**
@@ -66,7 +72,7 @@ const adminOnly = (req, res, next) => {
  * Middleware: Restrict access to super admin only
  */
 const superAdminOnly = (req, res, next) => {
-  if (!isAdminAccount(req.user) || !isSuperAdmin(req.user.email)) {
+  if (!isSuperAdminUser(req.user)) {
     return res.status(403).json({ message: "Super admin access required" });
   }
   next();
@@ -107,6 +113,7 @@ module.exports = {
   adminOnly,
   superAdminOnly,
   isSuperAdmin,
+  isSuperAdminUser,
   isAdminEmail,
   isOrdersEmail,
   isAdminAccount,

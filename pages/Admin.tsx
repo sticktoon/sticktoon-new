@@ -976,6 +976,43 @@ const syncStorefrontSession = (token: string, adminUser: any) => {
   }
 };
 
+const getViewFromPath = (pathname: string) => {
+  const cleanPath = pathname.replace(/\/$/, "");
+  if (cleanPath === "/admin" || cleanPath === "/admin/dashboard" || cleanPath === "") {
+    return "dashboard";
+  }
+  const view = cleanPath.replace(/^\/admin\//, "");
+  const validViews = [
+    "dashboard",
+    "notifications",
+    "leads",
+    "deals",
+    "invoices",
+    "support",
+    "tasks",
+    "users",
+    "all-influencers",
+    "influencers",
+    "withdrawals",
+    "customers",
+    "products",
+    "promo",
+    "orders",
+    "reports",
+    "profile",
+    "logs",
+    "deal-convert",
+    "deal-send",
+    "invoice",
+    "revenue",
+    "user-orders",
+  ];
+  if (validViews.includes(view)) {
+    return view as any;
+  }
+  return "dashboard";
+};
+
 /* ===========================
    MAIN COMPONENT
 =========================== */
@@ -1014,7 +1051,18 @@ const Admin: React.FC = () => {
     | "invoice"
     | "revenue"
     | "user-orders"
-  >(() => (getStoredAdminUser() ? "dashboard" : "login"));
+  >(() => {
+    if (!getStoredAdminUser()) return "login";
+    return getViewFromPath(window.location.pathname);
+  });
+
+  // Keep currentView synchronized with URL path changes so switching tabs or refreshing stays on the active view
+  useEffect(() => {
+    if (isAuthenticated) {
+      const derivedView = getViewFromPath(location.pathname);
+      setCurrentView(derivedView);
+    }
+  }, [location.pathname, isAuthenticated]);
 
   const changeView = (targetView: typeof currentView) => {
     setCurrentView(targetView);

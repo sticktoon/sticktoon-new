@@ -245,71 +245,47 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     ctx.fillRect(0, 0, size, size);
 
     if (imageState) {
-      // Only the 58mm face is ever visible — 58-70mm is bleed that wraps the
-      // shell edge and gets crimped behind. So the face fills the whole circle.
-      //
-      // The face is domed, not flat: flat paper pressed onto a convex shell
-      // magnifies the middle and compresses toward the rim. Screen radius is
-      // sin(theta), paper radius is arc length theta, so band i pulls its art
-      // from asin(u*sin(CAP))/CAP. The 58mm boundary still lands exactly on the
-      // rim, so nothing outside the visible area leaks in.
-      const CAP = 0.8;            // ~46 degree shell cap => ~10% centre bulge
-      const BANDS = 28;
-      const sinCap = Math.sin(CAP);
-      const paperFrac = (u: number) => Math.asin(u * sinCap) / CAP;
       const facePaperR = INNER_PX / 2;
+      const s = r / facePaperR;
 
-      for (let i = 0; i < BANDS; i++) {
-        const u0 = i / BANDS;
-        const u1 = (i + 1) / BANDS;
-        const uMid = (u0 + u1) / 2;
-        const pMid = (paperFrac(u0) + paperFrac(u1)) / 2;
-        const s = (r * uMid) / (facePaperR * pMid);
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(c, c, r * u1 + 0.5 * k, 0, Math.PI * 2);
-        if (i > 0) ctx.arc(c, c, r * u0 - 0.5 * k, 0, Math.PI * 2, true);
-        ctx.clip();
-        ctx.translate(c, c);
-        ctx.scale(s, s);
-        ctx.translate(imageState.x, imageState.y);
-        ctx.rotate((imageState.rotation * Math.PI) / 180);
-        ctx.scale(imageState.scale, imageState.scale);
-        ctx.drawImage(imageState.img, -imageState.img.width / 2, -imageState.img.height / 2);
-        ctx.restore();
-      }
+      ctx.save();
+      ctx.translate(c, c);
+      ctx.scale(s, s);
+      ctx.translate(imageState.x, imageState.y);
+      ctx.rotate((imageState.rotation * Math.PI) / 180);
+      ctx.scale(imageState.scale, imageState.scale);
+      ctx.drawImage(imageState.img, -imageState.img.width / 2, -imageState.img.height / 2);
+      ctx.restore();
     }
 
     // dome falls away from the light toward the rim
-    const rim = ctx.createRadialGradient(c, c, r * 0.55, c, c, r);
+    const rim = ctx.createRadialGradient(c, c, r * 0.7, c, c, r);
     rim.addColorStop(0, 'rgba(0,0,0,0)');
-    rim.addColorStop(0.62, 'rgba(0,0,0,0.10)');
-    rim.addColorStop(0.9, 'rgba(0,0,0,0.30)');
-    rim.addColorStop(1, 'rgba(0,0,0,0.55)');
+    rim.addColorStop(0.8, 'rgba(0,0,0,0.12)');
+    rim.addColorStop(1, 'rgba(0,0,0,0.38)');
     ctx.fillStyle = rim;
     ctx.fillRect(0, 0, size, size);
 
     // broad soft sheen across the top of the dome
     const sheen = ctx.createLinearGradient(0, 0, 0, size);
-    sheen.addColorStop(0, 'rgba(255,255,255,0.34)');
-    sheen.addColorStop(0.42, 'rgba(255,255,255,0.05)');
+    sheen.addColorStop(0, 'rgba(255,255,255,0.15)');
+    sheen.addColorStop(0.4, 'rgba(255,255,255,0.03)');
     sheen.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = sheen;
     ctx.fillRect(0, 0, size, size);
 
-    // tight specular hotspot — the giveaway that the surface is glossy and curved
+    // subtle specular hotspot for natural 3D gloss without washing out colors
     ctx.save();
     ctx.translate(c - r * 0.30, c - r * 0.40);
     ctx.rotate(-0.5);
     ctx.scale(1, 0.55);
-    const hot = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.46);
-    hot.addColorStop(0, 'rgba(255,255,255,0.62)');
-    hot.addColorStop(0.5, 'rgba(255,255,255,0.16)');
+    const hot = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.45);
+    hot.addColorStop(0, 'rgba(255,255,255,0.25)');
+    hot.addColorStop(0.5, 'rgba(255,255,255,0.08)');
     hot.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = hot;
     ctx.beginPath();
-    ctx.arc(0, 0, r * 0.46, 0, Math.PI * 2);
+    ctx.arc(0, 0, r * 0.45, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
@@ -1023,25 +999,27 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
           </div>
 
           {/* ===== CENTER: Canvas ===== */}
-          <div className="flex-1 min-w-0 flex flex-col gap-3 lg:h-full">
+          <div className="flex-1 min-w-0 flex flex-col gap-3 lg:h-full min-h-0">
             {/* Canvas Area */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-4 flex-1 flex flex-col shadow-sm justify-center items-center overflow-hidden"
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-4 flex-1 flex flex-col shadow-sm justify-center items-center overflow-hidden min-h-0"
               onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
-              <div className="w-full mb-2 flex items-center justify-between">
+              <div className="w-full mb-2 flex items-center justify-between flex-shrink-0">
                 <p className="text-xs font-bold text-slate-600 flex items-center gap-2">
                   <Info className="w-3.5 h-3.5 text-yellow-600" />
                   {OUTER_BADGE_MM}mm Canvas
                 </p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Drag • Scroll to zoom</p>
               </div>
-              <div className="flex-1 w-full flex items-center justify-center overflow-hidden">
-                <canvas
-                  ref={canvasRef}
-                  className="max-w-full max-h-full rounded-xl cursor-grab active:cursor-grabbing shadow-lg ring-1 ring-slate-200"
-                  style={{ aspectRatio: "1/1", width: "100%", maxWidth: "min(100%, 560px)", maxHeight: "min(100%, 560px)", touchAction: "none" }}
-                  onMouseDown={handlePointerDown} onMouseMove={handlePointerMove} onMouseUp={handlePointerUp}
-                  onMouseLeave={handlePointerUp} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
-                />
+              <div className="flex-1 w-full min-h-0 flex items-center justify-center overflow-hidden p-1">
+                <div className="relative aspect-square w-full h-full max-w-[560px] max-h-[560px] flex items-center justify-center">
+                  <canvas
+                    ref={canvasRef}
+                    className="max-w-full max-h-full aspect-square rounded-xl cursor-grab active:cursor-grabbing shadow-lg ring-1 ring-slate-200 object-contain"
+                    style={{ touchAction: "none" }}
+                    onMouseDown={handlePointerDown} onMouseMove={handlePointerMove} onMouseUp={handlePointerUp}
+                    onMouseLeave={handlePointerUp} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
+                  />
+                </div>
               </div>
             </div>
 
