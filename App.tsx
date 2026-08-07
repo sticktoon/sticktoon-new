@@ -1001,7 +1001,7 @@ const continueShopping = () => {
 
         {/* Footer */}
         {cart.length > 0 && (
-          <div className="border-t border-slate-100 px-5 py-4 space-y-3">
+          <div className="border-t border-slate-100 px-5 py-4 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-bold text-slate-500">Subtotal</span>
               <span className="text-xl font-black text-slate-900">₹{subtotal.toFixed(0)}</span>
@@ -1011,6 +1011,15 @@ const continueShopping = () => {
               className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-slate-900 text-white font-black text-sm uppercase tracking-wide hover:bg-slate-700 transition"
             >
               Checkout <ArrowRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                onClose();
+                navigate("/categories");
+              }}
+              className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wide hover:bg-slate-50 transition text-center"
+            >
+              Continue Shopping
             </button>
           </div>
         )}
