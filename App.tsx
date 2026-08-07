@@ -77,7 +77,9 @@ const ProtectedAdminRoute = ({ user, children }: { user: AuthUser | null; childr
     sfUser = rawUser ? (JSON.parse(rawUser) as AuthUser) : null;
   } catch {}
 
-  const isStorefrontAdmin = Boolean((user && user.role === "admin") || (sfToken && sfUser?.role === "admin"));
+  const isAdminRole = (role?: string) => role === "admin" || role === "superadmin";
+
+  const isStorefrontAdmin = Boolean((user && isAdminRole(user.role)) || (sfToken && isAdminRole(sfUser?.role)));
 
   let storedAdminUser: AuthUser | null = null;
   try {
@@ -86,14 +88,14 @@ const ProtectedAdminRoute = ({ user, children }: { user: AuthUser | null; childr
   } catch {}
 
   const hasAdminPanelSession = Boolean(
-    localStorage.getItem("adminToken") && storedAdminUser?.role === "admin",
+    localStorage.getItem("adminToken") && isAdminRole(storedAdminUser?.role),
   );
 
   if (!isStorefrontAdmin && !hasAdminPanelSession) {
     return <Navigate to="/admin/login" replace />;
   }
 
-  if (!isStorefrontAdmin && storedAdminUser?.role !== "admin") {
+  if (!isStorefrontAdmin && !isAdminRole(storedAdminUser?.role)) {
     return <Navigate to="/" replace />;
   }
   

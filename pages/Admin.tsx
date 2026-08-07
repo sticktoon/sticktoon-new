@@ -3168,7 +3168,7 @@ const Admin: React.FC = () => {
         authToastShownRef.current = false;
         setIsAuthenticated(true);
         setUser(freshUser);
-        setCurrentView("dashboard");
+        setCurrentView(getViewFromPath(window.location.pathname));
         fetchDashboardData(token);
       } catch (err) {
         console.error("Auth validation error:", err);
@@ -3533,8 +3533,8 @@ const Admin: React.FC = () => {
         throw new Error(data.message || "Login failed");
       }
 
-      // Check if user is admin
-      if (data.user?.role !== "admin") {
+      // Check if user is admin or superadmin
+      if (data.user?.role !== "admin" && data.user?.role !== "superadmin") {
         throw new Error("Only admins can access this panel");
       }
 
