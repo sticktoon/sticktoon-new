@@ -62,11 +62,33 @@ router.post("/signup", async (req, res) => {
     }
 
     const hashed = await bcrypt.hash(password, 10);
+   
+    const phoneNumber  = phone ? String(phone).trim() : ""
+
+    if (phoneNumber) {
+  // Must be exactly 10 digits
+  if (!/^\d{10}$/.test(phoneNumber)) {
+    return res.status(400).json({
+      message: "Phone number must be exactly 10 digits",
+    });
+  }
+
+  // handle invalid values (0000000000, 1111111111, etc.)
+  if (/^(\d)\1{9}$/.test(phoneNumber)) {
+    return res.status(400).json({
+      message: "Invalid phone number",
+    });
+  }
+}
+
+    
+  
+  
 
     const user = await User.create({
       name: name?.trim() || email.split("@")[0],
       email,
-      phone: phone ? String(phone).trim() : "",
+      phone: phoneNumber,
       password: hashed,
       provider: "credentials",
       role: "user",
