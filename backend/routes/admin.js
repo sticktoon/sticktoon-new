@@ -10,7 +10,7 @@ const router = express.Router();
 const crypto = require("crypto");
 const sendEmail = require("../utils/sendEmail");
 const auth = require("../middleware/auth");
-const { adminOnly, superAdminOnly, isSuperAdmin, isAdminEmail, isOrdersEmail } = require("../middleware/roleMiddleware");
+const { adminOnly, superAdminOnly, requirePermission, hasPermission, ADMIN_PERMISSIONS, isSuperAdmin, isAdminEmail, isOrdersEmail } = require("../middleware/roleMiddleware");
 const { logActivity } = require("../utils/activityLogger");
 
 /* ======================
@@ -93,6 +93,7 @@ router.post("/login", async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        adminPermissions: user.role === "superadmin" ? ADMIN_PERMISSIONS : user.adminPermissions || [],
       },
     });
   } catch (err) {
@@ -167,6 +168,7 @@ router.post("/google-login", async (req, res) => {
         email: user.email,
         avatar: user.avatar,
         role: user.role,
+        adminPermissions: user.role === "superadmin" ? ADMIN_PERMISSIONS : user.adminPermissions || [],
       },
     });
   } catch (err) {
@@ -258,16 +260,22 @@ router.get("/stats", auth, adminOnly, async (req, res) => {
     const ordersCount = await Order.countDocuments();
     const userOrdersCount = await UserOrders.countDocuments();
 
-    const revenue = await Order.aggregate([
-      { $match: { status: "SUCCESS" } },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
-    ]);
+    // The dashboard is open to every admin, but its revenue figure is not -
+    // that stays behind the same permission as the revenue section.
+    const canSeeRevenue = await hasPermission(req.user, "revenue");
+    const revenue = canSeeRevenue
+      ? await Order.aggregate([
+          { $match: { status: "SUCCESS" } },
+          { $group: { _id: null, total: { $sum: "$amount" } } },
+        ])
+      : [];
 
     res.json({
       users: usersCount,
       orders: ordersCount,       // untouched
       userOrders: userOrdersCount,
       revenue: revenue[0]?.total || 0,
+      revenueVisible: canSeeRevenue,
     });
   } catch (err) {
     console.error("Admin stats error:", err);
@@ -278,18 +286,79 @@ router.get("/stats", auth, adminOnly, async (req, res) => {
 /* ======================
    ADMIN USERS LIST
 ====================== */
-router.get("/users", auth, adminOnly, async (req, res) => {
+router.get("/users", auth, requirePermission("users"), async (req, res) => {
   const users = await User.find().select(
-    "_id name email role provider createdAt"
+    "_id name email role provider createdAt adminPermissions"
   );
 
   res.json(users);
 });
 
 /* ======================
+   ADMIN SECTION PERMISSIONS
+====================== */
+
+// Catalog of grantable sections, so the panel never drifts from the backend.
+router.get("/permissions", auth, adminOnly, (req, res) => {
+  res.json({ permissions: ADMIN_PERMISSIONS });
+});
+
+router.patch("/users/:id/permissions", auth, superAdminOnly, async (req, res) => {
+  try {
+    const { permissions } = req.body;
+
+    if (!Array.isArray(permissions)) {
+      return res.status(400).json({ message: "permissions must be an array" });
+    }
+
+    const invalid = permissions.filter((item) => !ADMIN_PERMISSIONS.includes(item));
+    if (invalid.length) {
+      return res.status(400).json({ message: `Unknown permissions: ${invalid.join(", ")}` });
+    }
+
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (targetUser.role !== "admin") {
+      return res.status(400).json({ message: "Permissions apply to admin accounts only" });
+    }
+
+    const cleaned = [...new Set(permissions)];
+    const before = targetUser.adminPermissions || [];
+    targetUser.adminPermissions = cleaned;
+    await targetUser.save();
+
+    logActivity({
+      req,
+      action: "user.permissions_change",
+      category: "user",
+      message: `Updated admin permissions for ${targetUser.email}`,
+      target: { type: "User", id: targetUser._id, label: targetUser.email },
+      meta: { before, after: cleaned },
+    });
+
+    res.json({
+      message: "Permissions updated",
+      user: {
+        _id: targetUser._id,
+        name: targetUser.name,
+        email: targetUser.email,
+        role: targetUser.role,
+        adminPermissions: cleaned,
+      },
+    });
+  } catch (err) {
+    console.error("Update permissions error:", err);
+    res.status(500).json({ message: "Failed to update permissions" });
+  }
+});
+
+/* ======================
    USER ORDERS (GROUPED ✅)
 ====================== */
-router.get("/user-orders", auth, adminOnly, async (req, res) => {
+router.get("/user-orders", auth, requirePermission("users"), async (req, res) => {
   try {
     const rows = await UserOrders.find()
       .populate("userId", "name email")
@@ -329,7 +398,7 @@ router.get("/user-orders", auth, adminOnly, async (req, res) => {
 /* ======================
    DELETE USER
 ====================== */
-router.delete("/users/:id", auth, adminOnly, async (req, res) => {
+router.delete("/users/:id", auth, requirePermission("users"), async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -372,7 +441,7 @@ router.delete("/users/:id", auth, adminOnly, async (req, res) => {
 /* ======================
    UPDATE USER ROLE
 ====================== */
-router.patch("/users/:id/role", auth, adminOnly, async (req, res) => {
+router.patch("/users/:id/role", auth, requirePermission("users"), async (req, res) => {
   try {
     const { role } = req.body;
     
@@ -458,7 +527,7 @@ router.patch("/users/:id/reset-password", auth, superAdminOnly, async (req, res)
 /* ======================
    UPDATE USER INFO
 ====================== */
-router.patch("/users/:id", auth, adminOnly, async (req, res) => {
+router.patch("/users/:id", auth, requirePermission("users"), async (req, res) => {
   try {
     const { name, email } = req.body;
     
@@ -479,13 +548,25 @@ router.patch("/users/:id", auth, adminOnly, async (req, res) => {
 
     const updateData = {};
     if (name) updateData.name = name;
-    if (email) updateData.email = email.toLowerCase();
+    if (email) {
+      const nextEmail = email.toLowerCase().trim();
+      // Claiming a privileged env-listed address would grant access the actor
+      // does not have, so only a super admin may assign one.
+      if (
+        nextEmail !== targetUser.email &&
+        (isSuperAdmin(nextEmail) || isAdminEmail(nextEmail)) &&
+        !isSuperAdmin(req.user.email)
+      ) {
+        return res.status(403).json({ message: "Only super admin can assign a privileged email address" });
+      }
+      updateData.email = nextEmail;
+    }
 
     const user = await User.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true }
-    ).select("_id name email role provider createdAt");
+    ).select("_id name email role provider createdAt adminPermissions");
 
     logActivity({
       req,
@@ -573,7 +654,7 @@ router.put("/users/:id/super-edit", auth, superAdminOnly, async (req, res) => {
 /* ======================
    SEND RESET PASSWORD EMAIL TO USER
 ====================== */
-router.post("/users/:id/send-reset-email", auth, adminOnly, async (req, res) => {
+router.post("/users/:id/send-reset-email", auth, requirePermission("users"), async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -618,7 +699,7 @@ router.post("/users/:id/send-reset-email", auth, adminOnly, async (req, res) => 
 /* ======================
    CREATE NEW USER WITH ROLE
 ====================== */
-router.post("/users/create", auth, adminOnly, async (req, res) => {
+router.post("/users/create", auth, requirePermission("users"), async (req, res) => {
   try {
     const { name, email, password, role = "user", phone } = req.body;
 
@@ -628,6 +709,12 @@ router.post("/users/create", auth, adminOnly, async (req, res) => {
 
     if (password.length < 6) {
       return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    // Only a super admin may mint admin accounts, otherwise any admin could
+    // create a second admin for themselves and escalate around the role guards.
+    if (role === "admin" && !isSuperAdmin(req.user.email)) {
+      return res.status(403).json({ message: "Only super admin can create admin accounts" });
     }
 
     const existingUser = await User.findOne({ email: email.toLowerCase().trim() });

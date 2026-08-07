@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, JSX } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef, JSX } from "react";
 
 import { useNavigate, useLocation } from "react-router-dom";
 import AdminLogs from "./AdminLogs";
@@ -66,6 +66,77 @@ const DEV_EMAILS = (import.meta.env.VITE_DEV_EMAIL || "")
 const isSuperAdminEmail = (email?: string | null) => {
   const normalized = email?.toLowerCase().trim();
   return normalized ? DEV_EMAILS.includes(normalized) : false;
+};
+
+// Grantable admin sections. Mirrors ADMIN_PERMISSIONS in
+// backend/middleware/roleMiddleware.js - keep the two lists in step.
+// ponytail: duplicated constant, fetch /api/admin/permissions instead if a
+// third place ever needs the list.
+const ADMIN_PERMISSIONS = [
+  "orders",
+  "products",
+  "users",
+  "influencers",
+  "promo",
+  "revenue",
+  "leads",
+  "tasks",
+  "support",
+  "logs",
+] as const;
+
+const ADMIN_PERMISSION_LABELS: Record<string, string> = {
+  orders: "Orders & Shipping",
+  products: "Products & Images",
+  users: "Users & Customers",
+  influencers: "Influencers & Withdrawals",
+  promo: "Promo Codes",
+  revenue: "Revenue & Invoices",
+  leads: "Leads & Deals",
+  tasks: "Tasks",
+  support: "Support",
+  logs: "Activity Logs",
+};
+
+// Which permission each panel view needs. Views absent from this map
+// (dashboard, notifications, profile) are open to every admin.
+const VIEW_PERMISSIONS: Record<string, string> = {
+  orders: "orders",
+  "user-orders": "orders",
+  products: "products",
+  promo: "promo",
+  leads: "leads",
+  deals: "leads",
+  "deal-convert": "leads",
+  "deal-send": "leads",
+  invoices: "revenue",
+  invoice: "revenue",
+  revenue: "revenue",
+  reports: "revenue",
+  support: "support",
+  tasks: "tasks",
+  users: "users",
+  customers: "users",
+  "all-influencers": "influencers",
+  influencers: "influencers",
+  withdrawals: "influencers",
+  logs: "logs",
+};
+
+/* This gating is a usability layer only - it hides what an admin cannot use.
+   The backend enforces the same permissions on every route, so a hand-typed
+   URL or a direct API call still gets a 403. */
+const canAccessView = (
+  account: { role?: string; email?: string; adminPermissions?: string[] } | null,
+  view: string,
+) => {
+  if (!account) return false;
+  if (account.role === "superadmin" || isSuperAdminEmail(account.email)) return true;
+
+  const required = VIEW_PERMISSIONS[view];
+  if (!required) return true;
+
+  return (account.adminPermissions || []).includes(required);
 };
 
 const normalizeCategory = (value?: string) => {
@@ -404,7 +475,8 @@ interface AdminUser {
   id: string;
   name: string;
   email: string;
-  role: "admin" | "user" | "influencer";
+  role: "admin" | "user" | "influencer" | "superadmin";
+  adminPermissions?: string[];
 }
 
 interface PendingInfluencer {
@@ -940,14 +1012,14 @@ const getStoredAdminUser = (): AdminUser | null => {
     const rawAdminUser = localStorage.getItem("adminUser");
     if (adminToken && rawAdminUser) {
       const parsed = JSON.parse(rawAdminUser);
-      if (parsed?.role === "admin") return parsed as AdminUser;
+      if (parsed?.role === "admin" || parsed?.role === "superadmin") return parsed as AdminUser;
     }
 
     const sfToken = localStorage.getItem("token");
     const rawSfUser = localStorage.getItem("user");
     if (sfToken && rawSfUser) {
       const parsed = JSON.parse(rawSfUser);
-      if (parsed?.role === "admin") return parsed as AdminUser;
+      if (parsed?.role === "admin" || parsed?.role === "superadmin") return parsed as AdminUser;
     }
   } catch {
     // ignore malformed storage
@@ -969,6 +1041,7 @@ const syncStorefrontSession = (token: string, adminUser: any) => {
         email: adminUser?.email,
         role: adminUser?.role,
         avatar: adminUser?.avatar,
+        adminPermissions: adminUser?.adminPermissions || [],
       }),
     );
   } catch {
@@ -2817,8 +2890,14 @@ const Admin: React.FC = () => {
   const [updatingProfile, setUpdatingProfile] = useState(false);
 
   // Check if current user is super admin
-  const isSuperAdmin = isSuperAdminEmail(user?.email);
+  const isSuperAdmin = isSuperAdminEmail(user?.email) || user?.role === "superadmin";
   const authToastShownRef = useRef(false);
+
+  // Section access for the signed-in admin. Super admins get everything.
+  const canView = useCallback(
+    (view: string) => canAccessView(user, view),
+    [user],
+  );
 
   /* ===========================
      EFFECTS
@@ -2826,6 +2905,14 @@ const Admin: React.FC = () => {
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // A hand-typed or bookmarked URL must not park an admin on a section they
+  // are not allowed to use. The backend refuses the data either way.
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    if (canView(currentView)) return;
+    changeView("dashboard");
+  }, [currentView, isAuthenticated, user, canView]);
 
   // Sync profile form with user data
   useEffect(() => {
@@ -3825,6 +3912,44 @@ const Admin: React.FC = () => {
     } catch (err) {
       console.error("Error updating user:", err);
       showToast("error", "❌ Error updating user");
+    }
+  };
+
+  // Super admin only: set which panel sections an admin account can open.
+  const handleUpdatePermissions = async (userId: string, permissions: string[]) => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return false;
+
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/admin/users/${userId}/permissions`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ permissions }),
+        },
+      );
+      if (handleUnauthorized(res)) return false;
+
+      const data = await res.json();
+      if (!res.ok) {
+        showToast("error", data.message || "Failed to update permissions");
+        return false;
+      }
+
+      setAllUsers((prev) =>
+        prev.map((u) =>
+          u._id === userId ? { ...u, adminPermissions: data.user.adminPermissions } : u,
+        ),
+      );
+      return true;
+    } catch (err) {
+      console.error("Error updating permissions:", err);
+      showToast("error", "❌ Error updating permissions");
+      return false;
     }
   };
 
@@ -4888,7 +5013,15 @@ const Admin: React.FC = () => {
                   { id: "logs", label: "Activity Logs", icon: <ScrollText className="w-5 h-5" /> },
                 ],
               },
-            ].map((section: { group: string; items: { id: string; label: string; icon: JSX.Element; badge?: number; href?: string }[] }) => {
+            ]
+              // Hide sections this admin has no permission for, then drop any
+              // group left with nothing in it.
+              .map((section) => ({
+                ...section,
+                items: section.items.filter((item) => canView(item.id)),
+              }))
+              .filter((section) => section.items.length > 0)
+              .map((section: { group: string; items: { id: string; label: string; icon: JSX.Element; badge?: number; href?: string }[] }) => {
               const hasActive = section.items.some((t) => currentView === t.id);
               // Active group always shows its items even when the admin collapsed it.
               const open = !collapsedNavGroups[section.group] || hasActive;
@@ -10196,12 +10329,77 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       )}
                     </div>
                   )}
+
+                  {/* Section access - super admin decides what an admin can open */}
+                  {isSuperAdmin && editingUser.role === "admin" && (
+                    <div>
+                      <label className="text-gray-300 text-sm font-medium block mb-2">
+                        🔑 Section Access (Super Admin Only)
+                      </label>
+                      <p className="text-gray-500 text-xs mb-3">
+                        Unticked sections are hidden from the panel and refused by
+                        the API. An admin with nothing ticked sees only the dashboard.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                        {ADMIN_PERMISSIONS.map((permission) => {
+                          const granted = (editingUser.adminPermissions || []).includes(permission);
+                          return (
+                            <label
+                              key={permission}
+                              className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 border border-indigo-500/20 rounded-lg cursor-pointer transition-all"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={granted}
+                                onChange={(e) => {
+                                  const current: string[] = editingUser.adminPermissions || [];
+                                  setEditingUser({
+                                    ...editingUser,
+                                    adminPermissions: e.target.checked
+                                      ? [...current, permission]
+                                      : current.filter((p) => p !== permission),
+                                  });
+                                }}
+                                className="accent-indigo-500 w-4 h-4"
+                              />
+                              <span className="text-gray-200 text-xs">
+                                {ADMIN_PERMISSION_LABELS[permission] || permission}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditingUser({
+                              ...editingUser,
+                              adminPermissions: [...ADMIN_PERMISSIONS],
+                            })
+                          }
+                          className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded text-gray-200 text-xs font-semibold transition-all"
+                        >
+                          Select all
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditingUser({ ...editingUser, adminPermissions: [] })
+                          }
+                          className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded text-gray-200 text-xs font-semibold transition-all"
+                        >
+                          Clear all
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions */}
                 <div className="flex gap-3">
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       const updates: any = {
                         name: editingUser.name,
                         email: editingUser.email,
@@ -10212,7 +10410,18 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       if (isSuperAdmin && editingUser.avatar !== undefined) {
                         updates.avatar = editingUser.avatar;
                       }
-                      handleUpdateUser(editingUser._id, updates);
+                      const targetId = editingUser._id;
+                      const nextPermissions: string[] | null =
+                        isSuperAdmin && editingUser.role === "admin"
+                          ? editingUser.adminPermissions || []
+                          : null;
+
+                      await handleUpdateUser(targetId, updates);
+                      // Applied after the profile save so the merge is not
+                      // overwritten by that endpoint's narrower response.
+                      if (nextPermissions) {
+                        await handleUpdatePermissions(targetId, nextPermissions);
+                      }
                     }}
                     className="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 rounded-lg text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-lg hover:shadow-indigo-500/30"
                   >

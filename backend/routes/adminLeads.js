@@ -2,11 +2,16 @@ const express = require("express");
 const router = express.Router();
 const Lead = require("../models/Lead");
 const auth = require("../middleware/auth");
+const { requirePermission } = require("../middleware/roleMiddleware");
+
+// This router also serves the public lead-capture POST, so access is applied
+// per route rather than at the mount point.
+const leadsAccess = [auth, requirePermission("leads")];
 
 /* ===============================
    GET ALL LEADS (Admin Only)
 ================================ */
-router.get("/", auth, async (req, res) => {
+router.get("/", ...leadsAccess, async (req, res) => {
   try {
     const leads = await Lead.find().sort({ createdAt: -1 });
     res.json(leads);
@@ -42,7 +47,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-router.patch("/:id", auth, async (req, res) => {
+router.patch("/:id", ...leadsAccess, async (req, res) => {
   try {
     const allowedFields = [
       "firstName",
@@ -84,7 +89,7 @@ router.patch("/:id", auth, async (req, res) => {
 /* ===============================
    UPDATE STATUS
 ================================ */
-router.patch("/:id/status", auth, async (req, res) => {
+router.patch("/:id/status", ...leadsAccess, async (req, res) => {
   try {
     const { status } = req.body;
     const update = { status };
@@ -105,7 +110,7 @@ router.patch("/:id/status", auth, async (req, res) => {
   }
 });
 
-router.patch("/:id/follow-up", auth, async (req, res) => {
+router.patch("/:id/follow-up", ...leadsAccess, async (req, res) => {
   try {
     const { nextFollowUpAt } = req.body || {};
 
@@ -138,7 +143,7 @@ router.patch("/:id/follow-up", auth, async (req, res) => {
   }
 });
 
-router.patch("/:id/lead-source", auth, async (req, res) => {
+router.patch("/:id/lead-source", ...leadsAccess, async (req, res) => {
   try {
     const { leadSource } = req.body || {};
 
@@ -158,7 +163,7 @@ router.patch("/:id/lead-source", auth, async (req, res) => {
   }
 });
 
-router.delete("/:id", auth, async (req, res) => {
+router.delete("/:id", ...leadsAccess, async (req, res) => {
   try {
     await Lead.findByIdAndDelete(req.params.id);
     res.json({ message: "Lead deleted successfully" });

@@ -3,7 +3,7 @@ const router = express.Router();
 const auth = require("../middleware/auth");
 const Product = require("../models/Product");
 
-const { adminOnly } = require("../middleware/roleMiddleware");
+const { requirePermission } = require("../middleware/roleMiddleware");
 const { logActivity } = require("../utils/activityLogger");
 
 const ALLOWED_CATEGORIES = [
@@ -271,7 +271,7 @@ router.get("/:id", async (req, res) => {
 /* ========================
    CREATE PRODUCT (ADMIN)
 ======================== */
-router.post("/", auth, adminOnly, async (req, res) => {
+router.post("/", auth, requirePermission("products"), async (req, res) => {
   try {
     const { name, type, price, description, category, subcategory, image, printImage, images, stock, weight, length, width, height, sku, size, packCount, isCombo, comboItems } = req.body;
     const normalizedType = normalizeType(type);
@@ -337,7 +337,7 @@ router.post("/", auth, adminOnly, async (req, res) => {
 /* ========================
    UPDATE PRODUCT (ADMIN)
 ======================== */
-router.patch("/:id", auth, adminOnly, async (req, res) => {
+router.patch("/:id", auth, requirePermission("products"), async (req, res) => {
   try {
     const { name, type, price, description, category, subcategory, image, printImage, images, stock, isActive, weight, length, width, height, sku, size, packCount, isCombo, comboItems } =
       req.body;
@@ -419,7 +419,7 @@ router.patch("/:id", auth, adminOnly, async (req, res) => {
 /* ========================
    DELETE PRODUCT (ADMIN)
 ======================== */
-router.delete("/:id", auth, adminOnly, async (req, res) => {
+router.delete("/:id", auth, requirePermission("products"), async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
     if (!product) {

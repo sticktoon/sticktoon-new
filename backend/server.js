@@ -40,29 +40,34 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 connectDB();
 
 /* Routes */
+const auth = require("./middleware/auth");
+const { requirePermission } = require("./middleware/roleMiddleware");
+
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/addresses", require("./routes/addresses"));
 app.use("/api/razorpay", require("./routes/razorpayPayment"));
 app.use("/api/admin", require("./routes/admin"));
-app.use("/api/admin/orders", require("./routes/adminOrders"));
-app.use("/api/admin/revenue", require("./routes/adminRevenue"));
+app.use("/api/admin/orders", auth, requirePermission("orders"), require("./routes/adminOrders"));
+app.use("/api/admin/revenue", auth, requirePermission("revenue"), require("./routes/adminRevenue"));
 app.use("/api/invoice", require("./routes/invoice"));
-app.use("/api/admin/invoice", require("./routes/adminInvoice"));
+app.use("/api/admin/invoice", auth, requirePermission("revenue"), require("./routes/adminInvoice"));
 app.use("/api/promo", require("./routes/promo"));
-app.use("/api/admin/promo", require("./routes/adminPromo"));
-app.use("/api/admin/influencer", require("./routes/adminInfluencer"));
-app.use("/api/admin/influencer-manage", require("./routes/adminInfluencerManage"));
+app.use("/api/admin/promo", auth, requirePermission("promo"), require("./routes/adminPromo"));
+app.use("/api/admin/influencer", auth, requirePermission("influencers"), require("./routes/adminInfluencer"));
+app.use("/api/admin/influencer-manage", auth, requirePermission("influencers"), require("./routes/adminInfluencerManage"));
 app.use("/api/products", require("./routes/adminProducts"));
 app.use("/api/influencer", require("./routes/influencer"));
 app.use("/api/cart", require("./routes/cart"));
 app.use("/api/user-orders", require("./routes/userOrders"));
 app.use("/api/badge-doc", require("./routes/badgeDoc"));
-app.use("/api/admin/images", require("./routes/adminImages"));
+// Image upload is driven from the product form, so it follows "products".
+app.use("/api/admin/images", auth, requirePermission("products"), require("./routes/adminImages"));
 app.use("/api/admin/leads", require("./routes/adminLeads"));
-app.use("/api/admin/tasks", require("./routes/adminTasks"));
-app.use("/api/admin/support", require("./routes/adminSupport"));
-app.use("/api/admin/settings", require("./routes/adminSettings"));
-app.use("/api/admin/logs", require("./routes/adminLogs"));
+app.use("/api/admin/tasks", auth, requirePermission("tasks"), require("./routes/adminTasks"));
+app.use("/api/admin/support", auth, requirePermission("support"), require("./routes/adminSupport"));
+// Settings currently holds only the Shiprocket toggle on the Orders screen.
+app.use("/api/admin/settings", auth, requirePermission("orders"), require("./routes/adminSettings"));
+app.use("/api/admin/logs", auth, requirePermission("logs"), require("./routes/adminLogs"));
 app.use("/api/contact", require("./routes/contact"));
 app.use("/api/reviews", require("./routes/reviews"));
 

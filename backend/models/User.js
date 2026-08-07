@@ -61,6 +61,13 @@ const UserSchema = new mongoose.Schema(
       index:true,
     },
 
+    // Admin section access. Empty = no sections (deny by default).
+    // Ignored for superadmin, who always has everything.
+    adminPermissions: {
+      type: [String],
+      default: [],
+    },
+
     // Influencer specific fields
     influencerProfile: {
       applicationStatus: {

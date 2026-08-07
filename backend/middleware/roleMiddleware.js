@@ -69,6 +69,63 @@ const adminOnly = (req, res, next) => {
 };
 
 /**
+ * Admin panel sections an admin account can be granted access to.
+ * The dashboard is intentionally absent - every admin can see it.
+ *
+ * Deliberately coarse: image upload rides on "products" and the Shiprocket
+ * setting rides on "orders" because those APIs are called from inside those
+ * screens. Splitting them out would let a grant look complete while the
+ * screen it belongs to still half-fails.
+ */
+const ADMIN_PERMISSIONS = [
+  "orders",
+  "products",
+  "users",
+  "influencers",
+  "promo",
+  "revenue",
+  "leads",
+  "tasks",
+  "support",
+  "logs",
+];
+
+/**
+ * Does this account hold a given section permission? Super admins hold all of
+ * them. Read from the database rather than the token so a revoked permission
+ * takes effect immediately, without waiting for a re-login.
+ */
+const hasPermission = async (reqUser, permission) => {
+  if (!isAdminAccount(reqUser)) return false;
+  if (isSuperAdminUser(reqUser)) return true;
+
+  const account = await User.findById(reqUser.id).select("role email adminPermissions");
+  if (!account) return false;
+
+  if (account.role === "superadmin" || isSuperAdmin(account.email)) return true;
+
+  return (account.adminPermissions || []).includes(permission);
+};
+
+/**
+ * Middleware factory: require an admin to hold a specific section permission.
+ */
+const requirePermission = (permission) => async (req, res, next) => {
+  try {
+    if (await hasPermission(req.user, permission)) return next();
+
+    return res.status(403).json({
+      message: isAdminAccount(req.user)
+        ? `Your admin account does not have access to ${permission}`
+        : "Admin only access required",
+    });
+  } catch (err) {
+    console.error("Permission check error:", err);
+    return res.status(500).json({ message: "Error verifying access permissions" });
+  }
+};
+
+/**
  * Middleware: Restrict access to super admin only
  */
 const superAdminOnly = (req, res, next) => {
@@ -110,6 +167,9 @@ const approvedInfluencerOnly = async (req, res, next) => {
 };
 
 module.exports = {
+  ADMIN_PERMISSIONS,
+  hasPermission,
+  requirePermission,
   adminOnly,
   superAdminOnly,
   isSuperAdmin,
