@@ -260,9 +260,16 @@ router.get("/stats", auth, adminOnly, async (req, res) => {
     const ordersCount = await Order.countDocuments();
     const userOrdersCount = await UserOrders.countDocuments();
 
+    // The panel calls this endpoint to validate its session, so it doubles as
+    // the identity refresh: the browser must never decide its own role or
+    // permissions from a stale localStorage copy.
+    const account = await User.findById(req.user.id).select("role adminPermissions");
+    const isSuper = account?.role === "superadmin" || isSuperAdmin(req.user.email);
+    const permissions = isSuper ? ADMIN_PERMISSIONS : account?.adminPermissions || [];
+
     // The dashboard is open to every admin, but its revenue figure is not -
     // that stays behind the same permission as the revenue section.
-    const canSeeRevenue = await hasPermission(req.user, "revenue");
+    const canSeeRevenue = permissions.includes("revenue");
     const revenue = canSeeRevenue
       ? await Order.aggregate([
           { $match: { status: "SUCCESS" } },
@@ -276,6 +283,10 @@ router.get("/stats", auth, adminOnly, async (req, res) => {
       userOrders: userOrdersCount,
       revenue: revenue[0]?.total || 0,
       revenueVisible: canSeeRevenue,
+      me: {
+        role: isSuper ? "superadmin" : account?.role || req.user.role,
+        adminPermissions: permissions,
+      },
     });
   } catch (err) {
     console.error("Admin stats error:", err);

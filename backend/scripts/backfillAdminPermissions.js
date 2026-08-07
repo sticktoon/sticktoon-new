@@ -9,8 +9,10 @@
  *   node backend/scripts/backfillAdminPermissions.js
  *   node backend/scripts/backfillAdminPermissions.js --force
  */
+const path = require("path");
 const mongoose = require("mongoose");
-require("dotenv").config();
+// Resolve against backend/.env so the script works from any directory.
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 
 const User = require("../models/User");
 const { ADMIN_PERMISSIONS } = require("../middleware/roleMiddleware");

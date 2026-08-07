@@ -3128,7 +3128,7 @@ const Admin: React.FC = () => {
       if (storefrontToken && storefrontUserRaw) {
         try {
           const sfUser = JSON.parse(storefrontUserRaw);
-          if (sfUser.role === "admin") {
+          if (sfUser.role === "admin" || sfUser.role === "superadmin") {
             // Set for admin panel
             localStorage.setItem("adminToken", storefrontToken);
             localStorage.setItem("adminUser", storefrontUserRaw);
@@ -3154,9 +3154,20 @@ const Admin: React.FC = () => {
           return;
         }
 
+        // Role and permissions always come from the server, never from the
+        // stored copy - a session saved before a permission change (or before
+        // permissions existed at all) would otherwise gate the panel on stale data.
+        const validationData = await validationRes.json().catch(() => ({}));
+        const freshUser = { ...parsedUser, ...(validationData.me || {}) };
+        try {
+          localStorage.setItem("adminUser", JSON.stringify(freshUser));
+        } catch {
+          // ignore storage errors
+        }
+
         authToastShownRef.current = false;
         setIsAuthenticated(true);
-        setUser(parsedUser);
+        setUser(freshUser);
         setCurrentView("dashboard");
         fetchDashboardData(token);
       } catch (err) {
