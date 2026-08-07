@@ -2890,6 +2890,31 @@ const Admin: React.FC = () => {
   });
   const [updatingProfile, setUpdatingProfile] = useState(false);
 
+  // Data backup (dashboard card)
+  const [backingUp, setBackingUp] = useState(false);
+  const [backupMsg, setBackupMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const createBackup = async () => {
+    setBackingUp(true);
+    setBackupMsg(null);
+    try {
+      const token = localStorage.getItem("adminToken");
+      const res = await fetch(`${API_BASE_URL}/api/admin/backup`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setBackupMsg({
+        text: res.ok ? data.message : data.message || "Backup failed",
+        ok: res.ok,
+      });
+    } catch {
+      setBackupMsg({ text: "Backup failed. Check your connection.", ok: false });
+    } finally {
+      setBackingUp(false);
+    }
+  };
+
   // Check if current user is super admin
   const isSuperAdmin = isSuperAdminEmail(user?.email) || user?.role === "superadmin";
   const authToastShownRef = useRef(false);
@@ -5283,6 +5308,37 @@ const Admin: React.FC = () => {
                     In inventory
                   </p>
                 </button>
+              </div>
+
+              {/* Data Backup */}
+              <div className="bg-white rounded-xl p-6 border border-gray-200">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-black text-gray-900">Data Backup</h3>
+                    <p className="text-xs text-gray-500 mt-1 font-medium">
+                      Emails a CSV of users, orders, invoices, leads, products and promos
+                      to the admin inbox. Runs automatically every Sunday at 9:00 AM.
+                    </p>
+                  </div>
+                  <button
+                    onClick={createBackup}
+                    disabled={backingUp}
+                    className="shrink-0 bg-gray-900 text-white font-bold text-sm px-5 py-2.5 rounded-lg hover:bg-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {backingUp ? "Creating backup..." : "Create Backup"}
+                  </button>
+                </div>
+
+                {backupMsg && (
+                  <p
+                    className={`mt-4 text-sm font-bold ${
+                      backupMsg.ok ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {backupMsg.ok ? "✅ " : "❌ "}
+                    {backupMsg.text}
+                  </p>
+                )}
               </div>
 
               {/* Action Required & Revenue */}
