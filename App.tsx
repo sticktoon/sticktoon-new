@@ -195,7 +195,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null; onCartClick: 
 
   useEffect(() => {
     setProfileOpen(false);
-  }, [location.pathname]);
+  }, [location.pathname, location.search]);
 
 
   return (
@@ -432,15 +432,19 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null; onCartClick: 
                 </div>
 
                 {/* LINKS */}
-                <Link
-                  to="/profile"
-                  className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
-                >
-                  My Profile
-                </Link>
+                {location.pathname !== "/profile" && (
+                  <Link
+                    to="/profile"
+                    onClick={() => setProfileOpen(false)}
+                    className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
+                  >
+                    My Profile
+                  </Link>
+                )}
 
                 <Link
                   to="/profile?tab=orders"
+                  onClick={() => setProfileOpen(false)}
                   className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
                 >
                   My Orders
@@ -449,6 +453,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null; onCartClick: 
                 {(user.role === "admin" || user.role === "superadmin") && (
                   <Link
                     to="/admin"
+                    onClick={() => setProfileOpen(false)}
                     className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
                   >
                     Admin Panel
