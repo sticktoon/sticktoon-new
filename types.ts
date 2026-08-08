@@ -30,6 +30,9 @@ export interface ComboItemPreview {
 
 export interface CartItem extends Badge {
   quantity: number;
+  badgeType?: 'pin' | 'magnetic';
+  finishLabel?: string;
+  originalId?: string;
 }
 
 export interface User {

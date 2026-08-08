@@ -914,11 +914,12 @@ const CartDrawer: React.FC<{
               onClose();
 
               const cartItem = item as any;
+              const targetId = cartItem.originalId || String(cartItem.id).replace(/-(pin|magnetic)$/, '');
 
               if (cartItem.type === "sticker") {
-                navigate(`/stickers/${cartItem.id}`);
+                navigate(`/stickers/${targetId}`);
               } else {
-                navigate(`/badge/${cartItem.id}`);
+                navigate(`/badge/${targetId}`);
               }
             }; 
 
@@ -932,7 +933,7 @@ const CartDrawer: React.FC<{
                   
                     <div
                     onClick={handleItemClick}
-                    className={`w-16 h-16 rounded-xl bg-white border border-slate-200 grid grid-cols-2 gap-0.5 p-0.5 flex-shrink-0 overflow-hidden ${isComboItem ? "cursor-pointer hover:opacity-80 transition-opacity"  : ""}`}>
+                    className={`w-16 h-16 rounded-xl bg-white border border-slate-200 grid grid-cols-2 gap-0.5 p-0.5 flex-shrink-0 overflow-hidden ${!isComboItem ? "cursor-pointer hover:opacity-80 transition-opacity"  : ""}`}>
                       {item.comboItems.slice(0, 4).map((c, i) => (
                         <img
                           key={`${c.id}-${i}`}
@@ -947,7 +948,7 @@ const CartDrawer: React.FC<{
                       src={item.image}
                       alt={item.name}
                       onClick={handleItemClick}
-                      className={`w-16 h-16 rounded-xl object-contain bg-white border border-slate-200 flex-shrink-0 ${isComboItem ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
+                      className={`w-16 h-16 rounded-xl object-contain bg-white border border-slate-200 flex-shrink-0 ${!isComboItem ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
                     />
                   )}
                   <div className="flex-1 min-w-0">
@@ -956,11 +957,24 @@ const CartDrawer: React.FC<{
                       <div className="flex-1 min-w-0">
                         <p 
                         onClick={handleItemClick}
-                        className={`font-bold text-sm text-slate-900 truncate ${isComboItem ? "cursor-pointer hover:opacity-80 transition-opacity"  : ""}`}>{item.name}</p>
-                        <p className="text-[11px] text-slate-400 uppercase tracking-wide mt-0.5">
-                          {/* Picks span categories — item.category is just the first pick's. */}
-                          {isComboItem ? `${item.comboItems?.length ?? 0} badges` : item.category}
-                        </p>
+                        className={`font-bold text-sm text-slate-900 truncate ${!isComboItem ? "cursor-pointer hover:text-indigo-600 transition-colors"  : ""}`}>{item.name}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                          <span className="text-[11px] text-slate-400 uppercase tracking-wide">
+                            {/* Picks span categories — item.category is just the first pick's. */}
+                            {isComboItem ? `${item.comboItems?.length ?? 0} badges` : item.category}
+                          </span>
+                          {!isComboItem && (item as any).type !== "sticker" && (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
+                              (item as any).badgeType === 'magnetic' || (item as any).finishLabel?.includes('Magnetic')
+                                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                : 'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}>
+                              {(item as any).badgeType === 'magnetic' || (item as any).finishLabel?.includes('Magnetic')
+                                ? '🧲 Pin + Magnetic'
+                                : '📌 Pin Badge'}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <button
                         onClick={() => removeFromCart(item.id)}
@@ -1247,12 +1261,15 @@ function App() {
       : undefined;
 
     const cartItem = {
-      id: badge.id,
+      id: badge.badgeType ? `${badge.id}-${badge.badgeType}` : badge.id,
+      originalId: String(badge.id),
       name: badge.name,
       price,
       image: badge.image,
       printImage: badge.printImage,
       category: badge.category,
+      badgeType: badge.badgeType || 'pin',
+      finishLabel: badge.finishLabel || (badge.badgeType === 'magnetic' ? 'Pin + Magnetic' : 'Pin Badge'),
       comboItems,
     };
 

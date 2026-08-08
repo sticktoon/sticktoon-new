@@ -1430,9 +1430,22 @@ export default function Checkout({
 
           <div className="flex-1 min-w-0">
             <p className="font-black truncate">{item.name}</p>
-            <p className="text-sm text-gray-500">
-              ₹{item.price} × {item.quantity}
-            </p>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <p className="text-sm text-gray-500">
+                ₹{item.price} × {item.quantity}
+              </p>
+              {!String(item.id).startsWith("custom-combo-") && (item as any).type !== "sticker" && (
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
+                  (item as any).badgeType === 'magnetic' || (item as any).finishLabel?.includes('Magnetic')
+                    ? 'bg-amber-100 text-amber-900 border-amber-300'
+                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                }`}>
+                  {(item as any).badgeType === 'magnetic' || (item as any).finishLabel?.includes('Magnetic')
+                    ? '🧲 Pin + Magnetic'
+                    : '📌 Pin Badge'}
+                </span>
+              )}
+            </div>
           </div>
 
           <button

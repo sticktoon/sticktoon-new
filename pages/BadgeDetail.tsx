@@ -460,8 +460,14 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
   };
 
   const handleAddToCart = () => {
+    const itemToAdd = {
+      ...badge,
+      badgeType,
+      finishLabel: badgeType === 'magnetic' ? 'Pin + Magnetic' : 'Pin Badge',
+      image: badge.image,
+    };
     for (let i = 0; i < quantity; i++) {
-      addToCart(badge);
+      addToCart(itemToAdd);
     }
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);

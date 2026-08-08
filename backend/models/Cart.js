@@ -31,6 +31,14 @@ const cartItemSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    badgeType: {
+      type: String,
+      default: null,
+    },
+    finishLabel: {
+      type: String,
+      default: null,
+    },
     comboItems: {
       type: [
         {
