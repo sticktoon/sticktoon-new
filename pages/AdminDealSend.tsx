@@ -154,7 +154,7 @@ export default function AdminDealSend() {
 
   useEffect(() => {
     if (!isImportModalOpen) return;
-    
+
     const fetchProducts = async () => {
       setLoadingProducts(true);
       try {
@@ -171,7 +171,7 @@ export default function AdminDealSend() {
         setLoadingProducts(false);
       }
     };
-    
+
     fetchProducts();
   }, [isImportModalOpen]);
 
@@ -511,7 +511,7 @@ export default function AdminDealSend() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 p-6 md:p-8">
+    <div className="min-h-screen overflow-hidden bg-slate-100 p-6 md:p-8">
       <style>{`
         .catalog-page {
           width: 210mm;
@@ -888,8 +888,9 @@ export default function AdminDealSend() {
         }
       `}</style>
 
-      <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[380px_1fr]">
-        <div className="rounded-2xl border bg-white p-5">
+      <div className="mx-auto grid h-full max-w-[1600px] gap-6 xl:grid-cols-[400px_minmax(0,1fr)] overflow-hidden">
+  <div className="h-full overflow-y-auto rounded-2xl border bg-white p-5 shadow-sm">
+
           <div className="mb-5 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-black text-slate-900">Send Catalogue</h1>
@@ -1080,7 +1081,8 @@ export default function AdminDealSend() {
           </div>
         </div>
 
-        <div id="deal-send-preview">
+       <div id="deal-send-preview" className="h-full overflow-y-auto rounded-2xl border bg-slate-200/50 p-4 md:p-6 shadow-inner">
+
           {isScreenProtected && (
             <ScreenshotPrivacyOverlay message="Hidden while this window is out of focus, so catalog pricing and artwork stay off task-switcher previews." />
           )}
@@ -1102,7 +1104,8 @@ export default function AdminDealSend() {
                       <p className="catalog-tagline">
                         {normalizedTagline}
                       </p>
-                      <h2 className="mt-1.5 text-[18px] font-black uppercase tracking-tight text-slate-900">
+
+                      <h2 className="mt-1.5 text-[18px] font-black  tracking-tight text-slate-900 whitespace-pre-wrap">
                         {subject}
                       </h2>
                       <div className="catalog-highlight-line">
@@ -1316,11 +1319,10 @@ export default function AdminDealSend() {
                       <div
                         key={prod._id}
                         onClick={() => toggleProductSelection(prod._id)}
-                        className={`relative flex cursor-pointer flex-col overflow-hidden rounded-xl border p-2 transition hover:shadow-md ${
-                          isSelected
-                            ? "border-indigo-600 bg-indigo-50/20 ring-1 ring-indigo-600"
-                            : "border-slate-200 bg-white hover:border-slate-300"
-                        }`}
+                        className={`relative flex cursor-pointer flex-col overflow-hidden rounded-xl border p-2 transition hover:shadow-md ${isSelected
+                          ? "border-indigo-600 bg-indigo-50/20 ring-1 ring-indigo-600"
+                          : "border-slate-200 bg-white hover:border-slate-300"
+                          }`}
                       >
                         <div className="relative flex aspect-square items-center justify-center rounded-lg bg-slate-50 p-2 overflow-hidden border border-slate-100">
                           {prod.image ? (
@@ -1332,13 +1334,12 @@ export default function AdminDealSend() {
                           ) : (
                             <div className="text-[10px] text-slate-400 uppercase font-black">No image</div>
                           )}
-                          
+
                           {/* Selection Checkmark Bubble */}
-                          <div className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border transition ${
-                            isSelected
-                              ? "border-indigo-600 bg-indigo-600 text-white"
-                              : "border-slate-300 bg-white/80"
-                          }`}>
+                          <div className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border transition ${isSelected
+                            ? "border-indigo-600 bg-indigo-600 text-white"
+                            : "border-slate-300 bg-white/80"
+                            }`}>
                             {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
                           </div>
                         </div>
