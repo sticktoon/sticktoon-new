@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Link, useLocation, Navigate, useNavigate } from "react-router-dom";
-import { 
-  ShoppingCart, 
-  User as UserIcon, 
-  Menu, 
-  X, 
-  Search, 
-  Heart, 
-  Instagram, 
-  Twitter, 
+import {
+  ShoppingCart,
+  User as UserIcon,
+  Menu,
+  X,
+  Search,
+  Heart,
+  Instagram,
+  Twitter,
   Youtube,
   ArrowRight,
   Sparkles,
@@ -75,7 +75,7 @@ const ProtectedAdminRoute = ({ user, children }: { user: AuthUser | null; childr
   try {
     const rawUser = localStorage.getItem("user");
     sfUser = rawUser ? (JSON.parse(rawUser) as AuthUser) : null;
-  } catch {}
+  } catch { }
 
   const isAdminRole = (role?: string) => role === "admin" || role === "superadmin";
 
@@ -85,7 +85,7 @@ const ProtectedAdminRoute = ({ user, children }: { user: AuthUser | null; childr
   try {
     const rawAdminUser = localStorage.getItem("adminUser");
     storedAdminUser = rawAdminUser ? (JSON.parse(rawAdminUser) as AuthUser) : null;
-  } catch {}
+  } catch { }
 
   const hasAdminPanelSession = Boolean(
     localStorage.getItem("adminToken") && isAdminRole(storedAdminUser?.role),
@@ -98,7 +98,7 @@ const ProtectedAdminRoute = ({ user, children }: { user: AuthUser | null; childr
   if (!isStorefrontAdmin && !isAdminRole(storedAdminUser?.role)) {
     return <Navigate to="/" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -120,18 +120,18 @@ function ScrollToTop() {
 ======================= */
 const Logo: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'md' }) => {
   const scale = size === 'sm' ? 0.7 : size === 'lg' ? 1.2 : 1;
-  
+
   return (
     <div className="perspective-container w-full flex justify-center select-none shrink-0"
-style={{ transform: `scale(${scale})` }}>
+      style={{ transform: `scale(${scale})` }}>
       <div className="relative">
-       <img 
-  src="/images/STICKTOON_LONG.jpeg" 
-  alt="STICKTOON" 
-  className="h-12 sm:h-12 w-[150px] sm:w-auto max-w-none object-contain mx-auto shrink-0"
-/>
+        <img
+          src="/images/STICKTOON_LONG.jpeg"
+          alt="STICKTOON"
+          className="h-12 sm:h-12 w-[150px] sm:w-auto max-w-none object-contain mx-auto shrink-0"
+        />
 
-        
+
         {/* Blinking Eyes Overlay - Adjusted to cover original eyes */}
         <div className="absolute top-[57.6%] sm:top-[58%] left-[61.2%] sm:left-[60.9%] -translate-y-1/2 flex gap-[0.5px] sm:gap-[0.5px]">
           {[1, 2].map((i) => (
@@ -156,8 +156,8 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null; onCartClick: 
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
   useEffect(() => {
-  setIsOpen(false);
-}, [location.pathname]);
+    setIsOpen(false);
+  }, [location.pathname]);
   const handleLogout = () => {
     // Full sign-out: clear the storefront session AND any mirrored admin-panel
     // session so an admin isn't silently signed back in when switching accounts.
@@ -187,116 +187,114 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null; onCartClick: 
 
   const [profileOpen, setProfileOpen] = useState(false);
 
-useEffect(() => {
-  const close = () => setProfileOpen(false);
-  document.addEventListener("click", close);
-  return () => document.removeEventListener("click", close);
-}, []);
+  useEffect(() => {
+    const close = () => setProfileOpen(false);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, []);
 
-useEffect(() => {
-  setProfileOpen(false);
-}, [location.pathname]);
+  useEffect(() => {
+    setProfileOpen(false);
+  }, [location.pathname]);
 
 
   return (
-<nav
-  className={`fixed top-0 left-0 right-0 z-50
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50
     bg-black
     shadow-[0_6px_20px_rgba(0,0,0,0.5)]
     transition-all duration-300
     h-[80px]
   `}
->
+    >
 
 
 
 
 
-<div className="px-6 lg:px-12 h-full flex items-center justify-between">
+      <div className="px-6 lg:px-12 h-full flex items-center justify-between">
 
 
-<div className="flex lg:hidden justify-start">
-  <button
-    onClick={() => setIsOpen(!isOpen)}
-    className="p-2 rounded-xl text-white hover:bg-slate-800 transition"
-  >
-    {isOpen ? <X size={26} /> : <Menu size={26} />}
-  </button>
-</div>
+        <div className="flex lg:hidden justify-start">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="p-2 rounded-xl text-white hover:bg-slate-800 transition"
+          >
+            {isOpen ? <X size={26} /> : <Menu size={26} />}
+          </button>
+        </div>
 
 
-    {/* LOGO */}
-    <div className="flex items-center justify-center lg:justify-start shrink-0">
-      <Link to="/" className="shrink-0">
-        <Logo />
-      </Link>
-    </div>
+        {/* LOGO */}
+        <div className="flex items-center justify-center lg:justify-start shrink-0">
+          <Link to="/" className="shrink-0">
+            <Logo />
+          </Link>
+        </div>
 
 
-    {/* NAV LINKS */}
-    <div className="hidden lg:flex items-center space-x-16 flex-1 justify-center">
-      {navLinks.map((link) => (
-        <div key={link.name} className="relative group">
-          <Link
-            to={link.path}
-            className={`
+        {/* NAV LINKS */}
+        <div className="hidden lg:flex items-center space-x-16 flex-1 justify-center">
+          {navLinks.map((link) => (
+            <div key={link.name} className="relative group">
+              <Link
+                to={link.path}
+                className={`
               relative flex items-center gap-2
              text-sm font-extrabold tracking-[0.18em] uppercase
 
               transition-all
-             ${
-  location.pathname === link.path
-    ? "text-yellow-400"
-    : "text-slate-300 hover:text-white"
-}
+             ${location.pathname === link.path
+                    ? "text-yellow-400"
+                    : "text-slate-300 hover:text-white"
+                  }
 
             `}
-          >
-            {link.name}
+              >
+                {link.name}
 
-            {(link.name === "BADGES" || link.name === "STICKERS") && (
-              <ChevronDown
-                className="
+                {(link.name === "BADGES" || link.name === "STICKERS") && (
+                  <ChevronDown
+                    className="
                   w-5 h-5
                   transition-transform duration-300
                   group-hover:rotate-180
                 "
-              />
-            )}
+                  />
+                )}
 
-            {/* underline */}
-            <span
-              className={`absolute -bottom-1 left-0 w-full h-[2px] bg-yellow-400
+                {/* underline */}
+                <span
+                  className={`absolute -bottom-1 left-0 w-full h-[2px] bg-yellow-400
                 transform origin-left transition-transform duration-300
-                ${
-                  location.pathname === link.path
-                    ? "scale-x-100"
-                    : "scale-x-0 group-hover:scale-x-100"
-                }`}
-            />
-          </Link>
+                ${location.pathname === link.path
+                      ? "scale-x-100"
+                      : "scale-x-0 group-hover:scale-x-100"
+                    }`}
+                />
+              </Link>
 
-          {/* 🔽 BADGES & STICKER DROPDOWNS */}
-          {link.name === "BADGES" && (
-            <div
-              className="
+              {/* 🔽 BADGES & STICKER DROPDOWNS */}
+              {link.name === "BADGES" && (
+                <div
+                  className="
                 absolute top-full left-0 pt-6
                 opacity-0 translate-y-4 pointer-events-none
                 group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto
                 transition-all duration-300 ease-out z-50
               "
-            >
-              <div className="
+                >
+                  <div className="
                 bg-white rounded-3xl
                 shadow-[0_40px_80px_-15px_rgba(67,56,202,0.15)]
                 border border-indigo-50
                 w-64 py-4
               ">
-                {CATEGORIES.map((cat) => (
-                  <Link
-                    key={cat.id}
-                    to={`/categories?cat=${cat.id}`}
-                    className="
+                    {CATEGORIES.map((cat) => (
+                      <Link
+                        key={cat.id}
+                        to={`/categories?cat=${cat.id}`}
+                        className="
                       flex items-center justify-between
                       px-8 py-4
                       text-sm font-black uppercase tracking-widest
@@ -305,34 +303,34 @@ useEffect(() => {
                       border-l-4 border-transparent hover:border-indigo-600
                       transition-all
                     "
-                  >
-                    {cat.name}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {link.name === "STICKERS" && (
-            <div
-              className="
+                      >
+                        {cat.name}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {link.name === "STICKERS" && (
+                <div
+                  className="
                 absolute top-full left-0 pt-6
                 opacity-0 translate-y-4 pointer-events-none
                 group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto
                 transition-all duration-300 ease-out z-50
               "
-            >
-              <div className="
+                >
+                  <div className="
                 bg-white rounded-3xl
                 shadow-[0_40px_80px_-15px_rgba(67,56,202,0.15)]
                 border border-indigo-50
                 w-64 py-4
               ">
-                {STICKER_CATEGORIES.map((cat) => (
-                  <Link
-                    key={cat.id}
-                    to={`/stickers?cat=${cat.id}`}
-                    className="
+                    {STICKER_CATEGORIES.map((cat) => (
+                      <Link
+                        key={cat.id}
+                        to={`/stickers?cat=${cat.id}`}
+                        className="
                       flex items-center justify-between
                       px-8 py-4
                       text-sm font-black uppercase tracking-widest
@@ -341,36 +339,36 @@ useEffect(() => {
                       border-l-4 border-transparent hover:border-indigo-600
                       transition-all
                     "
-                  >
-                    <span className="flex items-center gap-2">
-                      <span>{cat.icon}</span>
-                      <span>{cat.name}</span>
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>{cat.icon}</span>
+                          <span>{cat.name}</span>
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
 
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
 
 
-    {/* RIGHT ICONS */}
-<div className="flex items-center gap-4 justify-end min-w-[90px] sm:min-w-0">
+        {/* RIGHT ICONS */}
+        <div className="flex items-center gap-4 justify-end min-w-[90px] sm:min-w-0">
 
-  {/* 🛒 CART — ALWAYS VISIBLE (opens right-side drawer) */}
-  <button
-    type="button"
-    onClick={onCartClick}
-    aria-label="Open cart"
-     className="relative p-2 sm:p-3 rounded-2xl text-slate-300 hover:bg-slate-800 hover:text-white transition"
-  >
-    <ShoppingCart className="w-6 h-6" />
+          {/* 🛒 CART — ALWAYS VISIBLE (opens right-side drawer) */}
+          <button
+            type="button"
+            onClick={onCartClick}
+            aria-label="Open cart"
+            className="relative p-2 sm:p-3 rounded-2xl text-slate-300 hover:bg-slate-800 hover:text-white transition"
+          >
+            <ShoppingCart className="w-6 h-6" />
 
-    {cartCount > 0 && (
-    <span className="
+            {cartCount > 0 && (
+              <span className="
   absolute 
   -top-1 -right-1
   sm:top-1 sm:right-1
@@ -380,112 +378,111 @@ useEffect(() => {
   border-2 border-white
 ">
 
-        {cartCount}
-      </span>
-    )}
-  </button>
+                {cartCount}
+              </span>
+            )}
+          </button>
 
-  {/* 👤 USER */}
-  {user ? (
-  <div className="hidden lg:block relative">
-    {/* AVATAR BUTTON */}
-    <div
-      className="cursor-pointer"
-      onClick={(e) => {
-        e.stopPropagation();
-        setProfileOpen((v) => !v);
-      }}
-    >
-      {user.avatar &&
-      (user.avatar.startsWith("http") || user.avatar.startsWith("data:")) ? (
-        <img
-          src={user.avatar}
-          alt={user.name || user.email}
-          className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md"
-        />
-      ) : (
-        <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black uppercase shadow-md">
-          {(user.name?.charAt(0) || user.email?.charAt(0) || "U").toUpperCase()}
-        </div>
-      )}
-    </div>
+          {/* 👤 USER */}
+          {user ? (
+            <div className="hidden lg:block relative">
+              {/* AVATAR BUTTON */}
+              <div
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setProfileOpen((v) => !v);
+                }}
+              >
+                {user.avatar &&
+                  (user.avatar.startsWith("http") || user.avatar.startsWith("data:")) ? (
+                  <img
+                    src={user.avatar}
+                    alt={user.name || user.email}
+                    className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black uppercase shadow-md">
+                    {(user.name?.charAt(0) || user.email?.charAt(0) || "U").toUpperCase()}
+                  </div>
+                )}
+              </div>
 
-    {/* DROPDOWN */}
-    <div
-      onClick={(e) => e.stopPropagation()}
-      className={`
+              {/* DROPDOWN */}
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className={`
         absolute right-0 mt-3 w-56
         bg-white rounded-xl shadow-xl
         border border-slate-100
         transition-all duration-200 origin-top-right z-50
         ${profileOpen
-          ? "opacity-100 scale-100 visible"
-          : "opacity-0 scale-95 invisible"}
+                    ? "opacity-100 scale-100 visible"
+                    : "opacity-0 scale-95 invisible"}
       `}
-    >
-      {/* USER INFO */}
-      <div className="px-4 py-3 border-b border-slate-100">
-        <p className="font-bold text-slate-900">
-          {user.name || "User"}
-        </p>
-        <p className="text-xs text-slate-500 truncate">
-          {user.email}
-        </p>
+              >
+                {/* USER INFO */}
+                <div className="px-4 py-3 border-b border-slate-100">
+                  <p className="font-bold text-slate-900">
+                    {user.name || "User"}
+                  </p>
+                  <p className="text-xs text-slate-500 truncate">
+                    {user.email}
+                  </p>
+                </div>
+
+                {/* LINKS */}
+                <Link
+                  to="/profile"
+                  className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
+                >
+                  My Profile
+                </Link>
+
+                <Link
+                  to="/profile?tab=orders"
+                  className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
+                >
+                  My Orders
+                </Link>
+
+                {(user.role === "admin" || user.role === "superadmin") && (
+                  <Link
+                    to="/admin"
+                    className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
+                  >
+                    Admin Panel
+                  </Link>
+                )}
+
+                {/* LOGOUT */}
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          ) : (
+            <Link
+              to="/login"
+              className="hidden lg:block p-3 rounded-2xl text-slate-300 hover:bg-slate-800 hover:text-white transition"
+            >
+              <UserIcon className="w-6 h-6" />
+            </Link>
+          )}
+
+        </div>
+
       </div>
 
-      {/* LINKS */}
-      <Link
-        to="/profile"
-        className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
-      >
-        My Profile
-      </Link>
-
-      <Link
-        to="/profile?tab=orders"
-        className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
-      >
-        My Orders
-      </Link>
-
-      {(user.role === "admin" || user.role === "superadmin") && (
-        <Link
-          to="/admin"
-          className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
-        >
-          Admin Panel
-        </Link>
-      )}
-
-      {/* LOGOUT */}
-      <button
-        onClick={handleLogout}
-        className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50"
-      >
-        Logout
-      </button>
-    </div>
-  </div>
-) : (
-  <Link
-    to="/login"
-    className="hidden lg:block p-3 rounded-2xl text-slate-300 hover:bg-slate-800 hover:text-white transition"
-  >
-    <UserIcon className="w-6 h-6" />
-  </Link>
-)}
-
-</div>
-
-  </div>
-
-  {/* MOBILE MENU DROPDOWN */}
-   <div
-        className={`fixed inset-x-0 top-[72px] bg-black border-b border-slate-800 transition-all duration-300 lg:hidden ${
-          isOpen
+      {/* MOBILE MENU DROPDOWN */}
+      <div
+        className={`fixed inset-x-0 top-[72px] bg-black border-b border-slate-800 transition-all duration-300 lg:hidden ${isOpen
             ? "opacity-100 translate-y-0 visible"
             : "opacity-0 -translate-y-4 invisible pointer-events-none"
-        }`}
+          }`}
       >
         <div className="flex flex-col p-6 space-y-4">
 
@@ -543,11 +540,10 @@ useEffect(() => {
               key={link.name}
               to={link.path}
               onClick={() => setIsOpen(false)}
-              className={`block text-lg font-extrabold uppercase ${
-                location.pathname === link.path
+              className={`block text-lg font-extrabold uppercase ${location.pathname === link.path
                   ? "text-yellow-400"
                   : "text-white"
-              }`}
+                }`}
             >
               {link.name}
             </Link>
@@ -574,165 +570,165 @@ const Footer: React.FC = () => {
 
 
 
-   <div className="absolute bottom-0 right-1/4 w-[420px] h-[420px] bg-cyan-500/10 rounded-full blur-[150px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[420px] h-[420px] bg-cyan-500/10 rounded-full blur-[150px] pointer-events-none" />
 
-    {/* <div className="w-full relative z-10"> */}
-<div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
-
-
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-y-10 gap-x-12 mb-10">
+      {/* <div className="w-full relative z-10"> */}
+      <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
 
 
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-y-10 gap-x-12 mb-10">
 
 
-      <div className="text-left lg:col-span-2">
 
 
-      <Link
-  to="/"
-  className="inline-block mx-auto sm:mx-0 transition-transform duration-300 hover:scale-105"
->
+          <div className="text-left lg:col-span-2">
 
 
-            <Logo size="md" />
-          </Link>
-          <div className="mt-4">
-            <h4 className="font-black text-xs tracking-[0.2em] text-white/70">ABOUT US</h4>
-            <div className="mt-2 w-6 h-[2px] bg-white/20 rounded-full"></div>
+            <Link
+              to="/"
+              className="inline-block mx-auto sm:mx-0 transition-transform duration-300 hover:scale-105"
+            >
+
+
+              <Logo size="md" />
+            </Link>
+            <div className="mt-4">
+              <h4 className="font-black text-xs tracking-[0.2em] text-white/70">ABOUT US</h4>
+              <div className="mt-2 w-6 h-[2px] bg-white/20 rounded-full"></div>
+            </div>
+            <p className="text-slate-400 max-w-md leading-relaxed font-medium mt-4">
+              Creators of bold, affordable pin badges and custom merch. Every design tells your story. Badge culture, redefined with unbeatable quality and prices.
+            </p>
+            <a
+              href="mailto:sticktoon.xyz@gmail.com"
+              className="block text-sm font-bold text-slate-300 hover:text-white transition-colors mt-4"
+            >
+              sticktoon.xyz@gmail.com
+            </a>
           </div>
-          <p className="text-slate-400 max-w-md leading-relaxed font-medium mt-4">
-            Creators of bold, affordable pin badges and custom merch. Every design tells your story. Badge culture, redefined with unbeatable quality and prices.
-          </p>
-          <a
-            href="mailto:sticktoon.xyz@gmail.com"
-            className="block text-sm font-bold text-slate-300 hover:text-white transition-colors mt-4"
-          >
-            sticktoon.xyz@gmail.com
-          </a>
+
+          <div className="text-center sm:text-left">
+
+            <div className="mb-5">
+              <h4 className="font-black text-xs tracking-[0.2em] text-white/70">
+                ARCHIVE
+              </h4>
+              <div className="mt-2 w-6 h-[2px] bg-white/20 rounded-full"></div>
+
+            </div>
+
+            <ul className="space-y-3">
+              <li><Link to="/about" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">OUR STORY</Link></li>
+              <li><Link to="/categories" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">ALL DROPS</Link></li>
+              <li><Link to="/custom-order" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">CUSTOM ORDER</Link></li>
+              <li><Link to="/faq" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">FAQ</Link></li>
+            </ul>
+          </div>
+          {/* INFORMATION */}
+          <div className="text-center sm:text-left">
+
+            <div className="mb-5">
+              <h4 className="font-black text-xs tracking-[0.2em] text-white/70">
+                INFORMATION
+              </h4>
+              <div className="mt-2 w-6 h-[2px] bg-white/30 rounded-full"></div>
+            </div>
+
+
+            <ul className="space-y-3">
+              <li>
+                <Link
+                  to="/privacy-policy"
+                  className="text-sm font-bold text-slate-300 hover:text-white transition-colors"
+                >
+                  PRIVACY POLICY
+                </Link>
+
+              </li>
+
+              <li>
+                <Link
+                  to="/terms-conditions"
+                  className="text-sm font-bold text-slate-300 hover:text-white transition-colors"
+                >
+                  TERMS & CONDITIONS
+                </Link>
+              </li>
+
+              <li>
+                <Link
+                  to="/refund-cancellation"
+                  className="text-sm font-bold text-slate-300 hover:text-white transition-colors"
+                >
+                  REFUND POLICY
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/contact"
+                  className="text-sm font-bold text-slate-300 hover:text-white transition-colors"
+                >
+                  GET IN TOUCH
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div className="text-center sm:text-left">
+            <div className="mb-5">
+              <h4 className="font-black text-xs tracking-[0.2em] text-white/70">
+                FOLLOW
+              </h4>
+              <div className="mt-2 w-6 h-[2px] bg-white/30 rounded-full"></div>
+            </div>
+
+            <div className="flex justify-center sm:justify-start gap-4">
+
+              {/* Instagram */}
+              <a
+                href="https://www.instagram.com/sticktoon.shop"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center hover:bg-indigo-600 hover:scale-110 transition-all"
+              >
+                <Instagram className="w-5 h-5 text-white" />
+              </a>
+
+              {/* Mail */}
+              <a
+                href="mailto:sticktoon.xyz@gmail.com" role="link"
+                className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center hover:bg-indigo-600 hover:scale-110 transition-all"
+              >
+                <Mail className="w-5 h-5 text-white" />
+              </a>
+            </div>
+          </div>
+
+          <div className="text-center sm:text-left lg:justify-self-end">
+            <div className="mb-5">
+              <h4 className="font-black text-xs tracking-[0.2em] text-white/70">MADE IN INDIA</h4>
+              <div className="mt-2 w-6 h-[2px] bg-white/30 rounded-full"></div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-lg">🇮🇳</div>
+              <p className="text-slate-400 text-sm leading-relaxed max-w-[220px]">
+                Proudly designed and produced in India—crafted with care, quality, and local talent.
+              </p>
+            </div>
+          </div>
+
+
         </div>
-
-        <div className="text-center sm:text-left">
-
-         <div className="mb-5">
-  <h4 className="font-black text-xs tracking-[0.2em] text-white/70">
-    ARCHIVE
-  </h4>
- <div className="mt-2 w-6 h-[2px] bg-white/20 rounded-full"></div>
-
-</div>
-
-          <ul className="space-y-3">
-            <li><Link to="/about" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">OUR STORY</Link></li>
-            <li><Link to="/categories" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">ALL DROPS</Link></li>
-            <li><Link to="/custom-order" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">CUSTOM ORDER</Link></li>
-            <li><Link to="/faq" className="text-sm font-bold text-slate-300 hover:text-white transition-colors">FAQ</Link></li>
-          </ul>
-        </div>
-{/* INFORMATION */}
-<div className="text-center sm:text-left">
-
- <div className="mb-5">
-  <h4 className="font-black text-xs tracking-[0.2em] text-white/70">
-    INFORMATION
-  </h4>
-  <div className="mt-2 w-6 h-[2px] bg-white/30 rounded-full"></div>
-</div>
-
-
-  <ul className="space-y-3">
-    <li>
-     <Link
-  to="/privacy-policy"
-  className="text-sm font-bold text-slate-300 hover:text-white transition-colors"
->
-  PRIVACY POLICY
-</Link>
-
-    </li>
-
-    <li>
-      <Link
-        to="/terms-conditions"
-        className="text-sm font-bold text-slate-300 hover:text-white transition-colors"
-      >
-        TERMS & CONDITIONS
-      </Link>
-    </li>
-
-    <li>
-      <Link
-        to="/refund-cancellation"
-      className="text-sm font-bold text-slate-300 hover:text-white transition-colors"
-      >
-        REFUND POLICY
-      </Link>
-    </li>
-    <li>
-      <Link
-        to="/contact"
-        className="text-sm font-bold text-slate-300 hover:text-white transition-colors"
-      >
-        GET IN TOUCH
-      </Link>
-    </li>
-  </ul>
-</div>
-
-<div className="text-center sm:text-left">
-      <div className="mb-5">
-  <h4 className="font-black text-xs tracking-[0.2em] text-white/70">
-    FOLLOW
-  </h4>
-  <div className="mt-2 w-6 h-[2px] bg-white/30 rounded-full"></div>
-</div>
-
-       <div className="flex justify-center sm:justify-start gap-4">
-
-          {/* Instagram */}
-          <a
-            href="https://www.instagram.com/sticktoon.shop"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center hover:bg-indigo-600 hover:scale-110 transition-all"
-          >
-            <Instagram className="w-5 h-5 text-white" />
-          </a>
-
-          {/* Mail */}
-          <a
-            href="mailto:sticktoon.xyz@gmail.com" role = "link"
-            className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center hover:bg-indigo-600 hover:scale-110 transition-all"
-          >
-            <Mail className="w-5 h-5 text-white" />
-          </a>
-        </div>
-      </div>
-
-      <div className="text-center sm:text-left lg:justify-self-end">
-        <div className="mb-5">
-          <h4 className="font-black text-xs tracking-[0.2em] text-white/70">MADE IN INDIA</h4>
-          <div className="mt-2 w-6 h-[2px] bg-white/30 rounded-full"></div>
-        </div>
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-lg">🇮🇳</div>
-          <p className="text-slate-400 text-sm leading-relaxed max-w-[220px]">
-            Proudly designed and produced in India—crafted with care, quality, and local talent.
-          </p>
-        </div>
-      </div>
-
-
-      </div>
-      {/* <div className=" pt-6 flex flex-col md:flex-row justify-between items-center gap-6 text-[10px] font-black tracking-widest text-slate-500 uppercase"> */}
+        {/* <div className=" pt-6 flex flex-col md:flex-row justify-between items-center gap-6 text-[10px] font-black tracking-widest text-slate-500 uppercase"> */}
 
         {/* <span>© 2024 STICKTOON MARKETPLACE</span> */}
         {/* Footer Bottom Bar */}
-{/* BOTTOM STRIP */}
-{/* FOOTER BOTTOM STRIP */}
-<div className="mt-10 pt-4 border-t border-white/5">
-  <div className="w-full px-4 lg:px-16 py-2">
+        {/* BOTTOM STRIP */}
+        {/* FOOTER BOTTOM STRIP */}
+        <div className="mt-10 pt-4 border-t border-white/5">
+          <div className="w-full px-4 lg:px-16 py-2">
 
-<div className="
+            <div className="
   grid
   grid-cols-1
   md:grid-cols-[auto_1fr_auto]
@@ -742,30 +738,30 @@ const Footer: React.FC = () => {
 ">
 
 
-      {/* LEFT */}
-     <div className="text-xs tracking-widest text-slate-400 uppercase text-center md:text-left">
+              {/* LEFT */}
+              <div className="text-xs tracking-widest text-slate-400 uppercase text-center md:text-left">
 
-        <p>© 2026 StickToon</p>
-        <p className="mt-1">Where design meets personal identity.</p>
-      </div>
+                <p>© 2026 StickToon</p>
+                <p className="mt-1">Where design meets personal identity.</p>
+              </div>
 
-      {/* SPACER (forces separation) */}
-      <div />
+              {/* SPACER (forces separation) */}
+              <div />
 
-      {/* RIGHT — TRUE RIGHT EDGE */}
-      <div className="flex flex-col md:flex-row items-center gap-4 md:justify-end">
+              {/* RIGHT — TRUE RIGHT EDGE */}
+              <div className="flex flex-col md:flex-row items-center gap-4 md:justify-end">
 
-        <span className="text-xs font-bold tracking-widest text-slate-300 uppercase whitespace-nowrap">
-          100% Secure Payments
-        </span>
+                <span className="text-xs font-bold tracking-widest text-slate-300 uppercase whitespace-nowrap">
+                  100% Secure Payments
+                </span>
 
-        <div className="flex flex-wrap justify-center md:justify-end gap-2">
+                <div className="flex flex-wrap justify-center md:justify-end gap-2">
 
-          {[, "VISA", "MASTERCARD", "UPI", "GPAY", "PAYTM", "RUPAY"].map(
-            (method) => (
-             <span
-  key={method}
-  className="
+                  {[, "VISA", "MASTERCARD", "UPI", "GPAY", "PAYTM", "RUPAY"].map(
+                    (method) => (
+                      <span
+                        key={method}
+                        className="
     px-3 py-1 rounded-md
     bg-white/5 border border-white/10
     text-[10px] font-bold text-white/80
@@ -777,23 +773,23 @@ const Footer: React.FC = () => {
     hover:-translate-y-[1px]
     hover:shadow-[0_6px_18px_rgba(99,102,241,0.25)]
   "
->
-  {method}
-</span>
+                      >
+                        {method}
+                      </span>
 
-            )
-          )}
+                    )
+                  )}
+                </div>
+
+              </div>
+            </div>
+
+          </div>
         </div>
 
-      </div>
-    </div>
-
-  </div>
-</div>
 
 
-
-   {/* <div className="flex gap-8">
+        {/* <div className="flex gap-8">
   <Link
     to="/privacy-policy"
     className="hover:text-white transition-colors"
@@ -804,8 +800,8 @@ const Footer: React.FC = () => {
 
 
       </div>
-    {/* </div> */}
-  </footer>
+      {/* </div> */}
+    </footer>
   );
 };
 
@@ -843,31 +839,29 @@ const CartDrawer: React.FC<{
     onClose();
     navigate("/checkout");
   };
-//  bug fixed now users gets directed to category page
-const continueShopping = () => {
-  onClose();
+  //  bug fixed now users gets directed to category page
+  const continueShopping = () => {
+    onClose();
 
-  if (location.pathname !== "/categories") {
-    navigate("/categories");
-  }
-};
+    if (location.pathname !== "/categories") {
+      navigate("/categories");
+    }
+  };
 
   return (
     <>
       {/* Backdrop */}
       <div
         onClick={onClose}
-        className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] transition-opacity duration-300 ${
-          open ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
+        className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0 pointer-events-none"
+          }`}
       />
       {/* Panel */}
       <aside
         role="dialog"
         aria-label="Shopping cart"
-        className={`fixed top-0 right-0 h-full w-full max-w-md bg-white z-[70] shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed top-0 right-0 h-full w-full max-w-md bg-white z-[70] shadow-2xl flex flex-col transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"
+          }`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
@@ -908,6 +902,21 @@ const continueShopping = () => {
               // packs are fixed SKUs and the badge picker cannot represent them.
               const isComboItem = String(item.id).startsWith("custom-combo-");
 
+              //redirect logic
+            const handleItemClick = () => {
+              if (isComboItem) return;
+
+              onClose();
+
+              const cartItem = item as any;
+
+              if (cartItem.type === "sticker") {
+                navigate(`/stickers/${cartItem.id}`);
+              } else {
+                navigate(`/badge/${cartItem.id}`);
+              }
+            }; 
+
               return (
                 <div
                   key={item.id}
@@ -915,7 +924,10 @@ const continueShopping = () => {
                 >
                   {/* A combo is 4 badges — show all 4, not just the first one. */}
                   {item.comboItems && item.comboItems.length > 1 ? (
-                    <div className="w-16 h-16 rounded-xl bg-white border border-slate-200 grid grid-cols-2 gap-0.5 p-0.5 flex-shrink-0 overflow-hidden">
+                  
+                    <div
+                    onClick={handleItemClick}
+                    className={`w-16 h-16 rounded-xl bg-white border border-slate-200 grid grid-cols-2 gap-0.5 p-0.5 flex-shrink-0 overflow-hidden ${isComboItem ? "cursor-pointer hover:opacity-80 transition-opacity"  : ""}`}>
                       {item.comboItems.slice(0, 4).map((c, i) => (
                         <img
                           key={`${c.id}-${i}`}
@@ -929,14 +941,17 @@ const continueShopping = () => {
                     <img
                       src={item.image}
                       alt={item.name}
-                      className="w-16 h-16 rounded-xl object-contain bg-white border border-slate-200 flex-shrink-0"
+                      onClick={handleItemClick}
+                      className={`w-16 h-16 rounded-xl object-contain bg-white border border-slate-200 flex-shrink-0 ${isComboItem ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
                     />
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       {/* min-w-0 or a long combo list shoves the delete button off the card. */}
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm text-slate-900 truncate">{item.name}</p>
+                        <p 
+                        onClick={handleItemClick}
+                        className={`font-bold text-sm text-slate-900 truncate ${isComboItem ? "cursor-pointer hover:opacity-80 transition-opacity"  : ""}`}>{item.name}</p>
                         <p className="text-[11px] text-slate-400 uppercase tracking-wide mt-0.5">
                           {/* Picks span categories — item.category is just the first pick's. */}
                           {isComboItem ? `${item.comboItems?.length ?? 0} badges` : item.category}
@@ -1185,9 +1200,9 @@ function App() {
     }
   };
 
- const addToCart = async (badge: any, quantity?: number) => {
-  const qty = Number(quantity ?? badge.quantity ?? 1);
-  const price = Number(badge?.price);
+  const addToCart = async (badge: any, quantity?: number) => {
+    const qty = Number(quantity ?? badge.quantity ?? 1);
+    const price = Number(badge?.price);
 
     if (!Number.isFinite(qty) || qty === 0) {
       console.error("Invalid cart quantity", { badgeId: badge?.id, quantity: qty });
@@ -1218,12 +1233,12 @@ function App() {
     const token = localStorage.getItem("token");
     const comboItems = Array.isArray(badge?.comboItems)
       ? badge.comboItems
-          .filter((item: any) => item?.id && item?.name)
-          .map((item: any) => ({
-            id: String(item.id),
-            name: String(item.name),
-            image: item?.image ? String(item.image) : null,
-          }))
+        .filter((item: any) => item?.id && item?.name)
+        .map((item: any) => ({
+          id: String(item.id),
+          name: String(item.name),
+          image: item?.image ? String(item.image) : null,
+        }))
       : undefined;
 
     const cartItem = {
@@ -1448,14 +1463,14 @@ function App() {
     const params = new URLSearchParams(queryString);
     const orderId = params.get('orderId');
     const orderSuccess = params.get('orderSuccess');
-    
+
     if (orderId && orderSuccess === 'true') {
       setConfirmedOrderId(orderId);
       setShowOrderConfirmation(true);
-      
+
       // Trigger confetti celebration
       triggerConfetti();
-      
+
       // Clean up URL without reloading
       window.location.hash = '#/';
     }
@@ -1474,7 +1489,7 @@ function App() {
 
       // Create confetti burst
       const colors = ['#FFD700', '#FFA500', '#FF6347', '#FF69B4', '#8A2BE2', '#00CED1'];
-      
+
       for (let i = 0; i < 5; i++) {
         const confetti = document.createElement('div');
         confetti.style.position = 'fixed';
@@ -1487,9 +1502,9 @@ function App() {
         confetti.style.zIndex = '9999';
         confetti.style.pointerEvents = 'none';
         confetti.style.animation = `confetti-fall ${1 + Math.random()}s linear`;
-        
+
         document.body.appendChild(confetti);
-        
+
         setTimeout(() => confetti.remove(), 2000);
       }
     }, 50);
@@ -1613,71 +1628,71 @@ function App() {
           }
         >
           <Routes>
-          <Route path="/" element={<Home addToCart={addToCart} cart={cart} updateQuantity={updateQuantity} />} />
-          <Route path="/categories/:categoryId/:subcategory" element={<Categories addToCart={addToCart} user={user} cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} />} />
-          <Route path="/categories" element={<Categories addToCart={addToCart} user={user} cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} />} />
-          <Route path="/stickers" element={<Stickers addToCart={addToCart} cart={cart} updateQuantity={updateQuantity} />} />
-          <Route path="/stickers/:id" element={<StickerDetail addToCart={addToCart} user={user} />} />
-          <Route path="/badge/:id" element={<BadgeDetail addToCart={addToCart} user={user} />} />
-          <Route
-            path="/checkout"
-            element={
-              <Checkout
-                cart={cart}
-                removeFromCart={removeFromCart}
-                updateQuantity={updateQuantity}
-              />
-            }
-          />
-          <Route path="/login" element={<Login />} />
-          <Route path="/custom-order" element={<CustomOrder addToCart={addToCart} user={user} />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/Faq" element={< Faq/>} />
-          <Route path="/privacypolicy" element={<PrivacyPolicy />} />
-          <Route path="/termsconditions" element={<TermsConditions />} />
-          <Route path="/returnsandrefunds" element={<RefundCancellation />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/reset-password/:token" element={<ResetPassword />} />
-          {/* Admin Routes - Unified */}
-          <Route path="/admin" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/login" element={<Admin />} />
-          <Route path="/admin/dashboard" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/users" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/orders" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/products" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/promo" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/influencers" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/all-influencers" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/influencer-manage" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/influencer-manage/*" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/withdrawals" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/leads" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/deals" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/invoices" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/support" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/tasks" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/notifications" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/customers" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/reports" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/profile" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/logs" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/revenue" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/user-orders" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/invoice/:id" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/deal-convert" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          <Route path="/admin/deal-send" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-          {/* Influencer Portal Routes - Unified */}
-          <Route path="/influencer/login" element={<Influencer />} />
-          <Route path="/influencer/signup" element={<Influencer />} />
-          <Route path="/influencer/dashboard" element={<Influencer />} />
-          <Route path="/influencer/promo" element={<Influencer />} />
-          <Route path="/influencer/withdraw" element={<Influencer />} />
-          <Route path="/influencer/profile" element={<Influencer />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/terms-conditions" element={<TermsConditions />} />
-          <Route path="/refund-cancellation" element={<RefundCancellation />} />
-          <Route path="/order-success" element={<OrderSuccess />} />
-          <Route path="/profile" element={<Profile addToCart={addToCart} />} />
+            <Route path="/" element={<Home addToCart={addToCart} cart={cart} updateQuantity={updateQuantity} />} />
+            <Route path="/categories/:categoryId/:subcategory" element={<Categories addToCart={addToCart} user={user} cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} />} />
+            <Route path="/categories" element={<Categories addToCart={addToCart} user={user} cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} />} />
+            <Route path="/stickers" element={<Stickers addToCart={addToCart} cart={cart} updateQuantity={updateQuantity} />} />
+            <Route path="/stickers/:id" element={<StickerDetail addToCart={addToCart} user={user} />} />
+            <Route path="/badge/:id" element={<BadgeDetail addToCart={addToCart} user={user} />} />
+            <Route
+              path="/checkout"
+              element={
+                <Checkout
+                  cart={cart}
+                  removeFromCart={removeFromCart}
+                  updateQuantity={updateQuantity}
+                />
+              }
+            />
+            <Route path="/login" element={<Login />} />
+            <Route path="/custom-order" element={<CustomOrder addToCart={addToCart} user={user} />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/Faq" element={< Faq />} />
+            <Route path="/privacypolicy" element={<PrivacyPolicy />} />
+            <Route path="/termsconditions" element={<TermsConditions />} />
+            <Route path="/returnsandrefunds" element={<RefundCancellation />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
+            {/* Admin Routes - Unified */}
+            <Route path="/admin" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/login" element={<Admin />} />
+            <Route path="/admin/dashboard" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/users" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/orders" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/products" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/promo" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/influencers" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/all-influencers" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/influencer-manage" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/influencer-manage/*" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/withdrawals" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/leads" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/deals" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/invoices" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/support" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/tasks" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/notifications" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/customers" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/reports" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/profile" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/logs" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/revenue" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/user-orders" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/invoice/:id" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/deal-convert" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/deal-send" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            {/* Influencer Portal Routes - Unified */}
+            <Route path="/influencer/login" element={<Influencer />} />
+            <Route path="/influencer/signup" element={<Influencer />} />
+            <Route path="/influencer/dashboard" element={<Influencer />} />
+            <Route path="/influencer/promo" element={<Influencer />} />
+            <Route path="/influencer/withdraw" element={<Influencer />} />
+            <Route path="/influencer/profile" element={<Influencer />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-conditions" element={<TermsConditions />} />
+            <Route path="/refund-cancellation" element={<RefundCancellation />} />
+            <Route path="/order-success" element={<OrderSuccess />} />
+            <Route path="/profile" element={<Profile addToCart={addToCart} />} />
           </Routes>
         </Suspense>
       </main>
