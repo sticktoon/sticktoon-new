@@ -139,12 +139,12 @@ const startServer = (port) => {
   const server = app.listen(port, "0.0.0.0", () => {
     console.log(`🚀 Backend running on port ${port}`);
 
-    // Initialize file watcher for automatic image uploads
-    const publicPath = path.join(__dirname, "../public");
-    initializeFileWatcher(publicPath);
-
-    // Scan and upload any images added while backend was offline
-    scanAndUploadOfflineImages();
+    // File watcher and offline scan only in local dev (saves memory & CPU on cloud containers)
+    if (!process.env.RENDER && process.env.NODE_ENV !== "production") {
+      const publicPath = path.join(__dirname, "../public");
+      initializeFileWatcher(publicPath);
+      scanAndUploadOfflineImages();
+    }
 
     // Sunday data backup. Production only, so local dev never mails admin.
     if (process.env.RENDER || process.env.NODE_ENV === "production") {
@@ -175,13 +175,14 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// ⚡ SELF-PING: Pings itself every 14 mins to stay awake on Render
+// ⚡ SELF-PING: Pings itself every 10 mins to stay awake on Render
 if (process.env.RENDER || process.env.NODE_ENV === "production") {
   const https = require("https");
   const SELF_PING_URL = "https://sticktoon-website.onrender.com/api/health";
   
   setInterval(() => {
     https.get(SELF_PING_URL, (res) => {
+      res.resume(); // Consume response stream to free socket memory
       console.log(`[Self-Ping] Status: ${res.statusCode} at ${new Date().toISOString()}`);
     }).on("error", (err) => {
       console.error("[Self-Ping] Error:", err.message);
