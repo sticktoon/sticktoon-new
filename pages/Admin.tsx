@@ -2915,6 +2915,47 @@ const Admin: React.FC = () => {
     }
   };
 
+  // Restore (super admin only)
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreReport, setRestoreReport] = useState<any[] | null>(null);
+  const [restoreMsg, setRestoreMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const runRestore = async (apply: boolean) => {
+    if (!restoreFile) return;
+    setRestoring(true);
+    setRestoreMsg(null);
+    try {
+      const token = localStorage.getItem("adminToken");
+      const form = new FormData();
+      form.append("backup", restoreFile);
+      form.append("apply", String(apply));
+
+      const res = await fetch(`${API_BASE_URL}/api/admin/backup/restore`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setRestoreReport(null);
+        setRestoreMsg({ text: data.message || "Restore failed", ok: false });
+        return;
+      }
+
+      setRestoreReport(data.report || null);
+      if (apply) {
+        setRestoreMsg({ text: data.message, ok: true });
+        setRestoreFile(null);
+      }
+    } catch {
+      setRestoreMsg({ text: "Restore failed. Check your connection.", ok: false });
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   // Check if current user is super admin
   const isSuperAdmin = isSuperAdminEmail(user?.email) || user?.role === "superadmin";
   const authToastShownRef = useRef(false);
@@ -5338,6 +5379,91 @@ const Admin: React.FC = () => {
                     {backupMsg.ok ? "✅ " : "❌ "}
                     {backupMsg.text}
                   </p>
+                )}
+
+                {/* Restore - writes to the database, so super admin only */}
+                {isSuperAdmin && (
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <h4 className="text-sm font-black text-gray-900">Restore From Backup</h4>
+                    <p className="text-xs text-gray-500 mt-1 font-medium">
+                      Upload the <b>RESTORE-&lt;date&gt;.json</b> file from a backup email
+                      (not the CSVs). Deleted records are put back. Records that still exist
+                      are never overwritten or deleted.
+                    </p>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-4">
+                      <input
+                        type="file"
+                        accept=".json,application/json"
+                        onChange={(e) => {
+                          setRestoreFile(e.target.files?.[0] || null);
+                          setRestoreReport(null);
+                          setRestoreMsg(null);
+                        }}
+                        className="text-xs text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-gray-100 file:text-gray-900 hover:file:bg-gray-200"
+                      />
+                      <button
+                        onClick={() => runRestore(false)}
+                        disabled={!restoreFile || restoring}
+                        className="shrink-0 bg-white text-gray-900 border border-gray-300 font-bold text-sm px-5 py-2.5 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {restoring ? "Checking..." : "Check File"}
+                      </button>
+                    </div>
+
+                    {restoreReport && (
+                      <div className="mt-4">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-left text-gray-500 font-bold">
+                              <th className="py-2">Collection</th>
+                              <th className="py-2 text-right">In backup</th>
+                              <th className="py-2 text-right">Already there</th>
+                              <th className="py-2 text-right">Will restore</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {restoreReport.map((row: any) => (
+                              <tr key={row.collection} className="border-t border-gray-100">
+                                <td className="py-2 font-bold text-gray-900">{row.collection}</td>
+                                <td className="py-2 text-right text-gray-600">{row.inBackup}</td>
+                                <td className="py-2 text-right text-gray-600">{row.alreadyPresent}</td>
+                                <td className="py-2 text-right font-black text-gray-900">
+                                  {row.inserted || row.toInsert}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+
+                        {!restoreMsg?.ok && (
+                          <button
+                            onClick={() => runRestore(true)}
+                            disabled={restoring}
+                            className="mt-4 bg-red-600 text-white font-bold text-sm px-5 py-2.5 rounded-lg hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {restoring
+                              ? "Restoring..."
+                              : `Restore ${restoreReport.reduce(
+                                  (sum: number, row: any) => sum + (row.toInsert || 0),
+                                  0
+                                )} Record(s)`}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {restoreMsg && (
+                      <p
+                        className={`mt-4 text-sm font-bold ${
+                          restoreMsg.ok ? "text-green-600" : "text-red-600"
+                        }`}
+                      >
+                        {restoreMsg.ok ? "✅ " : "❌ "}
+                        {restoreMsg.text}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 

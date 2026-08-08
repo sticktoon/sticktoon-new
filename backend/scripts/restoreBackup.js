@@ -13,30 +13,27 @@
  *   node scripts/restoreBackup.js <file> --yes --only=users,orders
  *       -> restore just those collections
  *
+ *   node scripts/restoreBackup.js <file> --yes --uri="mongodb+srv://.../staging"
+ *       -> restore into a different database instead of the one in .env
+ *
  * Nothing is ever deleted. A restore can only add rows back or overwrite them.
+ * The admin panel offers the insert-only case as a button; --replace and --uri
+ * are CLI only - the panel can only ever write to the app's own database.
  */
 require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
 const mongoose = require("mongoose");
-const { EJSON } = require("bson");
-
-const MODELS = {
-  users: require("../models/User"),
-  orders: require("../models/Order"),
-  "user-orders": require("../models/User_Orders"),
-  invoices: require("../models/Invoice"),
-  leads: require("../models/Lead"),
-  products: require("../models/Product"),
-  "promo-codes": require("../models/PromoCode"),
-};
+const { restoreBackup, parseBackup } = require("../utils/restoreBackup");
 
 const args = process.argv.slice(2);
 const file = args.find((a) => !a.startsWith("--"));
-const confirmed = args.includes("--yes");
+const apply = args.includes("--yes");
 const replace = args.includes("--replace");
 const onlyArg = args.find((a) => a.startsWith("--only="));
 const only = onlyArg ? onlyArg.slice(7).split(",").map((s) => s.trim()) : null;
+const uriArg = args.find((a) => a.startsWith("--uri="));
+const uri = uriArg ? uriArg.slice(6) : process.env.MONGO_URI;
 
 async function main() {
   if (!file) {
@@ -50,57 +47,39 @@ async function main() {
     process.exit(1);
   }
 
-  /* Parse in relaxed mode: ObjectId and Date still come back as real types, but
-     numbers come back as plain JS numbers instead of Int32/Double wrappers, which
-     is what mongoose expects to cast. The file itself is written strict, so no
-     type information was lost on the way out. */
-  const backup = EJSON.parse(fs.readFileSync(fullPath, "utf8"));
+  const backup = parseBackup(fs.readFileSync(fullPath, "utf8"));
 
-  await mongoose.connect(process.env.MONGO_URI);
-  console.log(`Connected to ${mongoose.connection.name}\n`);
-
-  if (!confirmed) {
-    console.log("DRY RUN - nothing will be written. Add --yes to apply.\n");
+  if (!uri) {
+    console.error("No database URI. Set MONGO_URI in .env or pass --uri=...");
+    process.exit(1);
   }
 
-  for (const [name, docs] of Object.entries(backup)) {
-    if (only && !only.includes(name)) continue;
+  await mongoose.connect(uri);
 
-    const Model = MODELS[name];
-    if (!Model) {
-      console.log(`${name}: skipped (no model registered)`);
+  // Always name the target loudly: --uri makes it easy to hit the wrong database.
+  console.log(`Target database: ${mongoose.connection.name} @ ${mongoose.connection.host}`);
+  if (uriArg) console.log("(from --uri, not .env)");
+  console.log("");
+
+  if (!apply) console.log("DRY RUN - nothing will be written. Add --yes to apply.\n");
+
+  const report = await restoreBackup({ backup, apply, replace, only });
+
+  for (const row of report) {
+    if (row.skipped) {
+      console.log(`${row.collection}: skipped (${row.reason})`);
       continue;
     }
-
-    const ids = docs.map((doc) => doc._id);
-    const existing = await Model.find({ _id: { $in: ids } }).select("_id").lean();
-    const existingIds = new Set(existing.map((doc) => String(doc._id)));
-
-    const missing = docs.filter((doc) => !existingIds.has(String(doc._id)));
-    const present = docs.length - missing.length;
-
     console.log(
-      `${name}: ${docs.length} in backup, ${present} already in database, ` +
-        `${missing.length} to insert${replace && present ? `, ${present} to overwrite` : ""}`
+      `${row.collection}: ${row.inBackup} in backup, ${row.alreadyPresent} already in database, ` +
+        `${row.toInsert} to insert` +
+        (apply ? ` -> inserted ${row.inserted}, overwritten ${row.overwritten}` : "")
     );
-
-    if (!confirmed) continue;
-
-    const targets = replace ? docs : missing;
-    if (!targets.length) continue;
-
-    // upsert-by-_id keeps the original ids, so relations between collections hold.
-    const ops = targets.map((doc) => ({
-      replaceOne: { filter: { _id: doc._id }, replacement: doc, upsert: true },
-    }));
-
-    const result = await Model.bulkWrite(ops, { ordered: false });
-    console.log(`  -> inserted ${result.upsertedCount}, overwritten ${result.modifiedCount}`);
   }
 
-  if (confirmed) {
+  if (apply) {
     console.log("\nRestore complete.");
-    console.log("Note: user password hashes are not in the backup. Affected users must use Forgot Password.");
+    console.log("Note: password hashes are not in the backup. Affected users must use Forgot Password.");
   }
 
   await mongoose.disconnect();
