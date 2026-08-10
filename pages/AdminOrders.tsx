@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { XCircle, AlertCircle } from "lucide-react";
 import AdminBackButton from "./AdminBackButton";
 import { API_BASE_URL } from "../config/api";
@@ -49,6 +49,7 @@ export default function AdminOrders() {
 
   // Orders load the last 30 days by default; older windows load on demand.
   const [rangeFilter, setRangeFilter] = useState<string>("30");
+  const [deliveryFilter, setDeliveryFilter] = useState<string>("all");
   const [loadingOrders, setLoadingOrders] = useState<boolean>(false);
 
   const RANGE_OPTIONS = [
@@ -57,6 +58,24 @@ export default function AdminOrders() {
     { value: "90", label: "Last 90 days" },
     { value: "all", label: "All time" },
   ];
+
+  const DELIVERY_OPTIONS = [
+    { value: "all", label: "All Delivery Status" },
+    { value: "delivered", label: "Delivered" },
+    { value: "not_delivered", label: "Not Delivered" },
+  ];
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      if (deliveryFilter === "delivered") {
+        return order.isDelivered === true;
+      }
+      if (deliveryFilter === "not_delivered") {
+        return !order.isDelivered;
+      }
+      return true;
+    });
+  }, [orders, deliveryFilter]);
 
   const fetchOrders = async (range: string = rangeFilter) => {
     if (!token) {
@@ -167,6 +186,33 @@ export default function AdminOrders() {
     }
   };
 
+  const handleToggleDelivery = async (orderId: string, currentStatus: boolean) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/orders/${orderId}/delivery`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isDelivered: !currentStatus }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("success", `✅ Delivery status updated to ${!currentStatus ? "Delivered" : "Not Delivered"}`);
+        setOrders((prev) => prev.map((o) => (o._id === orderId ? data.order : o)));
+        if (activeOrder && activeOrder._id === orderId) {
+          setActiveOrder(data.order);
+        }
+      } else {
+        showToast("error", `❌ ${data.message || "Failed to update delivery status"}`);
+      }
+    } catch (err) {
+      console.error("Update delivery status error:", err);
+      showToast("error", "❌ Failed to update delivery status");
+    }
+  };
+
   useEffect(() => {
     fetchOrders();
     fetchSettings();
@@ -182,7 +228,9 @@ export default function AdminOrders() {
           <span className="text-sm font-semibold text-gray-500">
             {loadingOrders
               ? "Loading…"
-              : `${orders.length} order${orders.length === 1 ? "" : "s"}`}
+              : `${filteredOrders.length}${
+                  filteredOrders.length !== orders.length ? ` of ${orders.length}` : ""
+                } order${orders.length === 1 ? "" : "s"}`}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -195,6 +243,21 @@ export default function AdminOrders() {
               className="text-sm font-semibold text-gray-800 bg-transparent focus:outline-none cursor-pointer disabled:opacity-50"
             >
               {RANGE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border shadow-sm">
+            <span className="text-sm font-bold text-gray-700">🚚 Delivery:</span>
+            <select
+              value={deliveryFilter}
+              onChange={(e) => setDeliveryFilter(e.target.value)}
+              disabled={loadingOrders}
+              className="text-sm font-semibold text-gray-800 bg-transparent focus:outline-none cursor-pointer disabled:opacity-50"
+            >
+              {DELIVERY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -231,19 +294,33 @@ export default function AdminOrders() {
               <th className="p-4">User</th>
               <th className="p-4">Amount</th>
               <th className="p-4">Status</th>
+              <th className="p-4">Delivery Status</th>
               <th className="p-4">Shiprocket</th>
               <th className="p-4">View</th>
             </tr>
           </thead>
 
           <tbody>
-            {orders.map((order, i) => (
-              <tr key={order._id} className="border-b">
+            {filteredOrders.map((order, i) => (
+              <tr key={order._id} className="border-b hover:bg-slate-50/80 transition-colors">
                 <td className="p-3">{i + 1}</td>
-                <td className="p-3 text-sm">{order._id}</td>
+                <td className="p-3 text-sm font-mono">{order._id}</td>
                 <td className="p-3">{order.userId?.email || "—"}</td>
-                <td className="p-3">₹{order.amount}</td>
+                <td className="p-3 font-semibold">₹{order.amount}</td>
                 <td className="p-3 font-bold">{order.status}</td>
+                <td className="p-3">
+                  <button
+                    onClick={() => handleToggleDelivery(order._id, !!order.isDelivered)}
+                    title="Click to toggle delivery status"
+                    className={`px-2.5 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer ${
+                      order.isDelivered
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200"
+                        : "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200"
+                    }`}
+                  >
+                    {order.isDelivered ? "✓ Delivered" : "⏳ Not Delivered"}
+                  </button>
+                </td>
                 <td className="p-3">
                   {order.status !== "SUCCESS" ? (
                     <span className="text-gray-400 text-xs font-semibold">Not Paid</span>
@@ -258,7 +335,7 @@ export default function AdminOrders() {
                 <td className="p-3">
                   <button
                     onClick={() => setActiveOrder(order)}
-                    className="text-indigo-600 font-bold"
+                    className="text-indigo-600 font-bold hover:underline"
                   >
                     View
                   </button>
@@ -266,12 +343,14 @@ export default function AdminOrders() {
               </tr>
             ))}
 
-            {!loadingOrders && orders.length === 0 && (
+            {!loadingOrders && filteredOrders.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-gray-500 text-sm">
-                  {rangeFilter === "all"
-                    ? "No orders found."
-                    : "No orders in this period. Try a wider range above to load older orders."}
+                <td colSpan={8} className="p-8 text-center text-gray-500 text-sm">
+                  {orders.length === 0
+                    ? rangeFilter === "all"
+                      ? "No orders found."
+                      : "No orders in this period. Try a wider range above to load older orders."
+                    : "No orders match the selected delivery status filter."}
                 </td>
               </tr>
             )}
@@ -321,6 +400,30 @@ export default function AdminOrders() {
               <span>Total</span>
               <span>₹{activeOrder.amount}</span>
             </div>
+          </div>
+
+          {/* Delivery Status Section */}
+          <div className="bg-white border rounded-xl p-4 mt-4 space-y-2 text-left">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-gray-800 text-sm flex items-center gap-1.5">
+                🚚 Delivery Status:
+              </span>
+              <button
+                onClick={() => handleToggleDelivery(activeOrder._id, !!activeOrder.isDelivered)}
+                className={`px-3 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer ${
+                  activeOrder.isDelivered
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200"
+                    : "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200"
+                }`}
+              >
+                {activeOrder.isDelivered ? "✓ Delivered" : "⏳ Mark as Delivered"}
+              </button>
+            </div>
+            {activeOrder.deliveredAt && (
+              <p className="text-xs text-gray-500 font-medium">
+                Delivered on: {new Date(activeOrder.deliveredAt).toLocaleString()}
+              </p>
+            )}
           </div>
 
           <button
