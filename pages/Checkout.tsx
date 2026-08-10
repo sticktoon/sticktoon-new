@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Trash2, ShoppingCart, Tag, X, CheckCircle, Sparkles, MapPin } from "lucide-react";
+import { Trash2, ShoppingCart, Tag, X, CheckCircle, Sparkles, MapPin, AlertCircle } from "lucide-react";
 import { CartItem, ComboItemPreview } from "../types";
 import { BADGES, formatPrice } from "../constants";
 import { API_BASE_URL } from "../config/api";
@@ -740,6 +740,11 @@ export default function Checkout({
       document
         .getElementById("delivery-form")
         ?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+
+    if (subtotal < 200) {
+      setPaymentError(`Minimum order value is ₹200. Add products worth ₹${Math.ceil(200 - subtotal)} more to proceed.`);
       return;
     }
 
@@ -1630,6 +1635,16 @@ export default function Checkout({
     </p>
   </div>
 
+  {/* MINIMUM ORDER VALUE WARNING */}
+  {subtotal < 200 && (
+    <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs font-semibold text-amber-900 flex items-center gap-2 shadow-sm">
+      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+      <span>
+        Add products worth <strong className="font-extrabold text-amber-950">₹{Math.ceil(200 - subtotal)}</strong> more to proceed to checkout
+      </span>
+    </div>
+  )}
+
   {/* ERROR MESSAGE */}
   {paymentError && (
     <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
@@ -1648,7 +1663,12 @@ export default function Checkout({
   ) : isLoggedIn ? (
     <button
       onClick={handlePlaceOrder}
-      className="w-full py-5 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 transition text-slate-900 font-black rounded-2xl shadow-lg hover:shadow-xl hover:shadow-yellow-500/25"
+      disabled={subtotal < 200}
+      className={`w-full py-5 font-black rounded-2xl transition ${
+        subtotal < 200
+          ? "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300 shadow-none"
+          : "bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-slate-900 shadow-lg hover:shadow-xl hover:shadow-yellow-500/25"
+      }`}
     >
       PLACE ORDER NOW
     </button>
@@ -1658,7 +1678,12 @@ export default function Checkout({
           so they can be saved, tracked, and delivered to a saved address. */}
       <button
         onClick={handleLoginAndContinue}
-        className="w-full py-5 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 transition text-slate-900 font-black rounded-2xl shadow-lg hover:shadow-xl hover:shadow-yellow-500/25"
+        disabled={subtotal < 200}
+        className={`w-full py-5 font-black rounded-2xl transition ${
+          subtotal < 200
+            ? "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300 shadow-none"
+            : "bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-slate-900 shadow-lg hover:shadow-xl hover:shadow-yellow-500/25"
+        }`}
       >
         LOGIN &amp; CONTINUE
       </button>
