@@ -11,7 +11,6 @@ import {
   ChevronRight,
   Shield,
   ShoppingBag,
-  Camera,
   Save,
   Trash2,
   Check,
@@ -124,12 +123,9 @@ export default function Profile() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
-  const [editAvatar, setEditAvatar] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDownloadInvoice = async (orderId: string) => {
     setDownloadingInvoiceId(orderId);
@@ -198,7 +194,6 @@ export default function Profile() {
       setProfile(userObj);
       setEditName(userObj.name || "");
       setEditPhone(userObj.phone || "");
-      setEditAvatar(userObj.avatar || "");
     } catch (err: any) {
       setError(err.message || "Failed to load profile");
     } finally {
@@ -265,7 +260,6 @@ export default function Profile() {
         body: JSON.stringify({
           name: editName,
           phone: editPhone,
-          avatar: editAvatar,
         }),
       });
 
@@ -613,7 +607,7 @@ export default function Profile() {
                   <div className="px-6 sm:px-8 pb-8 -mt-14 relative">
                     <div className="flex flex-col sm:flex-row items-start sm:items-end gap-5">
                       {/* Large Avatar */}
-                      <div className="relative group flex-shrink-0">
+                      <div className="flex-shrink-0">
                         {profile.avatar && (profile.avatar.startsWith('http') || profile.avatar.startsWith('data:')) ? (
                           <img
                             src={profile.avatar}
@@ -625,12 +619,6 @@ export default function Profile() {
                             {getInitial(profile.name)}
                           </div>
                         )}
-                        <button
-                          onClick={() => setShowEditModal(true)}
-                          className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer text-white"
-                        >
-                          <Camera className="w-6 h-6" />
-                        </button>
                       </div>
 
                       <div className="flex-1 min-w-0 pt-2">
@@ -951,33 +939,14 @@ export default function Profile() {
 
             <div className="p-6">
               <div className="flex flex-col items-center mb-6">
-                <div className="relative group">
-                  {editAvatar && (editAvatar.startsWith('http') || editAvatar.startsWith('data:')) ? (
-                    <img src={editAvatar} alt="Profile" className="w-24 h-24 rounded-2xl object-cover ring-2 ring-yellow-500/40" />
-                  ) : (
-                    <div className="w-24 h-24 rounded-2xl bg-slate-900 flex items-center justify-center text-yellow-400 text-3xl font-black ring-2 ring-yellow-500/40">
-                      {getInitial(editName)}
-                    </div>
-                  )}
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer text-white"
-                  >
-                    <Camera className="w-6 h-6" />
-                  </button>
-                </div>
-
-                <div className="flex gap-2 mt-4">
-                  {editAvatar && (editAvatar.startsWith('http') || editAvatar.startsWith('data:')) && (
-                    <button onClick={handleRemoveAvatar} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-xl text-xs font-bold transition-colors border border-red-200">
-                      Remove
-                    </button>
-                  )}
-                  <button onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 bg-slate-100 text-slate-800 rounded-xl text-xs font-bold transition-colors border border-slate-200">
-                    Upload Photo
-                  </button>
-                  <input type="file" ref={fileInputRef} onChange={handleImageChange} accept="image/*" className="hidden" />
-                </div>
+                {profile?.avatar && (profile.avatar.startsWith('http') || profile.avatar.startsWith('data:')) ? (
+                  <img src={profile.avatar} alt="Profile" className="w-24 h-24 rounded-2xl object-cover ring-4 ring-yellow-500/20 shadow-md" />
+                ) : (
+                  <div className="w-24 h-24 rounded-2xl bg-slate-900 flex items-center justify-center text-yellow-400 text-3xl font-black ring-4 ring-yellow-500/20 shadow-md">
+                    {getInitial(editName)}
+                  </div>
+                )}
+                <p className="mt-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Account Avatar</p>
               </div>
 
               <div className="mb-4">
