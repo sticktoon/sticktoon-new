@@ -93,7 +93,7 @@ type UserOrder = {
 
 type ToastType = "success" | "error" | "warning";
 
-export default function Profile() {
+export default function Profile({ addToCart }: { addToCart?: (badge: any, quantity?: number) => void } = {}) {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<"profile" | "addresses" | "orders">("profile");

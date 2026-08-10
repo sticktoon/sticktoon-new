@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -308,29 +308,100 @@ export default function AdminDealSend() {
   }, [gstRate, items, lead?.expectedAmount]);
 
   const catalogPages = useMemo(() => {
-    if (items.length === 0) {
-      return [[]];
-    }
-
-    const counts: number[] = [];
-    let remaining = items.length;
-
-    while (remaining > 0) {
-      const count = Math.min(6, remaining);
-      counts.push(count);
-      remaining -= count;
-    }
-
-    const pages: QuoteItem[][] = [];
-    let cursor = 0;
-    for (let page = 0; page < counts.length; page += 1) {
-      const count = counts[page];
-      pages.push(items.slice(cursor, cursor + count));
-      cursor += count;
-    }
-
-    return pages;
+    return [items];
   }, [items]);
+
+  const gridStyle = useMemo(() => {
+    const count = items.length;
+    if (count <= 6) {
+      return {
+        columns: "repeat(3, minmax(0, 1fr))",
+        cardMinHeight: "248px",
+        imageHeight: "174px",
+        titleSize: "11px",
+        gap: "9px",
+        padding: "10px 10px 12px",
+      };
+    } else if (count <= 9) {
+      return {
+        columns: "repeat(3, minmax(0, 1fr))",
+        cardMinHeight: "170px",
+        imageHeight: "110px",
+        titleSize: "10px",
+        gap: "7px",
+        padding: "8px",
+      };
+    } else if (count <= 12) {
+      return {
+        columns: "repeat(4, minmax(0, 1fr))",
+        cardMinHeight: "140px",
+        imageHeight: "85px",
+        titleSize: "9px",
+        gap: "6px",
+        padding: "6px",
+      };
+    } else if (count <= 16) {
+      return {
+        columns: "repeat(4, minmax(0, 1fr))",
+        cardMinHeight: "115px",
+        imageHeight: "70px",
+        titleSize: "8.5px",
+        gap: "5px",
+        padding: "5px",
+      };
+    } else {
+      return {
+        columns: "repeat(5, minmax(0, 1fr))",
+        cardMinHeight: "100px",
+        imageHeight: "60px",
+        titleSize: "8px",
+        gap: "4px",
+        padding: "4px",
+      };
+    }
+  }, [items.length]);
+
+  const editorRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const isSyncingScrollRef = useRef(false);
+
+  const handleEditorScroll = () => {
+    if (isSyncingScrollRef.current) return;
+    const editor = editorRef.current;
+    const preview = previewRef.current;
+    if (!editor || !preview) return;
+
+    const maxEditorScroll = editor.scrollHeight - editor.clientHeight;
+    const maxPreviewScroll = preview.scrollHeight - preview.clientHeight;
+
+    if (maxEditorScroll > 0 && maxPreviewScroll > 0) {
+      isSyncingScrollRef.current = true;
+      const percentage = editor.scrollTop / maxEditorScroll;
+      preview.scrollTop = percentage * maxPreviewScroll;
+      requestAnimationFrame(() => {
+        isSyncingScrollRef.current = false;
+      });
+    }
+  };
+
+  const handlePreviewScroll = () => {
+    if (isSyncingScrollRef.current) return;
+    const editor = editorRef.current;
+    const preview = previewRef.current;
+    if (!editor || !preview) return;
+
+    const maxEditorScroll = editor.scrollHeight - editor.clientHeight;
+    const maxPreviewScroll = preview.scrollHeight - preview.clientHeight;
+
+    if (maxEditorScroll > 0 && maxPreviewScroll > 0) {
+      isSyncingScrollRef.current = true;
+      const percentage = preview.scrollTop / maxPreviewScroll;
+      editor.scrollTop = percentage * maxEditorScroll;
+      requestAnimationFrame(() => {
+        isSyncingScrollRef.current = false;
+      });
+    }
+  };
 
   const updateItem = (id: string, updates: Partial<QuoteItem>) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
@@ -889,7 +960,7 @@ export default function AdminDealSend() {
       `}</style>
 
       <div className="mx-auto grid h-full max-w-[1600px] gap-6 xl:grid-cols-[400px_minmax(0,1fr)] overflow-hidden">
-  <div className="h-full overflow-y-auto rounded-2xl border bg-white p-5 shadow-sm">
+        <div ref={editorRef} onScroll={handleEditorScroll} className="h-full overflow-y-auto rounded-2xl border bg-white p-5 shadow-sm">
 
           <div className="mb-5 flex items-center justify-between">
             <div>
@@ -1081,7 +1152,7 @@ export default function AdminDealSend() {
           </div>
         </div>
 
-       <div id="deal-send-preview" className="h-full overflow-y-auto rounded-2xl border bg-slate-200/50 p-4 md:p-6 shadow-inner">
+       <div id="deal-send-preview" ref={previewRef} onScroll={handlePreviewScroll} className="h-full overflow-y-auto rounded-2xl border bg-slate-200/50 p-4 md:p-6 shadow-inner">
 
           {isScreenProtected && (
             <ScreenshotPrivacyOverlay message="Hidden while this window is out of focus, so catalog pricing and artwork stay off task-switcher previews." />
@@ -1114,11 +1185,11 @@ export default function AdminDealSend() {
                     </div>
                   )}
 
-                  <div className="catalog-products-section">
-                    <div className="catalog-grid">
+                  <div className="catalog-products-section" style={{ padding: items.length > 6 ? "6px 12px" : "10px 12px" }}>
+                    <div className="catalog-grid" style={{ gridTemplateColumns: gridStyle.columns, gap: gridStyle.gap }}>
                       {pageItems.map((item) => (
-                        <div key={item.id} className="catalog-card">
-                          <div className="catalog-card-image">
+                        <div key={item.id} className="catalog-card" style={{ minHeight: gridStyle.cardMinHeight, padding: gridStyle.padding }}>
+                          <div className="catalog-card-image" style={{ height: gridStyle.imageHeight }}>
                             {item.image || item.defaultImage ? (
                               <img
                                 src={item.image || item.defaultImage}
@@ -1132,10 +1203,10 @@ export default function AdminDealSend() {
                             )}
                           </div>
                           <div className="text-center">
-                            <p className="catalog-card-title">
+                            <p className="catalog-card-title" style={{ fontSize: gridStyle.titleSize }}>
                               {item.description || "Untitled badge"}
                             </p>
-                            <p className="catalog-card-subtitle">
+                            <p className="catalog-card-subtitle" style={{ fontSize: items.length > 9 ? "8px" : "9px" }}>
                               {item.finishLabel || "Premium 58mm Glossy"}
                             </p>
                           </div>
@@ -1143,7 +1214,7 @@ export default function AdminDealSend() {
                       ))}
 
                       {pageIndex === catalogPages.length - 1 && pageItems.length < 6 && (
-                        <div className="catalog-card catalog-card-custom">
+                        <div className="catalog-card catalog-card-custom" style={{ minHeight: gridStyle.cardMinHeight, padding: gridStyle.padding }}>
                           <div className="catalog-card-custom-inner">
                             <div className="catalog-card-custom-icon">
                               <Camera className="h-5 w-5" strokeWidth={2.2} />
@@ -1242,7 +1313,7 @@ export default function AdminDealSend() {
 
                         <div className="catalog-footer-bottom">
                           <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                            {footerNote}
+                            Page {pageIndex + 1} of {catalogPages.length} | {footerNote}
                           </p>
                         </div>
                       </div>

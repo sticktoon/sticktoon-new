@@ -193,10 +193,10 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
             isCombo: Boolean(p.isCombo),
             comboItems: Array.isArray(p.comboItems) && p.comboItems.length > 0
               ? p.comboItems.map((item: any) => ({
-                  id: String(item.id),
-                  name: String(item.name),
-                  image: normalizeImagePath(item.image) || undefined,
-                }))
+                id: String(item.id),
+                name: String(item.name),
+                image: normalizeImagePath(item.image) || undefined,
+              }))
               : undefined,
           };
           setBadge(mappedBadge);
@@ -651,9 +651,8 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
                   alt={badge.name}
                   loading="eager"
                   decoding="async"
-                  className={`max-w-full max-h-full object-contain drop-shadow-[0_15px_30px_rgba(0,0,0,0.12)] transition-all duration-500 ${
-                    imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-                  }`}
+                  className={`max-w-full max-h-full object-contain drop-shadow-[0_15px_30px_rgba(0,0,0,0.12)] transition-all duration-500 ${imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+                    }`}
                   onLoad={() => setImageLoaded(true)}
                   onError={() => setImageLoaded(true)}
                 />
@@ -666,11 +665,10 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
                     <button
                       key={img}
                       onClick={() => setCurrentImage(idx)}
-                      className={`relative rounded-lg border-2 p-2 flex items-center justify-center transition-all duration-200 ${
-                        currentImage === idx
+                      className={`relative rounded-lg border-2 p-2 flex items-center justify-center transition-all duration-200 ${currentImage === idx
                           ? 'border-yellow-500 bg-yellow-50/50 shadow-sm shadow-yellow-500/10'
                           : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'
-                      }`}
+                        }`}
                     >
                       {currentImage === idx && (
                         <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-yellow-500 flex items-center justify-center shadow-sm">
@@ -695,21 +693,19 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
               <div className="grid grid-cols-2 bg-slate-100/80 p-0.5 mx-3 mt-2.5 rounded-lg">
                 <button
                   onClick={() => setActiveTab('description')}
-                  className={`py-2 text-[11px] font-bold rounded-md transition-all ${
-                    activeTab === 'description'
+                  className={`py-2 text-[11px] font-bold rounded-md transition-all ${activeTab === 'description'
                       ? 'bg-white shadow-sm text-slate-900'
                       : 'text-slate-500 hover:text-slate-700'
-                  }`}
+                    }`}
                 >
                   Description
                 </button>
                 <button
                   onClick={() => setActiveTab('info')}
-                  className={`py-2 text-[11px] font-bold rounded-md transition-all ${
-                    activeTab === 'info'
+                  className={`py-2 text-[11px] font-bold rounded-md transition-all ${activeTab === 'info'
                       ? 'bg-white shadow-sm text-slate-900'
                       : 'text-slate-500 hover:text-slate-700'
-                  }`}
+                    }`}
                 >
                   Specifications
                 </button>
@@ -775,11 +771,10 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star
                     key={i}
-                    className={`w-3.5 h-3.5 ${
-                      i < Math.round(reviewStats.average)
+                    className={`w-3.5 h-3.5 ${i < Math.round(reviewStats.average)
                         ? 'text-yellow-500 fill-yellow-500'
                         : 'text-slate-300 fill-slate-200'
-                    }`}
+                      }`}
                   />
                 ))}
               </div>
@@ -825,11 +820,10 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
               <div className="grid grid-cols-2 gap-2.5">
                 <button
                   onClick={() => setBadgeType('pin')}
-                  className={`relative py-2.5 rounded-lg border-2 font-bold text-xs transition-all duration-200 ${
-                    badgeType === 'pin'
+                  className={`relative py-2.5 rounded-lg border-2 font-bold text-xs transition-all duration-200 ${badgeType === 'pin'
                       ? 'border-yellow-500 bg-gradient-to-r from-yellow-50 to-orange-50 text-slate-900 shadow-sm shadow-yellow-500/10'
                       : 'border-slate-200 text-slate-600 bg-white hover:border-slate-300'
-                  }`}
+                    }`}
                 >
                   {badgeType === 'pin' && (
                     <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-yellow-500 flex items-center justify-center">
@@ -844,11 +838,10 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
 
                 <button
                   onClick={() => setBadgeType('magnetic')}
-                  className={`relative py-2.5 rounded-lg border-2 font-bold text-xs transition-all duration-200 ${
-                    badgeType === 'magnetic'
+                  className={`relative py-2.5 rounded-lg border-2 font-bold text-xs transition-all duration-200 ${badgeType === 'magnetic'
                       ? 'border-yellow-500 bg-gradient-to-r from-yellow-50 to-orange-50 text-slate-900 shadow-sm shadow-yellow-500/10'
                       : 'border-slate-200 text-slate-600 bg-white hover:border-slate-300'
-                  }`}
+                    }`}
                 >
                   {badgeType === 'magnetic' && (
                     <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-yellow-500 flex items-center justify-center">
@@ -974,11 +967,10 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
             <div className="grid grid-cols-2 gap-2.5 pt-1">
               <button
                 onClick={handleAddToCart}
-                className={`py-3 rounded-lg font-black uppercase tracking-wider text-xs transition-all duration-300 flex items-center justify-center gap-2 ${
-                  addedToCart
+                className={`py-3 rounded-lg font-black uppercase tracking-wider text-xs transition-all duration-300 flex items-center justify-center gap-2 ${addedToCart
                     ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/25'
                     : 'bg-white border-2 border-slate-900 text-slate-900 hover:bg-slate-900 hover:text-white shadow-sm'
-                }`}
+                  }`}
               >
                 {addedToCart ? (
                   <>
@@ -1032,21 +1024,19 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
               <div className="grid grid-cols-2 bg-slate-100/80 p-0.5 mx-3 mt-2.5 rounded-lg">
                 <button
                   onClick={() => setActiveTab('description')}
-                  className={`py-2 text-[11px] font-bold rounded-md transition-all ${
-                    activeTab === 'description'
+                  className={`py-2 text-[11px] font-bold rounded-md transition-all ${activeTab === 'description'
                       ? 'bg-white shadow-sm text-slate-900'
                       : 'text-slate-500 hover:text-slate-700'
-                  }`}
+                    }`}
                 >
                   Description
                 </button>
                 <button
                   onClick={() => setActiveTab('info')}
-                  className={`py-2 text-[11px] font-bold rounded-md transition-all ${
-                    activeTab === 'info'
+                  className={`py-2 text-[11px] font-bold rounded-md transition-all ${activeTab === 'info'
                       ? 'bg-white shadow-sm text-slate-900'
                       : 'text-slate-500 hover:text-slate-700'
-                  }`}
+                    }`}
                 >
                   Specifications
                 </button>
@@ -1088,11 +1078,10 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star
                       key={i}
-                      className={`w-4 h-4 ${
-                        i < Math.round(reviewStats.average)
+                      className={`w-4 h-4 ${i < Math.round(reviewStats.average)
                           ? 'text-yellow-500 fill-yellow-500'
                           : 'text-slate-300 fill-slate-200'
-                      }`}
+                        }`}
                     />
                   ))}
                 </div>
@@ -1129,9 +1118,8 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
                     aria-label={`Rate ${i + 1} star${i === 0 ? '' : 's'}`}
                   >
                     <Star
-                      className={`w-6 h-6 transition-colors ${
-                        i < reviewRating ? 'text-yellow-500 fill-yellow-500' : 'text-slate-300 fill-slate-200'
-                      }`}
+                      className={`w-6 h-6 transition-colors ${i < reviewRating ? 'text-yellow-500 fill-yellow-500' : 'text-slate-300 fill-slate-200'
+                        }`}
                     />
                   </button>
                 ))}
@@ -1175,9 +1163,8 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star
                             key={i}
-                            className={`w-3 h-3 ${
-                              i < r.rating ? 'text-yellow-500 fill-yellow-500' : 'text-slate-300 fill-slate-200'
-                            }`}
+                            className={`w-3 h-3 ${i < r.rating ? 'text-yellow-500 fill-yellow-500' : 'text-slate-300 fill-slate-200'
+                              }`}
                           />
                         ))}
                       </div>

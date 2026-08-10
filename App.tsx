@@ -485,8 +485,8 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null; onCartClick: 
       {/* MOBILE MENU DROPDOWN */}
       <div
         className={`fixed inset-x-0 top-[72px] bg-black border-b border-slate-800 transition-all duration-300 lg:hidden ${isOpen
-            ? "opacity-100 translate-y-0 visible"
-            : "opacity-0 -translate-y-4 invisible pointer-events-none"
+          ? "opacity-100 translate-y-0 visible"
+          : "opacity-0 -translate-y-4 invisible pointer-events-none"
           }`}
       >
         <div className="flex flex-col p-6 space-y-4">
@@ -546,8 +546,8 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null; onCartClick: 
               to={link.path}
               onClick={() => setIsOpen(false)}
               className={`block text-lg font-extrabold uppercase ${location.pathname === link.path
-                  ? "text-yellow-400"
-                  : "text-white"
+                ? "text-yellow-400"
+                : "text-white"
                 }`}
             >
               {link.name}
@@ -908,19 +908,19 @@ const CartDrawer: React.FC<{
               const isComboItem = String(item.id).startsWith("custom-combo-");
 
               //redirect logic
-            const handleItemClick = () => {
-              if (isComboItem) return;
+              const handleItemClick = () => {
+                if (isComboItem) return;
 
-              onClose();
+                onClose();
 
-              const cartItem = item as any;
+                const cartItem = item as any;
 
-              if (cartItem.type === "sticker") {
-                navigate(`/stickers/${cartItem.id}`);
-              } else {
-                navigate(`/badge/${cartItem.id}`);
-              }
-            }; 
+                if (cartItem.type === "sticker") {
+                  navigate(`/stickers/${cartItem.id}`);
+                } else {
+                  navigate(`/badge/${cartItem.id}`);
+                }
+              };
 
               return (
                 <div
@@ -929,10 +929,10 @@ const CartDrawer: React.FC<{
                 >
                   {/* A combo is 4 badges — show all 4, not just the first one. */}
                   {item.comboItems && item.comboItems.length > 1 ? (
-                  
+
                     <div
-                    onClick={handleItemClick}
-                    className={`w-16 h-16 rounded-xl bg-white border border-slate-200 grid grid-cols-2 gap-0.5 p-0.5 flex-shrink-0 overflow-hidden ${isComboItem ? "cursor-pointer hover:opacity-80 transition-opacity"  : ""}`}>
+                      onClick={handleItemClick}
+                      className={`w-16 h-16 rounded-xl bg-white border border-slate-200 grid grid-cols-2 gap-0.5 p-0.5 flex-shrink-0 overflow-hidden ${isComboItem ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}>
                       {item.comboItems.slice(0, 4).map((c, i) => (
                         <img
                           key={`${c.id}-${i}`}
@@ -954,9 +954,9 @@ const CartDrawer: React.FC<{
                     <div className="flex items-start justify-between gap-2">
                       {/* min-w-0 or a long combo list shoves the delete button off the card. */}
                       <div className="flex-1 min-w-0">
-                        <p 
-                        onClick={handleItemClick}
-                        className={`font-bold text-sm text-slate-900 truncate ${isComboItem ? "cursor-pointer hover:opacity-80 transition-opacity"  : ""}`}>{item.name}</p>
+                        <p
+                          onClick={handleItemClick}
+                          className={`font-bold text-sm text-slate-900 truncate ${isComboItem ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}>{item.name}</p>
                         <p className="text-[11px] text-slate-400 uppercase tracking-wide mt-0.5">
                           {/* Picks span categories — item.category is just the first pick's. */}
                           {isComboItem ? `${item.comboItems?.length ?? 0} badges` : item.category}
