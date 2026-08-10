@@ -335,6 +335,7 @@ export type Sticker = {
   image: string;
   details: string;
   tagline?: string;
+  packCount?: number;
   isFeatured?: boolean;
 };
 

@@ -32,22 +32,28 @@ interface ProductReview {
 }
 
 // DB product (type:"sticker") -> detail shape.
-const mapDbProduct = (p: any): StickerDetailData => ({
-  id: p._id,
-  name: p.name,
-  price: p.price,
-  image: p.image,
-  images: Array.isArray(p.images) ? p.images : [],
-  description: p.description || '',
-  category: p.category,
-  size: p.size || '3 x 3 inches',
-  packCount: p.packCount || 0,
-});
+const mapDbProduct = (p: any): StickerDetailData => {
+  const isPack = p.category === 'sticker-pack' || String(p.name).toLowerCase().includes('pack');
+  const derivedPackCount = typeof p.packCount === 'number' && p.packCount > 0 ? p.packCount : (isPack ? 8 : 1);
+  return {
+    id: p._id,
+    name: p.name,
+    price: p.price,
+    image: p.image,
+    images: Array.isArray(p.images) ? p.images : [],
+    description: p.description || '',
+    category: p.category,
+    size: p.size || '3 x 3 inches',
+    packCount: derivedPackCount,
+  };
+};
 
 // Bundled constant sticker (fallback when the id is not a DB product).
 const mapConstantSticker = (id: string): StickerDetailData | null => {
   const s = STICKERS.find((x) => x.id === id);
   if (!s) return null;
+  const isPack = s.category === 'sticker-pack' || s.id.includes('pack') || s.name.toLowerCase().includes('pack');
+  const derivedPackCount = typeof s.packCount === 'number' && s.packCount > 0 ? s.packCount : (isPack ? 8 : 1);
   return {
     id: s.id,
     name: s.name,
@@ -56,6 +62,7 @@ const mapConstantSticker = (id: string): StickerDetailData | null => {
     description: s.details || '',
     category: s.category,
     size: '3 x 3 inches',
+    packCount: derivedPackCount,
   };
 };
 
@@ -437,7 +444,8 @@ export default function StickerDetail({ addToCart, user }: StickerDetailProps) {
                   <div className="grid grid-cols-2 gap-2">
                     {[
                       ['WEIGHT', '0.02 g'],
-                      ['DIMENSIONS', sticker.size || '7.5 × 7.5 cm'],
+                      ['DIMENSIONS', sticker.size || '3 x 3 inches'],
+                      ['PACK CONTAINS', `${sticker.packCount ?? 1} Sticker${(sticker.packCount ?? 1) === 1 ? '' : 's'}`],
                       ['MATERIAL', 'Vinyl + gloss finish'],
                       ['FINISH', 'Glossy, waterproof'],
                     ].map(([label, value]) => (
