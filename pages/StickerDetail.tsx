@@ -481,16 +481,14 @@ export default function StickerDetail({ addToCart, user }: StickerDetailProps) {
                   "{sticker.description}"
                 </p>
               )}
-            </div>
-
-            {/* Rating */}
+            </div>            {/* Rating */}
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-0.5">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star
                     key={i}
                     className={`w-3.5 h-3.5 ${
-                      i < Math.round(reviewStats.average || 5)
+                      reviewStats.count > 0 && i < Math.round(reviewStats.average)
                         ? 'text-yellow-500 fill-yellow-500'
                         : 'text-slate-300 fill-slate-200'
                     }`}
@@ -508,7 +506,7 @@ export default function StickerDetail({ addToCart, user }: StickerDetailProps) {
                   </span>
                 </>
               ) : (
-                <span className="text-[11px] font-medium text-slate-400">5.0 (42 reviews)</span>
+                <span className="text-[11px] font-medium text-slate-400">No reviews yet</span>
               )}
             </div>
 
@@ -646,23 +644,25 @@ export default function StickerDetail({ addToCart, user }: StickerDetailProps) {
         <div className="mt-8 bg-white rounded-xl border border-slate-200/80 shadow-sm p-5 space-y-5">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-black text-slate-900">Customer Reviews</h2>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-0.5">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`w-4 h-4 ${
-                      i < Math.round(reviewStats.average || 5)
-                        ? 'text-yellow-500 fill-yellow-500'
-                        : 'text-slate-300 fill-slate-200'
-                    }`}
-                  />
-                ))}
+            {reviewStats.count > 0 && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-0.5">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`w-4 h-4 ${
+                        i < Math.round(reviewStats.average)
+                          ? 'text-yellow-500 fill-yellow-500'
+                          : 'text-slate-300 fill-slate-200'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-sm font-bold text-slate-700">
+                  {reviewStats.average.toFixed(1)} ({reviewStats.count})
+                </span>
               </div>
-              <span className="text-sm font-bold text-slate-700">
-                {(reviewStats.average || 5.0).toFixed(1)} ({reviewStats.count || 42})
-              </span>
-            </div>
+            )}
           </div>
 
           {/* Add Review Form */}
