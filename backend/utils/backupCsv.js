@@ -120,10 +120,9 @@ const sendBackup = async ({ trigger = "manual", triggeredBy = "" } = {}) => {
   const html = backupEmail({ trigger, triggeredBy, counts, stamp });
   const subject = `StickToon ${trigger === "weekly" ? "Weekly" : "Manual"} Data Backup — ${stamp}`;
 
-  const results = [];
-  for (const to of recipients) {
-    results.push(await sendEmail({ to, subject, html, attachments }));
-  }
+  const results = await Promise.all(
+    recipients.map((to) => sendEmail({ to, subject, html, attachments }))
+  );
 
   const failed = results.filter((r) => !r.ok);
   if (failed.length === results.length) {

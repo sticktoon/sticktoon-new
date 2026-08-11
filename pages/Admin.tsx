@@ -2904,8 +2904,9 @@ const Admin: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
+      const msgText = typeof data.message === "string" ? data.message : (data.message?.message || "Backup failed");
       setBackupMsg({
-        text: res.ok ? data.message : data.message || "Backup failed",
+        text: msgText,
         ok: res.ok,
       });
     } catch {

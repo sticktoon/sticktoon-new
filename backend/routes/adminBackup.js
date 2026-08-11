@@ -24,7 +24,8 @@ router.post("/", auth, adminOnly, async (req, res) => {
     });
 
     if (!result.ok) {
-      return res.status(500).json({ message: result.error || "Backup failed" });
+      const errorMsg = typeof result.error === "string" ? result.error : (result.error?.message || "Backup failed");
+      return res.status(500).json({ message: errorMsg });
     }
 
     logActivity({
