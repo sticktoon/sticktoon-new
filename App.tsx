@@ -18,7 +18,8 @@ import {
   Contact2,
   Trash2,
   Plus,
-  Minus
+  Minus,
+  AlertCircle
 } from 'lucide-react';
 
 import { Badge, CartItem, User as UserType } from './types.ts';
@@ -1023,14 +1024,29 @@ const CartDrawer: React.FC<{
 
         {/* Footer */}
         {cart.length > 0 && (
-          <div className="border-t border-slate-100 px-5 py-4 space-y-2">
+          <div className="border-t border-slate-100 px-5 py-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-bold text-slate-500">Subtotal</span>
               <span className="text-xl font-black text-slate-900">₹{subtotal.toFixed(0)}</span>
             </div>
+
+            {subtotal < 200 && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  Add products worth <strong className="font-extrabold text-amber-950">₹{Math.ceil(200 - subtotal)}</strong> more to proceed to checkout
+                </span>
+              </div>
+            )}
+
             <button
               onClick={goCheckout}
-              className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-slate-900 text-white font-black text-sm uppercase tracking-wide hover:bg-slate-700 transition"
+              disabled={subtotal < 200}
+              className={`w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-black text-sm uppercase tracking-wide transition ${
+                subtotal < 200
+                  ? "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300 shadow-none"
+                  : "bg-slate-900 text-white hover:bg-slate-700 shadow-md"
+              }`}
             >
               Checkout <ArrowRight className="w-4 h-4" />
             </button>

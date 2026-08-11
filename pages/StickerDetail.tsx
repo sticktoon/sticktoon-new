@@ -625,8 +625,8 @@ export default function StickerDetail({ addToCart, user }: StickerDetailProps) {
                 <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center mb-1.5">
                   <Truck className="w-3.5 h-3.5 text-blue-600" />
                 </div>
-                <p className="text-[9px] font-black text-slate-800 uppercase tracking-wider leading-tight">Free Delivery</p>
-                <p className="text-[8px] text-slate-400 font-medium mt-0.5">On all orders</p>
+                <p className="text-[9px] font-black text-slate-800 uppercase tracking-wider leading-tight">Fast Delivery</p>
+                <p className="text-[8px] text-slate-400 font-medium mt-0.5">Express shipping</p>
               </div>
               <div className="bg-white rounded-lg border border-slate-200/80 p-2.5 shadow-sm hover:shadow-md transition-shadow">
                 <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center mb-1.5">
