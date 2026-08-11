@@ -187,8 +187,21 @@ exports.userOrderSuccessEmail = ({ order, invoice }) =>
 /* =========================
    DATA BACKUP (ADMIN)
 ========================= */
-exports.backupEmail = ({ trigger, triggeredBy, counts, stamp }) => {
+exports.backupEmail = ({ trigger, triggeredBy, counts, stamp, health }) => {
   const isWeekly = trigger === "weekly";
+
+  /* Image uploads that did not fully succeed in the last 30 days. Surfaced here
+     because this email is the one thing that reliably reaches the admin. */
+  const healthBlock = health
+    ? `
+    <div style="background:#fffbeb;border:2px solid #f59e0b;padding:14px;border-radius:8px;margin:0 0 20px;color:#92400e;">
+      <h3 style="margin:0 0 6px;font-size:15px;">⚠️ Image uploads are failing</h3>
+      <p style="margin:0;font-size:13px;">
+        ${esc(health.degraded)} of the last ${esc(health.total)} uploads did not complete.
+        ${health.reason ? `<br><b>${esc(health.reason)}</b>` : ""}
+      </p>
+    </div>`
+    : "";
 
   const rows = Object.entries(counts || {})
     .map(
@@ -214,6 +227,8 @@ exports.backupEmail = ({ trigger, triggeredBy, counts, stamp }) => {
       Backup date: <b>${esc(stamp)}</b>.
     </p>
 
+    ${healthBlock}
+
     <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#374151;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
       <tr style="background:#f9fafb;">
         <td style="padding:8px 12px;font-weight:bold;">Collection</td>
@@ -224,9 +239,10 @@ exports.backupEmail = ({ trigger, triggeredBy, counts, stamp }) => {
 
     <p style="font-size:13px;color:#6b7280;margin-top:20px;">
       Each collection is attached as a CSV file (UTF-8, opens in Excel or Google Sheets)
-      for reading. The <b>RESTORE-${esc(stamp)}.json</b> file is the one to keep for
+      for reading. The <b>RESTORE-${esc(stamp)}.json.gz</b> file is the one to keep for
       recovery — it preserves record IDs and links between collections, which the CSVs do not.
-      Restore with <b>node scripts/restoreBackup.js RESTORE-${esc(stamp)}.json --yes</b>.
+      Restore with <b>node scripts/restoreBackup.js RESTORE-${esc(stamp)}.json.gz --yes</b>,
+      or upload it on the admin panel's Restore card. No need to unzip it first.
     </p>
 
     <p style="font-size:13px;color:#6b7280;">

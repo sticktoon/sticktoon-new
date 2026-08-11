@@ -1,7 +1,8 @@
 /**
- * Restore data from a RESTORE-<date>.json backup attachment.
+ * Restore data from a RESTORE-<date>.json.gz backup attachment.
+ * (Plain .json files from backups sent before 2026-08 still work.)
  *
- *   node scripts/restoreBackup.js ~/Downloads/RESTORE-2026-08-07.json
+ *   node scripts/restoreBackup.js ~/Downloads/RESTORE-2026-08-07.json.gz
  *       -> dry run: prints what would change, writes nothing
  *
  *   node scripts/restoreBackup.js <file> --yes
@@ -37,7 +38,7 @@ const uri = uriArg ? uriArg.slice(6) : process.env.MONGO_URI;
 
 async function main() {
   if (!file) {
-    console.error("Usage: node scripts/restoreBackup.js <RESTORE-*.json> [--yes] [--replace] [--only=users,orders]");
+    console.error("Usage: node scripts/restoreBackup.js <RESTORE-*.json.gz> [--yes] [--replace] [--only=users,orders]");
     process.exit(1);
   }
 
@@ -47,7 +48,8 @@ async function main() {
     process.exit(1);
   }
 
-  const backup = parseBackup(fs.readFileSync(fullPath, "utf8"));
+  // Bytes, not text - parseBackup handles both the gzipped and plain forms.
+  const backup = parseBackup(fs.readFileSync(fullPath));
 
   if (!uri) {
     console.error("No database URI. Set MONGO_URI in .env or pass --uri=...");

@@ -9,6 +9,7 @@ import AdminInvoice from "./AdminInvoice";
 import AdminRevenue from "./AdminRevenue";
 import AdminUserOrders from "./AdminUserOrders";
 import { API_BASE_URL } from "../config/api";
+import { waitForBackupOutcome } from "../utils/backupStatus";
 import {
   formatDate,
   formatDateLong,
@@ -2897,6 +2898,7 @@ const Admin: React.FC = () => {
   const createBackup = async () => {
     setBackingUp(true);
     setBackupMsg(null);
+    const startedAt = Date.now();
     try {
       const token = localStorage.getItem("adminToken");
       const res = await fetch(`${API_BASE_URL}/api/admin/backup`, {
@@ -2909,6 +2911,10 @@ const Admin: React.FC = () => {
         text: msgText,
         ok: res.ok,
       });
+      if (!res.ok) return;
+
+      const outcome = await waitForBackupOutcome(token, startedAt);
+      if (outcome) setBackupMsg(outcome);
     } catch {
       setBackupMsg({ text: "Backup failed. Check your connection.", ok: false });
     } finally {

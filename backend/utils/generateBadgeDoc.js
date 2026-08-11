@@ -13,6 +13,7 @@
   BorderStyle,
 } = require("docx");
 const sharp = require("sharp");
+const axios = require("axios");
 
 /**
  * Generate a Word document with custom badge images for printing
@@ -27,10 +28,24 @@ async function generateBadgeDoc({ orderId, customBadges }) {
   }
 
   /**
-   * Convert base64 / dataURL → Buffer
+   * Convert base64 / dataURL / hosted URL → Buffer
+   *
+   * Custom-order artwork used to be stored on the order as a data: URI. It now
+   * goes to Cloudinary at checkout and the order holds the URL, so this has to
+   * read both: orders placed before that change still carry the inline copy.
    */
-  const extractImageBuffer = (imageValue) => {
+  const extractImageBuffer = async (imageValue) => {
     if (!imageValue) return null;
+
+    if (typeof imageValue === "string" && /^https?:\/\//.test(imageValue)) {
+      const response = await axios.get(imageValue, {
+        responseType: "arraybuffer",
+        timeout: 15000,
+        maxRedirects: 3,
+      });
+      const buffer = Buffer.from(response.data);
+      return buffer.length ? buffer : null;
+    }
 
     if (typeof imageValue === "string" && imageValue.startsWith("data:")) {
       const commaIndex = imageValue.indexOf(",");
@@ -63,9 +78,10 @@ async function generateBadgeDoc({ orderId, customBadges }) {
   const mmToDocxPx = (mm) => (mm / 25.4) * 96;
 
   const buildImageRun = async (imageSource, sizeMm) => {
-    if (!imageSource || !imageSource.startsWith("data:image")) return null;
+    if (typeof imageSource !== "string") return null;
+    if (!imageSource.startsWith("data:image") && !/^https?:\/\//.test(imageSource)) return null;
 
-    const imageBuffer = extractImageBuffer(imageSource);
+    const imageBuffer = await extractImageBuffer(imageSource);
     if (!imageBuffer) throw new Error("Badge image buffer is empty");
 
     // Keep the designer's own pixels — they already come in at 300 DPI.

@@ -100,6 +100,29 @@ const UserSchema = new mongoose.Schema(
 
     avatar: {
       type: String, // URL or initial (A, B, etc.)
+      /* Never the image itself. A base64 data: URI here is hundreds of kilobytes
+         living on a document that is read on every login and copied into every
+         backup. Four routes assign this field (admin profile, admin user edit,
+         super-admin create, auth profile) and the check belongs on all of them,
+         so it sits on the schema rather than in any one of them.
+
+         Nothing in the app sends one today - the panel takes a URL and Google
+         OAuth returns one - this stops it coming back. Upload to Cloudinary and
+         store the URL, the way order artwork does. */
+      validate: {
+        validator: function (value) {
+          if (!value || !/^data:/i.test(value)) return true;
+
+          /* Only reject a fresh write. A document that already holds a legacy
+             inline avatar has to stay saveable, or its owner cannot sign in
+             (routes/auth.js calls save() on the Google path) until
+             scripts/cleanInlineAvatars.js has run. On an update query `this` is
+             the Query, which has no isModified - and there the value is being
+             set right now, so it is rejected. */
+          return typeof this.isModified === "function" && !this.isModified("avatar");
+        },
+        message: "avatar must be a URL, not inline image data",
+      },
     },
 
     // 🔐 Forgot password

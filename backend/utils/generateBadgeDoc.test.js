@@ -60,5 +60,33 @@ const solidPng = async (px) =>
   assert.ok(lowXml.includes("LOW RESOLUTION"), "low source DPI was not flagged");
   assert.ok(!xml.includes("LOW RESOLUTION"), "300 DPI art wrongly flagged");
 
-  console.log("ok — 70mm/58mm exact, 300 DPI kept, low-res flagged");
+  // Artwork now lives on Cloudinary and the order carries a URL, so the document
+  // has to be buildable from a link and not just from an inline data: URI.
+  const raw = Buffer.from(printImage.split(",")[1], "base64");
+  const host = require("http").createServer((_, res) => {
+    res.writeHead(200, { "Content-Type": "image/png" });
+    res.end(raw);
+  });
+  await new Promise((resolve) => host.listen(0, "127.0.0.1", resolve));
+  const url = `http://127.0.0.1:${host.address().port}/badge.png`;
+
+  try {
+    const hostedZip = await JSZip.loadAsync(
+      await generateBadgeDoc({
+        orderId: "TEST-3",
+        customBadges: [{ name: "Hosted", quantity: 1, image: url, printImage: url }],
+      })
+    );
+    const hostedXml = await hostedZip.file("word/document.xml").async("string");
+    const hostedExtents = [...hostedXml.matchAll(/<wp:extent cx="(\d+)"/g)].map((m) => Number(m[1]));
+    assert.deepStrictEqual(
+      hostedExtents,
+      [70 * EMU_PER_MM, 58 * EMU_PER_MM],
+      "hosted artwork must print at the same sizes as an inline data: URI"
+    );
+  } finally {
+    host.close();
+  }
+
+  console.log("ok — 70mm/58mm exact, 300 DPI kept, low-res flagged, hosted URLs work");
 })();

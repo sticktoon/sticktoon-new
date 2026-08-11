@@ -3,7 +3,7 @@ const multer = require("multer");
 const router = express.Router();
 const auth = require("../middleware/auth");
 const { adminOnly, superAdminOnly } = require("../middleware/roleMiddleware");
-const { sendBackup, backupRecipients } = require("../utils/backupCsv");
+const { sendBackup, backupRecipients, lastBackupStatus } = require("../utils/backupCsv");
 const { restoreBackup, parseBackup } = require("../utils/restoreBackup");
 const { logActivity } = require("../utils/activityLogger");
 
@@ -57,9 +57,16 @@ router.post("/", auth, adminOnly, async (req, res) => {
   }
 });
 
-/* Where the backup will land - shown on the button tooltip. */
-router.get("/recipients", auth, adminOnly, (req, res) => {
-  res.json({ recipients: backupRecipients() });
+/* Where the backup will land, and how the previous run ended. The panel polls
+   this after pressing the button: the POST above answers before the backup is
+   built, so this is the only place a delivery failure becomes visible. */
+router.get("/recipients", auth, adminOnly, async (req, res) => {
+  try {
+    res.json({ recipients: backupRecipients(), last: await lastBackupStatus() });
+  } catch (err) {
+    console.error("Backup status error:", err);
+    res.json({ recipients: backupRecipients(), last: null });
+  }
 });
 
 /* =========================
@@ -78,10 +85,12 @@ router.post("/restore", auth, superAdminOnly, upload.single("backup"), async (re
 
     let backup;
     try {
-      backup = parseBackup(req.file.buffer.toString("utf8"));
+      // Raw bytes: parseBackup unzips a .json.gz itself, and a utf8 decode here
+      // would corrupt it before it ever got the chance.
+      backup = parseBackup(req.file.buffer);
     } catch (err) {
       return res.status(400).json({
-        message: `${err.message}. Upload the RESTORE-<date>.json attachment, not a CSV.`,
+        message: `${err.message}. Upload the RESTORE-<date>.json.gz attachment, not a CSV.`,
       });
     }
 

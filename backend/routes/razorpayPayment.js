@@ -12,6 +12,7 @@ const {
 const Order = require("../models/Order");
 const Invoice = require("../models/Invoice");
 const esc = require("../utils/escapeHtml");
+const { uploadCustomArtwork, isCustomItem } = require("../utils/customArtwork");
 const UserOrders = require("../models/User_Orders");
 const PromoCode = require("../models/PromoCode");
 const InfluencerEarning = require("../models/InfluencerEarning");
@@ -106,12 +107,8 @@ router.post("/create-order", async (req, res) => {
 
       const quantity = Math.max(1, Number(item.quantity) || 1);
       const rawBadgeId = String(item.badgeId);
-      const isCustomItem =
-        rawBadgeId.startsWith("custom-") ||
-        (typeof item.printImage === "string" && item.printImage.startsWith("data:image")) ||
-        (typeof item.image === "string" && item.image.startsWith("data:image"));
 
-      if (isCustomItem) {
+      if (isCustomItem(item)) {
         const customPrice = Number(item.price);
         if (!Number.isFinite(customPrice) || customPrice <= 0) {
           return res.status(400).json({ message: "Invalid custom item price" });
@@ -604,10 +601,7 @@ for (const earn of earnings) {
     const ownerEmail = process.env.ORDERS_EMAIL || process.env.ADMIN_EMAIL || "sticktoon.xyz@gmail.com";
     const frontendUrl = process.env.FRONTEND_URL;
     try {
-      const customBadges = order.items.filter(item => 
-        (item.printImage && item.printImage.startsWith('data:image')) ||
-        (item.image && item.image.startsWith('data:image'))
-      );
+      const customBadges = order.items.filter(isCustomItem);
 
       let badgeDocBuffer = null;
       if (customBadges.length > 0) {
@@ -624,6 +618,24 @@ for (const earn of earnings) {
           console.log("✅ Badge Word document generated for " + customBadges.length + " custom badges");
         } catch (docErr) {
           console.error("Badge doc generation error:", docErr.message);
+        }
+
+        /* Now that the print document is built from the inline copy, the artwork
+           can move to Cloudinary and the order can keep just the URL. Deliberately
+           here and not at order creation: a quarter of custom orders are never
+           paid for, and uploading those would fill the account with artwork for
+           badges nobody ordered - besides delaying the payment screen.
+
+           Left inline, each custom badge is ~1 MB inside the order document,
+           carried by every order query and every backup email for good. */
+        try {
+          await uploadCustomArtwork(order.items);
+          order.markModified("items");
+          await order.save();
+        } catch (artErr) {
+          // The order is paid and the print doc exists; a storage hiccup here is
+          // not worth failing the confirmation over. Next backup just stays fat.
+          console.error("Custom artwork upload error:", artErr.message);
         }
       }
       const itemsList = order.items.map(item => {
@@ -642,8 +654,9 @@ for (const earn of earnings) {
           }
         }
         
-        // Mark custom badges in the list
-        const isCustom = item.image && item.image.startsWith('data:image');
+        // Mark custom badges in the list. Not by the data: URI any more — the
+        // artwork has just been moved to Cloudinary a few lines above.
+        const isCustom = isCustomItem(item);
         
         return `<tr>
           <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">

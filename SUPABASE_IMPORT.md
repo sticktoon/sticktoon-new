@@ -6,8 +6,14 @@ The backup emails contain two kinds of attachment:
 
 | File | Purpose |
 |---|---|
-| `users-<date>.csv`, `orders-<date>.csv`, … (7 files) | **Use these for Supabase.** Readable, importable anywhere. |
-| `RESTORE-<date>.json` | For restoring back into MongoDB only. Not used here. |
+| `users-<date>.csv`, `orders-<date>.csv`, … (one per collection) | **Use these for Supabase.** Readable, importable anywhere. |
+| `RESTORE-<date>.json.gz` | For restoring back into MongoDB only. Not used here. Do not unzip it — the restore tools read the `.gz` directly. |
+
+> **Images are not in the CSVs.** Custom-order artwork is stored as a base64
+> `data:` URI on the order item, up to half a megabyte each. A CSV cell cannot
+> hold that (Excel stops at 32,767 characters), so the CSVs carry a placeholder
+> like `<image/png, 452 KB - see RESTORE json>` instead. The full bytes are in
+> `RESTORE-<date>.json.gz`.
 
 ---
 
@@ -16,7 +22,7 @@ The backup emails contain two kinds of attachment:
 1. Admin panel → **Dashboard**
 2. *Data Backup* card → **Create Backup**
 3. Backup email arrives at the addresses in `BACKUP_EMAIL`
-4. Download the 7 CSV files
+4. Download the CSV files
 
 A backup also arrives automatically every **Sunday at 9:00 AM IST**, so you can just use that email instead.
 
@@ -24,7 +30,7 @@ A backup also arrives automatically every **Sunday at 9:00 AM IST**, so you can 
 
 ## Step 2 — Import each CSV
 
-Repeat for all 7 files:
+Repeat for every file:
 
 1. Supabase project → sidebar → **Table Editor**
 2. **New table** dropdown → **Import data from CSV**
@@ -47,6 +53,12 @@ Postgres dislikes hyphens in identifiers, so two names change:
 | `leads-*.csv` | `leads` |
 | `products-*.csv` | `products` |
 | `promo-codes-*.csv` | `promo_codes` |
+| `reviews-*.csv` | `reviews` |
+| `withdrawal-requests-*.csv` | `withdrawal_requests` |
+| `influencer-earnings-*.csv` | `influencer_earnings` |
+| `support-messages-*.csv` | `support_messages` |
+| `tasks-*.csv` | `tasks` |
+| `image-uploads-*.csv` | `image_uploads` |
 
 **If you only need to store and read the data, stop here. You are done.**
 
@@ -201,7 +213,10 @@ drop table orders;
 
 ## Column reference
 
-Counts are from the 2026-08-07 backup.
+Counts are from the 2026-08-07 backup and cover the seven collections the backup
+carried at the time. `reviews`, `withdrawal_requests`, `influencer_earnings`,
+`support_messages`, `tasks` and `image_uploads` were added afterwards and follow
+the same pattern: every column arrives as `text`, cast the ones you want to query.
 
 | Table | Rows | Columns |
 |---|---|---|

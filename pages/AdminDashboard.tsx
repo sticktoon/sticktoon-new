@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
+import { waitForBackupOutcome } from "../utils/backupStatus";
 
 
 type AdminStats = {
@@ -28,6 +29,7 @@ export default function AdminDashboard() {
   const createBackup = async () => {
     setBackingUp(true);
     setBackupMsg(null);
+    const startedAt = Date.now();
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/backup`, {
         method: "POST",
@@ -39,6 +41,10 @@ export default function AdminDashboard() {
         text: msgText,
         ok: res.ok,
       });
+      if (!res.ok) return;
+
+      const outcome = await waitForBackupOutcome(token, startedAt);
+      if (outcome) setBackupMsg(outcome);
     } catch {
       setBackupMsg({ text: "Backup failed. Check your connection.", ok: false });
     } finally {

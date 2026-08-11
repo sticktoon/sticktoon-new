@@ -39,12 +39,14 @@ const sendEmail = async ({ to, subject, html, attachment, attachments }) => {
     html,
   };
 
-  // 📎 Attachments. Callers pass base64 in `content`; Resend wants a Buffer.
+  // 📎 Attachments. Resend wants a Buffer; a base64 string is still accepted so
+  // older callers keep working, but passing the Buffer straight through avoids
+  // encoding the whole payload twice for nothing.
   if (attachments && attachments.length > 0) {
-    // New format: array of { name, content (base64) }
+    // New format: array of { name, content (Buffer or base64 string) }
     payload.attachments = attachments.map((att) => ({
       filename: att.name,
-      content: Buffer.from(att.content, "base64"),
+      content: Buffer.isBuffer(att.content) ? att.content : Buffer.from(att.content, "base64"),
     }));
   } else if (attachment) {
     // Old format: { filename, content (Buffer) }
