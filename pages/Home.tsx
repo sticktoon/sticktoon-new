@@ -219,22 +219,25 @@ const Hero: React.FC = () => {
         </div>
 
         {/* RIGHT BADGES - Hidden on mobile, visible on lg */}
-        <div className="hidden lg:block relative brightness-[1.08] contrast-[1.12] saturate-[1.05] drop-shadow-[0_18px_30px_rgba(15,23,42,0.25)] hover:brightness-[1.12] hover:contrast-[1.18] transition-all duration-500">
+        <div className="hidden lg:block relative transition-all duration-500">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 place-items-center">
             {heroBadges.map((b, i) => (
               <button
                 key={b.id || i}
                 onClick={() => navigate(`/categories?cat=${b.category || 'all'}&highlight=${b.id}`)}
-                className={`hover:scale-110 active:scale-95 transition hover:drop-shadow-[0_18px_35px_rgba(245,158,11,0.35)] hero-badge-slide ${heroAnimated ? 'animate-in' : ''}`}
+                className={`group relative transition-all duration-300 hover:scale-110 active:scale-95 hero-badge-slide ${heroAnimated ? 'animate-in' : ''}`}
                 style={{ animationDelay: `${i * 0.15}s` }}
               >
-                <img
-                  src={b.image}
-                  alt={b.name || b.category || 'badge'}
-                  loading="lazy"
-                  decoding="async"
-                  className="w-24 md:w-36 md:h-36 h-24 lg:w-40 lg:h-40 object-contain drop-shadow-[0_25px_45px_rgba(0,0,0,0.25)] transition-opacity duration-300"
-                />
+                <div className="w-24 h-24 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full overflow-hidden flex items-center justify-center bg-transparent drop-shadow-[0_14px_28px_rgba(0,0,0,0.18)] hover:drop-shadow-[0_22px_40px_rgba(245,158,11,0.4)] transition-all">
+                  <img
+                    src={b.image}
+                    alt={b.name || b.category || 'badge'}
+                    loading="lazy"
+                    decoding="async"
+                    style={{ mixBlendMode: 'multiply' }}
+                    className="w-full h-full object-cover rounded-full transition-transform duration-300 group-hover:scale-105"
+                  />
+                </div>
               </button>
             ))}
           </div>
