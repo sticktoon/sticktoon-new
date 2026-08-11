@@ -228,14 +228,13 @@ const Hero: React.FC = () => {
                 className={`group relative transition-all duration-300 hover:scale-110 active:scale-95 hero-badge-slide ${heroAnimated ? 'animate-in' : ''}`}
                 style={{ animationDelay: `${i * 0.15}s` }}
               >
-                <div className="w-24 h-24 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full overflow-hidden flex items-center justify-center bg-transparent drop-shadow-[0_14px_28px_rgba(0,0,0,0.18)] hover:drop-shadow-[0_22px_40px_rgba(245,158,11,0.4)] transition-all">
+                <div className="w-24 h-24 md:w-36 md:h-36 lg:w-40 lg:h-40 flex items-center justify-center p-1">
                   <img
                     src={b.image}
                     alt={b.name || b.category || 'badge'}
                     loading="lazy"
                     decoding="async"
-                    style={{ mixBlendMode: 'multiply' }}
-                    className="w-full h-full object-cover rounded-full transition-transform duration-300 group-hover:scale-105"
+                    className="w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.18)] group-hover:drop-shadow-[0_20px_35px_rgba(245,158,11,0.4)] transition-all duration-300 group-hover:scale-105"
                   />
                 </div>
               </button>
