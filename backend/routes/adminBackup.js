@@ -18,32 +18,42 @@ const upload = multer({
 ========================= */
 router.post("/", auth, adminOnly, async (req, res) => {
   try {
-    const result = await sendBackup({
-      trigger: "manual",
-      triggeredBy: req.user.email,
-    });
-
-    if (!result.ok) {
-      const errorMsg = typeof result.error === "string" ? result.error : (result.error?.message || "Backup failed");
-      return res.status(500).json({ message: errorMsg });
+    const recipients = backupRecipients();
+    if (!recipients.length) {
+      return res.status(400).json({ message: "No backup recipient configured (set BACKUP_EMAIL or ADMIN_EMAIL)" });
     }
 
-    logActivity({
-      req,
-      action: "backup.create",
-      category: "settings",
-      message: `Data backup emailed to ${result.recipients.join(", ")}`,
-      meta: { counts: result.counts, files: result.files },
-    }).catch(() => {});
-
+    // Respond immediately so Render's 30s HTTP proxy never times out with 502/503
     res.json({
-      message: `Backup sent to ${result.recipients.join(", ")}`,
-      counts: result.counts,
-      files: result.files,
+      message: `Backup is generating in background and will arrive in ${recipients.join(", ")} shortly!`,
+      recipients,
     });
+
+    // Execute heavy CSV generation & email dispatch asynchronously
+    sendBackup({
+      trigger: "manual",
+      triggeredBy: req.user.email,
+    })
+      .then((result) => {
+        if (result.ok) {
+          console.log(`✅ Backup successfully emailed to ${result.recipients.join(", ")}`);
+          logActivity({
+            req,
+            action: "backup.create",
+            category: "settings",
+            message: `Data backup emailed to ${result.recipients.join(", ")}`,
+            meta: { counts: result.counts, files: result.files },
+          }).catch(() => {});
+        } else {
+          console.error("❌ Backup process failed:", result.error);
+        }
+      })
+      .catch((err) => {
+        console.error("❌ Backup background error:", err);
+      });
   } catch (err) {
     console.error("Backup error:", err);
-    res.status(500).json({ message: "Backup failed" });
+    res.status(500).json({ message: "Failed to initiate backup" });
   }
 });
 

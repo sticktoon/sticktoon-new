@@ -94,7 +94,8 @@ const sendBackup = async ({ trigger = "manual", triggeredBy = "" } = {}) => {
   const restore = {};
 
   for (const [name, Model] of COLLECTIONS) {
-    const rows = (await Model.find({}).lean()).map(stripSensitive);
+    const rawRows = await Model.find({}, { password: 0, secret: 0, token: 0, otp: 0, __v: 0 }).lean();
+    const rows = rawRows.map(stripSensitive);
     counts[name] = rows.length;
     if (!rows.length) continue;
 
