@@ -187,11 +187,10 @@ function BadgeCard({
               <button
                 onClick={() => onToggleComboSelection(badge.id)}
                 disabled={disableComboSelection}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300 border ${
-                  isSelectedForCombo
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300 border ${isSelectedForCombo
                     ? 'bg-yellow-500 text-white border-yellow-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:border-yellow-400 hover:text-yellow-700'
-                } ${disableComboSelection && !isSelectedForCombo ? 'opacity-50 cursor-not-allowed hover:text-slate-700 hover:border-slate-300' : ''}`}
+                  } ${disableComboSelection && !isSelectedForCombo ? 'opacity-50 cursor-not-allowed hover:text-slate-700 hover:border-slate-300' : ''}`}
               >
                 {isSelectedForCombo ? 'Picked' : 'Combo'}
               </button>
@@ -393,7 +392,7 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
   // Single cross-category combo selection (any 4 badges from anywhere).
   const [comboSelection, setComboSelection] = useState<string[]>([]);
   const [comboMsg, setComboMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  
+
   // Products from database
   const [products, setProducts] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -460,10 +459,10 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
       isCombo: Boolean(p.isCombo),
       comboItems: Array.isArray(p.comboItems) && p.comboItems.length > 0
         ? p.comboItems.map((item: any) => ({
-            id: String(item.id),
-            name: String(item.name),
-            image: normalizeImagePath(item.image) || undefined,
-          }))
+          id: String(item.id),
+          name: String(item.name),
+          image: normalizeImagePath(item.image) || undefined,
+        }))
         : undefined,
     }));
 
@@ -613,31 +612,31 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
     setIsFilterOpen(false);
   };
 
-  const filteredBadges = activeCategory === 'all' 
-    ? products 
+  const filteredBadges = activeCategory === 'all'
+    ? products
     : products.filter(
-        (b) => normalizeCategoryId(String(b.category)) === normalizeCategoryId(activeCategory),
-      );
+      (b) => normalizeCategoryId(String(b.category)) === normalizeCategoryId(activeCategory),
+    );
 
   const subcategoryFilteredBadges = activeSubcategorySlug
     ? filteredBadges.filter((b) =>
-        matchesSubcategorySlug(b.subcategory, activeSubcategorySlug),
-      )
+      matchesSubcategorySlug(b.subcategory, activeSubcategorySlug),
+    )
     : filteredBadges;
 
-  const currentCategoryName = activeCategory === 'all' 
-    ? 'All Badges' 
+  const currentCategoryName = activeCategory === 'all'
+    ? 'All Badges'
     : CATEGORIES.find(c => c.id === activeCategory)?.name || 'All Badges';
 
   const currentSubcategoryName = activeSubcategorySlug
     ?
-        filteredBadges.find((b) =>
-          matchesSubcategorySlug(b.subcategory, activeSubcategorySlug),
-        )?.subcategory ||
-        activeSubcategorySlug
-          .split('-')
-          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-          .join(' ')
+    filteredBadges.find((b) =>
+      matchesSubcategorySlug(b.subcategory, activeSubcategorySlug),
+    )?.subcategory ||
+    activeSubcategorySlug
+      .split('-')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ')
     : '';
 
   const getSubcategoryOptions = (items: Badge[]) =>
@@ -846,11 +845,10 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               <button
                 onClick={() => handleCategorySelect('all')}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full font-bold uppercase tracking-wide transition-all duration-300 text-xs whitespace-nowrap ${
-                  activeCategory === 'all'
+                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full font-bold uppercase tracking-wide transition-all duration-300 text-xs whitespace-nowrap ${activeCategory === 'all'
                     ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25 border border-yellow-400'
                     : 'text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-yellow-400'
-                }`}
+                  }`}
               >
                 All Badges
                 {activeCategory === 'all' && <Check className="w-3.5 h-3.5 ml-1" />}
@@ -859,11 +857,10 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
                 <button
                   key={cat.id}
                   onClick={() => handleCategorySelect(cat.id)}
-                  className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full font-bold uppercase tracking-wide transition-all duration-300 text-xs whitespace-nowrap ${
-                    activeCategory === cat.id
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full font-bold uppercase tracking-wide transition-all duration-300 text-xs whitespace-nowrap ${activeCategory === cat.id
                       ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/25 border border-yellow-400'
                       : 'text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-yellow-400'
-                  }`}
+                    }`}
                 >
                   <span className="text-sm">{cat.icon}</span>
                   <span>{cat.name}</span>
@@ -984,11 +981,10 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
                     <div className="flex flex-wrap items-center gap-2 mb-5">
                       <Link
                         to={`/categories?cat=${activeCategory}`}
-                        className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                          !activeSubcategorySlug
+                        className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all ${!activeSubcategorySlug
                             ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-yellow-400 shadow-sm shadow-yellow-500/20'
                             : 'bg-white text-slate-600 border-slate-200 hover:border-yellow-400 hover:text-yellow-700'
-                        }`}
+                          }`}
                       >
                         All
                       </Link>
@@ -1001,11 +997,10 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
                           <Link
                             key={subcategory}
                             to={buildSubcategoryRoute(activeCategory, subcategory)}
-                            className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                              isActiveSubcategory
+                            className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all ${isActiveSubcategory
                                 ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-yellow-400 shadow-sm shadow-yellow-500/20'
                                 : 'bg-white text-slate-600 border-slate-200 hover:border-yellow-400 hover:text-yellow-700'
-                            }`}
+                              }`}
                           >
                             {subcategory}
                           </Link>
@@ -1097,11 +1092,10 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
                   <button
                     onClick={addComboToCart}
                     disabled={comboSelection.length !== CUSTOM_COMBO_SIZE}
-                    className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition whitespace-nowrap ${
-                      comboSelection.length === CUSTOM_COMBO_SIZE
+                    className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition whitespace-nowrap ${comboSelection.length === CUSTOM_COMBO_SIZE
                         ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-900 hover:from-yellow-300 hover:to-amber-400'
                         : 'bg-white/10 text-white/40 cursor-not-allowed'
-                    }`}
+                      }`}
                   >
                     {editComboId ? '✓ Update Combo' : 'Add Combo'}
                   </button>
