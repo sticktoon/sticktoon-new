@@ -103,69 +103,31 @@ const PinButton: React.FC<{
   );
 };
 
-const FALLBACK_HERO_BADGES = [
-  { img: "/images/a.png", cat: "pet", id: "pet-1" },
-  { img: "/images/h.png", cat: "religious", id: "spiritual-1" },
-  { img: "/images/b.png", cat: "moody", id: "moody-1" },
-  { img: "/images/flag2.png", cat: "events", id: "event-1" },
-  { img: "/images/d.png", cat: "entertainment", id: "ent-1" },
-  { img: "/images/e.png", cat: "couple", id: "couple-1" },
-  { img: "/images/f.png", cat: "anime", id: "anime-1" },
-  { img: "/images/g.png", cat: "events", id: "event-5" },
-  { img: "/images/c.png", cat: "anime", id: "anime-2" },
-];
+import { getHeroBadges, getCachedHeroBadgesSync, HeroBadgeItem } from '../utils/heroBadgesLoader';
 
 const Hero: React.FC = () => {
   const navigate = useNavigate();
   const [heroAnimated, setHeroAnimated] = useState(false);
-  const [heroBadges, setHeroBadges] = useState<Array<{ id: string; name?: string; image: string; category?: string }>>(() =>
-    FALLBACK_HERO_BADGES.map((b) => ({ id: b.id, image: b.img, category: b.cat }))
-  );
-
-  useEffect(() => {
-    // Small delay so the page renders first, then badges fly in
-    const timer = setTimeout(() => setHeroAnimated(true), 150);
-    return () => clearTimeout(timer);
-  }, []);
+  const [heroBadges, setHeroBadges] = useState<HeroBadgeItem[] | null>(() => getCachedHeroBadgesSync());
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/products?type=badge&all=true`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const list: any[] = Array.isArray(data.products) ? data.products : (Array.isArray(data) ? data : []);
-        if (cancelled || list.length === 0) return;
-
-        // Sort by creation date descending (newest first)
-        const sorted = list
-          .filter((p: any) => p.isActive !== false)
-          .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-
-        const mapped = sorted.map((p: any) => ({
-          id: p._id,
-          name: p.name,
-          image: p.image || '/badge/placeholder.png',
-          category: p.category || 'all',
-        }));
-
-        if (mapped.length < 9) {
-          const fallbackMapped = FALLBACK_HERO_BADGES.slice(mapped.length).map(b => ({
-            id: b.id,
-            image: b.img,
-            category: b.cat,
-          }));
-          mapped.push(...fallbackMapped);
+    if (!heroBadges) {
+      getHeroBadges().then((badges) => {
+        if (!cancelled) {
+          setHeroBadges(badges);
         }
-
-        setHeroBadges(mapped.slice(0, 9));
-      } catch (err) {
-        console.error('Failed to fetch dynamic hero badges:', err);
-      }
-    })();
+      });
+    }
     return () => { cancelled = true; };
-  }, []);
+  }, [heroBadges]);
+
+  useEffect(() => {
+    if (heroBadges) {
+      const timer = setTimeout(() => setHeroAnimated(true), 150);
+      return () => clearTimeout(timer);
+    }
+  }, [heroBadges]);
 
   return (
     <section className="relative w-full py-16 sm:py-20 md:py-28 lg:min-h-screen lg:flex lg:items-center overflow-hidden bg-white">
@@ -219,27 +181,29 @@ const Hero: React.FC = () => {
         </div>
 
         {/* RIGHT BADGES - Hidden on mobile, visible on lg */}
-        <div className="hidden lg:block relative transition-all duration-500">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 place-items-center">
-            {heroBadges.map((b, i) => (
-              <button
-                key={b.id || i}
-                onClick={() => navigate(`/categories?cat=${b.category || 'all'}&highlight=${b.id}`)}
-                className={`group relative transition-all duration-300 hover:scale-110 active:scale-95 hero-badge-slide ${heroAnimated ? 'animate-in' : ''}`}
-                style={{ animationDelay: `${i * 0.15}s` }}
-              >
-                <div className="w-24 h-24 md:w-36 md:h-36 lg:w-40 lg:h-40 flex items-center justify-center p-1">
-                  <img
-                    src={b.image}
-                    alt={b.name || b.category || 'badge'}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.18)] group-hover:drop-shadow-[0_20px_35px_rgba(245,158,11,0.4)] transition-all duration-300 group-hover:scale-105"
-                  />
-                </div>
-              </button>
-            ))}
-          </div>
+        <div className="hidden lg:block relative transition-all duration-500 min-h-[300px] md:min-h-[400px] lg:min-h-[480px] flex items-center justify-center">
+          {heroBadges && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 place-items-center w-full">
+              {heroBadges.map((b, i) => (
+                <button
+                  key={b.id || i}
+                  onClick={() => navigate(`/categories?cat=${b.category || 'all'}&highlight=${b.id}`)}
+                  className={`group relative transition-all duration-300 hover:scale-110 active:scale-95 hero-badge-slide ${heroAnimated ? 'animate-in' : ''}`}
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                >
+                  <div className="w-24 h-24 md:w-36 md:h-36 lg:w-40 lg:h-40 flex items-center justify-center p-1">
+                    <img
+                      src={b.image}
+                      alt={b.name || b.category || 'badge'}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.18)] group-hover:drop-shadow-[0_20px_35px_rgba(245,158,11,0.4)] transition-all duration-300 group-hover:scale-105"
+                    />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>
