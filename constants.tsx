@@ -1,5 +1,6 @@
 
 import { Badge, Category } from './types';
+export { HERO_BADGES, type HeroBadge } from './utils/heroBadges';
 
 export const COLORS = {
   primary: '#4338CA', // Indigo Blue
