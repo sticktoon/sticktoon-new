@@ -5,17 +5,14 @@ const { Resend } = require("resend");
 ========================= */
 console.log("📧 sendEmail module loaded (Resend API)");
 
-if (!process.env.RESEND_API_KEY) {
-  console.error("❌ RESEND_API_KEY is missing in .env");
-} else {
-  console.log("✅ Resend API key detected");
+function getResendClient() {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.error("❌ RESEND_API_KEY is missing in .env");
+    return null;
+  }
+  return new Resend(apiKey);
 }
-
-if (!process.env.FROM_EMAIL) {
-  console.error("❌ FROM_EMAIL is missing in .env");
-}
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 /* =========================
    SEND EMAIL FUNCTION
@@ -29,8 +26,14 @@ const sendEmail = async ({ to, subject, html, attachment, attachments }) => {
     return { ok: false, error: "Recipient email is missing" };
   }
 
+  const resend = getResendClient();
+  if (!resend) {
+    console.error("❌ sendEmail aborted: Resend API key is missing");
+    return { ok: false, error: "RESEND_API_KEY is missing in .env" };
+  }
+
   const fromName = process.env.FROM_NAME || "StickToon";
-  const fromEmail = process.env.FROM_EMAIL;
+  const fromEmail = process.env.FROM_EMAIL || "noreply@sticktoon.shop";
 
   const payload = {
     from: `${fromName} <${fromEmail}>`,

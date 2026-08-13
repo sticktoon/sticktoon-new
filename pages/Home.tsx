@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 
-import { BADGES, CATEGORIES, formatPrice } from '../constants.tsx';
+import { BADGES, CATEGORIES, HERO_BADGES, formatPrice } from '../constants';
 import { Badge, CartItem } from '../types.ts';
 import { API_BASE_URL } from '../config/api';
 
@@ -103,31 +103,14 @@ const PinButton: React.FC<{
   );
 };
 
-import { getHeroBadges, getCachedHeroBadgesSync, HeroBadgeItem } from '../utils/heroBadgesLoader';
-
 const Hero: React.FC = () => {
   const navigate = useNavigate();
   const [heroAnimated, setHeroAnimated] = useState(false);
-  const [heroBadges, setHeroBadges] = useState<HeroBadgeItem[] | null>(() => getCachedHeroBadgesSync());
 
   useEffect(() => {
-    let cancelled = false;
-    if (!heroBadges) {
-      getHeroBadges().then((badges) => {
-        if (!cancelled) {
-          setHeroBadges(badges);
-        }
-      });
-    }
-    return () => { cancelled = true; };
-  }, [heroBadges]);
-
-  useEffect(() => {
-    if (heroBadges) {
-      const timer = setTimeout(() => setHeroAnimated(true), 150);
-      return () => clearTimeout(timer);
-    }
-  }, [heroBadges]);
+    const timer = setTimeout(() => setHeroAnimated(true), 150);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <section className="relative w-full py-16 sm:py-20 md:py-28 lg:min-h-screen lg:flex lg:items-center overflow-hidden bg-white">
@@ -181,29 +164,27 @@ const Hero: React.FC = () => {
         </div>
 
         {/* RIGHT BADGES - Hidden on mobile, visible on lg */}
-        <div className="hidden lg:block relative transition-all duration-500 min-h-[300px] md:min-h-[400px] lg:min-h-[480px] flex items-center justify-center">
-          {heroBadges && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 place-items-center w-full">
-              {heroBadges.map((b, i) => (
-                <button
-                  key={b.id || i}
-                  onClick={() => navigate(`/categories?cat=${b.category || 'all'}&highlight=${b.id}`)}
-                  className={`group relative transition-all duration-300 hover:scale-110 active:scale-95 hero-badge-slide ${heroAnimated ? 'animate-in' : ''}`}
-                  style={{ animationDelay: `${i * 0.15}s` }}
-                >
-                  <div className="w-24 h-24 md:w-36 md:h-36 lg:w-40 lg:h-40 flex items-center justify-center p-1">
-                    <img
-                      src={b.image}
-                      alt={b.name || b.category || 'badge'}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.18)] group-hover:drop-shadow-[0_20px_35px_rgba(245,158,11,0.4)] transition-all duration-300 group-hover:scale-105"
-                    />
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+        <div className="hidden lg:block relative transition-all duration-500">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 place-items-center">
+            {HERO_BADGES.map((b, i) => (
+              <button
+                key={b.id || i}
+                onClick={() => navigate(`/categories?cat=${b.category || 'all'}&highlight=${b.id}`)}
+                className={`group relative transition-all duration-300 hover:scale-110 active:scale-95 hero-badge-slide ${heroAnimated ? 'animate-in' : ''}`}
+                style={{ animationDelay: `${i * 0.15}s` }}
+              >
+                <div className="w-24 h-24 md:w-36 md:h-36 lg:w-40 lg:h-40 flex items-center justify-center p-1">
+                  <img
+                    src={b.image}
+                    alt={b.name || b.category || 'badge'}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.18)] group-hover:drop-shadow-[0_20px_35px_rgba(245,158,11,0.4)] transition-all duration-300 group-hover:scale-105"
+                  />
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
 
       </div>

@@ -131,6 +131,30 @@ export default function AdminDealSend() {
   );
   const [gstRate, setGstRate] = useState(18);
 
+  useEffect(() => {
+    let isMounted = true;
+    const fetchQuotationNumber = async () => {
+      try {
+        const token = localStorage.getItem("adminToken");
+        const res = await fetch(`${API_BASE_URL}/api/admin/settings/quotation-number`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.quotationNo && isMounted) {
+          setQuotationNo(data.quotationNo);
+        }
+      } catch (err) {
+        console.error("Failed to fetch initial quotation number:", err);
+      }
+    };
+
+    fetchQuotationNumber();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [availableProducts, setAvailableProducts] = useState<ImportProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -307,101 +331,83 @@ export default function AdminDealSend() {
     };
   }, [gstRate, items, lead?.expectedAmount]);
 
+  type RenderCard =
+    | { type: "item"; item: QuoteItem }
+    | { type: "custom" };
+
   const catalogPages = useMemo(() => {
-    return [items];
+    const allCards: RenderCard[] = [
+      ...items.map((item) => ({ type: "item" as const, item })),
+      { type: "custom" as const },
+    ];
+
+    const pages: Array<{ cards: RenderCard[]; showFooter: boolean }> = [];
+    let remaining = [...allCards];
+    let pageIndex = 0;
+
+    while (remaining.length > 0) {
+      if (pageIndex === 0) {
+        // Page 1 (with top Header ~168px)
+        // Max cards WITH footer on Page 1: 6 cards (2 rows of 3)
+        // Max cards WITHOUT footer on Page 1: 9 cards (3 rows of 3)
+        if (remaining.length <= 6) {
+          pages.push({ cards: remaining, showFooter: true });
+          remaining = [];
+        } else {
+          const takeCount = Math.min(remaining.length, 9);
+          pages.push({ cards: remaining.slice(0, takeCount), showFooter: false });
+          remaining = remaining.slice(takeCount);
+        }
+      } else {
+        // Page 2+ (without top Header)
+        // Max cards WITH footer on Page 2+: 9 cards (3 rows of 3)
+        // Max cards WITHOUT footer on Page 2+: 12 cards (4 rows of 3)
+        if (remaining.length <= 9) {
+          pages.push({ cards: remaining, showFooter: true });
+          remaining = [];
+        } else {
+          const takeCount = Math.min(remaining.length, 12);
+          pages.push({ cards: remaining.slice(0, takeCount), showFooter: false });
+          remaining = remaining.slice(takeCount);
+        }
+      }
+      pageIndex++;
+    }
+
+    if (pages.length > 0 && !pages[pages.length - 1].showFooter) {
+      pages.push({ cards: [], showFooter: true });
+    }
+
+    return pages;
   }, [items]);
 
-  const gridStyle = useMemo(() => {
-    const count = items.length;
-    if (count <= 6) {
-      return {
-        columns: "repeat(3, minmax(0, 1fr))",
-        cardMinHeight: "248px",
-        imageHeight: "174px",
-        titleSize: "11px",
-        gap: "9px",
-        padding: "10px 10px 12px",
-      };
-    } else if (count <= 9) {
-      return {
-        columns: "repeat(3, minmax(0, 1fr))",
-        cardMinHeight: "170px",
-        imageHeight: "110px",
-        titleSize: "10px",
-        gap: "7px",
-        padding: "8px",
-      };
-    } else if (count <= 12) {
-      return {
-        columns: "repeat(4, minmax(0, 1fr))",
-        cardMinHeight: "140px",
-        imageHeight: "85px",
-        titleSize: "9px",
-        gap: "6px",
-        padding: "6px",
-      };
-    } else if (count <= 16) {
-      return {
-        columns: "repeat(4, minmax(0, 1fr))",
-        cardMinHeight: "115px",
-        imageHeight: "70px",
-        titleSize: "8.5px",
-        gap: "5px",
-        padding: "5px",
-      };
-    } else {
-      return {
-        columns: "repeat(5, minmax(0, 1fr))",
-        cardMinHeight: "100px",
-        imageHeight: "60px",
-        titleSize: "8px",
-        gap: "4px",
-        padding: "4px",
-      };
-    }
-  }, [items.length]);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState<number>(1);
 
-  const editorRef = useRef<HTMLDivElement>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
-  const isSyncingScrollRef = useRef(false);
+  useEffect(() => {
+    const container = previewContainerRef.current;
+    if (!container) return;
 
-  const handleEditorScroll = () => {
-    if (isSyncingScrollRef.current) return;
-    const editor = editorRef.current;
-    const preview = previewRef.current;
-    if (!editor || !preview) return;
+    const updateScale = () => {
+      const width = container.clientWidth;
+      const availableWidth = width - 40;
+      if (availableWidth <= 0) return;
+      const targetWidth = 794;
+      const scale = Math.min(1, Math.max(0.35, availableWidth / targetWidth));
+      setPreviewScale(scale);
+    };
 
-    const maxEditorScroll = editor.scrollHeight - editor.clientHeight;
-    const maxPreviewScroll = preview.scrollHeight - preview.clientHeight;
+    updateScale();
 
-    if (maxEditorScroll > 0 && maxPreviewScroll > 0) {
-      isSyncingScrollRef.current = true;
-      const percentage = editor.scrollTop / maxEditorScroll;
-      preview.scrollTop = percentage * maxPreviewScroll;
-      requestAnimationFrame(() => {
-        isSyncingScrollRef.current = false;
-      });
-    }
-  };
+    const resizeObserver = new ResizeObserver(() => {
+      updateScale();
+    });
 
-  const handlePreviewScroll = () => {
-    if (isSyncingScrollRef.current) return;
-    const editor = editorRef.current;
-    const preview = previewRef.current;
-    if (!editor || !preview) return;
-
-    const maxEditorScroll = editor.scrollHeight - editor.clientHeight;
-    const maxPreviewScroll = preview.scrollHeight - preview.clientHeight;
-
-    if (maxEditorScroll > 0 && maxPreviewScroll > 0) {
-      isSyncingScrollRef.current = true;
-      const percentage = preview.scrollTop / maxPreviewScroll;
-      editor.scrollTop = percentage * maxEditorScroll;
-      requestAnimationFrame(() => {
-        isSyncingScrollRef.current = false;
-      });
-    }
-  };
+    resizeObserver.observe(container);
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   const updateItem = (id: string, updates: Partial<QuoteItem>) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
@@ -514,10 +520,32 @@ export default function AdminDealSend() {
     }
   };
 
+  const incrementQuotationCounter = async () => {
+    try {
+      const token = localStorage.getItem("adminToken");
+      const res = await fetch(`${API_BASE_URL}/api/admin/settings/quotation-number/increment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.quotationNo) {
+          setQuotationNo(data.quotationNo);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to increment quotation counter:", err);
+    }
+  };
+
   const handleDownload = async () => {
     const pdf = await buildPdf();
     if (!pdf) return;
     pdf.save(`catalogue-${quotationNo}.pdf`);
+    await incrementQuotationCounter();
   };
 
   const handlePrint = async () => {
@@ -538,6 +566,7 @@ export default function AdminDealSend() {
 
       if (!printWindow) {
         window.location.href = printUrl;
+        await incrementQuotationCounter();
         return;
       }
 
@@ -548,6 +577,7 @@ export default function AdminDealSend() {
         },
         { once: true },
       );
+      await incrementQuotationCounter();
     } catch {
       setIsPrinting(false);
       return;
@@ -582,7 +612,7 @@ export default function AdminDealSend() {
   }
 
   return (
-    <div className="min-h-screen overflow-hidden bg-slate-100 p-6 md:p-8">
+    <div className="h-full w-full overflow-hidden bg-slate-100 p-4 md:p-6 flex flex-col">
       <style>{`
         .catalog-page {
           width: 210mm;
@@ -592,6 +622,8 @@ export default function AdminDealSend() {
           position: relative;
           background: #ffffff;
           color: #0f172a;
+          box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22);
+          flex-shrink: 0;
         }
 
         .catalog-shell {
@@ -606,8 +638,8 @@ export default function AdminDealSend() {
           border: 2px solid #000000;
           height: 100%;
           overflow: hidden;
-          display: grid;
-          grid-template-rows: auto minmax(0, 1fr) auto auto;
+          display: flex;
+          flex-direction: column;
         }
 
         .catalog-header {
@@ -643,41 +675,32 @@ export default function AdminDealSend() {
         }
 
         .catalog-tagline {
-          margin-top: 11px;
-          font-size: 8px;
+          margin-top: 10px;
+          font-size: 9px;
           font-weight: 900;
+          letter-spacing: 0.32em;
           text-transform: uppercase;
-          letter-spacing: 0.34em;
-          color: #94a3b8;
-          line-height: 1;
+          color: #64748b;
         }
 
         .catalog-highlight-line {
-          margin: 8px auto 12px;
-          min-height: 20px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 999px;
-          background: #f9e8b5;
-          padding: 3px 20px 10px 20px;
-          font-size: 8px;
-          line-height: 1.1;
-          font-weight: 700;
-          font-family: Arial, Helvetica, sans-serif;
-          color: #92400e;
-          white-space: nowrap;
+          margin-top: 6px;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 0.28em;
+          text-transform: uppercase;
+          color: #d97706;
+          padding-bottom: 10px;
         }
 
         .catalog-grid {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 9px;
+          gap: 10px;
         }
 
         .catalog-products-section {
-          padding: 10px 12px 10px;
-          overflow: hidden;
+          padding: 10px 12px 6px;
         }
 
         .catalog-card {
@@ -730,7 +753,7 @@ export default function AdminDealSend() {
 
         .catalog-card-subtitle {
           text-align: center;
-          font-size: 6px;
+          font-size: 8px;
           font-weight: 900;
           letter-spacing: 0.24em;
           text-transform: uppercase;
@@ -755,100 +778,59 @@ export default function AdminDealSend() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 22px 24px;
+          text-align: center;
+          padding: 16px 14px;
           color: #ffffff;
         }
 
         .catalog-card-custom-icon {
+          width: 38px;
+          height: 38px;
+          border-radius: 9999px;
+          background: rgba(255, 255, 255, 0.12);
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 52px;
-          height: 52px;
-          border-radius: 14px;
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.14);
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+          color: #ffffff;
+          margin-bottom: 10px;
         }
 
         .catalog-card-custom-title {
-          margin-top: 22px;
-          text-align: center;
           font-size: 11px;
           font-weight: 900;
-          letter-spacing: 0.06em;
-          line-height: 1.35;
+          letter-spacing: 0.04em;
           text-transform: uppercase;
-          white-space: pre-line;
+          color: #ffffff;
+          line-height: 1.25;
         }
 
         .catalog-card-custom-copy {
-          margin-top: 14px;
-          text-align: center;
-          font-size: 8px;
-          line-height: 1.6;
-          color: rgba(233, 239, 255, 0.92);
-          max-width: 170px;
-          font-style: italic;
-          font-weight: 600;
-        }
-
-        .catalog-card-upload {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          border: 1px solid #d8e1eb;
-          border-radius: 8px;
-          padding: 6px 8px;
-          font-size: 11px;
-          font-weight: 700;
-          color: #334155;
-          background: linear-gradient(180deg, #ffffff 0%, #f5f8fc 100%);
-          cursor: pointer;
-        }
-
-        .catalog-panel-input {
-          width: 100%;
-          border: 1px solid #d9e1ea;
-          border-radius: 12px;
-          padding: 10px 12px;
-          font-size: 14px;
-          color: #0f172a;
-          outline: none;
-          background: #ffffff;
-        }
-
-        .catalog-panel-input:focus {
-          border-color: #64748b;
-        }
-
-        .catalog-price-box {
-          padding: 7px 10px;
-          border-radius: 10px;
-          border: 1px solid #d4deea;
-          background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+          margin-top: 6px;
+          font-size: 9px;
+          line-height: 1.35;
+          color: #c7d2fe;
         }
 
         .catalog-accent-bar {
-          width: 2px;
-          height: 18px;
-          background: linear-gradient(180deg, #64748b 0%, #d0d8e4 100%);
-          border-radius: 999px;
+          width: 14px;
+          height: 4px;
+          border-radius: 9999px;
+          background: #d97706;
+          display: inline-block;
         }
 
         .catalog-overview-list {
-          margin-top: 10px;
-          padding-left: 0;
+          margin-top: 14px;
           list-style: none;
-          color: #334155;
-          font-size: 10px;
-          line-height: 1.65;
+          padding: 0;
         }
 
         .catalog-overview-list li {
           position: relative;
-          padding-left: 16px;
+          padding-left: 14px;
+          font-size: 10px;
+          line-height: 1.45;
+          color: #334155;
         }
 
         .catalog-overview-list li::before {
@@ -856,7 +838,6 @@ export default function AdminDealSend() {
           position: absolute;
           left: 0;
           top: 0;
-          line-height: 1.65;
           font-size: 11px;
           color: #64748b;
         }
@@ -866,9 +847,10 @@ export default function AdminDealSend() {
         }
 
         .catalog-proposal {
-          padding: 4px 10px 8px;
+          padding: 8px 10px 8px;
           background: linear-gradient(180deg, rgba(244, 247, 251, 0.8) 0%, #ffffff 100%);
           border-top: 1px solid #dde5ef;
+          margin-top: 16px;
         }
 
         .catalog-proposal-grid {
@@ -897,7 +879,7 @@ export default function AdminDealSend() {
         }
 
         .catalog-footer {
-          margin-top: auto;
+          margin-top: 0;
           background: linear-gradient(180deg, #0b1630 0%, #0a1224 100%);
           color: white;
         }
@@ -925,25 +907,16 @@ export default function AdminDealSend() {
           color: #eef2ff;
         }
 
-        .catalog-footer-link {
-          color: #eef2ff;
-          text-decoration: underline;
-          text-decoration-color: rgba(226, 232, 240, 0.45);
-          text-underline-offset: 2px;
-          transition: color 0.2s ease, text-decoration-color 0.2s ease;
-        }
-
-        .catalog-footer-link:hover {
-          color: #ffffff;
-          text-decoration-color: rgba(255, 255, 255, 0.8);
-        }
-
         .catalog-footer-copy-muted {
           margin-top: 10px;
-          white-space: pre-line;
           font-size: 9px;
-          line-height: 1.75;
-          color: #d7deef;
+          line-height: 1.7;
+          color: #94a3b8;
+        }
+
+        .catalog-footer-link {
+          color: #ffffff;
+          text-decoration: underline;
         }
 
         .catalog-footer-bottom {
@@ -951,16 +924,11 @@ export default function AdminDealSend() {
           padding: 14px 24px 16px;
           text-align: center;
         }
-
-        @media screen {
-          .catalog-page {
-            box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22);
-          }
-        }
       `}</style>
 
-      <div className="mx-auto grid h-full max-w-[1600px] gap-6 xl:grid-cols-[400px_minmax(0,1fr)] overflow-hidden">
-        <div ref={editorRef} onScroll={handleEditorScroll} className="h-full overflow-y-auto rounded-2xl border bg-white p-5 shadow-sm">
+      <div className="mx-auto grid h-full w-full max-w-[1600px] gap-6 grid-cols-1 lg:grid-cols-[380px_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)] overflow-hidden">
+        {/* LEFT PANEL: Send Catalogue Form */}
+        <div className="h-full overflow-y-auto overflow-x-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
           <div className="mb-5 flex items-center justify-between">
             <div>
@@ -1152,177 +1120,214 @@ export default function AdminDealSend() {
           </div>
         </div>
 
-       <div id="deal-send-preview" ref={previewRef} onScroll={handlePreviewScroll} className="h-full overflow-y-auto rounded-2xl border bg-slate-200/50 p-4 md:p-6 shadow-inner">
+        {/* RIGHT PANEL: Catalogue Preview (Independent Scroll & Responsive Auto-Fit Scaling) */}
+        <div
+          id="deal-send-preview"
+          ref={previewContainerRef}
+          className="h-full overflow-y-auto overflow-x-hidden rounded-2xl border border-slate-200 bg-slate-200/50 p-4 md:p-6 shadow-inner flex flex-col items-center"
+        >
 
           {isScreenProtected && (
             <ScreenshotPrivacyOverlay message="Hidden while this window is out of focus, so catalog pricing and artwork stay off task-switcher previews." />
           )}
-          {catalogPages.map((pageItems, pageIndex) => (
-            <div key={`catalog-page-${pageIndex}`} className="catalog-page mb-6">
-              <div className="catalog-shell">
-                <div className="catalog-sheet">
-                  {pageIndex === 0 && (
-                    <div className="catalog-header">
-                      <div className="catalog-logo-wrap">
-                        <img
-                          src="/images/STICKTOON_LONG.jpeg"
-                          alt="StickToon"
-                          className="mx-auto h-10 w-auto object-contain"
-                        />
-                        <p className="catalog-soul-line">WE CREATE FOR THE SOULS</p>
-                      </div>
-                      <div className="mx-auto mt-3 h-px w-28 bg-slate-200" />
-                      <p className="catalog-tagline">
-                        {normalizedTagline}
-                      </p>
+          {catalogPages.map((page, pageIndex) => {
+            const pageHeightPx = 297 * 3.7795275591; // ~1122.5px
+            const scaledHeight = pageHeightPx * previewScale;
+            const marginOffset = previewScale < 1 ? -(pageHeightPx - scaledHeight) + 24 : 24;
 
-                      <h2 className="mt-1.5 text-[18px] font-black  tracking-tight text-slate-900 whitespace-pre-wrap">
-                        {subject}
-                      </h2>
-                      <div className="catalog-highlight-line">
-                        {normalizedHighlightLine}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="catalog-products-section" style={{ padding: items.length > 6 ? "6px 12px" : "10px 12px" }}>
-                    <div className="catalog-grid" style={{ gridTemplateColumns: gridStyle.columns, gap: gridStyle.gap }}>
-                      {pageItems.map((item) => (
-                        <div key={item.id} className="catalog-card" style={{ minHeight: gridStyle.cardMinHeight, padding: gridStyle.padding }}>
-                          <div className="catalog-card-image" style={{ height: gridStyle.imageHeight }}>
-                            {item.image || item.defaultImage ? (
-                              <img
-                                src={item.image || item.defaultImage}
-                                crossOrigin="anonymous"
-                                alt={item.description}
-                              />
-                            ) : (
-                              <div className="text-xs font-bold uppercase tracking-[0.24em] text-slate-400">
-                                No image
-                              </div>
-                            )}
+            return (
+              <div
+                key={`catalog-page-wrapper-${pageIndex}`}
+                className="w-full flex justify-center flex-shrink-0"
+                style={{
+                  height: previewScale < 1 ? `${scaledHeight}px` : undefined,
+                  marginBottom: `${marginOffset}px`,
+                }}
+              >
+                <div
+                  className="catalog-page"
+                  style={{
+                    transform: previewScale < 1 ? `scale(${previewScale})` : undefined,
+                    transformOrigin: "top center",
+                  }}
+                >
+                  <div className="catalog-shell">
+                    <div className="catalog-sheet">
+                      {pageIndex === 0 && (
+                        <div className="catalog-header">
+                          <div className="catalog-logo-wrap">
+                            <img
+                              src="/images/STICKTOON_LONG.jpeg"
+                              alt="StickToon"
+                              className="mx-auto h-10 w-auto object-contain"
+                            />
+                            <p className="catalog-soul-line">WE CREATE FOR THE SOULS</p>
                           </div>
-                          <div className="text-center">
-                            <p className="catalog-card-title" style={{ fontSize: gridStyle.titleSize }}>
-                              {item.description || "Untitled badge"}
-                            </p>
-                            <p className="catalog-card-subtitle" style={{ fontSize: items.length > 9 ? "8px" : "9px" }}>
-                              {item.finishLabel || "Premium 58mm Glossy"}
-                            </p>
+                          <div className="mx-auto mt-3 h-px w-28 bg-slate-200" />
+                          <p className="catalog-tagline">
+                            {normalizedTagline}
+                          </p>
+
+                          <h2 className="mt-1.5 text-[18px] font-black tracking-tight text-slate-900 whitespace-pre-wrap">
+                            {subject}
+                          </h2>
+                          <div className="catalog-highlight-line">
+                            {normalizedHighlightLine}
                           </div>
                         </div>
-                      ))}
+                      )}
 
-                      {pageIndex === catalogPages.length - 1 && pageItems.length < 6 && (
-                        <div className="catalog-card catalog-card-custom" style={{ minHeight: gridStyle.cardMinHeight, padding: gridStyle.padding }}>
-                          <div className="catalog-card-custom-inner">
-                            <div className="catalog-card-custom-icon">
-                              <Camera className="h-5 w-5" strokeWidth={2.2} />
-                            </div>
-                            <p className="catalog-card-custom-title">{normalizedCustomCardTitle}</p>
-                            <p className="catalog-card-custom-copy">
-                              {normalizedCustomCardCopy}
-                            </p>
+                      {page.cards.length > 0 && (
+                        <div className="catalog-products-section">
+                          <div className="catalog-grid">
+                            {page.cards.map((card, cardIndex) => {
+                              if (card.type === "item") {
+                                const item = card.item;
+                                return (
+                                  <div key={item.id} className="catalog-card">
+                                    <div className="catalog-card-image">
+                                      {item.image || item.defaultImage ? (
+                                        <img
+                                          src={item.image || item.defaultImage}
+                                          crossOrigin="anonymous"
+                                          alt={item.description}
+                                        />
+                                      ) : (
+                                        <div className="text-xs font-bold uppercase tracking-[0.24em] text-slate-400">
+                                          No image
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="text-center">
+                                      <p className="catalog-card-title">
+                                        {item.description || "Untitled badge"}
+                                      </p>
+                                      <p className="catalog-card-subtitle">
+                                        {item.finishLabel || "Premium 58mm Glossy"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              } else {
+                                return (
+                                  <div key={`custom-card-${cardIndex}`} className="catalog-card catalog-card-custom">
+                                    <div className="catalog-card-custom-inner">
+                                      <div className="catalog-card-custom-icon">
+                                        <Camera className="h-5 w-5" strokeWidth={2.2} />
+                                      </div>
+                                      <p className="catalog-card-custom-title">{normalizedCustomCardTitle}</p>
+                                      <p className="catalog-card-custom-copy">
+                                        {normalizedCustomCardCopy}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              }
+                            })}
                           </div>
+                        </div>
+                      )}
+
+                      {page.showFooter ? (
+                        <>
+                          <div className="catalog-proposal">
+                            <div className="catalog-proposal-grid">
+                              <div className="catalog-proposal-col">
+                                <div className="flex items-center gap-3">
+                                  <span className="catalog-accent-bar" />
+                                  <p className="catalog-proposal-title">
+                                    Commercial Proposal
+                                  </p>
+                                </div>
+                                <div className="mt-5 space-y-3 text-[10px] text-slate-700">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-semibold text-slate-600">Product Price</span>
+                                    <span className="font-extrabold text-slate-900">₹{totals.baseUnitPrice.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-semibold text-slate-600">GST ({gstRate}%)</span>
+                                    <span className="font-extrabold text-slate-900">₹{totals.gstPerUnit.toFixed(2)}</span>
+                                  </div>
+                                  <div className="mt-4 border-t border-slate-200 pt-4">
+                                    <div className="flex items-end justify-between gap-3">
+                                      <span className="text-[12px] font-black text-slate-900">Total Per Unit</span>
+                                      <span className="text-[20px] font-black leading-none text-slate-900">₹{totals.totalPerUnit.toFixed(2)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="catalog-proposal-col">
+                                <p className="catalog-proposal-title">
+                                  StickToon Overview
+                                </p>
+                                <ul className="catalog-overview-list">
+                                  {overviewPoints
+                                    .split("\n")
+                                    .map((point) => point.trim())
+                                    .filter(Boolean)
+                                    .map((point, index) => (
+                                      <li key={`${point}-${index}`}>{point}</li>
+                                    ))}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="catalog-footer">
+                            <div className="catalog-footer-grid">
+                              <div>
+                                <p className="catalog-footer-title">Office Location</p>
+                                <p className="catalog-footer-copy">{officeLocation}</p>
+                              </div>
+                              <div>
+                                <p className="catalog-footer-title">Contact Channels</p>
+                                <p className="catalog-footer-copy">
+                                  {contactChannelLines.map((line, index) => (
+                                    <span key={`${line.value}-${index}`} className="block">
+                                      {line.kind === "text" ? (
+                                        line.value
+                                      ) : (
+                                        <>
+                                          {line.label}: {" "}
+                                          <a
+                                            href={line.href}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="catalog-footer-link"
+                                          >
+                                            {line.value}
+                                          </a>
+                                        </>
+                                      )}
+                                    </span>
+                                  ))}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="catalog-footer-title">Curation Note</p>
+                                <p className="catalog-footer-copy-muted italic">{curationNote}</p>
+                              </div>
+                            </div>
+
+                            <div className="catalog-footer-bottom">
+                              <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                Page {pageIndex + 1} of {catalogPages.length} | {footerNote}
+                              </p>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="mt-auto border-t border-slate-200 px-6 py-3 text-center text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                          Page {pageIndex + 1} of {catalogPages.length} | {footerNote}
                         </div>
                       )}
                     </div>
                   </div>
-
-                  {pageIndex === catalogPages.length - 1 && (
-                    <>
-                      <div className="catalog-proposal">
-                        <div className="catalog-proposal-grid">
-                          <div className="catalog-proposal-col">
-                            <div className="flex items-center gap-3">
-                              <span className="catalog-accent-bar" />
-                              <p className="catalog-proposal-title">
-                                Commercial Proposal
-                              </p>
-                            </div>
-                            <div className="mt-5 space-y-3 text-[10px] text-slate-700">
-                              <div className="flex items-center justify-between">
-                                <span className="font-semibold text-slate-600">Product Price</span>
-                                <span className="font-extrabold text-slate-900">₹{totals.baseUnitPrice.toFixed(2)}</span>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <span className="font-semibold text-slate-600">GST ({gstRate}%)</span>
-                                <span className="font-extrabold text-slate-900">₹{totals.gstPerUnit.toFixed(2)}</span>
-                              </div>
-                              <div className="mt-4 border-t border-slate-200 pt-4">
-                                <div className="flex items-end justify-between gap-3">
-                                  <span className="text-[12px] font-black text-slate-900">Total Per Unit</span>
-                                  <span className="text-[20px] font-black leading-none text-slate-900">₹{totals.totalPerUnit.toFixed(2)}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="catalog-proposal-col">
-                            <p className="catalog-proposal-title">
-                              StickToon Overview
-                            </p>
-                            <ul className="catalog-overview-list">
-                              {overviewPoints
-                                .split("\n")
-                                .map((point) => point.trim())
-                                .filter(Boolean)
-                                .map((point, index) => (
-                                  <li key={`${point}-${index}`}>{point}</li>
-                                ))}
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="catalog-footer">
-                        <div className="catalog-footer-grid">
-                          <div>
-                            <p className="catalog-footer-title">Office Location</p>
-                            <p className="catalog-footer-copy">{officeLocation}</p>
-                          </div>
-                          <div>
-                            <p className="catalog-footer-title">Contact Channels</p>
-                            <p className="catalog-footer-copy">
-                              {contactChannelLines.map((line, index) => (
-                                <span key={`${line.value}-${index}`} className="block">
-                                  {line.kind === "text" ? (
-                                    line.value
-                                  ) : (
-                                    <>
-                                      {line.label}: {" "}
-                                      <a
-                                        href={line.href}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="catalog-footer-link"
-                                      >
-                                        {line.value}
-                                      </a>
-                                    </>
-                                  )}
-                                </span>
-                              ))}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="catalog-footer-title">Curation Note</p>
-                            <p className="catalog-footer-copy-muted italic">{curationNote}</p>
-                          </div>
-                        </div>
-
-                        <div className="catalog-footer-bottom">
-                          <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                            Page {pageIndex + 1} of {catalogPages.length} | {footerNote}
-                          </p>
-                        </div>
-                      </div>
-                    </>
-                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Eye, EyeOff, Sparkle } from "lucide-react";
+import { Eye, EyeOff, Sparkles } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { API_BASE_URL } from "../config/api";
 import { setTokens } from "../utils/apiClient";

@@ -8807,7 +8807,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
 
           {/* DEAL SEND VIEW */}
           {currentView === "deal-send" && (
-            <div>
+            <div className="-m-4 sm:-m-6 lg:-m-8 h-[calc(100vh-73px)] overflow-hidden">
               <AdminDealSend />
             </div>
           )}
