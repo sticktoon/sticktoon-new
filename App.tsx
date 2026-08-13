@@ -1239,9 +1239,8 @@ function App() {
       return;
     }
 
-    // A real add (not a decrement) should surface the cart drawer and toast notification as feedback.
+    // Toast notification as feedback when item is added.
     if (qty > 0) {
-      setCartDrawerOpen(true);
       setToastItem({
         id: String(badge.id),
         name: String(badge.name),
