@@ -107,16 +107,19 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
   const imageStateRef = useRef<ImageState | null>(imageState);
   const zoomRef = useRef(zoom);
   const isDraggingRef = useRef(isDragging);
+  const isPickingColorRef = useRef(isPickingColor);
   const pinchStartDist = useRef(0);
   const pinchStartZoom = useRef(1);
 
   useEffect(() => { imageStateRef.current = imageState; }, [imageState]);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
   useEffect(() => { isDraggingRef.current = isDragging; }, [isDragging]);
+  useEffect(() => { isPickingColorRef.current = isPickingColor; }, [isPickingColor]);
   
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
 
@@ -198,6 +201,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
       const imageSrc = typeof draft.imageSrc === 'string' ? draft.imageSrc : '';
       if (imageSrc) {
         const img = new Image();
+        img.crossOrigin = "anonymous";
         img.onload = () => {
           const fitScale = Math.max(CANVAS_PX / img.width, CANVAS_PX / img.height);
           setImageState({
@@ -207,6 +211,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
             scale: fitScale * restoredZoom,
             rotation: restoredRotation,
           });
+          extractPaletteColors(img);
           setDraftReady(true);
         };
         img.onerror = () => {
@@ -561,10 +566,12 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     try {
       const imageUrl = await generateBadgeMockup(prompt);
       const img = new Image();
+      img.crossOrigin = "anonymous";
       img.onload = () => {
         const fitScale = Math.max(CANVAS_PX / img.width, CANVAS_PX / img.height);
         setZoom(1); setRotation(0);
         setImageState({ img, x: 0, y: 0, scale: fitScale, rotation: 0 });
+        extractPaletteColors(img);
       };
       img.src = imageUrl;
     } catch (error) {
@@ -578,10 +585,12 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
+      img.crossOrigin = "anonymous";
       img.onload = () => {
         const fitScale = Math.max(CANVAS_PX / img.width, CANVAS_PX / img.height);
         setZoom(1); setRotation(0);
         setImageState({ img, x: 0, y: 0, scale: fitScale, rotation: 0 });
+        extractPaletteColors(img);
       };
       img.src = e.target?.result as string;
     };
@@ -598,8 +607,55 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     return { x: (e.clientX - rect.left) * scaleRatio, y: (e.clientY - rect.top) * scaleRatio };
   };
 
+  const sampleCanvasColor = (clientX: number, clientY: number): string | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    try {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = Math.round((clientX - rect.left) * scaleX);
+      const y = Math.round((clientY - rect.top) * scaleY);
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const pixel = ctx.getImageData(x, y, 1, 1).data;
+        if (pixel[3] > 0) {
+          const hex = '#' + [pixel[0], pixel[1], pixel[2]].map(c => c.toString(16).padStart(2, '0')).join('').toUpperCase();
+          setBgColor(hex);
+          return hex;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to get pixel color from canvas', err);
+      if ('EyeDropper' in window) {
+        handlePickColor();
+      }
+    }
+    return null;
+  };
+
   const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (!imageState) return;
+
+    if (isPickingColorRef.current) {
+      let clientX = 0;
+      let clientY = 0;
+      if ('touches' in e && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else if ('clientX' in e) {
+        clientX = (e as React.MouseEvent).clientX;
+        clientY = (e as React.MouseEvent).clientY;
+      }
+      const hex = sampleCanvasColor(clientX, clientY);
+      if (hex) {
+        setSuccessMessage(`Background color set to ${hex}`);
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+      setIsPickingColor(false);
+      return;
+    }
+
     const coords = getCanvasCoords(e);
     setIsDragging(true);
     dragStart.current = { x: coords.x, y: coords.y, imgX: imageState.x, imgY: imageState.y };
@@ -642,6 +698,15 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
         pinchStartZoom.current = zoomRef.current;
       } else if (e.touches.length === 1 && imageStateRef.current) {
         e.preventDefault();
+        if (isPickingColorRef.current) {
+          const hex = sampleCanvasColor(e.touches[0].clientX, e.touches[0].clientY);
+          if (hex) {
+            setSuccessMessage(`Background color set to ${hex}`);
+            setTimeout(() => setSuccessMessage(null), 3000);
+          }
+          setIsPickingColor(false);
+          return;
+        }
         const rect = canvas.getBoundingClientRect();
         const scaleRatio = CANVAS_PX / rect.width;
         const x = (e.touches[0].clientX - rect.left) * scaleRatio;
@@ -980,6 +1045,14 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
         </div>
       )}
 
+      {/* Success Toast */}
+      {successMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-2 border border-emerald-700 font-bold text-sm animate-bounce">
+          <CheckCircle2 className="w-4 h-4 text-white" />
+          <span>{successMessage}</span>
+        </div>
+      )}
+
       {/* Header */}
       <header className="relative z-10 border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-4 py-3 sm:px-8 shadow-sm">
         <div className="max-w-[1920px] mx-auto flex items-center justify-between flex-wrap gap-3">
@@ -1243,11 +1316,23 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                   <canvas
                     ref={canvasRef}
                     className={`max-w-full max-h-full aspect-square rounded-xl shadow-lg ring-1 ring-slate-200 object-contain transition-all ${
-                      isPickingColor ? 'cursor-crosshair ring-2 ring-yellow-500' : 'cursor-grab active:cursor-grabbing'
+                      isPickingColor ? 'cursor-crosshair ring-4 ring-yellow-400' : 'cursor-grab active:cursor-grabbing'
                     }`}
                     style={{ touchAction: "none" }}
                     onMouseDown={handlePointerDown} onMouseMove={handlePointerMove} onMouseUp={handlePointerUp}
-                    onMouseLeave={handlePointerUp} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
+                    onMouseLeave={handlePointerUp}
+                    onClick={(e) => {
+                      if (isPickingColorRef.current || isPickingColor) {
+                        e.stopPropagation();
+                        const hex = sampleCanvasColor(e.clientX, e.clientY);
+                        if (hex) {
+                          setSuccessMessage(`Background color set to ${hex}`);
+                          setTimeout(() => setSuccessMessage(null), 3000);
+                        }
+                        setIsPickingColor(false);
+                      }
+                    }}
+                    onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
                   />
                 </div>
               </div>
