@@ -76,6 +76,33 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [bgColor, setBgColor] = useState('#FFFFFF');
+  const [extractedColors, setExtractedColors] = useState<string[]>([]);
+  const [isPickingColor, setIsPickingColor] = useState(false);
+
+  const extractPaletteColors = useCallback((img: HTMLImageElement) => {
+    try {
+      const cvs = document.createElement('canvas');
+      cvs.width = 50; cvs.height = 50;
+      const ctx = cvs.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0, 50, 50);
+      const data = ctx.getImageData(0, 0, 50, 50).data;
+      const colorCounts: { [hex: string]: number } = {};
+      for (let i = 0; i < data.length; i += 16) {
+        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+        if (a < 128) continue;
+        const qr = Math.round(r / 20) * 20;
+        const qg = Math.round(g / 20) * 20;
+        const qb = Math.round(b / 20) * 20;
+        const hex = '#' + [qr, qg, qb].map(x => Math.min(255, Math.max(0, x)).toString(16).padStart(2, '0')).join('').toUpperCase();
+        colorCounts[hex] = (colorCounts[hex] || 0) + 1;
+      }
+      const sorted = Object.keys(colorCounts).sort((a, b) => colorCounts[b] - colorCounts[a]);
+      setExtractedColors(sorted.slice(0, 7));
+    } catch {
+      setExtractedColors([]);
+    }
+  }, []);
   
   const imageStateRef = useRef<ImageState | null>(imageState);
   const zoomRef = useRef(zoom);
@@ -1056,32 +1083,42 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                 </div>
 
                 {/* Background */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between mb-1">
                     <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                      <Palette className="w-3 h-3 text-yellow-600" /> Background Color
+                      <Palette className="w-3.5 h-3.5 text-yellow-600" /> Background Color
                     </label>
-                    <span className="text-[10px] font-mono font-bold text-slate-500 uppercase">{bgColor}</span>
+                    <span className="text-[10px] font-mono font-bold text-slate-600 uppercase">{bgColor}</span>
                   </div>
 
-                  {/* Advanced Color Picker Bar */}
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <div className="relative flex-1 flex items-center bg-slate-50 border border-slate-200 rounded-lg p-1 gap-1.5 hover:border-slate-300 transition-colors">
-                      <div
-                        className="w-6 h-6 rounded-md border border-slate-300 shadow-inner flex-shrink-0 cursor-pointer overflow-hidden relative"
-                        style={{ backgroundColor: bgColor === '#TRANSPARENT' ? 'transparent' : bgColor }}
-                      >
+                  {/* Main Color Controls Bar */}
+                  <div className="flex items-center gap-1.5">
+                    {/* Rainbow Color Wheel Ring Button (Official System Color Palette) */}
+                    <div
+                      className="relative w-9 h-9 rounded-xl p-[2.5px] bg-[conic-gradient(from_0deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)] shadow-sm hover:scale-105 transition-transform cursor-pointer flex-shrink-0"
+                      title="Open System Color Wheel / Palette Ring"
+                    >
+                      <div className="w-full h-full rounded-[9px] bg-white flex items-center justify-center relative overflow-hidden">
+                        <div
+                          className="w-4.5 h-4.5 rounded-md border border-slate-300 shadow-inner"
+                          style={{ backgroundColor: bgColor === '#TRANSPARENT' ? 'transparent' : bgColor }}
+                        >
+                          {bgColor === '#TRANSPARENT' && (
+                            <div className="absolute inset-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:6px_6px]" />
+                          )}
+                        </div>
                         <input
                           type="color"
                           value={bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor}
                           onChange={(e) => setBgColor(e.target.value)}
-                          className="absolute -inset-2 w-10 h-10 cursor-pointer opacity-0"
-                          title="Pick custom color"
+                          className="absolute -inset-4 w-16 h-16 cursor-pointer opacity-0"
+                          title="Open official color wheel"
                         />
-                        {bgColor === '#TRANSPARENT' && (
-                          <div className="absolute inset-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:8px_8px] bg-[position:0_0,0_4px,4px_-4px,-4px_0]" />
-                        )}
                       </div>
+                    </div>
+
+                    {/* Hex Code Input */}
+                    <div className="relative flex-1 flex items-center bg-slate-50 border border-slate-200 rounded-xl px-2 h-9 hover:border-slate-300 transition-colors">
                       <input
                         type="text"
                         value={bgColor}
@@ -1091,22 +1128,34 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                       />
                     </div>
 
-                    {'EyeDropper' in window && (
+                    {/* Drop Color Button (Canvas Image Click or Eyedropper) */}
+                    {imageState && (
                       <button
                         type="button"
-                        onClick={handlePickColor}
-                        className="h-8 px-2 bg-yellow-50 hover:bg-yellow-100 border border-yellow-300 text-yellow-900 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-sm hover:border-yellow-500 active:scale-95 flex-shrink-0"
-                        title="Drop / Pick color from image or screen (Eyedropper)"
+                        onClick={() => {
+                          if ('EyeDropper' in window) {
+                            handlePickColor();
+                          } else {
+                            setIsPickingColor(!isPickingColor);
+                          }
+                        }}
+                        className={`h-9 px-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-1 shadow-sm flex-shrink-0 ${
+                          isPickingColor
+                            ? 'bg-yellow-500 text-slate-900 border-yellow-600 animate-pulse'
+                            : 'bg-yellow-50 hover:bg-yellow-100 border-yellow-300 text-yellow-900 hover:border-yellow-500'
+                        }`}
+                        title="Click to pick color directly from image"
                       >
-                        <Pipette className="w-3.5 h-3.5 text-yellow-600" />
-                        <span className="text-[10px] font-bold">Dropper</span>
+                        <Pipette className="w-3.5 h-3.5 text-yellow-700" />
+                        <span className="text-[10px] font-bold">{isPickingColor ? 'Click Canvas' : 'Drop Color'}</span>
                       </button>
                     )}
 
+                    {/* Transparent Toggle */}
                     <button
                       type="button"
                       onClick={() => setBgColor(bgColor === '#TRANSPARENT' ? '#FFFFFF' : '#TRANSPARENT')}
-                      className={`h-8 px-2 border rounded-lg text-[10px] font-bold transition-all flex items-center justify-center flex-shrink-0 ${
+                      className={`h-9 px-2 border rounded-xl text-[10px] font-bold transition-all flex items-center justify-center flex-shrink-0 ${
                         bgColor === '#TRANSPARENT'
                           ? 'bg-yellow-500 text-slate-900 border-yellow-600 shadow-sm'
                           : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
@@ -1117,12 +1166,42 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                     </button>
                   </div>
 
+                  {/* Colors in Image (Extracted Swatches) */}
+                  {extractedColors.length > 0 && (
+                    <div className="pt-1">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                        Colors in Image
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {extractedColors.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => setBgColor(color)}
+                            className={`w-5 h-5 rounded-md border-2 transition-all ${
+                              bgColor === color ? 'border-yellow-500 scale-110 shadow-md ring-1 ring-yellow-400' : 'border-slate-200 hover:border-slate-400'
+                            }`}
+                            style={{ backgroundColor: color }}
+                            title={`Use ${color}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Preset Swatches */}
-                  <div className="grid grid-cols-7 gap-1">
-                    {backgroundPresets.map(color => (
-                      <button key={color} onClick={() => setBgColor(color)}
-                        className={`w-full aspect-square rounded-md border-2 transition-all ${bgColor === color ? 'border-yellow-500 scale-110 shadow-sm' : 'border-slate-200 hover:border-slate-400'}`}
-                        style={{ backgroundColor: color }} title={color} />
+                  <div className="grid grid-cols-7 gap-1 pt-1">
+                    {backgroundPresets.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setBgColor(color)}
+                        className={`w-full aspect-square rounded-md border-2 transition-all ${
+                          bgColor === color ? 'border-yellow-500 scale-110 shadow-sm' : 'border-slate-200 hover:border-slate-400'
+                        }`}
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
                     ))}
                   </div>
                 </div>
@@ -1154,11 +1233,18 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                 </p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Drag • Scroll to zoom</p>
               </div>
-              <div className="flex-1 w-full min-h-0 flex items-center justify-center overflow-hidden p-1">
+              <div className="flex-1 w-full min-h-0 flex items-center justify-center overflow-hidden p-1 relative">
+                {isPickingColor && (
+                  <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 bg-slate-900 text-yellow-400 px-4 py-1.5 rounded-full text-xs font-black shadow-2xl animate-bounce flex items-center gap-2 border border-yellow-500 pointer-events-none">
+                    <Pipette className="w-3.5 h-3.5 text-yellow-400" /> Click image to pick background color
+                  </div>
+                )}
                 <div className="relative aspect-square w-full h-full max-w-[560px] max-h-[560px] flex items-center justify-center">
                   <canvas
                     ref={canvasRef}
-                    className="max-w-full max-h-full aspect-square rounded-xl cursor-grab active:cursor-grabbing shadow-lg ring-1 ring-slate-200 object-contain"
+                    className={`max-w-full max-h-full aspect-square rounded-xl shadow-lg ring-1 ring-slate-200 object-contain transition-all ${
+                      isPickingColor ? 'cursor-crosshair ring-2 ring-yellow-500' : 'cursor-grab active:cursor-grabbing'
+                    }`}
                     style={{ touchAction: "none" }}
                     onMouseDown={handlePointerDown} onMouseMove={handlePointerMove} onMouseUp={handlePointerUp}
                     onMouseLeave={handlePointerUp} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
