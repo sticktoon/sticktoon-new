@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { generateBadgeMockup } from '../geminiService.ts';
 import { 
   Upload, Wand2, Loader2, ShoppingCart, Download, RotateCcw, RotateCw,
-  Plus, Minus, X, Info, CheckCircle2, Sparkles, Eye, Palette, Settings2, ZoomIn, Trash2
+  Plus, Minus, X, Info, CheckCircle2, Sparkles, Eye, Palette, Settings2, ZoomIn, Trash2, Pipette
 } from 'lucide-react';
 import { API_BASE_URL } from '../config/api.ts';
 import { formatPrice } from '../constants.tsx';
@@ -743,7 +743,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     });
   };
 
-  const getInnerCircleBlob = (targetSize?: number, includeBorder: boolean = true): Promise<string> => {
+  const getInnerCircleBlob = (targetSize?: number, includeBorder: boolean = false): Promise<string> => {
     return new Promise((resolve) => {
       const baseSize = targetSize || Math.max(
         CANVAS_SIZE,
@@ -796,6 +796,23 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     });
   };
 
+  const handlePickColor = async () => {
+    if (!('EyeDropper' in window)) {
+      setErrorMessage('Eyedropper is not supported in this browser');
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+    try {
+      const eyeDropper = new (window as any).EyeDropper();
+      const result = await eyeDropper.open();
+      if (result?.sRGBHex) {
+        setBgColor(result.sRGBHex);
+      }
+    } catch {
+      // User cancelled eyedropper selection
+    }
+  };
+
   const handleDownloadPrintFile = async () => {
     if (!imageState) { setErrorMessage('Please upload or generate an image first'); setTimeout(() => setErrorMessage(null), 3000); return; }
     const adminAuthToken = getAdminAuthToken();
@@ -806,7 +823,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     }
     setDownloading(true);
     try {
-      const [outerDataUrl, innerDataUrl] = await Promise.all([getFullCircleBlob(), getInnerCircleBlob()]);
+      const [outerDataUrl, innerDataUrl] = await Promise.all([getFullCircleBlob(OUTER_CANVAS_SIZE, true), getInnerCircleBlob(CANVAS_SIZE, false)]);
       const response = await fetch(`${API_BASE_URL}/api/badge-doc/download`, {
         method: 'POST', headers: {
           'Content-Type': 'application/json',
@@ -827,7 +844,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     if (!imageState) { setErrorMessage('Please upload or generate an image first'); setTimeout(() => setErrorMessage(null), 3000); return; }
     setLoading(true);
     try {
-      const [outerDataUrl, innerDataUrl] = await Promise.all([getFullCircleBlob(), getInnerCircleBlob()]);
+      const [outerDataUrl, innerDataUrl] = await Promise.all([getFullCircleBlob(OUTER_CANVAS_SIZE, true), getInnerCircleBlob(CANVAS_SIZE, false)]);
       const customBadge: Badge = {
         id: `custom-${Date.now()}`, name: `CUSTOM ${fastener.toUpperCase()}`, price: BASE_PRICE,
         category: Category.CUSTOM, image: innerDataUrl, printImage: outerDataUrl,
@@ -922,7 +939,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
       setTimeout(() => setErrorMessage(null), 3000);
       return;
     }
-    const innerDataUrl = await getInnerCircleBlob(undefined, true);
+    const innerDataUrl = await getInnerCircleBlob(undefined, false);
     saveDataUrl(innerDataUrl, `badge-${BADGE_MM}mm-inner-template-hd-${Date.now()}.png`);
   };
 
@@ -1040,9 +1057,67 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
 
                 {/* Background */}
                 <div>
-                  <label className="text-[11px] font-bold text-slate-700 mb-1.5 block flex items-center gap-1">
-                    <Palette className="w-3 h-3 text-yellow-600" /> Background
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                      <Palette className="w-3 h-3 text-yellow-600" /> Background Color
+                    </label>
+                    <span className="text-[10px] font-mono font-bold text-slate-500 uppercase">{bgColor}</span>
+                  </div>
+
+                  {/* Advanced Color Picker Bar */}
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <div className="relative flex-1 flex items-center bg-slate-50 border border-slate-200 rounded-lg p-1 gap-1.5 hover:border-slate-300 transition-colors">
+                      <div
+                        className="w-6 h-6 rounded-md border border-slate-300 shadow-inner flex-shrink-0 cursor-pointer overflow-hidden relative"
+                        style={{ backgroundColor: bgColor === '#TRANSPARENT' ? 'transparent' : bgColor }}
+                      >
+                        <input
+                          type="color"
+                          value={bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor}
+                          onChange={(e) => setBgColor(e.target.value)}
+                          className="absolute -inset-2 w-10 h-10 cursor-pointer opacity-0"
+                          title="Pick custom color"
+                        />
+                        {bgColor === '#TRANSPARENT' && (
+                          <div className="absolute inset-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:8px_8px] bg-[position:0_0,0_4px,4px_-4px,-4px_0]" />
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        value={bgColor}
+                        onChange={(e) => setBgColor(e.target.value)}
+                        placeholder="#FFFFFF"
+                        className="w-full bg-transparent text-xs font-mono font-bold text-slate-900 focus:outline-none uppercase"
+                      />
+                    </div>
+
+                    {'EyeDropper' in window && (
+                      <button
+                        type="button"
+                        onClick={handlePickColor}
+                        className="h-8 px-2 bg-yellow-50 hover:bg-yellow-100 border border-yellow-300 text-yellow-900 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-sm hover:border-yellow-500 active:scale-95 flex-shrink-0"
+                        title="Drop / Pick color from image or screen (Eyedropper)"
+                      >
+                        <Pipette className="w-3.5 h-3.5 text-yellow-600" />
+                        <span className="text-[10px] font-bold">Dropper</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setBgColor(bgColor === '#TRANSPARENT' ? '#FFFFFF' : '#TRANSPARENT')}
+                      className={`h-8 px-2 border rounded-lg text-[10px] font-bold transition-all flex items-center justify-center flex-shrink-0 ${
+                        bgColor === '#TRANSPARENT'
+                          ? 'bg-yellow-500 text-slate-900 border-yellow-600 shadow-sm'
+                          : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
+                      }`}
+                      title="Toggle Transparent Background"
+                    >
+                      Transp.
+                    </button>
+                  </div>
+
+                  {/* Preset Swatches */}
                   <div className="grid grid-cols-7 gap-1">
                     {backgroundPresets.map(color => (
                       <button key={color} onClick={() => setBgColor(color)}
@@ -1280,6 +1355,80 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                     <input type="range" min="-180" max="180" step="1" value={rotation}
                       onChange={(e) => handleRotationChange(parseInt(e.target.value))}
                       className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-yellow-500" />
+                  </div>
+
+                  {/* Background Color Controls */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                        <Palette className="w-3.5 h-3.5 text-yellow-600" /> Background Color
+                      </label>
+                      <span className="text-xs font-mono font-bold text-slate-500 uppercase">{bgColor}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <div className="relative flex-1 flex items-center bg-white border border-slate-200 rounded-lg p-1 gap-1.5">
+                        <div
+                          className="w-6 h-6 rounded-md border border-slate-300 shadow-inner flex-shrink-0 cursor-pointer overflow-hidden relative"
+                          style={{ backgroundColor: bgColor === '#TRANSPARENT' ? 'transparent' : bgColor }}
+                        >
+                          <input
+                            type="color"
+                            value={bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor}
+                            onChange={(e) => setBgColor(e.target.value)}
+                            className="absolute -inset-2 w-10 h-10 cursor-pointer opacity-0"
+                            title="Pick custom color"
+                          />
+                          {bgColor === '#TRANSPARENT' && (
+                            <div className="absolute inset-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:8px_8px] bg-[position:0_0,0_4px,4px_-4px,-4px_0]" />
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          value={bgColor}
+                          onChange={(e) => setBgColor(e.target.value)}
+                          placeholder="#FFFFFF"
+                          className="w-full bg-transparent text-xs font-mono font-bold text-slate-900 focus:outline-none uppercase"
+                        />
+                      </div>
+
+                      {'EyeDropper' in window && (
+                        <button
+                          type="button"
+                          onClick={handlePickColor}
+                          className="h-8 px-2 bg-yellow-50 hover:bg-yellow-100 border border-yellow-300 text-yellow-900 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-sm flex-shrink-0"
+                        >
+                          <Pipette className="w-3.5 h-3.5 text-yellow-600" />
+                          <span className="text-[10px]">Dropper</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setBgColor(bgColor === '#TRANSPARENT' ? '#FFFFFF' : '#TRANSPARENT')}
+                        className={`h-8 px-2 border rounded-lg text-[10px] font-bold transition-all flex items-center justify-center flex-shrink-0 ${
+                          bgColor === '#TRANSPARENT'
+                            ? 'bg-yellow-500 text-slate-900 border-yellow-600 shadow-sm'
+                            : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        Transp.
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1">
+                      {backgroundPresets.map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => setBgColor(color)}
+                          className={`w-full aspect-square rounded-md border-2 transition-all ${
+                            bgColor === color ? 'border-yellow-500 scale-110 shadow-sm' : 'border-slate-200 hover:border-slate-400'
+                          }`}
+                          style={{ backgroundColor: color }}
+                          title={color}
+                        />
+                      ))}
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={handleReset}
