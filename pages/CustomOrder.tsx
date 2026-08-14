@@ -743,26 +743,55 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     });
   };
 
-  const getInnerCircleBlob = (): Promise<string> => {
+  const getInnerCircleBlob = (targetSize?: number, includeBorder: boolean = true): Promise<string> => {
     return new Promise((resolve) => {
-      const EXPORT_SIZE = CANVAS_SIZE;
+      const baseSize = targetSize || Math.max(
+        CANVAS_SIZE,
+        imageState ? Math.round(imageState.img.naturalWidth || 1000) : CANVAS_SIZE,
+        2000
+      );
+      const EXPORT_SIZE = baseSize;
       const offCanvas = document.createElement("canvas");
-      offCanvas.width = EXPORT_SIZE; offCanvas.height = EXPORT_SIZE;
+      offCanvas.width = EXPORT_SIZE;
+      offCanvas.height = EXPORT_SIZE;
       const ctx = offCanvas.getContext("2d")!;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       const cx = EXPORT_SIZE / 2;
-      ctx.beginPath(); ctx.arc(cx, cx, EXPORT_SIZE / 2, 0, Math.PI * 2); ctx.clip();
-      ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor; ctx.fill();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cx, EXPORT_SIZE / 2, 0, Math.PI * 2);
+      ctx.clip();
+
+      ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor;
+      ctx.fill();
+
       if (imageState) {
         const previewScale = EXPORT_SIZE / INNER_PX;
-        ctx.save(); ctx.translate(cx, cx); ctx.scale(previewScale, previewScale);
+        ctx.save();
+        ctx.translate(cx, cx);
+        ctx.scale(previewScale, previewScale);
         ctx.translate(imageState.x, imageState.y);
         ctx.rotate((imageState.rotation * Math.PI) / 180);
         ctx.scale(imageState.scale, imageState.scale);
         ctx.drawImage(imageState.img, -imageState.img.width / 2, -imageState.img.height / 2);
         ctx.restore();
       }
+      ctx.restore();
+
+      // Draw sharp outer border outline for inner circle if requested
+      if (includeBorder) {
+        ctx.save();
+        ctx.beginPath();
+        const strokeWidth = Math.max(3, Math.round(EXPORT_SIZE * 0.004));
+        ctx.arc(cx, cx, EXPORT_SIZE / 2 - strokeWidth / 2, 0, Math.PI * 2);
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = strokeWidth;
+        ctx.stroke();
+        ctx.restore();
+      }
+
       resolve(offCanvas.toDataURL("image/png"));
     });
   };
@@ -885,6 +914,16 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     }
     const templateDataUrl = await getFullCircleBlob(undefined, true);
     saveDataUrl(templateDataUrl, `badge-${OUTER_BADGE_MM}mm-template-hd-${Date.now()}.png`);
+  };
+
+  const handleDownloadInnerTemplate = async () => {
+    if (!imageState) {
+      setErrorMessage('Please upload or generate an image first');
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+    const innerDataUrl = await getInnerCircleBlob(undefined, true);
+    saveDataUrl(innerDataUrl, `badge-${BADGE_MM}mm-inner-template-hd-${Date.now()}.png`);
   };
 
   return (
@@ -1150,7 +1189,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                   </button>
                 )}
                 {isAdmin() && imageState && (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-1.5">
                     <button onClick={handleDownloadPreview}
                       className="h-7 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-emerald-100 transition-all">
                       <Download className="w-2.5 h-2.5" /> Mockup
@@ -1158,6 +1197,10 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                     <button onClick={handleDownloadTemplate}
                       className="h-7 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-indigo-100 transition-all">
                       <Download className="w-2.5 h-2.5" /> Template
+                    </button>
+                    <button onClick={handleDownloadInnerTemplate}
+                      className="h-7 rounded-md bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-purple-100 transition-all">
+                      <Download className="w-2.5 h-2.5" /> Inner
                     </button>
                   </div>
                 )}
