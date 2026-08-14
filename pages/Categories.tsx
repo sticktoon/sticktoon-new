@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate, useParams } from 'react-router-dom';
-import { BADGES, CATEGORIES, formatPrice } from '../constants';
+import { BADGES, CATEGORIES, formatPrice, fetchBackendCategories, buildCategoryList, CategoryItem } from '../constants';
 import { Badge, CartItem } from '../types';
 import { Check, ShoppingCart, Crown, Package, Sparkles, Plus, Minus, X } from 'lucide-react';
 import { API_BASE_URL } from '../config/api';
@@ -27,7 +27,6 @@ const normalizeCategoryId = (value?: string) => {
   if (!value) return '';
   const normalized = value.toString().trim().toLowerCase().replace(/\s+/g, '-');
 
-  if (normalized === 'animal') return 'pet';
   if (normalized === 'positive-vibe') return 'positive-vibes';
 
   return normalized;
@@ -393,9 +392,22 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
   const [comboSelection, setComboSelection] = useState<string[]>([]);
   const [comboMsg, setComboMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const [categoriesList, setCategoriesList] = useState<CategoryItem[]>(CATEGORIES);
   // Products from database
   const [products, setProducts] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchBackendCategories().then((cats) => {
+      if (isMounted && cats && cats.length > 0) {
+        setCategoriesList(cats);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
 
   const normalizeImagePath = (path?: string) => {
@@ -486,14 +498,14 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
     normalized.push(...comboBadges);
     comboBadges.forEach((b) => existingIds.add(b.id));
 
-    const byCategory = CATEGORIES.reduce((acc, cat) => {
+    const byCategory = categoriesList.reduce((acc, cat) => {
       acc[cat.id] = normalized.filter(
         (p) => normalizeCategoryId(String(p.category)) === normalizeCategoryId(cat.id),
       );
       return acc;
     }, {} as Record<string, Badge[]>);
 
-    CATEGORIES.forEach((cat) => {
+    categoriesList.forEach((cat) => {
       const current = byCategory[cat.id] || [];
       if (current.length >= minCount) return;
 
@@ -551,6 +563,8 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
           const data = await res.json();
           const apiItems = Array.isArray(data) ? data : data.products || [];
           const mappedProducts = mapApiProductsToBadges(apiItems);
+          const productCats = mappedProducts.map((p: any) => p.category).filter(Boolean);
+          setCategoriesList((prev) => buildCategoryList([...prev, ...productCats]));
           const finalProducts = ensureMinimumPerCategory(mappedProducts);
           setProducts(finalProducts);
           // Cache result for fast revisits.
@@ -626,7 +640,7 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
 
   const currentCategoryName = activeCategory === 'all'
     ? 'All Badges'
-    : CATEGORIES.find(c => c.id === activeCategory)?.name || 'All Badges';
+    : categoriesList.find(c => c.id === activeCategory)?.name || 'All Badges';
 
   const currentSubcategoryName = activeSubcategorySlug
     ?
@@ -752,7 +766,7 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
   const getComboFeedbackForCategory = (_categoryId?: string) => comboMsg;
 
   // Group products by category for section-wise display
-  const productsByCategory = CATEGORIES.reduce((acc, cat) => {
+  const productsByCategory = categoriesList.reduce((acc, cat) => {
     const catProducts = products.filter(p => normalizeCategoryId(String(p.category)) === normalizeCategoryId(cat.id));
     acc[cat.id] = catProducts.sort((a, b) => {
       if (a.isCombo && !b.isCombo) return -1;
@@ -817,7 +831,7 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
               {activeCategory !== 'all' && (
                 <div className="flex flex-col gap-2 w-full sm:w-auto">
                   <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-yellow-50 border border-yellow-200/60">
-                    <span className="text-base">{CATEGORIES.find(c => c.id === activeCategory)?.icon}</span>
+                    <span className="text-base">{categoriesList.find(c => c.id === activeCategory)?.icon}</span>
                     <span className="text-sm font-bold text-slate-700">{sortedFilteredBadges.length} badges</span>
                   </div>
 
@@ -853,7 +867,7 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
                 All Badges
                 {activeCategory === 'all' && <Check className="w-3.5 h-3.5 ml-1" />}
               </button>
-              {CATEGORIES.map(cat => (
+              {categoriesList.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => handleCategorySelect(cat.id)}
@@ -879,7 +893,7 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
             <div key={activeCategory}>
               {activeCategory === 'all' ? (
                 <div className="space-y-14">
-                  {CATEGORIES.map((category) => {
+                  {categoriesList.map((category) => {
                     const categoryProducts = productsByCategory[category.id] || [];
                     const categorySubcategoryOptions =
                       getSubcategoryOptions(categoryProducts);
@@ -957,7 +971,7 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
                 <div className="space-y-5">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-100 to-orange-100 border border-yellow-300/40 flex items-center justify-center shadow-sm">
-                      <span className="text-xl">{CATEGORIES.find(c => c.id === activeCategory)?.icon}</span>
+                      <span className="text-xl">{categoriesList.find(c => c.id === activeCategory)?.icon}</span>
                     </div>
                     <div>
                       <h2 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tight leading-none">

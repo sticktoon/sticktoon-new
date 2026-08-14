@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 
 import { Badge, CartItem, User as UserType } from './types.ts';
-import { CATEGORIES, STICKER_CATEGORIES } from "./constants";
+import { CATEGORIES, STICKER_CATEGORIES, fetchBackendCategories, fetchBackendStickerCategories, CategoryItem } from "./constants";
 import { API_BASE_URL } from "./config/api";
 import { migrateOldUserSession } from "./utils/apiClient";
 import ToastNotification, { ToastItem } from "./ToastNotification";
@@ -155,7 +155,27 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null; onCartClick: 
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [badgeCategories, setBadgeCategories] = useState<CategoryItem[]>(CATEGORIES);
+  const [stickerCategories, setStickerCategories] = useState<CategoryItem[]>(STICKER_CATEGORIES);
   const location = useLocation();
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchBackendCategories().then((cats) => {
+      if (isMounted && cats && cats.length > 0) {
+        setBadgeCategories(cats);
+      }
+    });
+    fetchBackendStickerCategories().then((cats) => {
+      if (isMounted && cats && cats.length > 0) {
+        setStickerCategories(cats);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   useEffect(() => {
     setIsOpen(false);
   }, [location.pathname]);
@@ -291,7 +311,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null; onCartClick: 
                 border border-indigo-50
                 w-64 py-4
               ">
-                    {CATEGORIES.map((cat) => (
+                    {badgeCategories.map((cat) => (
                       <Link
                         key={cat.id}
                         to={`/categories?cat=${cat.id}`}
@@ -327,7 +347,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null; onCartClick: 
                 border border-indigo-50
                 w-64 py-4
               ">
-                    {STICKER_CATEGORIES.map((cat) => (
+                    {stickerCategories.map((cat) => (
                       <Link
                         key={cat.id}
                         to={`/stickers?cat=${cat.id}`}

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { STICKERS, STICKER_CATEGORIES, formatPrice } from '../constants';
+import { STICKERS, STICKER_CATEGORIES, formatPrice, fetchBackendStickerCategories, buildCategoryList, CategoryItem } from '../constants';
 import { Sticker } from '../constants';
 import { API_BASE_URL } from '../config/api';
 import { Check, ShoppingCart, Sparkles, Plus, Minus } from 'lucide-react';
@@ -174,7 +174,20 @@ export default function Stickers({ addToCart, cart, updateQuantity }: StickersPr
 
   // Stickers come from the DB (admin-managed). Fall back to the bundled
   // constant catalog if the API is empty or unreachable so the page is never blank.
+  const [categoriesList, setCategoriesList] = useState<CategoryItem[]>(STICKER_CATEGORIES);
   const [stickers, setStickers] = useState<Sticker[]>(STICKERS);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchBackendStickerCategories().then((cats) => {
+      if (isMounted && cats && cats.length > 0) {
+        setCategoriesList(cats);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -185,6 +198,8 @@ export default function Stickers({ addToCart, cart, updateQuantity }: StickersPr
         const data = await res.json();
         const list = Array.isArray(data.products) ? data.products : [];
         if (!cancelled && list.length > 0) {
+          const productCats = list.map((p: any) => p.category).filter(Boolean);
+          setCategoriesList((prev) => buildCategoryList([...prev, ...productCats]));
           setStickers(list.map(dbProductToSticker));
         }
       } catch (err) {
@@ -219,7 +234,7 @@ export default function Stickers({ addToCart, cart, updateQuantity }: StickersPr
     : stickers.filter(s => s.category === activeCategory);
 
   // Group stickers by category (exclude packs from "all" view)
-  const stickersByCategory = STICKER_CATEGORIES.filter(cat => cat.id !== 'sticker-pack').reduce((acc, cat) => {
+  const stickersByCategory = categoriesList.filter(cat => cat.id !== 'sticker-pack').reduce((acc, cat) => {
     acc[cat.id] = stickers.filter((s) => s.category === cat.id);
     return acc;
   }, {} as Record<string, Sticker[]>);
@@ -254,7 +269,7 @@ export default function Stickers({ addToCart, cart, updateQuantity }: StickersPr
             </div>
             {activeCategory !== 'all' && (
               <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-yellow-50 border border-yellow-200/60">
-                <span className="text-base">{STICKER_CATEGORIES.find(c => c.id === activeCategory)?.icon}</span>
+                <span className="text-base">{categoriesList.find(c => c.id === activeCategory)?.icon}</span>
                 <span className="text-sm font-bold text-slate-700">{filteredStickers.length} stickers</span>
               </div>
             )}
@@ -274,7 +289,7 @@ export default function Stickers({ addToCart, cart, updateQuantity }: StickersPr
                 All Stickers
                 {activeCategory === 'all' && <Check className="w-3.5 h-3.5 ml-1" />}
               </button>
-              {STICKER_CATEGORIES.map(cat => (
+              {categoriesList.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => handleCategorySelect(cat.id)}
@@ -297,7 +312,7 @@ export default function Stickers({ addToCart, cart, updateQuantity }: StickersPr
             {activeCategory === 'all' ? (
               // Show all categories with sections
               <div className="space-y-14">
-                {STICKER_CATEGORIES.filter(c => c.id !== 'sticker-pack').map((category) => {
+                {categoriesList.filter(c => c.id !== 'sticker-pack').map((category) => {
                   const categoryStickers = stickersByCategory[category.id] || [];
                   if (categoryStickers.length === 0) return null;
 
@@ -332,10 +347,10 @@ export default function Stickers({ addToCart, cart, updateQuantity }: StickersPr
               <div className="space-y-5">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-100 to-orange-100 border border-yellow-300/40 flex items-center justify-center shadow-sm">
-                    <span className="text-xl">{STICKER_CATEGORIES.find(c => c.id === activeCategory)?.icon}</span>
+                    <span className="text-xl">{categoriesList.find(c => c.id === activeCategory)?.icon}</span>
                   </div>
                   <h2 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tight">
-                    {STICKER_CATEGORIES.find(c => c.id === activeCategory)?.name}
+                    {categoriesList.find(c => c.id === activeCategory)?.name}
                   </h2>
                   <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent ml-4"></div>
                 </div>
