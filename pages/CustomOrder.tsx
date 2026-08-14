@@ -688,20 +688,35 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     };
   }, [handleZoomChange]);
 
-  const getFullCircleBlob = (): Promise<string> => {
+  const getFullCircleBlob = (targetSize?: number, includeBorder: boolean = true): Promise<string> => {
     return new Promise((resolve) => {
-      const EXPORT_OUTER = OUTER_CANVAS_SIZE;
+      // Calculate high-resolution export size if targetSize is not specified.
+      // Uses max of source image natural resolution (or min 2400px) so image quality remains HD/lossless.
+      const EXPORT_OUTER = targetSize || Math.max(
+        OUTER_CANVAS_SIZE,
+        imageState ? Math.round((imageState.img.naturalWidth || 1000) * (OUTER_BADGE_MM / BADGE_MM)) : OUTER_CANVAS_SIZE,
+        2400
+      );
       const offCanvas = document.createElement("canvas");
-      offCanvas.width = EXPORT_OUTER; offCanvas.height = EXPORT_OUTER;
+      offCanvas.width = EXPORT_OUTER;
+      offCanvas.height = EXPORT_OUTER;
       const ctx = offCanvas.getContext("2d")!;
-      // Without this the export resamples at "low" quality and a big upload comes
-      // out visibly aliased — the on-screen canvas looks fine, the print file does not.
+
+      // High-quality image smoothing
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
+
       const cx = EXPORT_OUTER / 2;
       const scale = EXPORT_OUTER / CANVAS_PX;
-      ctx.beginPath(); ctx.arc(cx, cx, EXPORT_OUTER / 2, 0, Math.PI * 2); ctx.clip();
-      ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor; ctx.fill();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cx, EXPORT_OUTER / 2, 0, Math.PI * 2);
+      ctx.clip();
+
+      ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor;
+      ctx.fill();
+
       if (imageState) {
         ctx.save();
         ctx.translate(cx + imageState.x * scale, cx + imageState.y * scale);
@@ -710,6 +725,20 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
         ctx.drawImage(imageState.img, -imageState.img.width / 2, -imageState.img.height / 2);
         ctx.restore();
       }
+      ctx.restore();
+
+      // Draw sharp outer border outline if requested
+      if (includeBorder) {
+        ctx.save();
+        ctx.beginPath();
+        const strokeWidth = Math.max(3, Math.round(EXPORT_OUTER * 0.004));
+        ctx.arc(cx, cx, EXPORT_OUTER / 2 - strokeWidth / 2, 0, Math.PI * 2);
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = strokeWidth;
+        ctx.stroke();
+        ctx.restore();
+      }
+
       resolve(offCanvas.toDataURL("image/png"));
     });
   };
@@ -854,7 +883,8 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
       setTimeout(() => setErrorMessage(null), 3000);
       return;
     }
-    saveDataUrl(await getFullCircleBlob(), `badge-${OUTER_BADGE_MM}mm-print-${effectiveDpi}dpi.png`);
+    const templateDataUrl = await getFullCircleBlob(undefined, true);
+    saveDataUrl(templateDataUrl, `badge-${OUTER_BADGE_MM}mm-template-hd-${Date.now()}.png`);
   };
 
   return (
