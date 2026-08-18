@@ -118,7 +118,6 @@ const normalizeComboItems = (items) => {
       id: String(item.id),
       name: String(item.name),
       image: item.image ? normalizeProductImagePath(item.image) : "",
-      quantity: Math.max(1, parseInt(item.quantity, 10) || 1),
     }));
 };
 

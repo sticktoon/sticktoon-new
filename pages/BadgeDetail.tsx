@@ -64,7 +64,7 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
   const [shareCopied, setShareCopied] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
-  const [comboSelection, setComboSelection] = useState<Array<{ id: string; quantity: number }>>([]);
+  const [comboSelection, setComboSelection] = useState<string[]>([]);
   const [comboMessage, setComboMessage] = useState('');
   const [comboMessageType, setComboMessageType] = useState<'success' | 'error' | ''>('');
   const [categoryBadges, setCategoryBadges] = useState<Badge[]>([]);
@@ -395,7 +395,7 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
     setComboMessageType('');
 
     if (!badge.isCombo) {
-      setComboSelection([{ id: badge.id, quantity: 1 }]);
+      setComboSelection([badge.id]);
       return;
     }
 
@@ -406,7 +406,7 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
     if (!comboCandidates.length) return;
 
     const availableIds = new Set(comboCandidates.map((item) => item.id));
-    setComboSelection((prev) => prev.filter((item) => availableIds.has(item.id)));
+    setComboSelection((prev) => prev.filter((selectedId) => availableIds.has(selectedId)));
   }, [comboCandidates]);
 
   if (!id) {
@@ -467,100 +467,22 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
     setTimeout(() => setAddedToCart(false), 2000);
   };
 
-  const totalComboQuantity = useMemo(() => {
-    return comboSelection.reduce((sum, item) => sum + item.quantity, 0);
-  }, [comboSelection]);
-
-  const getComboItemQuantity = (badgeId: string) => {
-    const found = comboSelection.find((item) => item.id === badgeId);
-    return found ? found.quantity : 0;
-  };
-
-  const handleAddOrIncrementComboBadge = (badgeId: string) => {
-    setComboMessage('');
-    setComboMessageType('');
-
-    const targetBadge = comboCandidates.find((b) => b.id === badgeId);
-
-    setComboSelection((prev) => {
-      const totalQty = prev.reduce((sum, item) => sum + item.quantity, 0);
-      const existing = prev.find((item) => item.id === badgeId);
-      const currentQty = existing ? existing.quantity : 0;
-
-      if (targetBadge && targetBadge.stock !== undefined && targetBadge.stock > 0 && currentQty + 1 > targetBadge.stock) {
-        setComboMessage(`Only ${targetBadge.stock} available in stock for "${targetBadge.name}".`);
-        setComboMessageType('error');
-        return prev;
-      }
-
-      if (totalQty >= CUSTOM_COMBO_SIZE) {
-        setComboMessage(`You can select only ${CUSTOM_COMBO_SIZE} badges in one combo.`);
-        setComboMessageType('error');
-        return prev;
-      }
-
-      if (existing) {
-        return prev.map((item) => (item.id === badgeId ? { ...item, quantity: item.quantity + 1 } : item));
-      } else {
-        return [...prev, { id: badgeId, quantity: 1 }];
-      }
-    });
-  };
-
-  const handleUpdateComboBadgeQty = (badgeId: string, newQty: number) => {
-    setComboMessage('');
-    setComboMessageType('');
-    const targetBadge = comboCandidates.find((b) => b.id === badgeId);
-
-    setComboSelection((prev) => {
-      if (newQty <= 0) {
-        return prev.filter((item) => item.id !== badgeId);
-      }
-      const existing = prev.find((item) => item.id === badgeId);
-      const currentTotalExceptTarget = prev.reduce((sum, item) => (item.id === badgeId ? sum : sum + item.quantity), 0);
-
-      if (targetBadge && targetBadge.stock !== undefined && targetBadge.stock > 0 && newQty > targetBadge.stock) {
-        setComboMessage(`Only ${targetBadge.stock} available in stock for "${targetBadge.name}".`);
-        setComboMessageType('error');
-        return prev;
-      }
-
-      if (currentTotalExceptTarget + newQty > CUSTOM_COMBO_SIZE) {
-        setComboMessage(`You can select only ${CUSTOM_COMBO_SIZE} badges in one combo.`);
-        setComboMessageType('error');
-        return prev;
-      }
-
-      if (existing) {
-        return prev.map((item) => (item.id === badgeId ? { ...item, quantity: newQty } : item));
-      } else {
-        return [...prev, { id: badgeId, quantity: newQty }];
-      }
-    });
-  };
-
-  const handleAddCustomComboToCart = () => {
-    if (totalComboQuantity !== CUSTOM_COMBO_SIZE) {
-      setComboMessage(`Select exactly ${CUSTOM_COMBO_SIZE} badges for a combo.`);
-      setComboMessageType('error');
-      return;
-    }
-
+  const getSelectedComboBadges = () => {
     const byId = new Map(comboCandidates.map((item) => [item.id, item]));
-    const items: Array<{ badge: Badge; quantity: number }> = [];
-    for (const entry of comboSelection) {
-      const b = byId.get(entry.id);
-      if (b) items.push({ badge: b, quantity: entry.quantity });
-    }
+    return comboSelection
+      .map((selectedId) => byId.get(selectedId))
+      .filter((item): item is Badge => Boolean(item));
+  };
 
-    if (items.reduce((sum, i) => sum + i.quantity, 0) !== CUSTOM_COMBO_SIZE) {
-      setComboMessage('Some picked items are unavailable.');
-      setComboMessageType('error');
-      return;
+  const buildCustomCombo = () => {
+    const selectedBadges = getSelectedComboBadges();
+
+    if (comboSelection.length !== CUSTOM_COMBO_SIZE || selectedBadges.length !== CUSTOM_COMBO_SIZE) {
+      return null;
     }
 
     const comboIdSeed = comboSelection
-      .map((item) => `${item.id}_${item.quantity}`)
+      .slice()
       .sort()
       .join('-')
       .toLowerCase()
@@ -568,23 +490,53 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
 
     const comboId = `custom-combo-${activeCategoryKey || 'misc'}-${comboIdSeed}`;
 
-    const badgeNamesSummary = items
-      .map(({ badge, quantity }) => (quantity > 1 ? `${badge.name} × ${quantity}` : badge.name))
-      .join(', ');
+    return {
+      comboId,
+      selectedBadges,
+      badgeNames: selectedBadges.map((item) => item.name),
+    };
+  };
+
+  const handleToggleComboBadge = (badgeId: string) => {
+    setComboMessage('');
+    setComboMessageType('');
+
+    if (comboSelection.includes(badgeId)) {
+      setComboSelection((prev) => prev.filter((idItem) => idItem !== badgeId));
+      return;
+    }
+
+    if (comboSelection.length >= CUSTOM_COMBO_SIZE) {
+      setComboMessage(`You can select only ${CUSTOM_COMBO_SIZE} badges in one combo.`);
+      setComboMessageType('error');
+      return;
+    }
+
+    setComboSelection((prev) => [...prev, badgeId]);
+  };
+
+  const handleAddCustomComboToCart = () => {
+    const builtCombo = buildCustomCombo();
+    if (!builtCombo) {
+      setComboMessage(`Select exactly ${CUSTOM_COMBO_SIZE} badges from the same category.`);
+      setComboMessageType('error');
+      return;
+    }
+
+    const { comboId, selectedBadges, badgeNames } = builtCombo;
 
     addToCart({
       id: comboId,
       name: `${activeCategoryLabel} Custom Combo (Any 4)` as string,
       price: CUSTOM_COMBO_PRICE,
       category: badge.category,
-      image: items[0]?.badge.image || badge.image,
-      comboItems: items.map(({ badge, quantity }) => ({
-        id: badge.id,
-        name: badge.name,
-        image: badge.image,
-        quantity,
+      image: selectedBadges[0]?.image || badge.image,
+      comboItems: selectedBadges.map((item) => ({
+        id: item.id,
+        name: item.name,
+        image: item.image,
       })),
-      details: `Custom combo: ${badgeNamesSummary}`,
+      details: `Custom combo: ${badgeNames.join(', ')}`,
       tagline: 'Built by you',
       color: 'bg-transparent',
       isCombo: true,
@@ -613,7 +565,7 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
   const images = [...baseImages, ...extraGalleryImages];
   const formatPrice = (p: number) => `₹${p}`;
   const canBuildCustomCombo = comboCandidates.length >= CUSTOM_COMBO_SIZE;
-  const isComboSelectionComplete = totalComboQuantity === CUSTOM_COMBO_SIZE;
+  const isComboSelectionComplete = comboSelection.length === CUSTOM_COMBO_SIZE;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 relative overflow-hidden">
@@ -946,7 +898,7 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
                   </p>
                 </div>
                 <span className={`text-[10px] font-black px-2 py-1 rounded-full ${isComboSelectionComplete ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                  {totalComboQuantity}/{CUSTOM_COMBO_SIZE}
+                  {comboSelection.length}/{CUSTOM_COMBO_SIZE}
                 </span>
               </div>
 
@@ -954,56 +906,37 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
                 <>
                   <div className="max-h-48 overflow-y-auto grid grid-cols-2 gap-2">
                     {comboCandidates.map((candidate) => {
-                      const qty = getComboItemQuantity(candidate.id);
-                      const isSelected = qty > 0;
+                      const isSelected = comboSelection.includes(candidate.id);
 
                       return (
-                        <div
+                        <button
                           key={candidate.id}
-                          className={`relative rounded-lg border p-2 text-left transition-all flex items-center justify-between gap-2 ${
-                            isSelected ? 'border-yellow-500 bg-yellow-50 shadow-sm shadow-yellow-500/20' : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
+                          type="button"
+                          onClick={() => handleToggleComboBadge(candidate.id)}
+                          className={`relative rounded-lg border p-2 text-left transition-all ${isSelected ? 'border-yellow-500 bg-yellow-50 shadow-sm shadow-yellow-500/20' : 'border-slate-200 bg-white hover:border-slate-300'}`}
                         >
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <div className="w-9 h-9 rounded-md bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0">
-                              <img src={candidate.image} alt={candidate.name} className="w-full h-full object-contain" />
+                          {isSelected && (
+                            <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-yellow-500 flex items-center justify-center">
+                              <Check className="w-2.5 h-2.5 text-white" />
+                            </span>
+                          )}
+
+                          <div className="flex items-center gap-2">
+                            <div className="w-10 h-10 rounded-md bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0">
+                              <img
+                                src={candidate.image}
+                                alt={candidate.name}
+                                className="w-full h-full object-contain"
+                                loading="lazy"
+                                decoding="async"
+                              />
                             </div>
                             <div className="min-w-0">
                               <p className="text-[10px] font-bold text-slate-800 truncate">{candidate.name}</p>
                               <p className="text-[9px] text-slate-400">{formatPrice(candidate.price)}</p>
                             </div>
                           </div>
-
-                          {isSelected ? (
-                            <div className="flex items-center gap-1 bg-yellow-500 text-white rounded-md px-1 py-0.5">
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateComboBadgeQty(candidate.id, qty - 1)}
-                                className="w-4 h-4 rounded flex items-center justify-center hover:bg-black/20 text-xs font-bold"
-                              >
-                                -
-                              </button>
-                              <span className="text-[10px] font-black w-3 text-center">{qty}</span>
-                              <button
-                                type="button"
-                                onClick={() => handleAddOrIncrementComboBadge(candidate.id)}
-                                disabled={totalComboQuantity >= CUSTOM_COMBO_SIZE || (candidate.stock !== undefined && candidate.stock > 0 && qty >= candidate.stock)}
-                                className="w-4 h-4 rounded flex items-center justify-center hover:bg-black/20 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed"
-                              >
-                                +
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleAddOrIncrementComboBadge(candidate.id)}
-                              disabled={totalComboQuantity >= CUSTOM_COMBO_SIZE}
-                              className="px-2 py-1 rounded bg-slate-100 hover:bg-yellow-500 hover:text-white text-slate-700 font-bold text-[10px] uppercase transition disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              + Combo
-                            </button>
-                          )}
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
