@@ -98,7 +98,6 @@ router.post("/create-order", async (req, res) => {
           id: String(entry.id),
           name: String(entry.name),
           image: entry.image ? String(entry.image) : null,
-          quantity: Math.max(1, Number(entry.quantity) || 1),
         }));
       return cleaned.length > 0 ? cleaned : undefined;
     };

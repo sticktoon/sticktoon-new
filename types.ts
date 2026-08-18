@@ -19,14 +19,12 @@ export interface Badge {
   color: string;
   isFeatured?: boolean;
   isCombo?: boolean;        // Combo pack of all badges in category
-  stock?: number;
 }
 
 export interface ComboItemPreview {
   id: string;
   name: string;
   image?: string;
-  quantity?: number;
 }
 
 
