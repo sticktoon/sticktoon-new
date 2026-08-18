@@ -296,7 +296,7 @@ router.post("/", auth, requirePermission("products"), async (req, res) => {
     const product = new Product({
       name,
       type: normalizedType,
-      price: parseFloat(price),
+      price: !isNaN(parseFloat(price)) ? Math.max(0, parseFloat(price)) : 0,
       description,
       category: normalizedCategory,
       subcategory: normalizedSubcategory,
@@ -306,7 +306,7 @@ router.post("/", auth, requirePermission("products"), async (req, res) => {
       // Combos are a badge-only concept for now.
       isCombo: normalizedType === "badge" ? Boolean(isCombo) : false,
       comboItems: normalizedType === "badge" && isCombo ? normalizeComboItems(comboItems) : [],
-      stock: parseInt(stock) || 0,
+      stock: !isNaN(parseInt(stock, 10)) ? Math.max(0, parseInt(stock, 10)) : 0,
       weight: weight !== undefined && !isNaN(parseFloat(weight)) ? parseFloat(weight) : 0.1,
       length: length !== undefined && !isNaN(parseFloat(length)) ? parseFloat(length) : 10,
       width: width !== undefined && !isNaN(parseFloat(width)) ? parseFloat(width) : 10,
@@ -350,7 +350,7 @@ router.patch("/:id", auth, requirePermission("products"), async (req, res) => {
     // Update fields if provided
     if (name) product.name = name;
     if (type !== undefined) product.type = normalizeType(type);
-    if (price !== undefined) product.price = parseFloat(price);
+    if (price !== undefined && !isNaN(parseFloat(price))) product.price = Math.max(0, parseFloat(price));
     if (description) product.description = description;
     if (category) {
       const normalizedCategory = normalizeCategory(category, product.type);
@@ -387,7 +387,7 @@ router.patch("/:id", auth, requirePermission("products"), async (req, res) => {
     // Un-flagging a combo must not leave a stale breakdown behind.
     if (!product.isCombo) product.comboItems = [];
 
-    if (stock !== undefined) product.stock = parseInt(stock);
+    if (stock !== undefined && !isNaN(parseInt(stock, 10))) product.stock = Math.max(0, parseInt(stock, 10));
     if (isActive !== undefined) product.isActive = isActive;
     
     if (weight !== undefined) product.weight = parseFloat(weight);

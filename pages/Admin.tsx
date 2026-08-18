@@ -662,42 +662,47 @@ type ProductFormState = {
   name: string;
   type: ProductType;
   description: string;
-  price: number;
+  price: number | string;
   category: string;
   subcategory: string;
   image: string;
   printImage: string;
   images: string[];
-  stock: number;
-  weight: number;
-  length: number;
-  width: number;
-  height: number;
+  stock: number | string;
+  weight: number | string;
+  length: number | string;
+  width: number | string;
+  height: number | string;
   sku: string;
   size: string;
-  packCount: number;
+  packCount: number | string;
   isCombo: boolean;
   comboItems: ComboItemForm[];
+};
+
+const sanitizeNumericInput = (val: string) => {
+  if (val === "" || val === undefined || val === null) return "";
+  return val.replace(/^0+(?=\d)/, "");
 };
 
 const createDefaultProductForm = (type: ProductType = "badge"): ProductFormState => ({
   name: "",
   type,
   description: "",
-  price: 0,
+  price: "",
   category: firstCategoryForType(type),
   subcategory: "",
   image: "",
   printImage: "",
   images: [],
-  stock: 0,
-  weight: 0.1,
-  length: 10,
-  width: 10,
-  height: 5,
+  stock: "",
+  weight: "0.1",
+  length: "10",
+  width: "10",
+  height: "5",
   sku: "",
   size: "",
-  packCount: 0,
+  packCount: "0",
   isCombo: false,
   comboItems: [],
 });
@@ -4695,6 +4700,13 @@ const Admin: React.FC = () => {
     const isSticker = productForm.type === "sticker";
     const payload = {
       ...productForm,
+      price: parseFloat(String(productForm.price)) || 0,
+      stock: parseInt(String(productForm.stock), 10) || 0,
+      weight: parseFloat(String(productForm.weight)) || 0.1,
+      length: parseFloat(String(productForm.length)) || 10,
+      width: parseFloat(String(productForm.width)) || 10,
+      height: parseFloat(String(productForm.height)) || 5,
+      packCount: parseInt(String(productForm.packCount), 10) || 0,
       // Send category raw; the backend normalizes it against the product type
       // (badge Title-case vs sticker kebab).
       category: productForm.category,
@@ -4743,6 +4755,13 @@ const Admin: React.FC = () => {
     const isSticker = productForm.type === "sticker";
     const payload = {
       ...productForm,
+      price: parseFloat(String(productForm.price)) || 0,
+      stock: parseInt(String(productForm.stock), 10) || 0,
+      weight: parseFloat(String(productForm.weight)) || 0.1,
+      length: parseFloat(String(productForm.length)) || 10,
+      width: parseFloat(String(productForm.width)) || 10,
+      height: parseFloat(String(productForm.height)) || 5,
+      packCount: parseInt(String(productForm.packCount), 10) || 0,
       category: productForm.category,
       subcategory: isSticker ? "" : sanitizeProductSubcategory(productForm.subcategory),
       image: sanitizeProductImagePath(productForm.image),
@@ -7341,7 +7360,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         onChange={(e) =>
                           setProductForm({
                             ...productForm,
-                            price: parseFloat(e.target.value),
+                            price: sanitizeNumericInput(e.target.value),
                           })
                         }
                         required
@@ -7492,7 +7511,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         onChange={(e) =>
                           setProductForm({
                             ...productForm,
-                            stock: parseInt(e.target.value) || 0,
+                            stock: sanitizeNumericInput(e.target.value),
                           })
                         }
                         required
@@ -8094,7 +8113,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                               name: product.name,
                                               type: product.type,
                                               description: product.description,
-                                              price: product.price,
+                                              price: product.price !== undefined ? String(product.price) : "",
                                               category: product.category,
                                               subcategory: sanitizeProductSubcategory(
                                                 product.subcategory,
@@ -8102,14 +8121,14 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                               image: product.image,
                                               printImage: product.printImage ?? "",
                                               images: product.images ?? [],
-                                              stock: product.stock,
-                                              weight: product.weight ?? 0.1,
-                                              length: product.length ?? 10,
-                                              width: product.width ?? 10,
-                                              height: product.height ?? 5,
+                                              stock: product.stock !== undefined ? String(product.stock) : "",
+                                              weight: product.weight !== undefined ? String(product.weight) : "0.1",
+                                              length: product.length !== undefined ? String(product.length) : "10",
+                                              width: product.width !== undefined ? String(product.width) : "10",
+                                              height: product.height !== undefined ? String(product.height) : "5",
                                               sku: product.sku ?? "",
                                               size: product.size ?? "",
-                                              packCount: product.packCount ?? 0,
+                                              packCount: product.packCount !== undefined ? String(product.packCount) : "0",
                                               isCombo: Boolean(product.isCombo),
                                               comboItems: product.comboItems ?? [],
                                             });
@@ -10920,7 +10939,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       onChange={(e) =>
                         setProductForm({
                           ...productForm,
-                          price: parseFloat(e.target.value),
+                          price: sanitizeNumericInput(e.target.value),
                         })
                       }
                       required
@@ -11028,7 +11047,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                           placeholder="0 = single"
                           value={productForm.packCount || ""}
                           onChange={(e) =>
-                            setProductForm({ ...productForm, packCount: parseInt(e.target.value) || 0 })
+                            setProductForm({ ...productForm, packCount: sanitizeNumericInput(e.target.value) })
                           }
                           className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-indigo-500 focus:outline-none transition-all"
                         />
@@ -11047,7 +11066,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       onChange={(e) =>
                         setProductForm({
                           ...productForm,
-                          stock: parseInt(e.target.value) || 0,
+                          stock: sanitizeNumericInput(e.target.value),
                         })
                       }
                       required
