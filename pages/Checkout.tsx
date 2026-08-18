@@ -74,6 +74,7 @@ const sanitizeComboItems = (items?: ComboItemPreview[]) => {
       id: String(item.id),
       name: String(item.name),
       image: item?.image ? String(item.image) : undefined,
+      quantity: Math.max(1, Number(item?.quantity) || 1),
     }));
 };
 
@@ -139,6 +140,7 @@ const decodeComboItemsFromCartId = (item: CartItem) => {
       id: badge.id,
       name: badge.name,
       image: badge.image,
+      quantity: 1,
     }));
   }
 
@@ -161,6 +163,7 @@ const decodeComboItemsFromCartId = (item: CartItem) => {
               id: badge.id,
               name: badge.name,
               image: badge.image,
+              quantity: 1,
             }));
           }
         }
@@ -172,6 +175,7 @@ const decodeComboItemsFromCartId = (item: CartItem) => {
     id: badge.id,
     name: badge.name,
     image: badge.image,
+    quantity: 1,
   }));
 };
 
@@ -1505,7 +1509,7 @@ export default function Checkout({
                     className="w-8 h-8 rounded-md object-cover shrink-0"
                   />
                   <p className="text-xs font-semibold text-slate-700 truncate">
-                    {comboBadge.name}
+                    {comboBadge.name} {comboBadge.quantity && comboBadge.quantity > 1 ? `× ${comboBadge.quantity}` : ''}
                   </p>
                 </div>
               ))}
