@@ -1,6 +1,7 @@
 
 import { API_BASE_URL } from './config/api';
 import { Badge, Category } from './types';
+export { HERO_BADGES, type HeroBadge } from './utils/heroBadges';
 
 export interface CategoryItem {
   id: string;
