@@ -1,4 +1,15 @@
+
+import { API_BASE_URL } from './config/api';
 import { Badge, Category } from './types';
+export { HERO_BADGES, type HeroBadge } from './utils/heroBadges';
+
+export interface CategoryItem {
+  id: string;
+  name: string;
+  count?: number;
+  icon?: string;
+  image?: string;
+}
 
 export const HERO_BADGES = [
   { id: "pet-1", name: "Best Friends", image: "/images/a.png", category: "pet" },
@@ -26,64 +37,166 @@ export const formatPrice = (amount: number): string => {
     maximumFractionDigits: 0,
   }).format(amount);
 };
-export const CATEGORIES = [
-  {
-    id: 'moody',
-    name: 'MOODY',
-    count: 5,
-    icon: '😊',
-    image: '/badge/mergemoody.png',
-  },
-  {
-    id: 'sports',
-    name: 'SPORTS',
-    count: 5,
-    icon: '🏆',
-    image: '/badge/mergesport.png',
-  },
-  {
-    id: 'religious',
-    name: 'RELIGIOUS',
-    count: 5,
-    icon: '🕉️',
-    image: '/badge/mergereligious.png',
-  },
-  {
-    id: 'entertainment',
-    name: 'ENTERTAINMENT',
-    count: 5,
-    icon: '🎭',
-    image: '/badge/mergeenter.png',
-  },
-  {
-    id: 'events',
-    name: 'EVENTS',
-    count: 5,
-    icon: '🎉',
-    image: '/badge/mergeevent.png',
-  },
-  {
-    id: 'pet',
-    name: 'PET',
-    count: 5,
-    icon: '🐾',
-    image: '/badge/mergeanimal.png',
-  },
-  {
-    id: 'couple',
-    name: 'COUPLE',
-    count: 5,
-    icon: '💑',
-    image: '/badge/mergecouple.png',
-  },
-  {
-    id: 'anime',
-    name: 'ANIME',
-    count: 5,
-    icon: '🎌',
-    image: '/badge/mergeanime.png',
-  },
+
+export const CATEGORY_ICON_MAP: Record<string, string> = {
+  'moody': '😊',
+  'positive-vibes': '✨',
+  'positive vibes': '✨',
+  'sports': '🏆',
+  'religious': '🕉️',
+  'entertainment': '🎭',
+  'events': '🎉',
+  'animal': '🐾',
+  'pet': '🐾',
+  'couple': '💑',
+  'anime': '🎌',
+  'custom': '✨',
+  'sticker-pack': '📦',
+  'marvel': '⚡',
+  'dc-universe': '🦇',
+  'love': '💕',
+  'cartoon': '🎨',
+  'random': '🎲',
+};
+
+export const CATEGORY_IMAGE_MAP: Record<string, string> = {
+  'moody': '/badge/mergemoody.png',
+  'sports': '/badge/mergesport.png',
+  'religious': '/badge/mergereligious.png',
+  'entertainment': '/badge/mergeenter.png',
+  'events': '/badge/mergeevent.png',
+  'animal': '/badge/mergeanimal.png',
+  'pet': '/badge/mergeanimal.png',
+  'couple': '/badge/mergecouple.png',
+  'anime': '/badge/mergeanime.png',
+};
+
+export const normalizeCategoryId = (value?: string): string => {
+  if (!value) return '';
+  const normalized = value.toString().trim().toLowerCase().replace(/\s+/g, '-');
+  if (normalized === 'positive-vibe') return 'positive-vibes';
+  return normalized;
+};
+
+export const formatCategoryObject = (catName: string): CategoryItem => {
+  const normalizedId = normalizeCategoryId(catName);
+  const uppercaseName = catName.toUpperCase();
+  const icon = CATEGORY_ICON_MAP[normalizedId] || CATEGORY_ICON_MAP[catName.toLowerCase()] || '✨';
+  const image = CATEGORY_IMAGE_MAP[normalizedId] || CATEGORY_IMAGE_MAP[catName.toLowerCase()] || '/badge/placeholder.png';
+
+  return {
+    id: normalizedId,
+    name: uppercaseName,
+    icon,
+    image,
+  };
+};
+
+export const buildCategoryList = (rawCategories: (string | Partial<CategoryItem>)[]): CategoryItem[] => {
+  const map = new Map<string, CategoryItem>();
+
+  rawCategories.forEach((item) => {
+    if (!item) return;
+    if (typeof item === 'string') {
+      const formatted = formatCategoryObject(item);
+      if (formatted.id !== 'custom' && !map.has(formatted.id)) {
+        map.set(formatted.id, formatted);
+      }
+    } else if (typeof item === 'object') {
+      const rawId = item.id || item.name || '';
+      if (!rawId) return;
+      const normalizedId = normalizeCategoryId(rawId);
+      if (normalizedId !== 'custom' && !map.has(normalizedId)) {
+        map.set(normalizedId, {
+          id: normalizedId,
+          name: (item.name || rawId).toUpperCase(),
+          count: item.count,
+          icon: item.icon || CATEGORY_ICON_MAP[normalizedId] || '✨',
+          image: item.image || CATEGORY_IMAGE_MAP[normalizedId] || '/badge/placeholder.png',
+        });
+      }
+    }
+  });
+
+  return Array.from(map.values());
+};
+
+export const CATEGORIES: CategoryItem[] = [
+  { id: 'moody', name: 'MOODY', count: 5, icon: '😊', image: '/badge/mergemoody.png' },
+  { id: 'positive-vibes', name: 'POSITIVE VIBES', count: 5, icon: '✨', image: '/badge/placeholder.png' },
+  { id: 'sports', name: 'SPORTS', count: 5, icon: '🏆', image: '/badge/mergesport.png' },
+  { id: 'religious', name: 'RELIGIOUS', count: 5, icon: '🕉️', image: '/badge/mergereligious.png' },
+  { id: 'entertainment', name: 'ENTERTAINMENT', count: 5, icon: '🎭', image: '/badge/mergeenter.png' },
+  { id: 'events', name: 'EVENTS', count: 5, icon: '🎉', image: '/badge/mergeevent.png' },
+  { id: 'animal', name: 'ANIMAL', count: 5, icon: '🐾', image: '/badge/mergeanimal.png' },
+  { id: 'pet', name: 'PET', count: 5, icon: '🐾', image: '/badge/mergeanimal.png' },
+  { id: 'couple', name: 'COUPLE', count: 5, icon: '💑', image: '/badge/mergecouple.png' },
+  { id: 'anime', name: 'ANIME', count: 5, icon: '🎌', image: '/badge/mergeanime.png' },
 ];
+
+export const fetchBackendCategories = async (): Promise<CategoryItem[]> => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/products/categories`);
+    if (res.ok) {
+      const data = await res.json();
+      const catList: string[] = data.categories || [];
+      if (Array.isArray(catList) && catList.length > 0) {
+        return buildCategoryList(catList);
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching categories from backend:', err);
+  }
+
+  // Fallback: extract unique categories from products API
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/products?type=badge&all=true`);
+    if (res.ok) {
+      const data = await res.json();
+      const products = Array.isArray(data) ? data : data.products || [];
+      const productCategories = products.map((p: any) => p.category).filter(Boolean);
+      if (productCategories.length > 0) {
+        return buildCategoryList(productCategories);
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching products for category fallback:', err);
+  }
+
+  return buildCategoryList(CATEGORIES);
+};
+
+export const fetchBackendStickerCategories = async (): Promise<CategoryItem[]> => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/products/categories?type=sticker`);
+    if (res.ok) {
+      const data = await res.json();
+      const catList: string[] = data.categories || [];
+      if (Array.isArray(catList) && catList.length > 0) {
+        return buildCategoryList(catList);
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching sticker categories from backend:', err);
+  }
+
+  // Fallback: extract unique sticker categories from products API
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/products?type=sticker&all=true`);
+    if (res.ok) {
+      const data = await res.json();
+      const products = Array.isArray(data) ? data : data.products || [];
+      const productCategories = products.map((p: any) => p.category).filter(Boolean);
+      if (productCategories.length > 0) {
+        return buildCategoryList(productCategories);
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching sticker products for category fallback:', err);
+  }
+
+  return buildCategoryList(STICKER_CATEGORIES);
+};
 
 
 export const BADGES: Badge[] = [

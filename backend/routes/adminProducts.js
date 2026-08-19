@@ -118,6 +118,7 @@ const normalizeComboItems = (items) => {
       id: String(item.id),
       name: String(item.name),
       image: item.image ? normalizeProductImagePath(item.image) : "",
+      quantity: Math.max(1, parseInt(item.quantity, 10) || 1),
     }));
 };
 
@@ -195,6 +196,45 @@ router.get("/", async (req, res) => {
         pages: Math.ceil(total / limit),
       },
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ========================
+   GET ALL CATEGORIES
+======================== */
+router.get("/categories", async (req, res) => {
+  try {
+    const typeFilter = req.query.type ? normalizeType(req.query.type) : "badge";
+    const filter = { isActive: true };
+    if (typeFilter) filter.type = typeFilter;
+
+    // Get categories dynamically present in DB products
+    const dbCategories = await Product.distinct("category", filter);
+
+    const categorySet = new Set();
+
+    // Add DB categories first (excluding Custom)
+    dbCategories.forEach((cat) => {
+      if (cat && typeof cat === "string" && cat.trim() && cat.trim().toLowerCase() !== "custom") {
+        categorySet.add(cat.trim());
+      }
+    });
+
+    // Add default allowed categories for badge or sticker type (excluding Custom)
+    if (typeFilter === "badge") {
+      ALLOWED_CATEGORIES.forEach((cat) => {
+        if (cat && cat.toLowerCase() !== "custom") categorySet.add(cat);
+      });
+    } else if (typeFilter === "sticker") {
+      STICKER_CATEGORIES.forEach((cat) => {
+        if (cat) categorySet.add(cat);
+      });
+    }
+
+    res.set('Cache-Control', 'public, max-age=300');
+    res.json({ categories: Array.from(categorySet) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -296,7 +336,7 @@ router.post("/", auth, requirePermission("products"), async (req, res) => {
     const product = new Product({
       name,
       type: normalizedType,
-      price: parseFloat(price),
+      price: !isNaN(parseFloat(price)) ? Math.max(0, parseFloat(price)) : 0,
       description,
       category: normalizedCategory,
       subcategory: normalizedSubcategory,
@@ -306,7 +346,7 @@ router.post("/", auth, requirePermission("products"), async (req, res) => {
       // Combos are a badge-only concept for now.
       isCombo: normalizedType === "badge" ? Boolean(isCombo) : false,
       comboItems: normalizedType === "badge" && isCombo ? normalizeComboItems(comboItems) : [],
-      stock: parseInt(stock) || 0,
+      stock: !isNaN(parseInt(stock, 10)) ? Math.max(0, parseInt(stock, 10)) : 0,
       weight: weight !== undefined && !isNaN(parseFloat(weight)) ? parseFloat(weight) : 0.1,
       length: length !== undefined && !isNaN(parseFloat(length)) ? parseFloat(length) : 10,
       width: width !== undefined && !isNaN(parseFloat(width)) ? parseFloat(width) : 10,
@@ -350,7 +390,7 @@ router.patch("/:id", auth, requirePermission("products"), async (req, res) => {
     // Update fields if provided
     if (name) product.name = name;
     if (type !== undefined) product.type = normalizeType(type);
-    if (price !== undefined) product.price = parseFloat(price);
+    if (price !== undefined && !isNaN(parseFloat(price))) product.price = Math.max(0, parseFloat(price));
     if (description) product.description = description;
     if (category) {
       const normalizedCategory = normalizeCategory(category, product.type);
@@ -387,7 +427,7 @@ router.patch("/:id", auth, requirePermission("products"), async (req, res) => {
     // Un-flagging a combo must not leave a stale breakdown behind.
     if (!product.isCombo) product.comboItems = [];
 
-    if (stock !== undefined) product.stock = parseInt(stock);
+    if (stock !== undefined && !isNaN(parseInt(stock, 10))) product.stock = Math.max(0, parseInt(stock, 10));
     if (isActive !== undefined) product.isActive = isActive;
     
     if (weight !== undefined) product.weight = parseFloat(weight);

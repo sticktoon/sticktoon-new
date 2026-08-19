@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { generateBadgeMockup } from '../geminiService.ts';
 import { 
   Upload, Wand2, Loader2, ShoppingCart, Download, RotateCcw, RotateCw,
-  Plus, Minus, X, Info, CheckCircle2, Sparkles, Eye, Palette, Settings2, ZoomIn, Trash2
+  Plus, Minus, X, Info, CheckCircle2, Sparkles, Eye, Palette, Settings2, ZoomIn, Trash2, Pipette
 } from 'lucide-react';
 import { API_BASE_URL } from '../config/api.ts';
 import { formatPrice } from '../constants.tsx';
@@ -76,20 +76,50 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [bgColor, setBgColor] = useState('#FFFFFF');
+  const [extractedColors, setExtractedColors] = useState<string[]>([]);
+  const [isPickingColor, setIsPickingColor] = useState(false);
+
+  const extractPaletteColors = useCallback((img: HTMLImageElement) => {
+    try {
+      const cvs = document.createElement('canvas');
+      cvs.width = 50; cvs.height = 50;
+      const ctx = cvs.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0, 50, 50);
+      const data = ctx.getImageData(0, 0, 50, 50).data;
+      const colorCounts: { [hex: string]: number } = {};
+      for (let i = 0; i < data.length; i += 16) {
+        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+        if (a < 128) continue;
+        const qr = Math.round(r / 20) * 20;
+        const qg = Math.round(g / 20) * 20;
+        const qb = Math.round(b / 20) * 20;
+        const hex = '#' + [qr, qg, qb].map(x => Math.min(255, Math.max(0, x)).toString(16).padStart(2, '0')).join('').toUpperCase();
+        colorCounts[hex] = (colorCounts[hex] || 0) + 1;
+      }
+      const sorted = Object.keys(colorCounts).sort((a, b) => colorCounts[b] - colorCounts[a]);
+      setExtractedColors(sorted.slice(0, 7));
+    } catch {
+      setExtractedColors([]);
+    }
+  }, []);
   
   const imageStateRef = useRef<ImageState | null>(imageState);
   const zoomRef = useRef(zoom);
   const isDraggingRef = useRef(isDragging);
+  const isPickingColorRef = useRef(isPickingColor);
   const pinchStartDist = useRef(0);
   const pinchStartZoom = useRef(1);
 
   useEffect(() => { imageStateRef.current = imageState; }, [imageState]);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
   useEffect(() => { isDraggingRef.current = isDragging; }, [isDragging]);
+  useEffect(() => { isPickingColorRef.current = isPickingColor; }, [isPickingColor]);
   
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
 
@@ -171,6 +201,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
       const imageSrc = typeof draft.imageSrc === 'string' ? draft.imageSrc : '';
       if (imageSrc) {
         const img = new Image();
+        img.crossOrigin = "anonymous";
         img.onload = () => {
           const fitScale = Math.max(CANVAS_PX / img.width, CANVAS_PX / img.height);
           setImageState({
@@ -180,6 +211,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
             scale: fitScale * restoredZoom,
             rotation: restoredRotation,
           });
+          extractPaletteColors(img);
           setDraftReady(true);
         };
         img.onerror = () => {
@@ -534,10 +566,12 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     try {
       const imageUrl = await generateBadgeMockup(prompt);
       const img = new Image();
+      img.crossOrigin = "anonymous";
       img.onload = () => {
         const fitScale = Math.max(CANVAS_PX / img.width, CANVAS_PX / img.height);
         setZoom(1); setRotation(0);
         setImageState({ img, x: 0, y: 0, scale: fitScale, rotation: 0 });
+        extractPaletteColors(img);
       };
       img.src = imageUrl;
     } catch (error) {
@@ -551,10 +585,12 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
+      img.crossOrigin = "anonymous";
       img.onload = () => {
         const fitScale = Math.max(CANVAS_PX / img.width, CANVAS_PX / img.height);
         setZoom(1); setRotation(0);
         setImageState({ img, x: 0, y: 0, scale: fitScale, rotation: 0 });
+        extractPaletteColors(img);
       };
       img.src = e.target?.result as string;
     };
@@ -571,8 +607,55 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     return { x: (e.clientX - rect.left) * scaleRatio, y: (e.clientY - rect.top) * scaleRatio };
   };
 
+  const sampleCanvasColor = (clientX: number, clientY: number): string | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    try {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = Math.round((clientX - rect.left) * scaleX);
+      const y = Math.round((clientY - rect.top) * scaleY);
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const pixel = ctx.getImageData(x, y, 1, 1).data;
+        if (pixel[3] > 0) {
+          const hex = '#' + [pixel[0], pixel[1], pixel[2]].map(c => c.toString(16).padStart(2, '0')).join('').toUpperCase();
+          setBgColor(hex);
+          return hex;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to get pixel color from canvas', err);
+      if ('EyeDropper' in window) {
+        handlePickColor();
+      }
+    }
+    return null;
+  };
+
   const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (!imageState) return;
+
+    if (isPickingColorRef.current) {
+      let clientX = 0;
+      let clientY = 0;
+      if ('touches' in e && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else if ('clientX' in e) {
+        clientX = (e as React.MouseEvent).clientX;
+        clientY = (e as React.MouseEvent).clientY;
+      }
+      const hex = sampleCanvasColor(clientX, clientY);
+      if (hex) {
+        setSuccessMessage(`Background color set to ${hex}`);
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+      setIsPickingColor(false);
+      return;
+    }
+
     const coords = getCanvasCoords(e);
     setIsDragging(true);
     dragStart.current = { x: coords.x, y: coords.y, imgX: imageState.x, imgY: imageState.y };
@@ -615,6 +698,15 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
         pinchStartZoom.current = zoomRef.current;
       } else if (e.touches.length === 1 && imageStateRef.current) {
         e.preventDefault();
+        if (isPickingColorRef.current) {
+          const hex = sampleCanvasColor(e.touches[0].clientX, e.touches[0].clientY);
+          if (hex) {
+            setSuccessMessage(`Background color set to ${hex}`);
+            setTimeout(() => setSuccessMessage(null), 3000);
+          }
+          setIsPickingColor(false);
+          return;
+        }
         const rect = canvas.getBoundingClientRect();
         const scaleRatio = CANVAS_PX / rect.width;
         const x = (e.touches[0].clientX - rect.left) * scaleRatio;
@@ -688,20 +780,35 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     };
   }, [handleZoomChange]);
 
-  const getFullCircleBlob = (): Promise<string> => {
+  const getFullCircleBlob = (targetSize?: number, includeBorder: boolean = true): Promise<string> => {
     return new Promise((resolve) => {
-      const EXPORT_OUTER = OUTER_CANVAS_SIZE;
+      // Calculate high-resolution export size if targetSize is not specified.
+      // Uses max of source image natural resolution (or min 2400px) so image quality remains HD/lossless.
+      const EXPORT_OUTER = targetSize || Math.max(
+        OUTER_CANVAS_SIZE,
+        imageState ? Math.round((imageState.img.naturalWidth || 1000) * (OUTER_BADGE_MM / BADGE_MM)) : OUTER_CANVAS_SIZE,
+        2400
+      );
       const offCanvas = document.createElement("canvas");
-      offCanvas.width = EXPORT_OUTER; offCanvas.height = EXPORT_OUTER;
+      offCanvas.width = EXPORT_OUTER;
+      offCanvas.height = EXPORT_OUTER;
       const ctx = offCanvas.getContext("2d")!;
-      // Without this the export resamples at "low" quality and a big upload comes
-      // out visibly aliased — the on-screen canvas looks fine, the print file does not.
+
+      // High-quality image smoothing
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
+
       const cx = EXPORT_OUTER / 2;
       const scale = EXPORT_OUTER / CANVAS_PX;
-      ctx.beginPath(); ctx.arc(cx, cx, EXPORT_OUTER / 2, 0, Math.PI * 2); ctx.clip();
-      ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor; ctx.fill();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cx, EXPORT_OUTER / 2, 0, Math.PI * 2);
+      ctx.clip();
+
+      ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor;
+      ctx.fill();
+
       if (imageState) {
         ctx.save();
         ctx.translate(cx + imageState.x * scale, cx + imageState.y * scale);
@@ -710,32 +817,92 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
         ctx.drawImage(imageState.img, -imageState.img.width / 2, -imageState.img.height / 2);
         ctx.restore();
       }
+      ctx.restore();
+
+      // Draw sharp outer border outline if requested
+      if (includeBorder) {
+        ctx.save();
+        ctx.beginPath();
+        const strokeWidth = Math.max(3, Math.round(EXPORT_OUTER * 0.004));
+        ctx.arc(cx, cx, EXPORT_OUTER / 2 - strokeWidth / 2, 0, Math.PI * 2);
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = strokeWidth;
+        ctx.stroke();
+        ctx.restore();
+      }
+
       resolve(offCanvas.toDataURL("image/png"));
     });
   };
 
-  const getInnerCircleBlob = (): Promise<string> => {
+  const getInnerCircleBlob = (targetSize?: number, includeBorder: boolean = false): Promise<string> => {
     return new Promise((resolve) => {
-      const EXPORT_SIZE = CANVAS_SIZE;
+      const baseSize = targetSize || Math.max(
+        CANVAS_SIZE,
+        imageState ? Math.round(imageState.img.naturalWidth || 1000) : CANVAS_SIZE,
+        2000
+      );
+      const EXPORT_SIZE = baseSize;
       const offCanvas = document.createElement("canvas");
-      offCanvas.width = EXPORT_SIZE; offCanvas.height = EXPORT_SIZE;
+      offCanvas.width = EXPORT_SIZE;
+      offCanvas.height = EXPORT_SIZE;
       const ctx = offCanvas.getContext("2d")!;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       const cx = EXPORT_SIZE / 2;
-      ctx.beginPath(); ctx.arc(cx, cx, EXPORT_SIZE / 2, 0, Math.PI * 2); ctx.clip();
-      ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor; ctx.fill();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cx, EXPORT_SIZE / 2, 0, Math.PI * 2);
+      ctx.clip();
+
+      ctx.fillStyle = bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor;
+      ctx.fill();
+
       if (imageState) {
         const previewScale = EXPORT_SIZE / INNER_PX;
-        ctx.save(); ctx.translate(cx, cx); ctx.scale(previewScale, previewScale);
+        ctx.save();
+        ctx.translate(cx, cx);
+        ctx.scale(previewScale, previewScale);
         ctx.translate(imageState.x, imageState.y);
         ctx.rotate((imageState.rotation * Math.PI) / 180);
         ctx.scale(imageState.scale, imageState.scale);
         ctx.drawImage(imageState.img, -imageState.img.width / 2, -imageState.img.height / 2);
         ctx.restore();
       }
+      ctx.restore();
+
+      // Draw sharp outer border outline for inner circle if requested
+      if (includeBorder) {
+        ctx.save();
+        ctx.beginPath();
+        const strokeWidth = Math.max(3, Math.round(EXPORT_SIZE * 0.004));
+        ctx.arc(cx, cx, EXPORT_SIZE / 2 - strokeWidth / 2, 0, Math.PI * 2);
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = strokeWidth;
+        ctx.stroke();
+        ctx.restore();
+      }
+
       resolve(offCanvas.toDataURL("image/png"));
     });
+  };
+
+  const handlePickColor = async () => {
+    if (!('EyeDropper' in window)) {
+      setErrorMessage('Eyedropper is not supported in this browser');
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+    try {
+      const eyeDropper = new (window as any).EyeDropper();
+      const result = await eyeDropper.open();
+      if (result?.sRGBHex) {
+        setBgColor(result.sRGBHex);
+      }
+    } catch {
+      // User cancelled eyedropper selection
+    }
   };
 
   const handleDownloadPrintFile = async () => {
@@ -748,7 +915,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     }
     setDownloading(true);
     try {
-      const [outerDataUrl, innerDataUrl] = await Promise.all([getFullCircleBlob(), getInnerCircleBlob()]);
+      const [outerDataUrl, innerDataUrl] = await Promise.all([getFullCircleBlob(OUTER_CANVAS_SIZE, true), getInnerCircleBlob(CANVAS_SIZE, false)]);
       const response = await fetch(`${API_BASE_URL}/api/badge-doc/download`, {
         method: 'POST', headers: {
           'Content-Type': 'application/json',
@@ -769,7 +936,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
     if (!imageState) { setErrorMessage('Please upload or generate an image first'); setTimeout(() => setErrorMessage(null), 3000); return; }
     setLoading(true);
     try {
-      const [outerDataUrl, innerDataUrl] = await Promise.all([getFullCircleBlob(), getInnerCircleBlob()]);
+      const [outerDataUrl, innerDataUrl] = await Promise.all([getFullCircleBlob(OUTER_CANVAS_SIZE, true), getInnerCircleBlob(CANVAS_SIZE, false)]);
       const customBadge: Badge = {
         id: `custom-${Date.now()}`, name: `CUSTOM ${fastener.toUpperCase()}`, price: BASE_PRICE,
         category: Category.CUSTOM, image: innerDataUrl, printImage: outerDataUrl,
@@ -854,7 +1021,18 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
       setTimeout(() => setErrorMessage(null), 3000);
       return;
     }
-    saveDataUrl(await getFullCircleBlob(), `badge-${OUTER_BADGE_MM}mm-print-${effectiveDpi}dpi.png`);
+    const templateDataUrl = await getFullCircleBlob(undefined, true);
+    saveDataUrl(templateDataUrl, `badge-${OUTER_BADGE_MM}mm-template-hd-${Date.now()}.png`);
+  };
+
+  const handleDownloadInnerTemplate = async () => {
+    if (!imageState) {
+      setErrorMessage('Please upload or generate an image first');
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+    const innerDataUrl = await getInnerCircleBlob(undefined, false);
+    saveDataUrl(innerDataUrl, `badge-${BADGE_MM}mm-inner-template-hd-${Date.now()}.png`);
   };
 
   return (
@@ -864,6 +1042,14 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-2 border border-red-700 font-bold text-sm">
           <X className="w-4 h-4" />
           <span>{errorMessage}</span>
+        </div>
+      )}
+
+      {/* Success Toast */}
+      {successMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-2 border border-emerald-700 font-bold text-sm animate-bounce">
+          <CheckCircle2 className="w-4 h-4 text-white" />
+          <span>{successMessage}</span>
         </div>
       )}
 
@@ -970,15 +1156,125 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                 </div>
 
                 {/* Background */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 mb-1.5 block flex items-center gap-1">
-                    <Palette className="w-3 h-3 text-yellow-600" /> Background
-                  </label>
-                  <div className="grid grid-cols-7 gap-1">
-                    {backgroundPresets.map(color => (
-                      <button key={color} onClick={() => setBgColor(color)}
-                        className={`w-full aspect-square rounded-md border-2 transition-all ${bgColor === color ? 'border-yellow-500 scale-110 shadow-sm' : 'border-slate-200 hover:border-slate-400'}`}
-                        style={{ backgroundColor: color }} title={color} />
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                      <Palette className="w-3.5 h-3.5 text-yellow-600" /> Background Color
+                    </label>
+                    <span className="text-[10px] font-mono font-bold text-slate-600 uppercase">{bgColor}</span>
+                  </div>
+
+                  {/* Main Color Controls Bar */}
+                  <div className="flex items-center gap-1.5">
+                    {/* Rainbow Color Wheel Ring Button (Official System Color Palette) */}
+                    <div
+                      className="relative w-9 h-9 rounded-xl p-[2.5px] bg-[conic-gradient(from_0deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)] shadow-sm hover:scale-105 transition-transform cursor-pointer flex-shrink-0"
+                      title="Open System Color Wheel / Palette Ring"
+                    >
+                      <div className="w-full h-full rounded-[9px] bg-white flex items-center justify-center relative overflow-hidden">
+                        <div
+                          className="w-4.5 h-4.5 rounded-md border border-slate-300 shadow-inner"
+                          style={{ backgroundColor: bgColor === '#TRANSPARENT' ? 'transparent' : bgColor }}
+                        >
+                          {bgColor === '#TRANSPARENT' && (
+                            <div className="absolute inset-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:6px_6px]" />
+                          )}
+                        </div>
+                        <input
+                          type="color"
+                          value={bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor}
+                          onChange={(e) => setBgColor(e.target.value)}
+                          className="absolute -inset-4 w-16 h-16 cursor-pointer opacity-0"
+                          title="Open official color wheel"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Hex Code Input */}
+                    <div className="relative flex-1 flex items-center bg-slate-50 border border-slate-200 rounded-xl px-2 h-9 hover:border-slate-300 transition-colors">
+                      <input
+                        type="text"
+                        value={bgColor}
+                        onChange={(e) => setBgColor(e.target.value)}
+                        placeholder="#FFFFFF"
+                        className="w-full bg-transparent text-xs font-mono font-bold text-slate-900 focus:outline-none uppercase"
+                      />
+                    </div>
+
+                    {/* Drop Color Button (Canvas Image Click or Eyedropper) */}
+                    {imageState && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if ('EyeDropper' in window) {
+                            handlePickColor();
+                          } else {
+                            setIsPickingColor(!isPickingColor);
+                          }
+                        }}
+                        className={`h-9 px-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-1 shadow-sm flex-shrink-0 ${
+                          isPickingColor
+                            ? 'bg-yellow-500 text-slate-900 border-yellow-600 animate-pulse'
+                            : 'bg-yellow-50 hover:bg-yellow-100 border-yellow-300 text-yellow-900 hover:border-yellow-500'
+                        }`}
+                        title="Click to pick color directly from image"
+                      >
+                        <Pipette className="w-3.5 h-3.5 text-yellow-700" />
+                        <span className="text-[10px] font-bold">{isPickingColor ? 'Click Canvas' : 'Drop Color'}</span>
+                      </button>
+                    )}
+
+                    {/* Transparent Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setBgColor(bgColor === '#TRANSPARENT' ? '#FFFFFF' : '#TRANSPARENT')}
+                      className={`h-9 px-2 border rounded-xl text-[10px] font-bold transition-all flex items-center justify-center flex-shrink-0 ${
+                        bgColor === '#TRANSPARENT'
+                          ? 'bg-yellow-500 text-slate-900 border-yellow-600 shadow-sm'
+                          : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
+                      }`}
+                      title="Toggle Transparent Background"
+                    >
+                      Transp.
+                    </button>
+                  </div>
+
+                  {/* Colors in Image (Extracted Swatches) */}
+                  {extractedColors.length > 0 && (
+                    <div className="pt-1">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                        Colors in Image
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {extractedColors.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => setBgColor(color)}
+                            className={`w-5 h-5 rounded-md border-2 transition-all ${
+                              bgColor === color ? 'border-yellow-500 scale-110 shadow-md ring-1 ring-yellow-400' : 'border-slate-200 hover:border-slate-400'
+                            }`}
+                            style={{ backgroundColor: color }}
+                            title={`Use ${color}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Preset Swatches */}
+                  <div className="grid grid-cols-7 gap-1 pt-1">
+                    {backgroundPresets.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setBgColor(color)}
+                        className={`w-full aspect-square rounded-md border-2 transition-all ${
+                          bgColor === color ? 'border-yellow-500 scale-110 shadow-sm' : 'border-slate-200 hover:border-slate-400'
+                        }`}
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
                     ))}
                   </div>
                 </div>
@@ -1010,14 +1306,33 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                 </p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Drag • Scroll to zoom</p>
               </div>
-              <div className="flex-1 w-full min-h-0 flex items-center justify-center overflow-hidden p-1">
+              <div className="flex-1 w-full min-h-0 flex items-center justify-center overflow-hidden p-1 relative">
+                {isPickingColor && (
+                  <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 bg-slate-900 text-yellow-400 px-4 py-1.5 rounded-full text-xs font-black shadow-2xl animate-bounce flex items-center gap-2 border border-yellow-500 pointer-events-none">
+                    <Pipette className="w-3.5 h-3.5 text-yellow-400" /> Click image to pick background color
+                  </div>
+                )}
                 <div className="relative aspect-square w-full h-full max-w-[560px] max-h-[560px] flex items-center justify-center">
                   <canvas
                     ref={canvasRef}
-                    className="max-w-full max-h-full aspect-square rounded-xl cursor-grab active:cursor-grabbing shadow-lg ring-1 ring-slate-200 object-contain"
+                    className={`max-w-full max-h-full aspect-square rounded-xl shadow-lg ring-1 ring-slate-200 object-contain transition-all ${
+                      isPickingColor ? 'cursor-crosshair ring-4 ring-yellow-400' : 'cursor-grab active:cursor-grabbing'
+                    }`}
                     style={{ touchAction: "none" }}
                     onMouseDown={handlePointerDown} onMouseMove={handlePointerMove} onMouseUp={handlePointerUp}
-                    onMouseLeave={handlePointerUp} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
+                    onMouseLeave={handlePointerUp}
+                    onClick={(e) => {
+                      if (isPickingColorRef.current || isPickingColor) {
+                        e.stopPropagation();
+                        const hex = sampleCanvasColor(e.clientX, e.clientY);
+                        if (hex) {
+                          setSuccessMessage(`Background color set to ${hex}`);
+                          setTimeout(() => setSuccessMessage(null), 3000);
+                        }
+                        setIsPickingColor(false);
+                      }
+                    }}
+                    onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
                   />
                 </div>
               </div>
@@ -1120,7 +1435,7 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                   </button>
                 )}
                 {isAdmin() && imageState && (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-1.5">
                     <button onClick={handleDownloadPreview}
                       className="h-7 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-emerald-100 transition-all">
                       <Download className="w-2.5 h-2.5" /> Mockup
@@ -1128,6 +1443,10 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                     <button onClick={handleDownloadTemplate}
                       className="h-7 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-indigo-100 transition-all">
                       <Download className="w-2.5 h-2.5" /> Template
+                    </button>
+                    <button onClick={handleDownloadInnerTemplate}
+                      className="h-7 rounded-md bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-purple-100 transition-all">
+                      <Download className="w-2.5 h-2.5" /> Inner
                     </button>
                   </div>
                 )}
@@ -1207,6 +1526,80 @@ export default function CustomOrder({ addToCart, user }: CustomOrderProps) {
                     <input type="range" min="-180" max="180" step="1" value={rotation}
                       onChange={(e) => handleRotationChange(parseInt(e.target.value))}
                       className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-yellow-500" />
+                  </div>
+
+                  {/* Background Color Controls */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                        <Palette className="w-3.5 h-3.5 text-yellow-600" /> Background Color
+                      </label>
+                      <span className="text-xs font-mono font-bold text-slate-500 uppercase">{bgColor}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <div className="relative flex-1 flex items-center bg-white border border-slate-200 rounded-lg p-1 gap-1.5">
+                        <div
+                          className="w-6 h-6 rounded-md border border-slate-300 shadow-inner flex-shrink-0 cursor-pointer overflow-hidden relative"
+                          style={{ backgroundColor: bgColor === '#TRANSPARENT' ? 'transparent' : bgColor }}
+                        >
+                          <input
+                            type="color"
+                            value={bgColor === '#TRANSPARENT' ? '#ffffff' : bgColor}
+                            onChange={(e) => setBgColor(e.target.value)}
+                            className="absolute -inset-2 w-10 h-10 cursor-pointer opacity-0"
+                            title="Pick custom color"
+                          />
+                          {bgColor === '#TRANSPARENT' && (
+                            <div className="absolute inset-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:8px_8px] bg-[position:0_0,0_4px,4px_-4px,-4px_0]" />
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          value={bgColor}
+                          onChange={(e) => setBgColor(e.target.value)}
+                          placeholder="#FFFFFF"
+                          className="w-full bg-transparent text-xs font-mono font-bold text-slate-900 focus:outline-none uppercase"
+                        />
+                      </div>
+
+                      {'EyeDropper' in window && (
+                        <button
+                          type="button"
+                          onClick={handlePickColor}
+                          className="h-8 px-2 bg-yellow-50 hover:bg-yellow-100 border border-yellow-300 text-yellow-900 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-sm flex-shrink-0"
+                        >
+                          <Pipette className="w-3.5 h-3.5 text-yellow-600" />
+                          <span className="text-[10px]">Dropper</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setBgColor(bgColor === '#TRANSPARENT' ? '#FFFFFF' : '#TRANSPARENT')}
+                        className={`h-8 px-2 border rounded-lg text-[10px] font-bold transition-all flex items-center justify-center flex-shrink-0 ${
+                          bgColor === '#TRANSPARENT'
+                            ? 'bg-yellow-500 text-slate-900 border-yellow-600 shadow-sm'
+                            : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        Transp.
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1">
+                      {backgroundPresets.map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => setBgColor(color)}
+                          className={`w-full aspect-square rounded-md border-2 transition-all ${
+                            bgColor === color ? 'border-yellow-500 scale-110 shadow-sm' : 'border-slate-200 hover:border-slate-400'
+                          }`}
+                          style={{ backgroundColor: color }}
+                          title={color}
+                        />
+                      ))}
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={handleReset}

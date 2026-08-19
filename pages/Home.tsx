@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 import { BADGES, CATEGORIES, HERO_BADGES, formatPrice } from '../constants';
+import { BADGES, CATEGORIES, formatPrice, fetchBackendCategories, CategoryItem } from '../constants.tsx';
 import { Badge, CartItem } from '../types.ts';
 import { API_BASE_URL } from '../config/api';
 
@@ -102,6 +103,8 @@ const PinButton: React.FC<{
     </div>
   );
 };
+
+import { HERO_BADGES } from '../utils/heroBadges';
 
 const Hero: React.FC = () => {
   const navigate = useNavigate();
@@ -363,7 +366,20 @@ const CustomisedProductsSection: React.FC = () => {
 const CategoryGrid: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [animKey, setAnimKey] = useState(0);
+  const [categoriesList, setCategoriesList] = useState<CategoryItem[]>(CATEGORIES);
   const sectionRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchBackendCategories().then((cats) => {
+      if (isMounted && cats && cats.length > 0) {
+        setCategoriesList(cats);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -433,7 +449,7 @@ const CategoryGrid: React.FC = () => {
         {/* GRID */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
 
-          {CATEGORIES.map((cat, index) => (
+          {categoriesList.map((cat, index) => (
             <Link
               key={`${cat.id}-${animKey}`}
               to={`/categories?cat=${cat.id}`}

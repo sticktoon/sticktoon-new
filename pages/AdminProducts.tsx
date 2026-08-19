@@ -57,22 +57,27 @@ type ProductFormState = {
   name: string;
   type: ProductType;
   description: string;
-  price: number;
+  price: number | string;
   category: string;
   subcategory: string;
   image: string;
   printImage: string;
   images: string[];
-  stock: number;
-  weight: number;
-  length: number;
-  width: number;
-  height: number;
+  stock: number | string;
+  weight: number | string;
+  length: number | string;
+  width: number | string;
+  height: number | string;
   sku: string;
   size: string;
-  packCount: number;
+  packCount: number | string;
   isCombo: boolean;
   comboItems: ComboItemForm[];
+};
+
+const sanitizeNumericInput = (val: string) => {
+  if (val === "" || val === undefined || val === null) return "";
+  return val.replace(/^0+(?=\d)/, "");
 };
 
 interface Toast {
@@ -215,20 +220,20 @@ const createDefaultProductForm = (type: ProductType = "badge"): ProductFormState
   name: "",
   type,
   description: "",
-  price: 0,
+  price: "",
   category: firstCategoryForType(type),
   subcategory: "",
   image: "",
   printImage: "",
   images: [],
-  stock: 0,
-  weight: 0.1,
-  length: 10,
-  width: 10,
-  height: 5,
+  stock: "",
+  weight: "0.1",
+  length: "10",
+  width: "10",
+  height: "5",
   sku: "",
   size: "",
-  packCount: 0,
+  packCount: "0",
   isCombo: false,
   comboItems: [],
 });
@@ -623,6 +628,13 @@ export default function AdminProducts() {
     const isSticker = productForm.type === "sticker";
     const payload = {
       ...productForm,
+      price: parseFloat(String(productForm.price)) || 0,
+      stock: parseInt(String(productForm.stock), 10) || 0,
+      weight: parseFloat(String(productForm.weight)) || 0.1,
+      length: parseFloat(String(productForm.length)) || 10,
+      width: parseFloat(String(productForm.width)) || 10,
+      height: parseFloat(String(productForm.height)) || 5,
+      packCount: parseInt(String(productForm.packCount), 10) || 0,
       // Send category raw; the backend normalizes it against the product type
       // (badge Title-case vs sticker kebab).
       category: productForm.category,
@@ -668,6 +680,13 @@ export default function AdminProducts() {
     const isSticker = productForm.type === "sticker";
     const payload = {
       ...productForm,
+      price: parseFloat(String(productForm.price)) || 0,
+      stock: parseInt(String(productForm.stock), 10) || 0,
+      weight: parseFloat(String(productForm.weight)) || 0.1,
+      length: parseFloat(String(productForm.length)) || 10,
+      width: parseFloat(String(productForm.width)) || 10,
+      height: parseFloat(String(productForm.height)) || 5,
+      packCount: parseInt(String(productForm.packCount), 10) || 0,
       category: productForm.category,
       subcategory: isSticker ? "" : sanitizeProductSubcategory(productForm.subcategory),
       image: sanitizeProductImagePath(productForm.image),
@@ -837,9 +856,9 @@ export default function AdminProducts() {
                   type="number"
                   step="0.01"
                   placeholder="499"
-                  value={productForm.price || ""}
+                  value={productForm.price}
                   onChange={(e) =>
-                    setProductForm({ ...productForm, price: parseFloat(e.target.value) || 0 })
+                    setProductForm({ ...productForm, price: sanitizeNumericInput(e.target.value) })
                   }
                   required
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300"
@@ -985,9 +1004,9 @@ export default function AdminProducts() {
                 <input
                   type="number"
                   placeholder="100"
-                  value={productForm.stock || ""}
+                  value={productForm.stock}
                   onChange={(e) =>
-                    setProductForm({ ...productForm, stock: parseInt(e.target.value) || 0 })
+                    setProductForm({ ...productForm, stock: sanitizeNumericInput(e.target.value) })
                   }
                   required
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-300"
@@ -1436,20 +1455,20 @@ export default function AdminProducts() {
                                           name: product.name,
                                           type: product.type,
                                           description: product.description,
-                                          price: product.price,
+                                          price: product.price !== undefined ? String(product.price) : "",
                                           category: product.category,
                                           subcategory: sanitizeProductSubcategory(product.subcategory),
                                           image: product.image,
                                           printImage: product.printImage ?? "",
                                           images: product.images ?? [],
-                                          stock: product.stock,
-                                          weight: product.weight ?? 0.1,
-                                          length: product.length ?? 10,
-                                          width: product.width ?? 10,
-                                          height: product.height ?? 5,
+                                          stock: product.stock !== undefined ? String(product.stock) : "",
+                                          weight: product.weight !== undefined ? String(product.weight) : "0.1",
+                                          length: product.length !== undefined ? String(product.length) : "10",
+                                          width: product.width !== undefined ? String(product.width) : "10",
+                                          height: product.height !== undefined ? String(product.height) : "5",
                                           sku: product.sku ?? "",
                                           size: product.size ?? "",
-                                          packCount: product.packCount ?? 0,
+                                          packCount: product.packCount !== undefined ? String(product.packCount) : "0",
                                           isCombo: Boolean(product.isCombo),
                                           comboItems: product.comboItems ?? [],
                                         });

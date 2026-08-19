@@ -1,7 +1,7 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useSearchParams, Link, useNavigate, useParams } from 'react-router-dom';
-import { BADGES, CATEGORIES, formatPrice } from '../constants';
+import { BADGES, CATEGORIES, formatPrice, fetchBackendCategories, buildCategoryList, CategoryItem } from '../constants';
 import { Badge, CartItem } from '../types';
 import { Check, ShoppingCart, Crown, Package, Sparkles, Plus, Minus, X } from 'lucide-react';
 import { API_BASE_URL } from '../config/api';
@@ -27,7 +27,6 @@ const normalizeCategoryId = (value?: string) => {
   if (!value) return '';
   const normalized = value.toString().trim().toLowerCase().replace(/\s+/g, '-');
 
-  if (normalized === 'animal') return 'pet';
   if (normalized === 'positive-vibe') return 'positive-vibes';
 
   return normalized;
@@ -64,6 +63,10 @@ function BadgeCard({
   onToggleComboSelection,
   isSelectedForCombo,
   disableComboSelection,
+  comboQuantity = 0,
+  onAddComboBadge,
+  onUpdateComboBadgeQty,
+  disableComboAdd,
   quantityInCart = 0,
   onUpdateQty,
 }: {
@@ -73,6 +76,10 @@ function BadgeCard({
   onToggleComboSelection?: (badgeId: string) => void;
   isSelectedForCombo?: boolean;
   disableComboSelection?: boolean;
+  comboQuantity?: number;
+  onAddComboBadge?: (badgeId: string) => void;
+  onUpdateComboBadgeQty?: (badgeId: string, q: number) => void;
+  disableComboAdd?: boolean;
   quantityInCart?: number;
   onUpdateQty?: (id: string, q: number) => void;
 }) {
@@ -183,7 +190,40 @@ function BadgeCard({
             </span>
           </div>
           <div className="flex items-center gap-1">
-            {onToggleComboSelection && (
+            {onAddComboBadge ? (
+              <div className="flex items-center">
+                {comboQuantity > 0 ? (
+                  <div className="flex items-center gap-1 rounded-lg bg-yellow-500 text-white px-1 shadow-sm">
+                    <button
+                      onClick={() => onUpdateComboBadgeQty?.(badge.id, comboQuantity - 1)}
+                      aria-label="Decrease combo quantity"
+                      className="p-1 hover:bg-black/20 rounded active:scale-90 transition"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className="text-[10px] font-black w-4 text-center tabular-nums">{comboQuantity}</span>
+                    <button
+                      onClick={() => onAddComboBadge(badge.id)}
+                      disabled={disableComboAdd}
+                      aria-label="Increase combo quantity"
+                      className="p-1 hover:bg-black/20 rounded active:scale-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => onAddComboBadge(badge.id)}
+                    disabled={disableComboAdd}
+                    className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300 border bg-white text-slate-700 border-slate-300 hover:border-yellow-400 hover:text-yellow-700 ${
+                      disableComboAdd ? 'opacity-50 cursor-not-allowed hover:text-slate-700 hover:border-slate-300' : ''
+                    }`}
+                  >
+                    + Combo
+                  </button>
+                )}
+              </div>
+            ) : onToggleComboSelection ? (
               <button
                 onClick={() => onToggleComboSelection(badge.id)}
                 disabled={disableComboSelection}
@@ -194,7 +234,7 @@ function BadgeCard({
               >
                 {isSelectedForCombo ? 'Picked' : 'Combo'}
               </button>
-            )}
+            ) : null}
             {quantityInCart > 0 && onUpdateQty ? (
               <div className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-1">
                 <button
@@ -390,12 +430,25 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
   const filterPanelRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   // Single cross-category combo selection (any 4 badges from anywhere).
-  const [comboSelection, setComboSelection] = useState<string[]>([]);
+  const [comboSelection, setComboSelection] = useState<Array<{ id: string; quantity: number }>>([]);
   const [comboMsg, setComboMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const [categoriesList, setCategoriesList] = useState<CategoryItem[]>(CATEGORIES);
   // Products from database
   const [products, setProducts] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchBackendCategories().then((cats) => {
+      if (isMounted && cats && cats.length > 0) {
+        setCategoriesList(cats);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
 
   const normalizeImagePath = (path?: string) => {
@@ -486,14 +539,14 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
     normalized.push(...comboBadges);
     comboBadges.forEach((b) => existingIds.add(b.id));
 
-    const byCategory = CATEGORIES.reduce((acc, cat) => {
+    const byCategory = categoriesList.reduce((acc, cat) => {
       acc[cat.id] = normalized.filter(
         (p) => normalizeCategoryId(String(p.category)) === normalizeCategoryId(cat.id),
       );
       return acc;
     }, {} as Record<string, Badge[]>);
 
-    CATEGORIES.forEach((cat) => {
+    categoriesList.forEach((cat) => {
       const current = byCategory[cat.id] || [];
       if (current.length >= minCount) return;
 
@@ -551,6 +604,8 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
           const data = await res.json();
           const apiItems = Array.isArray(data) ? data : data.products || [];
           const mappedProducts = mapApiProductsToBadges(apiItems);
+          const productCats = mappedProducts.map((p: any) => p.category).filter(Boolean);
+          setCategoriesList((prev) => buildCategoryList([...prev, ...productCats]));
           const finalProducts = ensureMinimumPerCategory(mappedProducts);
           setProducts(finalProducts);
           // Cache result for fast revisits.
@@ -626,7 +681,7 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
 
   const currentCategoryName = activeCategory === 'all'
     ? 'All Badges'
-    : CATEGORIES.find(c => c.id === activeCategory)?.name || 'All Badges';
+    : categoriesList.find(c => c.id === activeCategory)?.name || 'All Badges';
 
   const currentSubcategoryName = activeSubcategorySlug
     ?
@@ -662,17 +717,83 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
     return m;
   }, [products]);
 
-  // Toggle a badge in the single cross-category combo selection (max 4). No auto-fire.
-  const toggleComboBadge = (badgeId: string) => {
+  const totalComboQuantity = useMemo(() => {
+    return comboSelection.reduce((total, item) => total + item.quantity, 0);
+  }, [comboSelection]);
+
+  const getBadgeComboQuantity = (badgeId: string): number => {
+    const found = comboSelection.find((item) => item.id === badgeId);
+    return found ? found.quantity : 0;
+  };
+
+  const addOrIncrementComboBadge = (badgeId: string) => {
     setComboMsg(null);
+    const badge = badgeById.get(badgeId);
+
     setComboSelection((prev) => {
-      if (prev.includes(badgeId)) return prev.filter((id) => id !== badgeId);
-      if (prev.length >= CUSTOM_COMBO_SIZE) {
-        setComboMsg({ type: 'error', text: `Combo is full — remove one to swap (max ${CUSTOM_COMBO_SIZE}).` });
+      const totalQty = prev.reduce((sum, item) => sum + item.quantity, 0);
+      const existing = prev.find((item) => item.id === badgeId);
+      const currentQty = existing ? existing.quantity : 0;
+
+      if (badge && badge.stock !== undefined && badge.stock > 0 && currentQty + 1 > badge.stock) {
+        setComboMsg({ type: 'error', text: `Only ${badge.stock} available in stock for "${badge.name}".` });
         return prev;
       }
-      return [...prev, badgeId];
+
+      if (totalQty >= CUSTOM_COMBO_SIZE) {
+        setComboMsg({ type: 'error', text: `Combo capacity reached (${CUSTOM_COMBO_SIZE} items max).` });
+        return prev;
+      }
+
+      if (existing) {
+        return prev.map((item) =>
+          item.id === badgeId ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      } else {
+        return [...prev, { id: badgeId, quantity: 1 }];
+      }
     });
+  };
+
+  const updateComboBadgeQuantity = (badgeId: string, newQty: number) => {
+    setComboMsg(null);
+    const badge = badgeById.get(badgeId);
+
+    setComboSelection((prev) => {
+      if (newQty <= 0) {
+        return prev.filter((item) => item.id !== badgeId);
+      }
+
+      const existing = prev.find((item) => item.id === badgeId);
+      const currentQty = existing ? existing.quantity : 0;
+      const currentTotalExceptTarget = prev.reduce(
+        (sum, item) => (item.id === badgeId ? sum : sum + item.quantity),
+        0
+      );
+
+      if (badge && badge.stock !== undefined && badge.stock > 0 && newQty > badge.stock) {
+        setComboMsg({ type: 'error', text: `Only ${badge.stock} available in stock for "${badge.name}".` });
+        return prev;
+      }
+
+      if (currentTotalExceptTarget + newQty > CUSTOM_COMBO_SIZE) {
+        setComboMsg({ type: 'error', text: `Combo capacity reached (${CUSTOM_COMBO_SIZE} items max).` });
+        return prev;
+      }
+
+      if (existing) {
+        return prev.map((item) =>
+          item.id === badgeId ? { ...item, quantity: newQty } : item
+        );
+      } else {
+        return [...prev, { id: badgeId, quantity: newQty }];
+      }
+    });
+  };
+
+  const removeComboBadge = (badgeId: string) => {
+    setComboMsg(null);
+    setComboSelection((prev) => prev.filter((item) => item.id !== badgeId));
   };
 
   const clearComboSelection = () => {
@@ -683,51 +804,75 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
   const editComboId = searchParams.get('editCombo');
   const prefilledFor = useRef<string | null>(null);
 
-  // Pre-fill combo selection when editing a cart combo. Once per editCombo id —
-  // cart changes on every mutation and must not wipe an in-progress re-pick.
+  // Pre-fill combo selection when editing a cart combo. Once per editCombo id
   useEffect(() => {
     if (!editComboId) {
       prefilledFor.current = null;
       return;
     }
     if (prefilledFor.current === editComboId) return;
-    const ids = ((cart || []).find((c) => c.id === editComboId)?.comboItems || [])
-      .map((i) => i.id)
-      .filter(Boolean);
-    if (ids.length === 0) return; // cart not loaded yet — retry on next cart change
+    const cartCombo = (cart || []).find((c) => c.id === editComboId);
+    if (!cartCombo || !cartCombo.comboItems || cartCombo.comboItems.length === 0) return;
     prefilledFor.current = editComboId;
-    setComboSelection(ids.slice(0, CUSTOM_COMBO_SIZE));
+
+    const map = new Map<string, number>();
+    cartCombo.comboItems.forEach((ci) => {
+      if (ci.id) {
+        map.set(ci.id, (map.get(ci.id) || 0) + (ci.quantity || 1));
+      }
+    });
+
+    const entries = Array.from(map.entries()).map(([id, quantity]) => ({ id, quantity }));
+    setComboSelection(entries);
   }, [editComboId, cart]);
 
   // Explicit "Add / Update Combo" — any 4 from any category, flat price.
   const addComboToCart = async () => {
-    if (comboSelection.length !== CUSTOM_COMBO_SIZE) {
-      setComboMsg({ type: 'error', text: `Pick exactly ${CUSTOM_COMBO_SIZE} badges for a combo.` });
+    if (totalComboQuantity !== CUSTOM_COMBO_SIZE) {
+      setComboMsg({ type: 'error', text: `Pick exactly ${CUSTOM_COMBO_SIZE} items for a combo.` });
       return;
     }
-    const items = comboSelection
-      .map((id) => badgeById.get(id))
-      .filter((item): item is Badge => Boolean(item));
-    if (items.length !== CUSTOM_COMBO_SIZE) {
-      setComboMsg({ type: 'error', text: 'Some picked items are unavailable — re-pick.' });
-      return;
+
+    const items: Array<{ badge: Badge; quantity: number }> = [];
+    for (const entry of comboSelection) {
+      const b = badgeById.get(entry.id);
+      if (!b) {
+        setComboMsg({ type: 'error', text: 'Some picked items are unavailable — re-pick.' });
+        return;
+      }
+      items.push({ badge: b, quantity: entry.quantity });
     }
 
     const existingCartItem = editComboId ? (cart || []).find((c) => c.id === editComboId) : undefined;
 
-    // Edit = drop the old line, then add the re-picked one. addToCart only ever
-    // merges quantity into an existing id, it never rewrites its comboItems.
     if (editComboId) await removeFromCart?.(editComboId);
 
-    const comboSeed = comboSelection.slice().sort().join('-').toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const comboSeed = comboSelection
+      .map((item) => `${item.id}_${item.quantity}`)
+      .sort()
+      .join('-')
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '');
+
+    const detailsSummary = items
+      .map(({ badge, quantity }) => (quantity > 1 ? `${badge.name} × ${quantity}` : badge.name))
+      .join(', ');
+
+    const comboItemsPayload = items.map(({ badge, quantity }) => ({
+      id: badge.id,
+      name: badge.name,
+      image: badge.image,
+      quantity,
+    }));
+
     addToCart({
       id: `custom-combo-${comboSeed}`,
       name: 'Custom Combo (Any 4)',
       price: CUSTOM_COMBO_PRICE,
-      category: items[0].category,
-      image: items[0]?.image || '/badge/placeholder.png',
-      comboItems: items.map((item) => ({ id: item.id, name: item.name, image: item.image })),
-      details: `Custom combo: ${items.map((item) => item.name).join(', ')}`,
+      category: items[0].badge.category,
+      image: items[0]?.badge.image || '/badge/placeholder.png',
+      comboItems: comboItemsPayload,
+      details: `Custom combo: ${detailsSummary}`,
       color: 'bg-transparent',
       isCombo: true,
       quantity: existingCartItem?.quantity || 1,
@@ -747,12 +892,12 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
   };
 
   // Render shims so existing per-category JSX now reflects the single global combo.
-  const handleToggleComboBadge = (_categoryId: string, badgeId: string) => toggleComboBadge(badgeId);
-  const getComboSelectionCount = (_categoryId?: string) => comboSelection.length;
+  const handleToggleComboBadge = (_categoryId: string, badgeId: string) => addOrIncrementComboBadge(badgeId);
+  const getComboSelectionCount = (_categoryId?: string) => totalComboQuantity;
   const getComboFeedbackForCategory = (_categoryId?: string) => comboMsg;
 
   // Group products by category for section-wise display
-  const productsByCategory = CATEGORIES.reduce((acc, cat) => {
+  const productsByCategory = categoriesList.reduce((acc, cat) => {
     const catProducts = products.filter(p => normalizeCategoryId(String(p.category)) === normalizeCategoryId(cat.id));
     acc[cat.id] = catProducts.sort((a, b) => {
       if (a.isCombo && !b.isCombo) return -1;
@@ -817,7 +962,7 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
               {activeCategory !== 'all' && (
                 <div className="flex flex-col gap-2 w-full sm:w-auto">
                   <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-yellow-50 border border-yellow-200/60">
-                    <span className="text-base">{CATEGORIES.find(c => c.id === activeCategory)?.icon}</span>
+                    <span className="text-base">{categoriesList.find(c => c.id === activeCategory)?.icon}</span>
                     <span className="text-sm font-bold text-slate-700">{sortedFilteredBadges.length} badges</span>
                   </div>
 
@@ -853,7 +998,7 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
                 All Badges
                 {activeCategory === 'all' && <Check className="w-3.5 h-3.5 ml-1" />}
               </button>
-              {CATEGORIES.map(cat => (
+              {categoriesList.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => handleCategorySelect(cat.id)}
@@ -879,7 +1024,7 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
             <div key={activeCategory}>
               {activeCategory === 'all' ? (
                 <div className="space-y-14">
-                  {CATEGORIES.map((category) => {
+                  {categoriesList.map((category) => {
                     const categoryProducts = productsByCategory[category.id] || [];
                     const categorySubcategoryOptions =
                       getSubcategoryOptions(categoryProducts);
@@ -937,13 +1082,12 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
                                 index={i}
                                 quantityInCart={qtyById[badge.id] || 0}
                                 onUpdateQty={updateQuantity}
-                                onToggleComboSelection={(badgeId) =>
-                                  handleToggleComboBadge(normalizedCategoryId, badgeId)
-                                }
-                                isSelectedForCombo={categorySelection.includes(badge.id)}
-                                disableComboSelection={
-                                  categorySelection.length >= CUSTOM_COMBO_SIZE &&
-                                  !categorySelection.includes(badge.id)
+                                comboQuantity={getBadgeComboQuantity(badge.id)}
+                                onAddComboBadge={addOrIncrementComboBadge}
+                                onUpdateComboBadgeQty={updateComboBadgeQuantity}
+                                disableComboAdd={
+                                  totalComboQuantity >= CUSTOM_COMBO_SIZE ||
+                                  (badge.stock !== undefined && badge.stock > 0 && getBadgeComboQuantity(badge.id) >= badge.stock)
                                 }
                               />
                             )
@@ -957,7 +1101,7 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
                 <div className="space-y-5">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-100 to-orange-100 border border-yellow-300/40 flex items-center justify-center shadow-sm">
-                      <span className="text-xl">{CATEGORIES.find(c => c.id === activeCategory)?.icon}</span>
+                      <span className="text-xl">{categoriesList.find(c => c.id === activeCategory)?.icon}</span>
                     </div>
                     <div>
                       <h2 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tight leading-none">
@@ -1021,13 +1165,12 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
                           index={i}
                           quantityInCart={qtyById[badge.id] || 0}
                           onUpdateQty={updateQuantity}
-                          onToggleComboSelection={(badgeId) =>
-                            handleToggleComboBadge(activeCategory, badgeId)
-                          }
-                          isSelectedForCombo={activeCategorySelection.includes(badge.id)}
-                          disableComboSelection={
-                            activeCategorySelection.length >= CUSTOM_COMBO_SIZE &&
-                            !activeCategorySelection.includes(badge.id)
+                          comboQuantity={getBadgeComboQuantity(badge.id)}
+                          onAddComboBadge={addOrIncrementComboBadge}
+                          onUpdateComboBadgeQty={updateComboBadgeQuantity}
+                          disableComboAdd={
+                            totalComboQuantity >= CUSTOM_COMBO_SIZE ||
+                            (badge.stock !== undefined && badge.stock > 0 && getBadgeComboQuantity(badge.id) >= badge.stock)
                           }
                         />
                       )
@@ -1050,36 +1193,62 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
         </main>
 
         {/* Sticky cross-category Combo Tray — pick ANY 4 badges, flat price, explicit add */}
-        {comboSelection.length > 0 && (
+        {totalComboQuantity > 0 && (
           <div className="fixed bottom-0 inset-x-0 z-[58] px-3 pb-3 pointer-events-none">
             <div className="pointer-events-auto max-w-3xl mx-auto rounded-2xl bg-slate-900 text-white shadow-2xl border border-yellow-500/30 p-3 sm:p-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1.5 shrink-0">
                   <Package className="w-4 h-4 text-yellow-400" />
                   <span className="text-xs font-black uppercase tracking-wide whitespace-nowrap">
-                    Combo {comboSelection.length}/{CUSTOM_COMBO_SIZE}
+                    Combo {totalComboQuantity}/{CUSTOM_COMBO_SIZE}
                   </span>
                 </div>
 
-                {/* Picked slots + empty placeholders */}
+                {/* Picked items with quantity badge and +/-/X controls */}
                 <div className="flex items-center gap-2 flex-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                  {comboSelection.map((id) => {
-                    const b = badgeById.get(id);
+                  {comboSelection.map((entry) => {
+                    const b = badgeById.get(entry.id);
                     return (
-                      <div key={id} className="relative shrink-0 w-11 h-11 rounded-lg bg-white/10 border border-white/15 overflow-hidden">
-                        {b?.image && <img src={b.image} alt={b?.name || ''} className="w-full h-full object-contain p-0.5" />}
+                      <div key={entry.id} className="relative shrink-0 flex items-center gap-1.5 px-2 py-1.5 rounded-xl bg-white/10 border border-white/15">
+                        <div className="relative w-9 h-9 rounded-lg bg-white/10 overflow-hidden shrink-0">
+                          {b?.image && <img src={b.image} alt={b?.name || ''} className="w-full h-full object-contain p-0.5" />}
+                          {entry.quantity > 1 && (
+                            <span className="absolute -top-1 -right-1 px-1 min-w-4 h-4 rounded-full bg-yellow-400 text-slate-950 font-black text-[9px] flex items-center justify-center shadow">
+                              ×{entry.quantity}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => updateComboBadgeQuantity(entry.id, entry.quantity - 1)}
+                            className="w-5 h-5 rounded bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xs font-bold"
+                            title="Decrease quantity"
+                          >
+                            -
+                          </button>
+                          <span className="text-xs font-black w-4 text-center tabular-nums">{entry.quantity}</span>
+                          <button
+                            onClick={() => addOrIncrementComboBadge(entry.id)}
+                            disabled={totalComboQuantity >= CUSTOM_COMBO_SIZE || (b?.stock !== undefined && b.stock > 0 && entry.quantity >= b.stock)}
+                            className="w-5 h-5 rounded bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
                         <button
-                          onClick={() => toggleComboBadge(id)}
+                          onClick={() => removeComboBadge(entry.id)}
                           aria-label="Remove from combo"
-                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center shadow"
+                          className="w-4 h-4 rounded-full bg-rose-500/80 hover:bg-rose-500 text-white flex items-center justify-center ml-0.5"
+                          title="Remove product"
                         >
                           <X className="w-2.5 h-2.5" />
                         </button>
                       </div>
                     );
                   })}
-                  {Array.from({ length: Math.max(0, CUSTOM_COMBO_SIZE - comboSelection.length) }).map((_, i) => (
-                    <div key={`empty-${i}`} className="shrink-0 w-11 h-11 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-white/30 text-lg">+</div>
+                  {Array.from({ length: Math.max(0, CUSTOM_COMBO_SIZE - totalComboQuantity) }).map((_, i) => (
+                    <div key={`empty-${i}`} className="shrink-0 w-10 h-10 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-white/30 text-lg">+</div>
                   ))}
                 </div>
 
@@ -1091,8 +1260,8 @@ export default function Categories({ addToCart, user, cart, updateQuantity, remo
                   </button>
                   <button
                     onClick={addComboToCart}
-                    disabled={comboSelection.length !== CUSTOM_COMBO_SIZE}
-                    className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition whitespace-nowrap ${comboSelection.length === CUSTOM_COMBO_SIZE
+                    disabled={totalComboQuantity !== CUSTOM_COMBO_SIZE}
+                    className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition whitespace-nowrap ${totalComboQuantity === CUSTOM_COMBO_SIZE
                         ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-900 hover:from-yellow-300 hover:to-amber-400'
                         : 'bg-white/10 text-white/40 cursor-not-allowed'
                       }`}

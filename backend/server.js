@@ -57,6 +57,7 @@ app.use("/api/admin/promo", auth, requirePermission("promo"), require("./routes/
 app.use("/api/admin/influencer", auth, requirePermission("influencers"), require("./routes/adminInfluencer"));
 app.use("/api/admin/influencer-manage", auth, requirePermission("influencers"), require("./routes/adminInfluencerManage"));
 app.use("/api/products", require("./routes/adminProducts"));
+app.use("/api/categories", require("./routes/adminProducts"));
 app.use("/api/influencer", require("./routes/influencer"));
 app.use("/api/cart", require("./routes/cart"));
 app.use("/api/user-orders", require("./routes/userOrders"));
