@@ -202,6 +202,45 @@ router.get("/", async (req, res) => {
 });
 
 /* ========================
+   GET ALL CATEGORIES
+======================== */
+router.get("/categories", async (req, res) => {
+  try {
+    const typeFilter = req.query.type ? normalizeType(req.query.type) : "badge";
+    const filter = { isActive: true };
+    if (typeFilter) filter.type = typeFilter;
+
+    // Get categories dynamically present in DB products
+    const dbCategories = await Product.distinct("category", filter);
+
+    const categorySet = new Set();
+
+    // Add DB categories first (excluding Custom)
+    dbCategories.forEach((cat) => {
+      if (cat && typeof cat === "string" && cat.trim() && cat.trim().toLowerCase() !== "custom") {
+        categorySet.add(cat.trim());
+      }
+    });
+
+    // Add default allowed categories for badge or sticker type (excluding Custom)
+    if (typeFilter === "badge") {
+      ALLOWED_CATEGORIES.forEach((cat) => {
+        if (cat && cat.toLowerCase() !== "custom") categorySet.add(cat);
+      });
+    } else if (typeFilter === "sticker") {
+      STICKER_CATEGORIES.forEach((cat) => {
+        if (cat) categorySet.add(cat);
+      });
+    }
+
+    res.set('Cache-Control', 'public, max-age=300');
+    res.json({ categories: Array.from(categorySet) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ========================
    GET PRODUCTS BY CATEGORY (WITH PAGINATION)
 ======================== */
 router.get("/category/:category", async (req, res) => {
