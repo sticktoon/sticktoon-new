@@ -11,6 +11,7 @@ export interface CategoryItem {
   image?: string;
 }
 
+
 export const COLORS = {
   primary: '#4338CA', // Indigo Blue
   secondary: '#E0E7FF', // Indigo 100

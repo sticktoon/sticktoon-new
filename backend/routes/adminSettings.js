@@ -51,4 +51,49 @@ router.post("/", auth, adminOnly, async (req, res) => {
   }
 });
 
+/* ====================================
+   GET QUOTATION NUMBER (AUTO-INCREMENT)
+==================================== */
+router.get("/quotation-number", async (req, res) => {
+  try {
+    let setting = await Setting.findOne({ key: "quotation_counter" });
+    if (!setting) {
+      setting = await Setting.create({ key: "quotation_counter", value: 812 });
+    }
+
+    const counter = Number(setting.value || 812);
+    const now = new Date();
+    const formattedCounter = String(counter).padStart(4, "0");
+    const quotationNo = `ST/QTN/${now.getFullYear()}/${formattedCounter}`;
+
+    res.json({ quotationNo, counter });
+  } catch (err) {
+    console.error("Fetch quotation number error:", err);
+    res.status(500).json({ message: "Failed to fetch quotation number" });
+  }
+});
+
+/* ====================================
+   INCREMENT QUOTATION COUNTER BY 1
+==================================== */
+router.post("/quotation-number/increment", async (req, res) => {
+  try {
+    const updated = await Setting.findOneAndUpdate(
+      { key: "quotation_counter" },
+      { $inc: { value: 1 } },
+      { new: true, upsert: true }
+    );
+
+    const counter = Number(updated.value || 812);
+    const now = new Date();
+    const formattedCounter = String(counter).padStart(4, "0");
+    const quotationNo = `ST/QTN/${now.getFullYear()}/${formattedCounter}`;
+
+    res.json({ success: true, quotationNo, counter });
+  } catch (err) {
+    console.error("Increment quotation counter error:", err);
+    res.status(500).json({ message: "Failed to increment quotation counter" });
+  }
+});
+
 module.exports = router;
