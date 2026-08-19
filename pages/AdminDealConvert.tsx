@@ -279,7 +279,8 @@ export default function AdminDealConvert() {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [importSearch, setImportSearch] = useState("");
   const [importCategory, setImportCategory] = useState("All");
-  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const selectedSet = useMemo(() => new Set(selectedProductIds), [selectedProductIds]);
 
   const categoriesList = useMemo(() => [
     "All",
@@ -331,18 +332,20 @@ export default function AdminDealConvert() {
 
   const toggleProductSelection = (productId: string) => {
     setSelectedProductIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(productId)) {
-        next.delete(productId);
+      if (prev.includes(productId)) {
+        return prev.filter((id) => id !== productId);
       } else {
-        next.add(productId);
+        return [...prev, productId];
       }
-      return next;
     });
   };
 
   const handleImportSelected = () => {
-    const selected = availableProducts.filter((prod) => selectedProductIds.has(prod._id));
+    const selectedMap = new Map(availableProducts.map((prod) => [prod._id, prod]));
+    const selected = selectedProductIds
+      .map((id) => selectedMap.get(id))
+      .filter((prod): prod is ImportProduct => prod !== undefined);
+
     if (selected.length === 0) return;
 
     const newItems = selected.map((prod) => ({
@@ -354,19 +357,8 @@ export default function AdminDealConvert() {
       image: prod.image,
     }));
 
-    setItems((prev) => {
-      if (
-        prev.length === 1 &&
-        prev[0].description === "Custom product" &&
-        !prev[0].image &&
-        prev[0].unitPrice === Number(lead?.expectedAmount || 0)
-      ) {
-        return newItems;
-      }
-      return [...prev, ...newItems];
-    });
-
-    setSelectedProductIds(new Set());
+    setItems(newItems);
+    setSelectedProductIds([]);
     setIsImportModalOpen(false);
   };
   const [termsText, setTermsText] = useState(
@@ -1466,7 +1458,9 @@ export default function AdminDealConvert() {
               ) : (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
                   {filteredProducts.map((prod) => {
-                    const isSelected = selectedProductIds.has(prod._id);
+                    const selectionIndex = selectedProductIds.indexOf(prod._id);
+                    const selectionNumber = selectionIndex !== -1 ? selectionIndex + 1 : null;
+                    const isSelected = selectionNumber !== null;
                     return (
                       <div
                         key={prod._id}
@@ -1488,13 +1482,13 @@ export default function AdminDealConvert() {
                             <div className="text-[10px] text-slate-400 uppercase font-black">No image</div>
                           )}
                           
-                          {/* Selection Checkmark Bubble */}
-                          <div className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border transition ${
+                          {/* Selection Order Bubble */}
+                          <div className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-black transition ${
                             isSelected
-                              ? "border-indigo-600 bg-indigo-600 text-white"
-                              : "border-slate-300 bg-white/80"
+                              ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
+                              : "border-slate-300 bg-white/80 text-transparent"
                           }`}>
-                            {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
+                            {isSelected ? selectionNumber : ""}
                           </div>
                         </div>
 
@@ -1524,19 +1518,21 @@ export default function AdminDealConvert() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (selectedProductIds.size === filteredProducts.length) {
-                      setSelectedProductIds(new Set());
+                    if (selectedProductIds.length === filteredProducts.length && filteredProducts.length > 0) {
+                      setSelectedProductIds([]);
                     } else {
-                      setSelectedProductIds(new Set(filteredProducts.map((p) => p._id)));
+                      const currentSet = new Set(selectedProductIds);
+                      const newIds = filteredProducts.map((p) => p._id).filter((id) => !currentSet.has(id));
+                      setSelectedProductIds([...selectedProductIds, ...newIds]);
                     }
                   }}
                   className="text-xs font-bold text-slate-600 hover:text-slate-900"
                 >
-                  {selectedProductIds.size === filteredProducts.length ? "Deselect All" : "Select All"}
+                  {selectedProductIds.length === filteredProducts.length && filteredProducts.length > 0 ? "Deselect All" : "Select All"}
                 </button>
                 <span className="text-xs text-slate-400">|</span>
                 <span className="text-xs font-bold text-slate-500">
-                  {selectedProductIds.size} selected
+                  {selectedProductIds.length} selected
                 </span>
               </div>
               <div className="flex gap-2">
@@ -1550,7 +1546,7 @@ export default function AdminDealConvert() {
                 <button
                   type="button"
                   onClick={handleImportSelected}
-                  disabled={selectedProductIds.size === 0}
+                  disabled={selectedProductIds.length === 0}
                   className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 transition"
                 >
                   Import Selected
