@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { Camera, Search, Loader2, Check, X } from "lucide-react";
+import { Camera, Search, Loader2, Check, X, Trash2 } from "lucide-react";
 import { API_BASE_URL } from "../config/api";
 import { useScreenshotPrivacy } from "../utils/useScreenshotPrivacy";
 import ScreenshotPrivacyOverlay from "../utils/ScreenshotPrivacyOverlay";
@@ -59,6 +59,16 @@ const createQuoteItem = (
   finishLabel: "Premium 58mm Glossy",
   ...overrides,
 });
+
+const reindexItems = (list: QuoteItem[]): QuoteItem[] => {
+  return list.map((item, idx) => {
+    const trimmed = (item.description || "").trim();
+    if (!trimmed || /^Badge \d+$/i.test(trimmed)) {
+      return { ...item, description: `Badge ${idx + 1}` };
+    }
+    return item;
+  });
+};
 
 const makeQuoteNumber = () => {
   const now = new Date();
@@ -246,6 +256,7 @@ export default function AdminDealSend() {
   );
   const [customCardTitle, setCustomCardTitle] = useState(DEFAULT_CUSTOM_CARD_TITLE);
   const [customCardCopy, setCustomCardCopy] = useState(DEFAULT_CUSTOM_CARD_COPY);
+  const [showCustomCard, setShowCustomCard] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const isScreenProtected = useScreenshotPrivacy(!isExporting && !isPrinting);
@@ -323,48 +334,31 @@ export default function AdminDealSend() {
   const catalogPages = useMemo(() => {
     const allCards: RenderCard[] = [
       ...items.map((item) => ({ type: "item" as const, item })),
-      { type: "custom" as const },
+      ...(showCustomCard ? [{ type: "custom" as const }] : []),
     ];
 
-    const pages: Array<{ cards: RenderCard[]; showFooter: boolean }> = [];
+    const pages: Array<{ cards: RenderCard[]; showProposal: boolean }> = [];
     let remaining = [...allCards];
-    let pageIndex = 0;
 
     while (remaining.length > 0) {
-      if (pageIndex === 0) {
-        // Page 1 (with top Header ~168px)
-        // Max cards WITH footer on Page 1: 6 cards (2 rows of 3)
-        // Max cards WITHOUT footer on Page 1: 9 cards (3 rows of 3)
-        if (remaining.length <= 6) {
-          pages.push({ cards: remaining, showFooter: true });
-          remaining = [];
-        } else {
-          const takeCount = Math.min(remaining.length, 9);
-          pages.push({ cards: remaining.slice(0, takeCount), showFooter: false });
-          remaining = remaining.slice(takeCount);
-        }
+      // Pages WITH proposal fit up to 6 cards (2 rows of 3)
+      // Pages WITHOUT proposal fit up to 9 cards (3 rows of 3)
+      if (remaining.length <= 6) {
+        pages.push({ cards: remaining, showProposal: true });
+        remaining = [];
       } else {
-        // Page 2+ (without top Header)
-        // Max cards WITH footer on Page 2+: 9 cards (3 rows of 3)
-        // Max cards WITHOUT footer on Page 2+: 12 cards (4 rows of 3)
-        if (remaining.length <= 9) {
-          pages.push({ cards: remaining, showFooter: true });
-          remaining = [];
-        } else {
-          const takeCount = Math.min(remaining.length, 12);
-          pages.push({ cards: remaining.slice(0, takeCount), showFooter: false });
-          remaining = remaining.slice(takeCount);
-        }
+        const takeCount = Math.min(remaining.length, 9);
+        pages.push({ cards: remaining.slice(0, takeCount), showProposal: false });
+        remaining = remaining.slice(takeCount);
       }
-      pageIndex++;
     }
 
-    if (pages.length > 0 && !pages[pages.length - 1].showFooter) {
-      pages.push({ cards: [], showFooter: true });
+    if (pages.length > 0 && !pages[pages.length - 1].showProposal) {
+      pages.push({ cards: [], showProposal: true });
     }
 
     return pages;
-  }, [items]);
+  }, [items, showCustomCard]);
 
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState<number>(1);
@@ -399,14 +393,18 @@ export default function AdminDealSend() {
   };
 
   const addItem = () => {
-    setItems((prev) => [
-      ...prev,
-      createQuoteItem(prev.length + 1, Number(lead?.expectedAmount || 50)),
-    ]);
+    setItems((prev) =>
+      reindexItems([
+        ...prev,
+        createQuoteItem(prev.length + 1, Number(lead?.expectedAmount || 50)),
+      ]),
+    );
   };
 
   const removeItem = (id: string) => {
-    setItems((prev) => (prev.length === 1 ? prev : prev.filter((item) => item.id !== id)));
+    setItems((prev) =>
+      prev.length === 1 ? prev : reindexItems(prev.filter((item) => item.id !== id)),
+    );
   };
 
   const handleItemImageUpload = (id: string, file?: File | null) => {
@@ -601,9 +599,9 @@ export default function AdminDealSend() {
       <style>{`
         .catalog-page {
           width: 210mm;
-          height: 297mm;
+          min-height: 297mm;
+          height: auto;
           margin: 0 auto;
-          overflow: hidden;
           position: relative;
           background: #ffffff;
           color: #0f172a;
@@ -612,6 +610,7 @@ export default function AdminDealSend() {
         }
 
         .catalog-shell {
+          min-height: 297mm;
           height: 100%;
           padding: 1.5mm;
           box-sizing: border-box;
@@ -621,8 +620,8 @@ export default function AdminDealSend() {
         .catalog-sheet {
           background: linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%);
           border: 2px solid #000000;
+          min-height: 100%;
           height: 100%;
-          overflow: hidden;
           display: flex;
           flex-direction: column;
         }
@@ -864,7 +863,7 @@ export default function AdminDealSend() {
         }
 
         .catalog-footer {
-          margin-top: 0;
+          margin-top: auto;
           background: linear-gradient(180deg, #0b1630 0%, #0a1224 100%);
           color: white;
         }
@@ -872,8 +871,8 @@ export default function AdminDealSend() {
         .catalog-footer-grid {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 28px;
-          padding: 26px 24px 24px;
+          gap: 24px;
+          padding: 14px 20px 10px;
         }
 
         .catalog-footer-title {
@@ -885,17 +884,17 @@ export default function AdminDealSend() {
         }
 
         .catalog-footer-copy {
-          margin-top: 10px;
+          margin-top: 5px;
           white-space: pre-line;
           font-size: 9px;
-          line-height: 1.75;
+          line-height: 1.5;
           color: #eef2ff;
         }
 
         .catalog-footer-copy-muted {
-          margin-top: 10px;
+          margin-top: 5px;
           font-size: 9px;
-          line-height: 1.7;
+          line-height: 1.5;
           color: #94a3b8;
         }
 
@@ -906,7 +905,7 @@ export default function AdminDealSend() {
 
         .catalog-footer-bottom {
           border-top: 1px solid rgba(148, 163, 184, 0.16);
-          padding: 14px 24px 16px;
+          padding: 7px 20px 8px;
           text-align: center;
         }
       `}</style>
@@ -1058,7 +1057,35 @@ export default function AdminDealSend() {
             </div>
 
             <div className="space-y-3 rounded-2xl border border-slate-200 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">Custom Card</p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">Custom Card</p>
+                  {!showCustomCard && (
+                    <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-extrabold text-rose-600">
+                      Deleted from preview
+                    </span>
+                  )}
+                </div>
+                {showCustomCard ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomCard(false)}
+                    className="flex items-center gap-1 text-xs font-bold text-rose-500 hover:text-rose-700 transition"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete Card
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomCard(true)}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
+                  >
+                    + Add Card
+                  </button>
+                )}
+              </div>
+
               <label className="block">
                 <span className="mb-1 block text-xs font-black uppercase text-slate-500">Title</span>
                 <textarea
@@ -1125,7 +1152,7 @@ export default function AdminDealSend() {
                 key={`catalog-page-wrapper-${pageIndex}`}
                 className="w-full flex justify-center flex-shrink-0"
                 style={{
-                  height: previewScale < 1 ? `${scaledHeight}px` : undefined,
+                  minHeight: previewScale < 1 ? `${scaledHeight}px` : undefined,
                   marginBottom: `${marginOffset}px`,
                 }}
               >
@@ -1138,29 +1165,27 @@ export default function AdminDealSend() {
                 >
                   <div className="catalog-shell">
                     <div className="catalog-sheet">
-                      {pageIndex === 0 && (
-                        <div className="catalog-header">
-                          <div className="catalog-logo-wrap">
-                            <img
-                              src="/images/STICKTOON_LONG.jpeg"
-                              alt="StickToon"
-                              className="mx-auto h-10 w-auto object-contain"
-                            />
-                            <p className="catalog-soul-line">WE CREATE FOR THE SOULS</p>
-                          </div>
-                          <div className="mx-auto mt-3 h-px w-28 bg-slate-200" />
-                          <p className="catalog-tagline">
-                            {normalizedTagline}
-                          </p>
-
-                          <h2 className="mt-1.5 text-[18px] font-black tracking-tight text-slate-900 whitespace-pre-wrap">
-                            {subject}
-                          </h2>
-                          <div className="catalog-highlight-line">
-                            {normalizedHighlightLine}
-                          </div>
+                      <div className="catalog-header">
+                        <div className="catalog-logo-wrap">
+                          <img
+                            src="/images/STICKTOON_LONG.jpeg"
+                            alt="StickToon"
+                            className="mx-auto h-10 w-auto object-contain"
+                          />
+                          <p className="catalog-soul-line">WE CREATE FOR THE SOULS</p>
                         </div>
-                      )}
+                        <div className="mx-auto mt-3 h-px w-28 bg-slate-200" />
+                        <p className="catalog-tagline">
+                          {normalizedTagline}
+                        </p>
+
+                        <h2 className="mt-1.5 text-[18px] font-black tracking-tight text-slate-900 whitespace-pre-wrap">
+                          {subject}
+                        </h2>
+                        <div className="catalog-highlight-line">
+                          {normalizedHighlightLine}
+                        </div>
+                      </div>
 
                       {page.cards.length > 0 && (
                         <div className="catalog-products-section">
@@ -1169,7 +1194,17 @@ export default function AdminDealSend() {
                               if (card.type === "item") {
                                 const item = card.item;
                                 return (
-                                  <div key={item.id} className="catalog-card">
+                                  <div key={item.id} className="catalog-card relative">
+                                    {!isExporting && !isPrinting && items.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => removeItem(item.id)}
+                                        title="Delete this card"
+                                        className="absolute top-2 right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white shadow hover:bg-rose-600 transition"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    )}
                                     <div className="catalog-card-image">
                                       {item.image || item.defaultImage ? (
                                         <img
@@ -1195,7 +1230,17 @@ export default function AdminDealSend() {
                                 );
                               } else {
                                 return (
-                                  <div key={`custom-card-${cardIndex}`} className="catalog-card catalog-card-custom">
+                                  <div key={`custom-card-${cardIndex}`} className="catalog-card catalog-card-custom relative">
+                                    {!isExporting && !isPrinting && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setShowCustomCard(false)}
+                                        title="Delete Custom Card"
+                                        className="absolute top-2 right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white shadow hover:bg-rose-600 transition"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    )}
                                     <div className="catalog-card-custom-inner">
                                       <div className="catalog-card-custom-icon">
                                         <Camera className="h-5 w-5" strokeWidth={2.2} />
@@ -1213,100 +1258,94 @@ export default function AdminDealSend() {
                         </div>
                       )}
 
-                      {page.showFooter ? (
-                        <>
-                          <div className="catalog-proposal">
-                            <div className="catalog-proposal-grid">
-                              <div className="catalog-proposal-col">
-                                <div className="flex items-center gap-3">
-                                  <span className="catalog-accent-bar" />
-                                  <p className="catalog-proposal-title">
-                                    Commercial Proposal
-                                  </p>
-                                </div>
-                                <div className="mt-5 space-y-3 text-[10px] text-slate-700">
-                                  <div className="flex items-center justify-between">
-                                    <span className="font-semibold text-slate-600">Product Price</span>
-                                    <span className="font-extrabold text-slate-900">₹{totals.baseUnitPrice.toFixed(2)}</span>
-                                  </div>
-                                  <div className="flex items-center justify-between">
-                                    <span className="font-semibold text-slate-600">GST ({gstRate}%)</span>
-                                    <span className="font-extrabold text-slate-900">₹{totals.gstPerUnit.toFixed(2)}</span>
-                                  </div>
-                                  <div className="mt-4 border-t border-slate-200 pt-4">
-                                    <div className="flex items-end justify-between gap-3">
-                                      <span className="text-[12px] font-black text-slate-900">Total Per Unit</span>
-                                      <span className="text-[20px] font-black leading-none text-slate-900">₹{totals.totalPerUnit.toFixed(2)}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="catalog-proposal-col">
+                      {page.showProposal && (
+                        <div className="catalog-proposal">
+                          <div className="catalog-proposal-grid">
+                            <div className="catalog-proposal-col">
+                              <div className="flex items-center gap-3">
+                                <span className="catalog-accent-bar" />
                                 <p className="catalog-proposal-title">
-                                  StickToon Overview
-                                </p>
-                                <ul className="catalog-overview-list">
-                                  {overviewPoints
-                                    .split("\n")
-                                    .map((point) => point.trim())
-                                    .filter(Boolean)
-                                    .map((point, index) => (
-                                      <li key={`${point}-${index}`}>{point}</li>
-                                    ))}
-                                </ul>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="catalog-footer">
-                            <div className="catalog-footer-grid">
-                              <div>
-                                <p className="catalog-footer-title">Office Location</p>
-                                <p className="catalog-footer-copy">{officeLocation}</p>
-                              </div>
-                              <div>
-                                <p className="catalog-footer-title">Contact Channels</p>
-                                <p className="catalog-footer-copy">
-                                  {contactChannelLines.map((line, index) => (
-                                    <span key={`${line.value}-${index}`} className="block">
-                                      {line.kind === "text" ? (
-                                        line.value
-                                      ) : (
-                                        <>
-                                          {line.label}: {" "}
-                                          <a
-                                            href={line.href}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="catalog-footer-link"
-                                          >
-                                            {line.value}
-                                          </a>
-                                        </>
-                                      )}
-                                    </span>
-                                  ))}
+                                  Commercial Proposal
                                 </p>
                               </div>
-                              <div>
-                                <p className="catalog-footer-title">Curation Note</p>
-                                <p className="catalog-footer-copy-muted italic">{curationNote}</p>
+                              <div className="mt-5 space-y-3 text-[10px] text-slate-700">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-semibold text-slate-600">Product Price</span>
+                                  <span className="font-extrabold text-slate-900">₹{totals.baseUnitPrice.toFixed(2)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="font-semibold text-slate-600">GST ({gstRate}%)</span>
+                                  <span className="font-extrabold text-slate-900">₹{totals.gstPerUnit.toFixed(2)}</span>
+                                </div>
+                                <div className="mt-4 border-t border-slate-200 pt-4">
+                                  <div className="flex items-end justify-between gap-3">
+                                    <span className="text-[12px] font-black text-slate-900">Total Per Unit</span>
+                                    <span className="text-[20px] font-black leading-none text-slate-900">₹{totals.totalPerUnit.toFixed(2)}</span>
+                                  </div>
+                                </div>
                               </div>
                             </div>
 
-                            <div className="catalog-footer-bottom">
-                              <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                Page {pageIndex + 1} of {catalogPages.length} | {footerNote}
+                            <div className="catalog-proposal-col">
+                              <p className="catalog-proposal-title">
+                                StickToon Overview
                               </p>
+                              <ul className="catalog-overview-list">
+                                {overviewPoints
+                                  .split("\n")
+                                  .map((point) => point.trim())
+                                  .filter(Boolean)
+                                  .map((point, index) => (
+                                    <li key={`${point}-${index}`}>{point}</li>
+                                  ))}
+                              </ul>
                             </div>
                           </div>
-                        </>
-                      ) : (
-                        <div className="mt-auto border-t border-slate-200 px-6 py-3 text-center text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                          Page {pageIndex + 1} of {catalogPages.length} | {footerNote}
                         </div>
                       )}
+
+                      <div className="catalog-footer">
+                        <div className="catalog-footer-grid">
+                          <div>
+                            <p className="catalog-footer-title">Office Location</p>
+                            <p className="catalog-footer-copy">{officeLocation}</p>
+                          </div>
+                          <div>
+                            <p className="catalog-footer-title">Contact Channels</p>
+                            <p className="catalog-footer-copy">
+                              {contactChannelLines.map((line, index) => (
+                                <span key={`${line.value}-${index}`} className="block">
+                                  {line.kind === "text" ? (
+                                    line.value
+                                  ) : (
+                                    <>
+                                      {line.label}: {" "}
+                                      <a
+                                        href={line.href}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="catalog-footer-link"
+                                      >
+                                        {line.value}
+                                      </a>
+                                    </>
+                                  )}
+                                </span>
+                              ))}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="catalog-footer-title">Curation Note</p>
+                            <p className="catalog-footer-copy-muted italic">{curationNote}</p>
+                          </div>
+                        </div>
+
+                        <div className="catalog-footer-bottom">
+                          <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                            Page {pageIndex + 1} of {catalogPages.length} | {footerNote}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
