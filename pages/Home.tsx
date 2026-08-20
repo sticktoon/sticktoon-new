@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 
-import { BADGES, CATEGORIES, HERO_BADGES, formatPrice } from '../constants';
-import { BADGES, CATEGORIES, formatPrice, fetchBackendCategories, CategoryItem } from '../constants.tsx';
+import { BADGES, CATEGORIES, HERO_BADGES, formatPrice, fetchBackendCategories, CategoryItem } from '../constants';
 import { Badge, CartItem } from '../types.ts';
 import { API_BASE_URL } from '../config/api';
 
@@ -103,8 +102,6 @@ const PinButton: React.FC<{
     </div>
   );
 };
-
-import { HERO_BADGES } from '../utils/heroBadges';
 
 const Hero: React.FC = () => {
   const navigate = useNavigate();
