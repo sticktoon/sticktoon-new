@@ -409,6 +409,10 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
     setComboSelection((prev) => prev.filter((item) => availableIds.has(item.id)));
   }, [comboCandidates]);
 
+  const totalComboQuantity = useMemo(() => {
+    return comboSelection.reduce((sum, item) => sum + item.quantity, 0);
+  }, [comboSelection]);
+
   if (!id) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-50">
@@ -466,10 +470,6 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);
   };
-
-  const totalComboQuantity = useMemo(() => {
-    return comboSelection.reduce((sum, item) => sum + item.quantity, 0);
-  }, [comboSelection]);
 
   const getComboItemQuantity = (badgeId: string) => {
     const found = comboSelection.find((item) => item.id === badgeId);
