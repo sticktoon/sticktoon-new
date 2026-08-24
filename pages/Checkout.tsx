@@ -854,7 +854,18 @@ export default function Checkout({
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
-                  orderId: data.orderId,
+                  address,
+                  email: address.email,
+                  promoCode: promoCodeForOrder,
+                  items: cart.map((item) => ({
+                    badgeId: item.id,
+                    name: item.name,
+                    price: item.price,
+                    quantity: item.quantity,
+                    image: item.image,
+                    printImage: item.printImage,
+                    comboItems: item.comboItems,
+                  })),
                 }),
               }
             );
@@ -913,7 +924,7 @@ export default function Checkout({
         setPaymentError(response.error.description || "Payment failed");
         setIsProcessing(false);
         
-        // Mark order as failed
+        // Log payment failure on backend
         try {
           const failedHeaders: Record<string, string> = {
             "Content-Type": "application/json",
@@ -926,7 +937,6 @@ export default function Checkout({
             method: "POST",
             headers: failedHeaders,
             body: JSON.stringify({
-              orderId: data.orderId,
               error: response.error,
             }),
           });

@@ -28,7 +28,7 @@ router.get("/my-orders", auth, async (req, res) => {
       });
 
     // 4. 🔍 Check for orders directly linked by userId (legacy or direct linking)
-    const directOrders = await Order.find({ userId: { $in: userIds } })
+    const directOrders = await Order.find({ userId: { $in: userIds }, status: "SUCCESS" })
       .populate({ path: "invoiceId", select: "invoiceNumber" });
 
     // 5. Combine and De-duplicate

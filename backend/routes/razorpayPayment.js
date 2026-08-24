@@ -27,210 +27,234 @@ const Product = require("../models/Product");
 const { logActivity } = require("../utils/activityLogger");
 
 /* =========================
-   CREATE RAZORPAY ORDER
+   VERIFY & CALCULATE ORDER HELPER
 ========================= */
-router.post("/create-order", async (req, res) => {
-  try {
-    const { address, items, promoCode, email: requestEmail } = req.body;
-    const authHeader = req.headers.authorization;
-    let userId = null;
-    let userEmail = typeof requestEmail === "string" ? requestEmail.toLowerCase().trim() : null;
+const verifyAndCalculateOrder = async ({ items, address, promoCode, requestEmail, reqAuthHeader }) => {
+  let userId = null;
+  let userEmail = typeof requestEmail === "string" ? requestEmail.toLowerCase().trim() : null;
 
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      const token = authHeader.split(" ")[1];
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        userId = decoded.id;
-        if (!userEmail && decoded.email) {
-          userEmail = decoded.email;
-        }
-      } catch (err) {
-        // Ignore invalid token for guest checkout; use provided email if present.
+  if (reqAuthHeader && reqAuthHeader.startsWith("Bearer ")) {
+    const token = reqAuthHeader.split(" ")[1];
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      userId = decoded.id;
+      if (!userEmail && decoded.email) {
+        userEmail = decoded.email;
       }
+    } catch (err) {
+      // Ignore invalid token for guest checkout; use provided email if present.
     }
+  }
 
-    const safeItems = Array.isArray(items) ? items : [];
+  const safeItems = Array.isArray(items) ? items : [];
 
-    if (safeItems.length === 0) {
-      return res.status(400).json({ message: "Items required" });
+  if (safeItems.length === 0) {
+    throw { status: 400, message: "Items required" };
+  }
+
+  if (!address?.name || !address?.street || !address?.phone || !address?.city || !address?.state || !address?.pincode) {
+    throw { status: 400, message: "Complete address details (Name, Street, Phone, City, State, Pincode) are required." };
+  }
+
+  if (!userEmail) {
+    throw { status: 400, message: "Email is required for order creation." };
+  }
+
+  if (!/^\d{10,15}$/.test(address.phone)) {
+    throw { status: 400, message: "Invalid phone number" };
+  }
+
+  if (!/^\d{6}$/.test(address.pincode)) {
+    throw { status: 400, message: "Invalid pincode. Must be exactly 6 digits." };
+  }
+
+  let email = userEmail;
+
+  if (userId) {
+    const user = await User.findById(userId).select("email");
+    if (!user || !user.email) {
+      throw { status: 400, message: "User email not found" };
     }
+    email = user.email;
+  }
 
-    if (!address?.name || !address?.street || !address?.phone || !address?.city || !address?.state || !address?.pincode) {
-      return res.status(400).json({ message: "Complete address details (Name, Street, Phone, City, State, Pincode) are required." });
-    }
+  if (!email) {
+    throw { status: 400, message: "Email is required for order creation." };
+  }
 
-    if (!userEmail) {
-      return res.status(400).json({ message: "Email is required for order creation." });
-    }
+  // Verified items and subtotal calculation
+  let subtotal = 0;
+  const verifiedItems = [];
 
-    if (!/^\d{10,15}$/.test(address.phone)) {
-      return res.status(400).json({ message: "Invalid phone number" });
-    }
+  // `undefined` (not []) keeps the field off ordinary single-badge items.
+  const sanitizeComboItems = (items) => {
+    if (!Array.isArray(items) || items.length === 0) return undefined;
+    const cleaned = items
+      .filter((entry) => entry && entry.id && entry.name)
+      .map((entry) => ({
+        id: String(entry.id),
+        name: String(entry.name),
+        image: entry.image ? String(entry.image) : null,
+        quantity: Math.max(1, Number(entry.quantity) || 1),
+      }));
+    return cleaned.length > 0 ? cleaned : undefined;
+  };
 
-    if (!/^\d{6}$/.test(address.pincode)) {
-      return res.status(400).json({ message: "Invalid pincode. Must be exactly 6 digits." });
-    }
+  for (const item of safeItems) {
+    if (!item?.badgeId) continue;
 
-    let email = userEmail;
+    const quantity = Math.max(1, Number(item.quantity) || 1);
+    const rawBadgeId = String(item.badgeId);
 
-    if (userId) {
-      const user = await User.findById(userId).select("email");
-      if (!user || !user.email) {
-        return res.status(400).json({ message: "User email not found" });
-      }
-      email = user.email;
-    }
-
-    if (!email) {
-      return res.status(400).json({ message: "Email is required for order creation." });
-    }
-
-    // Verified items and subtotal calculation
-    let subtotal = 0;
-    const verifiedItems = [];
-
-    // `undefined` (not []) keeps the field off ordinary single-badge items.
-    const sanitizeComboItems = (items) => {
-      if (!Array.isArray(items) || items.length === 0) return undefined;
-      const cleaned = items
-        .filter((entry) => entry && entry.id && entry.name)
-        .map((entry) => ({
-          id: String(entry.id),
-          name: String(entry.name),
-          image: entry.image ? String(entry.image) : null,
-          quantity: Math.max(1, Number(entry.quantity) || 1),
-        }));
-      return cleaned.length > 0 ? cleaned : undefined;
-    };
-
-    for (const item of safeItems) {
-      if (!item?.badgeId) continue;
-
-      const quantity = Math.max(1, Number(item.quantity) || 1);
-      const rawBadgeId = String(item.badgeId);
-
-      if (isCustomItem(item)) {
-        const customPrice = Number(item.price);
-        if (!Number.isFinite(customPrice) || customPrice <= 0) {
-          return res.status(400).json({ message: "Invalid custom item price" });
-        }
-
-        subtotal += customPrice * quantity;
-        verifiedItems.push({
-          badgeId: rawBadgeId,
-          name: item.name || "Custom Badge",
-          price: customPrice,
-          quantity,
-          image: item.image || null,
-          printImage: item.printImage || null,
-          comboItems: sanitizeComboItems(item.comboItems),
-        });
-        continue;
+    if (isCustomItem(item)) {
+      const customPrice = Number(item.price);
+      if (!Number.isFinite(customPrice) || customPrice <= 0) {
+        throw { status: 400, message: "Invalid custom item price" };
       }
 
-      let product = null;
-
-      if (mongoose.Types.ObjectId.isValid(rawBadgeId)) {
-        product = await Product.findById(rawBadgeId);
-        if (!product || !product.isActive) {
-          return res.status(400).json({ message: `Product ${item.name} is no longer available` });
-        }
-      } else if (typeof item.name === "string" && item.name.trim()) {
-        // Support legacy/static cart items that use slug IDs instead of Mongo ObjectIds.
-        product = await Product.findOne({
-          name: item.name.trim(),
-          isActive: true,
-        });
-      }
-
-      if (product) {
-        const verifiedPrice = product.price;
-        subtotal += verifiedPrice * quantity;
-
-        verifiedItems.push({
-          ...item,
-          quantity,
-          price: verifiedPrice, // Use DB price
-          name: product.name,   // Use DB name
-          image: product.image, // Use DB display (ADV) image
-          // Admin-only print artwork — flows into the order email so the badge
-          // can be printed directly. Falls back to the customer image if unset.
-          printImage: product.printImage || item.printImage || null,
-          // The saved combo definition wins over whatever the cart claimed.
-          comboItems:
-            sanitizeComboItems(product.isCombo ? product.comboItems : null) ||
-            sanitizeComboItems(item.comboItems),
-        });
-        continue;
-      }
-
-      // Final fallback for items not present in Product DB (static catalog/custom stickers).
-      const fallbackPrice = Number(item.price);
-      if (!Number.isFinite(fallbackPrice) || fallbackPrice <= 0 || fallbackPrice > 50000) {
-        return res.status(400).json({ message: `Invalid price for ${item.name || "item"}` });
-      }
-
-      subtotal += fallbackPrice * quantity;
+      subtotal += customPrice * quantity;
       verifiedItems.push({
         badgeId: rawBadgeId,
-        name: item.name || "Item",
-        price: fallbackPrice,
+        name: item.name || "Custom Badge",
+        price: customPrice,
         quantity,
         image: item.image || null,
         printImage: item.printImage || null,
         comboItems: sanitizeComboItems(item.comboItems),
       });
+      continue;
     }
 
-    if (verifiedItems.length === 0) {
-      return res.status(400).json({ message: "No valid items found" });
-    }
+    let product = null;
 
-    const deliveryCharges = 99;
-    const totalBeforeDiscount = subtotal + deliveryCharges;
-
-    // Apply promo code — compute the discount only. Usage count, influencer
-    // earnings and notifications are committed AFTER payment succeeds (in
-    // /verify-payment), so abandoned/unpaid orders don't consume codes or
-    // inflate earnings.
-    let discount = 0;
-    let appliedPromoCode = null;
-
-    if (promoCode) {
-      const promo = await PromoCode.findOne({
-        code: promoCode.toUpperCase().trim(),
+    if (mongoose.Types.ObjectId.isValid(rawBadgeId)) {
+      product = await Product.findById(rawBadgeId);
+      if (!product || !product.isActive) {
+        throw { status: 400, message: `Product ${item.name} is no longer available` };
+      }
+    } else if (typeof item.name === "string" && item.name.trim()) {
+      // Support legacy/static cart items that use slug IDs instead of Mongo ObjectIds.
+      product = await Product.findOne({
+        name: item.name.trim(),
         isActive: true,
       });
-
-      if (promo) {
-        const now = new Date();
-        if (
-          now >= promo.validFrom &&
-          now <= promo.validUntil &&
-          (!promo.usageLimit || promo.usedCount < promo.usageLimit) &&
-          subtotal >= promo.minOrderAmount
-        ) {
-          if (promo.discountType === "percentage") {
-            // Apply percentage discount on TOTAL (subtotal + delivery)
-            discount = (totalBeforeDiscount * promo.discountValue) / 100;
-            if (promo.maxDiscount && discount > promo.maxDiscount) {
-              discount = promo.maxDiscount;
-            }
-          } else {
-            discount = promo.discountValue;
-          }
-
-          if (discount > totalBeforeDiscount) {
-            discount = totalBeforeDiscount;
-          }
-
-          discount = Math.round(discount);
-          appliedPromoCode = promo.code;
-        }
-      }
     }
 
-    const totalAmount = subtotal + deliveryCharges - discount;
+    if (product) {
+      const verifiedPrice = product.price;
+      subtotal += verifiedPrice * quantity;
+
+      verifiedItems.push({
+        ...item,
+        quantity,
+        price: verifiedPrice, // Use DB price
+        name: product.name,   // Use DB name
+        image: product.image, // Use DB display (ADV) image
+        // Admin-only print artwork — flows into the order email so the badge
+        // can be printed directly. Falls back to the customer image if unset.
+        printImage: product.printImage || item.printImage || null,
+        // The saved combo definition wins over whatever the cart claimed.
+        comboItems:
+          sanitizeComboItems(product.isCombo ? product.comboItems : null) ||
+          sanitizeComboItems(item.comboItems),
+      });
+      continue;
+    }
+
+    // Final fallback for items not present in Product DB (static catalog/custom stickers).
+    const fallbackPrice = Number(item.price);
+    if (!Number.isFinite(fallbackPrice) || fallbackPrice <= 0 || fallbackPrice > 50000) {
+      throw { status: 400, message: `Invalid price for ${item.name || "item"}` };
+    }
+
+    subtotal += fallbackPrice * quantity;
+    verifiedItems.push({
+      badgeId: rawBadgeId,
+      name: item.name || "Item",
+      price: fallbackPrice,
+      quantity,
+      image: item.image || null,
+      printImage: item.printImage || null,
+      comboItems: sanitizeComboItems(item.comboItems),
+    });
+  }
+
+  if (verifiedItems.length === 0) {
+    throw { status: 400, message: "No valid items found" };
+  }
+
+  const deliveryCharges = 99;
+  const totalBeforeDiscount = subtotal + deliveryCharges;
+
+  let discount = 0;
+  let appliedPromoCode = null;
+
+  if (promoCode) {
+    const promo = await PromoCode.findOne({
+      code: promoCode.toUpperCase().trim(),
+      isActive: true,
+    });
+
+    if (promo) {
+      const now = new Date();
+      if (
+        now >= promo.validFrom &&
+        now <= promo.validUntil &&
+        (!promo.usageLimit || promo.usedCount < promo.usageLimit) &&
+        subtotal >= promo.minOrderAmount
+      ) {
+        if (promo.discountType === "percentage") {
+          discount = (totalBeforeDiscount * promo.discountValue) / 100;
+          if (promo.maxDiscount && discount > promo.maxDiscount) {
+            discount = promo.maxDiscount;
+          }
+        } else {
+          discount = promo.discountValue;
+        }
+
+        if (discount > totalBeforeDiscount) {
+          discount = totalBeforeDiscount;
+        }
+
+        discount = Math.round(discount);
+        appliedPromoCode = promo.code;
+      }
+    }
+  }
+
+  const totalAmount = subtotal + deliveryCharges - discount;
+
+  return {
+    userId,
+    email,
+    verifiedItems,
+    subtotal,
+    deliveryCharges,
+    discount,
+    appliedPromoCode,
+    totalAmount,
+  };
+};
+
+/* =========================
+   CREATE RAZORPAY ORDER
+========================= */
+router.post("/create-order", async (req, res) => {
+  try {
+    const { address, items, promoCode, email: requestEmail } = req.body;
+    const reqAuthHeader = req.headers.authorization;
+
+    const {
+      userId,
+      email,
+      totalAmount,
+    } = await verifyAndCalculateOrder({
+      items,
+      address,
+      promoCode,
+      requestEmail,
+      reqAuthHeader,
+    });
 
     // Create Razorpay Order
     // receipt max length is 40 characters
@@ -245,29 +269,15 @@ router.post("/create-order", async (req, res) => {
       notes: {
         userId: userId,
         customerEmail: email,
-        customerName: address.name,
+        customerName: address?.name,
       },
     });
 
-    // Save order in DB
-    const order = await Order.create({
-      userId,
-      userEmail: email,
-      items: verifiedItems,
-      subtotal,
-      deliveryCharges,
-      discount,
-      promoCode: appliedPromoCode,
-      amount: totalAmount,
-      gatewayOrderId: razorpayOrder.id,
-      address,
-      status: "PENDING",
-      paymentGateway: "razorpay",
-    });
+    // NOTE: Application Order document in MongoDB is NOT created here.
+    // It is created ONLY after successful payment verification in /verify-payment.
 
     res.json({
       success: true,
-      orderId: order._id,
       razorpayOrderId: razorpayOrder.id,
       amount: totalAmount,
       currency: "INR",
@@ -275,6 +285,9 @@ router.post("/create-order", async (req, res) => {
       mode: razorpayMode,
     });
   } catch (err) {
+    if (err.status && err.message) {
+      return res.status(err.status).json({ message: err.message });
+    }
     console.error("Create Razorpay order error:", err);
     res.status(500).json({ message: "Failed to create order" });
   }
@@ -289,8 +302,32 @@ router.post("/verify-payment", async (req, res) => {
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
-      orderId,
+      address,
+      items,
+      promoCode,
+      email: requestEmail,
     } = req.body;
+    const reqAuthHeader = req.headers.authorization;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ success: false, message: "Missing payment parameters" });
+    }
+
+    // 🔒 Idempotency: if already processed, return success without duplicate order creation
+    const existingOrder = await Order.findOne({
+      $or: [
+        { gatewayOrderId: razorpay_order_id },
+        { gatewayPaymentId: razorpay_payment_id },
+      ],
+    });
+
+    if (existingOrder) {
+      return res.json({
+        success: true,
+        message: "Payment already verified",
+        orderId: existingOrder._id,
+      });
+    }
 
     // Verify signature
     const body = razorpay_order_id + "|" + razorpay_payment_id;
@@ -305,34 +342,29 @@ router.post("/verify-payment", async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid signature" });
     }
 
-    // Update order status
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return res.status(404).json({ message: "Order not found" });
-    }
-
-    // 🔒 Bind the paid Razorpay order to THIS order. Without this, a valid
-    // signature from a cheap order could be replayed against an expensive
-    // PENDING order (order-substitution / amount-spoofing).
-    if (order.gatewayOrderId !== razorpay_order_id) {
-      return res.status(400).json({ success: false, message: "Payment does not match this order" });
-    }
-
-    // 🔒 Idempotency: if already processed, return success without re-running
-    // invoice / earnings / shiprocket side effects.
-    if (order.status === "SUCCESS") {
-      return res.json({
-        success: true,
-        message: "Payment already verified",
-        orderId: order._id,
-      });
-    }
+    // Re-verify order calculation on backend (source of truth)
+    const {
+      userId,
+      email,
+      verifiedItems,
+      subtotal,
+      deliveryCharges,
+      discount,
+      appliedPromoCode,
+      totalAmount,
+    } = await verifyAndCalculateOrder({
+      items,
+      address,
+      promoCode,
+      requestEmail,
+      reqAuthHeader,
+    });
 
     // 🔒 Defense-in-depth: confirm the captured amount matches the order total.
     try {
       const payment = await razorpay.payments.fetch(razorpay_payment_id);
       const amountPaid = Number(payment?.amount);
-      const expectedPaise = Math.round(order.amount * 100);
+      const expectedPaise = Math.round(totalAmount * 100);
       const paymentOk = ["captured", "authorized"].includes(payment?.status);
       if (
         String(payment?.order_id) !== razorpay_order_id ||
@@ -347,9 +379,43 @@ router.post("/verify-payment", async (req, res) => {
       console.error("Razorpay payment fetch failed (continuing on signature):", fetchErr.message);
     }
 
-    order.status = "SUCCESS";
-    order.gatewayPaymentId = razorpay_payment_id;
-    await order.save();
+    // ✅ CREATE THE ACTUAL APPLICATION ORDER IN MONGODB ONLY NOW AFTER VERIFICATION
+    const order = await Order.create({
+      userId,
+      userEmail: email,
+      items: verifiedItems,
+      subtotal,
+      deliveryCharges,
+      discount,
+      promoCode: appliedPromoCode,
+      amount: totalAmount,
+      gatewayOrderId: razorpay_order_id,
+      gatewayPaymentId: razorpay_payment_id,
+      address,
+      status: "SUCCESS",
+      paymentGateway: "razorpay",
+    });
+
+    // ✅ UPDATE / REDUCE PRODUCT STOCK AFTER SUCCESSFUL PAYMENT
+    for (const item of verifiedItems) {
+      if (item.badgeId && mongoose.Types.ObjectId.isValid(item.badgeId)) {
+        await Product.updateOne(
+          { _id: item.badgeId, stock: { $gt: 0 } },
+          { $inc: { stock: -item.quantity } }
+        );
+      }
+      if (Array.isArray(item.comboItems)) {
+        for (const comboItem of item.comboItems) {
+          if (comboItem.id && mongoose.Types.ObjectId.isValid(comboItem.id)) {
+            const comboQty = (Number(comboItem.quantity) || 1) * item.quantity;
+            await Product.updateOne(
+              { _id: comboItem.id, stock: { $gt: 0 } },
+              { $inc: { stock: -comboQty } }
+            );
+          }
+        }
+      }
+    }
 
     logActivity({
       req,
@@ -785,29 +851,41 @@ router.post("/payment-failed", async (req, res) => {
   try {
     const { orderId, error } = req.body;
 
-    const order = await Order.findByIdAndUpdate(
-      orderId,
-      {
-        status: "FAILED",
-        failureReason: error?.description || "Payment failed",
-      },
-      { new: true }
-    );
+    if (orderId && mongoose.Types.ObjectId.isValid(orderId)) {
+      const order = await Order.findByIdAndUpdate(
+        orderId,
+        {
+          status: "FAILED",
+          failureReason: error?.description || "Payment failed",
+        },
+        { new: true }
+      );
 
-    if (order) {
+      if (order) {
+        logActivity({
+          req,
+          actor: { id: order.userId, email: order.userEmail, role: "user" },
+          action: "order.payment_failed",
+          category: "order",
+          status: "failure",
+          message: `Payment failed — ₹${order.amount} for ${order.userEmail || "guest"}`,
+          target: { type: "Order", id: order._id, label: String(order._id) },
+          meta: { amount: order.amount, reason: error?.description || "Payment failed" },
+        });
+      }
+    } else {
       logActivity({
         req,
-        actor: { id: order.userId, email: order.userEmail, role: "user" },
+        actor: { id: null, email: null, role: "user" },
         action: "order.payment_failed",
         category: "order",
         status: "failure",
-        message: `Payment failed — ₹${order.amount} for ${order.userEmail || "guest"}`,
-        target: { type: "Order", id: order._id, label: String(order._id) },
-        meta: { amount: order.amount, reason: error?.description || "Payment failed" },
+        message: `Payment failed before order creation — ${error?.description || "Payment failed"}`,
+        meta: { reason: error?.description || "Payment failed" },
       });
     }
 
-    res.json({ success: true, message: "Order marked as failed" });
+    res.json({ success: true, message: "Payment failure recorded" });
   } catch (err) {
     console.error("Payment failed handler error:", err);
     res.status(500).json({ message: "Error handling failed payment" });

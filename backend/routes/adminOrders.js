@@ -13,7 +13,11 @@ router.get("/", auth, adminOnly, async (req, res) => {
     const { status, all, days, from, to } = req.query;
     const query = {};
 
-    if (status) query.status = status;
+    if (status) {
+      query.status = status;
+    } else {
+      query.status = { $nin: ["PENDING", "FAILED"] };
+    }
 
     // Date window: default to the last 30 days so the list loads fast.
     // Older orders are fetched on demand via ?all=true, ?days=N, or ?from/&to.
