@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { Camera, Search, Loader2, Check, X, Trash2 } from "lucide-react";
+import { Camera, Search, Loader2, Check, X, Trash2, Mail } from "lucide-react";
+import { useGoogleLogin } from "@react-oauth/google";
 import { API_BASE_URL } from "../config/api";
 import { useScreenshotPrivacy } from "../utils/useScreenshotPrivacy";
 import ScreenshotPrivacyOverlay from "../utils/ScreenshotPrivacyOverlay";
@@ -259,6 +260,24 @@ export default function AdminDealSend() {
   const [showCustomCard, setShowCustomCard] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+
+  type GeneratedCatalogueRef = {
+    pdf: jsPDF;
+    catalogueId: string;
+    filename: string;
+    blobUrl: string;
+  };
+
+  const [generatedCatalogue, setGeneratedCatalogue] = useState<GeneratedCatalogueRef | null>(null);
+  const [isGeneratingCatalogue, setIsGeneratingCatalogue] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [sendStatus, setSendStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  useEffect(() => {
+    setGeneratedCatalogue(null);
+    setSendStatus(null);
+  }, [quotationNo, quotationDate, subject, tagline, highlightLine, items, gstRate, customCardTitle, customCardCopy, showCustomCard, curationNote, officeLocation, contactChannels, footerNote]);
+
   const isScreenProtected = useScreenshotPrivacy(!isExporting && !isPrinting);
 
   const normalizedTagline = (tagline || "Limited Edition").trim() || "Limited Edition";
@@ -451,25 +470,40 @@ export default function AdminDealSend() {
           })
           .filter((link): link is { href: string; x: number; y: number; width: number; height: number } => Boolean(link));
 
-        const canvas = await html2canvas(page, {
-          scale: 3,
-          backgroundColor: "#101828",
-          useCORS: true,
-          allowTaint: true,
-          width: Math.ceil(pageRect.width),
-          height: Math.ceil(pageRect.height),
-          scrollX: -window.scrollX,
-          scrollY: -window.scrollY,
-          windowWidth: document.documentElement.clientWidth,
-          windowHeight: document.documentElement.clientHeight,
-          onclone: (clonedDocument) => {
-            // Stabilize capture origin so exported pages don't pick up viewport offset artifacts.
-            clonedDocument.documentElement.scrollTop = 0;
-            clonedDocument.documentElement.scrollLeft = 0;
-            clonedDocument.body.scrollTop = 0;
-            clonedDocument.body.scrollLeft = 0;
-          },
-        });
+        let canvas: HTMLCanvasElement;
+        try {
+          canvas = await html2canvas(page, {
+            scale: 3,
+            backgroundColor: "#101828",
+            useCORS: true,
+            allowTaint: true,
+            imageTimeout: 15000,
+            width: Math.ceil(pageRect.width),
+            height: Math.ceil(pageRect.height),
+            scrollX: -window.scrollX,
+            scrollY: -window.scrollY,
+            windowWidth: document.documentElement.clientWidth,
+            windowHeight: document.documentElement.clientHeight,
+            onclone: (clonedDocument) => {
+              // Stabilize capture origin so exported pages don't pick up viewport offset artifacts.
+              clonedDocument.documentElement.scrollTop = 0;
+              clonedDocument.documentElement.scrollLeft = 0;
+              clonedDocument.body.scrollTop = 0;
+              clonedDocument.body.scrollLeft = 0;
+            },
+          });
+        } catch (canvasErr) {
+          console.warn("Primary html2canvas capture failed, retrying fallback capture:", canvasErr);
+          canvas = await html2canvas(page, {
+            scale: 2,
+            backgroundColor: "#101828",
+            useCORS: false,
+            allowTaint: true,
+            imageTimeout: 15000,
+            width: Math.ceil(pageRect.width),
+            height: Math.ceil(pageRect.height),
+          });
+        }
 
         if (!isFirst) pdf.addPage();
         isFirst = false;
@@ -524,11 +558,167 @@ export default function AdminDealSend() {
     }
   };
 
+  const ensureGeneratedCatalogue = async (): Promise<GeneratedCatalogueRef | null> => {
+    if (generatedCatalogue) {
+      return generatedCatalogue;
+    }
+
+    try {
+      setIsGeneratingCatalogue(true);
+      setSendStatus(null);
+
+      const pdf = await buildPdf();
+      if (!pdf) {
+        setSendStatus({ type: "error", message: "Catalogue generation failed" });
+        return null;
+      }
+
+      const filename = `catalogue-${quotationNo}.pdf`;
+      const pdfBlob = pdf.output("blob");
+
+      const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("pdfFile", pdfBlob, filename);
+      formData.append("filename", filename);
+      if (lead?._id) formData.append("leadId", lead._id);
+
+      let res: Response | null = null;
+      let uploadErr: any = null;
+
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          res = await fetch(`${API_BASE_URL}/api/admin/leads/catalogue/upload`, {
+            method: "POST",
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: formData,
+          });
+          if (res.ok) break;
+        } catch (e) {
+          uploadErr = e;
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        }
+      }
+
+      if (!res || !res.ok) {
+        const errData = res ? await res.json().catch(() => ({})) : {};
+        const msg = errData.message || uploadErr?.message || "Catalogue generation failed";
+        setSendStatus({ type: "error", message: msg });
+        return null;
+      }
+
+      const data = await res.json();
+      const blobUrl = URL.createObjectURL(pdfBlob);
+
+      const catRef: GeneratedCatalogueRef = {
+        pdf,
+        catalogueId: data.catalogueId,
+        filename: data.filename || filename,
+        blobUrl,
+      };
+
+      setGeneratedCatalogue(catRef);
+      return catRef;
+    } catch (err: any) {
+      console.error("Error generating catalogue:", err);
+      const msg = err?.message === "Failed to fetch"
+        ? "Failed to connect to backend server. Make sure backend is running."
+        : (err?.message || "Catalogue generation failed");
+      setSendStatus({ type: "error", message: msg });
+      return null;
+    } finally {
+      setIsGeneratingCatalogue(false);
+    }
+  };
+
   const handleDownload = async () => {
-    const pdf = await buildPdf();
-    if (!pdf) return;
-    pdf.save(`catalogue-${quotationNo}.pdf`);
+    const catRef = await ensureGeneratedCatalogue();
+    if (!catRef) return;
+    catRef.pdf.save(catRef.filename);
     await incrementQuotationCounter();
+  };
+
+  const handleSendEmail = async () => {
+    setSendStatus(null);
+    const targetEmail = email.trim();
+
+    if (!targetEmail) {
+      setSendStatus({ type: "error", message: "Lead has no email address" });
+      return;
+    }
+
+    const catRef = await ensureGeneratedCatalogue();
+    if (!catRef) return;
+
+    try {
+      setIsSendingEmail(true);
+      const adminToken = localStorage.getItem("adminToken") || localStorage.getItem("token");
+      const requestPayload = JSON.stringify({
+        leadId: lead?._id,
+        catalogueId: catRef.catalogueId,
+        email: targetEmail,
+        subject: subject ? `Product Catalogue - ${subject}` : `Product Catalogue - ${quotationNo}`,
+        body: curationNote,
+      });
+
+      let res: Response | null = null;
+      let fetchErr: any = null;
+
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          res = await fetch(`${API_BASE_URL}/api/admin/leads/gmail/create-draft`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+            },
+            body: requestPayload,
+          });
+          if (res) break;
+        } catch (err) {
+          fetchErr = err;
+          if (attempt < 3) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        }
+      }
+
+      if (!res) {
+        throw fetchErr || new Error("Failed to connect to backend server");
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        if (data.requiresGoogleAuth) {
+          setSendStatus({
+            type: "error",
+            message: "Google Gmail authorization is required for orders.sticktoon@gmail.com.",
+          });
+          return;
+        }
+        setSendStatus({ type: "error", message: data.message || "Failed to create Gmail draft" });
+        return;
+      }
+
+      setSendStatus({
+        type: "success",
+        message: `Gmail draft created under orders.sticktoon@gmail.com with catalogue PDF attached! Opening Gmail...`,
+      });
+      window.open(data.viewUrl || "https://mail.google.com/mail/u/0/#drafts", "_blank");
+      await incrementQuotationCounter();
+    } catch (err: any) {
+      console.error("Error creating Gmail draft:", err);
+      const msg = err?.message === "Failed to fetch"
+        ? "Failed to connect to backend server. Make sure backend is running."
+        : (err?.message || "Error creating Gmail draft");
+      setSendStatus({ type: "error", message: msg });
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const handlePrint = async () => {
@@ -1122,11 +1312,16 @@ export default function AdminDealSend() {
             </div>
 
             <div className="flex gap-3">
-              <button onClick={handlePrint} className="flex-1 rounded-lg border border-slate-300 px-4 py-3 text-sm font-bold">
+              <button onClick={handlePrint} className="flex-1 rounded-lg border border-slate-300 px-3 py-3 text-xs font-bold hover:bg-slate-50 transition">
                 Print
               </button>
-              <button onClick={handleDownload} className="flex-1 rounded-lg bg-slate-900 px-4 py-3 text-sm font-bold text-white">
+              <button onClick={handleDownload} disabled={isExporting || isGeneratingCatalogue} className="flex-1 rounded-lg bg-slate-900 px-3 py-3 text-xs font-bold text-white hover:bg-slate-800 transition flex items-center justify-center gap-1.5">
+                {isGeneratingCatalogue ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                 Download PDF
+              </button>
+              <button onClick={handleSendEmail} disabled={isSendingEmail || isGeneratingCatalogue} className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-3 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+                {isSendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                Send Email
               </button>
             </div>
           </div>
@@ -1138,6 +1333,103 @@ export default function AdminDealSend() {
           ref={previewContainerRef}
           className="h-full overflow-y-auto overflow-x-hidden rounded-2xl border border-slate-200 bg-slate-200/50 p-4 md:p-6 shadow-inner flex flex-col items-center"
         >
+
+          {/* Catalogue Actions & Email Attachment Card */}
+          <div className="w-full max-w-[210mm] bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4 mb-6 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-black text-slate-900">Catalogue Preview</h2>
+                <p className="text-xs text-slate-500">Preview catalogue, download PDF, or send email with PDF attached.</p>
+              </div>
+              {isGeneratingCatalogue ? (
+                <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Generating...
+                </span>
+              ) : generatedCatalogue ? (
+                <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
+                  <Check className="w-4 h-4" /> Catalogue Ready
+                </span>
+              ) : (
+                <button
+                  onClick={ensureGeneratedCatalogue}
+                  disabled={isGeneratingCatalogue}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-2 rounded-xl transition border border-indigo-200"
+                >
+                  Generate Catalogue
+                </button>
+              )}
+            </div>
+
+            {/* Attachment Box */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">📎</span>
+                <div>
+                  <p className="text-xs font-black text-slate-800">
+                    {generatedCatalogue ? generatedCatalogue.filename : `catalogue-${quotationNo}.pdf`}
+                  </p>
+                  <p className="text-[11px] text-slate-500 font-medium">Automatically attached when sending</p>
+                </div>
+              </div>
+              {generatedCatalogue && (
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 bg-white border border-slate-200 px-2 py-1 rounded-md">
+                  Referenced
+                </span>
+              )}
+            </div>
+
+            {/* Recipient Email & Action Buttons */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-1">To:</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (sendStatus) setSendStatus(null);
+                  }}
+                  placeholder="lead@example.com"
+                  className={fieldClass}
+                />
+              </div>
+
+              <div className="flex items-end gap-3">
+                <button
+                  onClick={handleDownload}
+                  disabled={isExporting || isGeneratingCatalogue}
+                  className="flex-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 transition flex items-center justify-center gap-1.5 h-[40px]"
+                >
+                  {isGeneratingCatalogue ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  Download Catalogue
+                </button>
+                <button
+                  onClick={handleSendEmail}
+                  disabled={isSendingEmail || isGeneratingCatalogue}
+                  className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-bold transition flex items-center justify-center gap-2 h-[40px] shadow-sm"
+                >
+                  {isSendingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                  Send Email
+                </button>
+              </div>
+            </div>
+
+            {/* Status feedback */}
+            {sendStatus && (
+              <div
+                className={`p-3 rounded-xl text-xs font-bold flex items-center justify-between transition ${
+                  sendStatus.type === "success"
+                    ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                    : "bg-rose-50 border border-rose-200 text-rose-800"
+                }`}
+              >
+                <span>{sendStatus.message}</span>
+                <button onClick={() => setSendStatus(null)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
 
           {isScreenProtected && (
             <ScreenshotPrivacyOverlay message="Hidden while this window is out of focus, so catalog pricing and artwork stay off task-switcher previews." />

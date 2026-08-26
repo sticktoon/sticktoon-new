@@ -28,6 +28,7 @@ import {
   Download,
 } from "lucide-react";
 import { API_BASE_URL } from "../config/api";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { clearTokens } from "../utils/apiClient";
 import { BADGES } from "../constants";
 
@@ -339,13 +340,29 @@ export default function Profile({ addToCart }: { addToCart?: (badge: any, quanti
     }
   };
 
-  const handleDeleteAddress = async (id: string) => {
+  const [deleteAddressId, setDeleteAddressId] = useState<string | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeletingAddress, setIsDeletingAddress] = useState(false);
+
+  const handleOpenDeleteModal = (id: string) => {
+    setDeleteAddressId(id);
+    setDeleteModalOpen(true);
+  };
+
+  const handleCancelDeleteAddress = () => {
+    if (isDeletingAddress) return;
+    setDeleteModalOpen(false);
+    setDeleteAddressId(null);
+  };
+
+  const handleConfirmDeleteAddress = async () => {
+    if (!deleteAddressId) return;
     const token = getStoredToken();
     if (!token) return;
-    if (!window.confirm("Are you sure you want to delete this address?")) return;
 
+    setIsDeletingAddress(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/addresses/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/addresses/${deleteAddressId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -354,8 +371,12 @@ export default function Profile({ addToCart }: { addToCart?: (badge: any, quanti
 
       setAddresses(Array.isArray(data.addresses) ? data.addresses : []);
       showToast("Address deleted");
+      setDeleteModalOpen(false);
+      setDeleteAddressId(null);
     } catch (err: any) {
       showToast(err.message || "Failed to delete address", "error");
+    } finally {
+      setIsDeletingAddress(false);
     }
   };
 
@@ -787,7 +808,7 @@ export default function Profile({ addToCart }: { addToCart?: (badge: any, quanti
                             Edit
                           </button>
                           <button
-                            onClick={() => handleDeleteAddress(a._id)}
+                            onClick={() => handleOpenDeleteModal(a._id)}
                             className="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold transition-all flex items-center gap-1"
                           >
                             <Trash2 className="w-3.5 h-3.5" /> Delete
@@ -1095,6 +1116,17 @@ export default function Profile({ addToCart }: { addToCart?: (badge: any, quanti
           </div>
         </div>
       )}
+      {/* Delete Address Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        title="Delete Address?"
+        message="Are you sure you want to delete this address? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        isConfirming={isDeletingAddress}
+        onCancel={handleCancelDeleteAddress}
+        onConfirm={handleConfirmDeleteAddress}
+      />
     </div>
   );
 }
