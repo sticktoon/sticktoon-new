@@ -18,24 +18,36 @@ const app = express();
 app.use(compression()); // Gzip all responses
 app.use(
   cors({
-    origin: [
-      
-      "https://sticktoon-web.vercel.app",
-      "https://www.sticktoon.shop",
-      "https://sticktoon.shop",
-      "http://localhost:3000",
-      "https://sticktoon-website.onrender.com",
-      "https://localhost:5000",
-      /\.vercel\.app$/  // allows all vercel preview URLs
-    ],
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      const allowedOrigins = [
+        "https://sticktoon-web.vercel.app",
+        "https://www.sticktoon.shop",
+        "https://sticktoon.shop",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+        "https://sticktoon-website.onrender.com",
+        "https://localhost:5000",
+      ];
+      if (
+        allowedOrigins.includes(origin) ||
+        /\.vercel\.app$/.test(origin) ||
+        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
     credentials: true,
   })
 );
 
-
-// Increase JSON body size limit for avatar upload (base64 images)
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ limit: "10mb", extended: true }));
+// Increase JSON body size limit for base64 images & PDF catalogue uploads
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 /* Database */
 connectDB();

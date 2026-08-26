@@ -4,6 +4,7 @@ import { Trash2, ShoppingCart, Tag, X, CheckCircle, Sparkles, MapPin, AlertCircl
 import { CartItem, ComboItemPreview } from "../types";
 import { BADGES, formatPrice } from "../constants";
 import { API_BASE_URL } from "../config/api";
+import { ConfirmModal } from "../components/ConfirmModal";
 
 /* =========================
    RAZORPAY LOADER
@@ -295,9 +296,11 @@ export default function Checkout({
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [saveAddress, setSaveAddress] = useState(true);
   const [savingAddressNow, setSavingAddressNow] = useState(false);
   const [saveAddressSuccess, setSaveAddressSuccess] = useState("");
+  const [saveAddressError, setSaveAddressError] = useState("");
 
   // "Login & Continue": remember to come back to checkout after login,
   // then send the user to the login page. The guest cart is merged into the
@@ -324,6 +327,95 @@ export default function Checkout({
     }));
   };
 
+  const handleAddNewAddressClick = () => {
+    setEditingAddressId(null);
+    setSelectedAddressId(null);
+    setShowAddressForm(true);
+    setAddress((prev) => ({
+      ...prev,
+      label: "Home",
+      name: "",
+      phone: "",
+      street: "",
+      city: "",
+      state: "",
+      pincode: "",
+      country: HOME_COUNTRY,
+    }));
+  };
+
+  const handleEditAddressInCheckout = (a: SavedAddress, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingAddressId(a._id);
+    setAddress((prev) => ({
+      ...prev,
+      label: a.label || "Home",
+      name: a.fullName || "",
+      phone: a.phone || "",
+      street: a.street || "",
+      city: a.city || "",
+      state: a.state || "",
+      pincode: a.pincode || "",
+      country: a.country || HOME_COUNTRY,
+    }));
+    setShowAddressForm(true);
+  };
+
+  const [deleteAddressId, setDeleteAddressId] = useState<string | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeletingAddress, setIsDeletingAddress] = useState(false);
+
+  const handleOpenDeleteModal = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeleteAddressId(id);
+    setDeleteModalOpen(true);
+  };
+
+  const handleCancelDeleteAddress = () => {
+    if (isDeletingAddress) return;
+    setDeleteModalOpen(false);
+    setDeleteAddressId(null);
+  };
+
+  const handleConfirmDeleteAddress = async () => {
+    if (!deleteAddressId) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    setIsDeletingAddress(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/addresses/${deleteAddressId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const list: SavedAddress[] = Array.isArray(data.addresses) ? data.addresses : [];
+        setSavedAddresses(list);
+
+        if (selectedAddressId === deleteAddressId) {
+          if (list.length > 0) {
+            const nextSelected = list.find((item) => item.isDefault) || list[0];
+            applySavedAddress(nextSelected);
+          } else {
+            setSelectedAddressId(null);
+            setShowAddressForm(true);
+          }
+        }
+        setDeleteModalOpen(false);
+        setDeleteAddressId(null);
+      } else {
+        const errData = await res.json();
+        setPaymentError(errData.message || "Failed to delete address.");
+      }
+    } catch (err) {
+      console.error("Delete address error:", err);
+      setPaymentError("Failed to delete address. Please check network connection.");
+    } finally {
+      setIsDeletingAddress(false);
+    }
+  };
+
   const handleSetDefaultAddressInCheckout = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const token = localStorage.getItem("token");
@@ -344,22 +436,30 @@ export default function Checkout({
   };
 
   const handleManualSaveAddress = async () => {
+    setSaveAddressError("");
+    setSaveAddressSuccess("");
+
     const token = localStorage.getItem("token");
     if (!token) {
-      alert("Please login to save addresses to your account.");
+      setSaveAddressError("Please login to save addresses to your account.");
       return;
     }
 
-    if (!address.name || !address.phone || !address.street || !address.city || !address.state || !address.pincode) {
-      alert("Please fill in all address fields before saving.");
+    const isValid = validate();
+    if (!address.name || !address.phone || !address.street || !address.city || !address.state || !address.pincode || !isValid) {
+      setSaveAddressError("All fields are required. Please fill in all address fields before saving.");
       return;
     }
 
     setSavingAddressNow(true);
-    setSaveAddressSuccess("");
     try {
-      const res = await fetch(`${API_BASE_URL}/api/addresses`, {
-        method: "POST",
+      const url = editingAddressId
+        ? `${API_BASE_URL}/api/addresses/${editingAddressId}`
+        : `${API_BASE_URL}/api/addresses`;
+      const method = editingAddressId ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           label: address.label || "Home",
@@ -377,19 +477,26 @@ export default function Checkout({
         const data = await res.json();
         const list: SavedAddress[] = Array.isArray(data.addresses) ? data.addresses : [];
         setSavedAddresses(list);
-        const newlyCreated = list[list.length - 1] || list[0];
-        if (newlyCreated) {
-          setSelectedAddressId(newlyCreated._id);
+
+        const targetAddress = editingAddressId
+          ? list.find((item) => item._id === editingAddressId) || list[0]
+          : list[list.length - 1] || list[0];
+
+        if (targetAddress) {
+          applySavedAddress(targetAddress);
         }
-        setSaveAddressSuccess("Address saved to your account!");
+
+        setEditingAddressId(null);
+        setShowAddressForm(false);
+        setSaveAddressSuccess(editingAddressId ? "Address updated successfully!" : "Address saved to your account!");
         setTimeout(() => setSaveAddressSuccess(""), 3500);
       } else {
         const errData = await res.json();
-        alert(errData.message || "Failed to save address.");
+        setSaveAddressError(errData.message || "Failed to save address.");
       }
     } catch (err) {
       console.error("Save address error:", err);
-      alert("Failed to save address. Please check network connection.");
+      setSaveAddressError("Failed to save address. Please check network connection.");
     } finally {
       setSavingAddressNow(false);
     }
@@ -1098,29 +1205,9 @@ export default function Checkout({
                       <MapPin className="w-4 h-4 text-yellow-600" />
                       Select Delivery Address ({savedAddresses.length})
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedAddressId(null);
-                        setShowAddressForm(true);
-                        setAddress((prev) => ({
-                          ...prev,
-                          label: "Home",
-                          name: "",
-                          phone: "",
-                          street: "",
-                          city: "",
-                          state: "",
-                          pincode: "",
-                        }));
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-xs font-black transition-all shadow-sm flex items-center gap-1"
-                    >
-                      ＋ Add New Address
-                    </button>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-4 sm:grid-cols-2">
                     {savedAddresses.map((a) => {
                       const selected = selectedAddressId === a._id;
                       return (
@@ -1140,34 +1227,38 @@ export default function Checkout({
                                   type="radio"
                                   checked={selected}
                                   onChange={() => applySavedAddress(a)}
-                                  className="w-4 h-4 text-yellow-600 accent-yellow-500"
+                                  className="w-4 h-4 text-yellow-600 accent-yellow-500 cursor-pointer"
                                 />
                                 <span className="font-black text-slate-900 text-sm truncate">
-                                  {a.fullName || "Saved Address"}
+                                  {a.label || "Address"}
                                 </span>
                               </div>
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 {a.label && (
                                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                                    {a.label === "Home" ? "🏠 Home" : a.label === "Work" ? "💼 Work" : a.label === "Office" ? "📍 Office" : `🏷️ ${a.label}`}
+                                    {a.label === "Home" ? "🏠 HOME" : a.label === "Work" ? "💼 WORK" : a.label === "Office" ? "📍 OFFICE" : `🏷️ ${a.label.toUpperCase()}`}
                                   </span>
                                 )}
                                 {a.isDefault && (
                                   <span className="text-[10px] font-black uppercase tracking-wider text-yellow-800 bg-yellow-200 px-2 py-0.5 rounded-md border border-yellow-300">
-                                    ⭐ Default
+                                    ⭐ DEFAULT
                                   </span>
                                 )}
                               </div>
                             </div>
 
-                            <p className="text-xs text-slate-600 leading-relaxed font-medium pl-6">
-                              {a.street}, {a.city}, {a.state} - {a.pincode}
-                            </p>
-                            <p className="text-xs text-slate-500 mt-1 pl-6">📞 {a.phone}</p>
+                            <div className="pl-6 space-y-1">
+                              <p className="text-xs font-bold text-slate-900">{a.fullName}</p>
+                              <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                                {a.street}, {a.city}, {a.state} - {a.pincode}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-1">📞 {a.phone}</p>
+                            </div>
                           </div>
 
-                          {!a.isDefault && (
-                            <div className="mt-3 pt-2 border-t border-slate-100 flex justify-end">
+                          {/* Self-contained actions inside card */}
+                          <div className="mt-4 pt-3 border-t border-slate-200/80 flex items-center justify-between gap-2">
+                            {!a.isDefault ? (
                               <button
                                 type="button"
                                 onClick={(e) => handleSetDefaultAddressInCheckout(a._id, e)}
@@ -1175,11 +1266,41 @@ export default function Checkout({
                               >
                                 Set as Default
                               </button>
+                            ) : (
+                              <div />
+                            )}
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => handleEditAddressInCheckout(a, e)}
+                                className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => handleOpenDeleteModal(a._id, e)}
+                                className="px-3 py-1.5 text-xs font-bold rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-900 transition-all"
+                              >
+                                Delete
+                              </button>
                             </div>
-                          )}
+                          </div>
                         </div>
                       );
                     })}
+                  </div>
+
+                  {/* Add New Address button placed outside / below cards */}
+                  <div className="pt-2 flex justify-start">
+                    <button
+                      type="button"
+                      onClick={handleAddNewAddressClick}
+                      className="px-4 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-xs font-black uppercase tracking-wider transition-all shadow-sm flex items-center gap-1.5"
+                    >
+                      ＋ Add New Address
+                    </button>
                   </div>
                 </div>
               )}
@@ -1189,10 +1310,13 @@ export default function Checkout({
                   {/* Cancel / Back to Saved Addresses Button */}
                   {isLoggedIn && savedAddresses.length > 0 && (
                     <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
-                      <p className="text-sm font-bold text-slate-800">Add New Delivery Address</p>
+                      <p className="text-sm font-bold text-slate-800">
+                        {editingAddressId ? "Edit Delivery Address" : "Add New Delivery Address"}
+                      </p>
                       <button
                         type="button"
                         onClick={() => {
+                          setEditingAddressId(null);
                           setShowAddressForm(false);
                           const def = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
                           if (def) applySavedAddress(def);
@@ -1361,29 +1485,23 @@ export default function Checkout({
                             disabled={savingAddressNow}
                             className="px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
                           >
-                            💾 {savingAddressNow ? "Saving Address..." : "Save Address"}
+                            💾 {savingAddressNow ? "Saving Address..." : editingAddressId ? "Update Address" : "Save Address"}
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedAddressId(null);
-                              setShowAddressForm(true);
-                              setAddress((prev) => ({
-                                ...prev,
-                                label: "Home",
-                                name: "",
-                                phone: "",
-                                street: "",
-                                city: "",
-                                state: "",
-                                pincode: "",
-                              }));
-                            }}
-                            className="px-4 py-3 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-xs font-black uppercase tracking-wider transition-all shadow-sm flex items-center gap-1.5"
-                          >
-                            ＋ Add New Address
-                          </button>
+                          {savedAddresses.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingAddressId(null);
+                                setShowAddressForm(false);
+                                const def = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
+                                if (def) applySavedAddress(def);
+                              }}
+                              className="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black uppercase tracking-wider transition-all shadow-sm"
+                            >
+                              Cancel
+                            </button>
+                          )}
                         </>
                       ) : (
                         <p className="text-xs text-slate-600 font-medium">
@@ -1404,6 +1522,13 @@ export default function Checkout({
                           Auto-save this address to account on order completion
                         </span>
                       </label>
+                    )}
+
+                    {saveAddressError && (
+                      <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded-xl flex items-center gap-2 animate-fadeIn">
+                        <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                        <span>{saveAddressError}</span>
+                      </div>
                     )}
 
                     {saveAddressSuccess && (
@@ -1713,6 +1838,17 @@ export default function Checkout({
 
         </div>
       </div>
+      {/* Delete Address Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        title="Delete Address?"
+        message="Are you sure you want to delete this address? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        isConfirming={isDeletingAddress}
+        onCancel={handleCancelDeleteAddress}
+        onConfirm={handleConfirmDeleteAddress}
+      />
     </div>
   );
 }
