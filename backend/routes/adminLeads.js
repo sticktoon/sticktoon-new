@@ -183,20 +183,27 @@ if (!fs.existsSync(CATALOGUE_TMP_DIR)) {
   fs.mkdirSync(CATALOGUE_TMP_DIR, { recursive: true });
 }
 
-router.post("/catalogue/upload", ...leadsAccess, async (req, res) => {
+const multer = require("multer");
+const catalogueUpload = multer({ limits: { fileSize: 50 * 1024 * 1024 } });
+
+router.post("/catalogue/upload", ...leadsAccess, catalogueUpload.single("pdfFile"), async (req, res) => {
   try {
-    const { pdfData, filename } = req.body || {};
-    if (!pdfData) {
-      return res.status(400).json({ message: "PDF data is required" });
+    let pdfBuffer;
+    const filename = req.body?.filename || req.file?.originalname || "catalogue.pdf";
+
+    if (req.file && req.file.buffer) {
+      pdfBuffer = req.file.buffer;
+    } else if (req.body?.pdfData) {
+      const pdfData = req.body.pdfData;
+      const base64Content = pdfData.includes(",") ? pdfData.split(",")[1] : pdfData;
+      pdfBuffer = Buffer.from(base64Content.trim(), "base64");
+    } else {
+      return res.status(400).json({ message: "PDF file or data is required" });
     }
 
     const catalogueId = `cat_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-    const safeFilename = (filename || "catalogue.pdf").replace(/[^a-zA-Z0-9_.-]/g, "_");
+    const safeFilename = filename.replace(/[^a-zA-Z0-9_.-]/g, "_");
     const filePath = path.join(CATALOGUE_TMP_DIR, `${catalogueId}.pdf`);
-
-    // Clean data URI prefix if present (e.g. data:application/pdf;filename=...;base64, or data:application/pdf;base64,)
-    const base64Content = pdfData.includes(",") ? pdfData.split(",")[1] : pdfData;
-    const pdfBuffer = Buffer.from(base64Content.trim(), "base64");
 
     // Validate PDF magic header (%PDF-)
     const headerString = pdfBuffer.slice(0, 5).toString("utf8");

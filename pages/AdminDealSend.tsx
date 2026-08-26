@@ -470,25 +470,40 @@ export default function AdminDealSend() {
           })
           .filter((link): link is { href: string; x: number; y: number; width: number; height: number } => Boolean(link));
 
-        const canvas = await html2canvas(page, {
-          scale: 3,
-          backgroundColor: "#101828",
-          useCORS: true,
-          allowTaint: true,
-          width: Math.ceil(pageRect.width),
-          height: Math.ceil(pageRect.height),
-          scrollX: -window.scrollX,
-          scrollY: -window.scrollY,
-          windowWidth: document.documentElement.clientWidth,
-          windowHeight: document.documentElement.clientHeight,
-          onclone: (clonedDocument) => {
-            // Stabilize capture origin so exported pages don't pick up viewport offset artifacts.
-            clonedDocument.documentElement.scrollTop = 0;
-            clonedDocument.documentElement.scrollLeft = 0;
-            clonedDocument.body.scrollTop = 0;
-            clonedDocument.body.scrollLeft = 0;
-          },
-        });
+        let canvas: HTMLCanvasElement;
+        try {
+          canvas = await html2canvas(page, {
+            scale: 3,
+            backgroundColor: "#101828",
+            useCORS: true,
+            allowTaint: true,
+            imageTimeout: 15000,
+            width: Math.ceil(pageRect.width),
+            height: Math.ceil(pageRect.height),
+            scrollX: -window.scrollX,
+            scrollY: -window.scrollY,
+            windowWidth: document.documentElement.clientWidth,
+            windowHeight: document.documentElement.clientHeight,
+            onclone: (clonedDocument) => {
+              // Stabilize capture origin so exported pages don't pick up viewport offset artifacts.
+              clonedDocument.documentElement.scrollTop = 0;
+              clonedDocument.documentElement.scrollLeft = 0;
+              clonedDocument.body.scrollTop = 0;
+              clonedDocument.body.scrollLeft = 0;
+            },
+          });
+        } catch (canvasErr) {
+          console.warn("Primary html2canvas capture failed, retrying fallback capture:", canvasErr);
+          canvas = await html2canvas(page, {
+            scale: 2,
+            backgroundColor: "#101828",
+            useCORS: false,
+            allowTaint: true,
+            imageTimeout: 15000,
+            width: Math.ceil(pageRect.width),
+            height: Math.ceil(pageRect.height),
+          });
+        }
 
         if (!isFirst) pdf.addPage();
         isFirst = false;
@@ -560,25 +575,38 @@ export default function AdminDealSend() {
 
       const filename = `catalogue-${quotationNo}.pdf`;
       const pdfBlob = pdf.output("blob");
-      const pdfBase64 = pdf.output("datauristring");
 
       const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
-      const res = await fetch(`${API_BASE_URL}/api/admin/leads/catalogue/upload`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          pdfData: pdfBase64,
-          filename,
-          leadId: lead?._id,
-        }),
-      });
+      const formData = new FormData();
+      formData.append("pdfFile", pdfBlob, filename);
+      formData.append("filename", filename);
+      if (lead?._id) formData.append("leadId", lead._id);
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        setSendStatus({ type: "error", message: errData.message || "Catalogue generation failed" });
+      let res: Response | null = null;
+      let uploadErr: any = null;
+
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          res = await fetch(`${API_BASE_URL}/api/admin/leads/catalogue/upload`, {
+            method: "POST",
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: formData,
+          });
+          if (res.ok) break;
+        } catch (e) {
+          uploadErr = e;
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        }
+      }
+
+      if (!res || !res.ok) {
+        const errData = res ? await res.json().catch(() => ({})) : {};
+        const msg = errData.message || uploadErr?.message || "Catalogue generation failed";
+        setSendStatus({ type: "error", message: msg });
         return null;
       }
 
@@ -628,20 +656,39 @@ export default function AdminDealSend() {
     try {
       setIsSendingEmail(true);
       const adminToken = localStorage.getItem("adminToken") || localStorage.getItem("token");
-      const res = await fetch(`${API_BASE_URL}/api/admin/leads/gmail/create-draft`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
-        },
-        body: JSON.stringify({
-          leadId: lead?._id,
-          catalogueId: catRef.catalogueId,
-          email: targetEmail,
-          subject: subject ? `Product Catalogue - ${subject}` : `Product Catalogue - ${quotationNo}`,
-          body: curationNote,
-        }),
+      const requestPayload = JSON.stringify({
+        leadId: lead?._id,
+        catalogueId: catRef.catalogueId,
+        email: targetEmail,
+        subject: subject ? `Product Catalogue - ${subject}` : `Product Catalogue - ${quotationNo}`,
+        body: curationNote,
       });
+
+      let res: Response | null = null;
+      let fetchErr: any = null;
+
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          res = await fetch(`${API_BASE_URL}/api/admin/leads/gmail/create-draft`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+            },
+            body: requestPayload,
+          });
+          if (res) break;
+        } catch (err) {
+          fetchErr = err;
+          if (attempt < 3) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        }
+      }
+
+      if (!res) {
+        throw fetchErr || new Error("Failed to connect to backend server");
+      }
 
       const data = await res.json().catch(() => ({}));
 
@@ -665,7 +712,10 @@ export default function AdminDealSend() {
       await incrementQuotationCounter();
     } catch (err: any) {
       console.error("Error creating Gmail draft:", err);
-      setSendStatus({ type: "error", message: err?.message || "Error creating Gmail draft" });
+      const msg = err?.message === "Failed to fetch"
+        ? "Failed to connect to backend server. Make sure backend is running."
+        : (err?.message || "Error creating Gmail draft");
+      setSendStatus({ type: "error", message: msg });
     } finally {
       setIsSendingEmail(false);
     }

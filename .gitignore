@@ -62,3 +62,6 @@ backend/scripts/testShiprocket.js
 *.docx
 CANVA_THEME_CHANGES.md
 REMAINING.md
+
+# Generated catalogue files
+backend/tmp/catalogues/
