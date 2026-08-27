@@ -208,7 +208,8 @@ const getPdfLinkRects = (
 export default function AdminDealConvert() {
   const location = useLocation();
   const navigate = useNavigate();
-  const navState = location.state as { lead?: LeadLike; docType?: DocType } | null;
+  const navState = location.state as { lead?: LeadLike; docType?: DocType; existingInvoice?: any; invoice?: any } | null;
+  const existingInvoice = navState?.existingInvoice || navState?.invoice;
   const navLead = navState?.lead;
 
   // Restore an in-progress draft saved to this browser so a refresh / accidental
@@ -221,8 +222,14 @@ export default function AdminDealConvert() {
       : null;
   const lead = navLead ?? draft?.lead;
 
+  const [savedInvoiceId, setSavedInvoiceId] = useState<string | null>(
+    existingInvoice?._id || null
+  );
+
   const initialDocType: DocType =
-    draft?.docType ?? (navState?.docType === "invoice" ? "invoice" : "quotation");
+    existingInvoice?.docType ??
+    draft?.docType ??
+    (navState?.docType === "invoice" ? "invoice" : "quotation");
 
   const [docType, setDocType] = useState<DocType>(initialDocType);
   const isInvoice = docType === "invoice";
@@ -230,37 +237,52 @@ export default function AdminDealConvert() {
   const numberLabel = isInvoice ? "Invoice No" : "Quotation No";
   const validityLabel = isInvoice ? "Payment Due (Days)" : "Validity Days";
   const validityPreviewLabel = isInvoice ? "Payment Due" : "Validity";
-  const pageTitle = isInvoice ? "Create Invoice" : "Convert Deal";
-  const pageSubtitle = isInvoice
+  const pageTitle = savedInvoiceId
+    ? `Edit ${isInvoice ? "Invoice" : "Quotation"}`
+    : isInvoice
+    ? "Create Invoice"
+    : "Convert Deal";
+  const pageSubtitle = savedInvoiceId
+    ? `Modify values and save changes to ${existingInvoice?.invoiceNumber || "existing record"}.`
+    : isInvoice
     ? "Edit fields and generate invoice."
     : "Edit fields and generate quotation.";
 
   const [quotationFor, setQuotationFor] = useState(
-    draft?.quotationFor ?? ([lead?.firstName, lead?.lastName].filter(Boolean).join(" ") || ""),
+    existingInvoice?.customerName ??
+    draft?.quotationFor ??
+    ([lead?.firstName, lead?.lastName].filter(Boolean).join(" ") || "")
   );
-  const [company, setCompany] = useState(draft?.company ?? (lead?.company || ""));
-  const [email, setEmail] = useState(draft?.email ?? (lead?.email || ""));
-  const [phone, setPhone] = useState(draft?.phone ?? (lead?.phone || ""));
-  const [address, setAddress] = useState(draft?.address ?? "");
-  const [quotationNo, setQuotationNo] = useState(() => draft?.quotationNo ?? makeDocNumber(initialDocType));
-  const [quotationDate, setQuotationDate] = useState(draft?.quotationDate ?? toIsoDate(new Date()));
-  const [validityDays, setValidityDays] = useState(draft?.validityDays ?? 30);
-  const [currencyCode, setCurrencyCode] = useState(draft?.currencyCode ?? "INR");
+  const [company, setCompany] = useState(existingInvoice?.company ?? draft?.company ?? (lead?.company || ""));
+  const [email, setEmail] = useState(existingInvoice?.email ?? draft?.email ?? (lead?.email || ""));
+  const [phone, setPhone] = useState(existingInvoice?.phone ?? draft?.phone ?? (lead?.phone || ""));
+  const [address, setAddress] = useState(existingInvoice?.address ?? draft?.address ?? "");
+  const [quotationNo, setQuotationNo] = useState(
+    () => existingInvoice?.invoiceNumber ?? draft?.quotationNo ?? makeDocNumber(initialDocType)
+  );
+  const [quotationDate, setQuotationDate] = useState(
+    existingInvoice?.quotationDate ?? draft?.quotationDate ?? toIsoDate(new Date())
+  );
+  const [validityDays, setValidityDays] = useState(existingInvoice?.validityDays ?? draft?.validityDays ?? 30);
+  const [currencyCode, setCurrencyCode] = useState(existingInvoice?.currencyCode ?? draft?.currencyCode ?? "INR");
   const [subject, setSubject] = useState(
+    existingInvoice?.subject ??
     draft?.subject ??
-      `${initialDocType === "invoice" ? "Invoice" : "Quotation"} for manufacturing & printing`,
+    `${initialDocType === "invoice" ? "Invoice" : "Quotation"} for manufacturing & printing`
   );
   const [intro, setIntro] = useState(
+    existingInvoice?.intro ??
     draft?.intro ??
-      (initialDocType === "invoice"
-        ? "Dear Sir/Ma'am, thank you for your business with Stick Toon. Please find below the invoice details for your order."
-        : "Dear Sir/Ma'am, thank you for your interest in Stick Toon. Please find below the quotation details prepared for your requirement."),
+    (initialDocType === "invoice"
+      ? "Dear Sir/Ma'am, thank you for your business with Stick Toon. Please find below the invoice details for your order."
+      : "Dear Sir/Ma'am, thank you for your interest in Stick Toon. Please find below the quotation details prepared for your requirement")
   );
-  const [companyGstin, setCompanyGstin] = useState(draft?.companyGstin ?? "GSTIN: 27HENPP0138G1Z9");
-  const [companyUdyam, setCompanyUdyam] = useState(draft?.companyUdyam ?? "Udyam Reg: UDYAM-MH-03-0082090");
-  const [companyEmail, setCompanyEmail] = useState(draft?.companyEmail ?? "Email: sticktoon.xyz@gmail.com");
-  const [companyContact, setCompanyContact] = useState(draft?.companyContact ?? "Contact: +91 895 666 7277");
+  const [companyGstin, setCompanyGstin] = useState(existingInvoice?.companyGstin ?? draft?.companyGstin ?? "GSTIN: 27HENPP0138G1Z9");
+  const [companyUdyam, setCompanyUdyam] = useState(existingInvoice?.companyUdyam ?? draft?.companyUdyam ?? "Udyam Reg: UDYAM-MH-03-0082090");
+  const [companyEmail, setCompanyEmail] = useState(existingInvoice?.companyEmail ?? draft?.companyEmail ?? "Email: sticktoon.xyz@gmail.com");
+  const [companyContact, setCompanyContact] = useState(existingInvoice?.companyContact ?? draft?.companyContact ?? "Contact: +91 895 666 7277");
   const [items, setItems] = useState<QuoteItem[]>(
+    existingInvoice?.items ??
     draft?.items ?? [
       {
         id: "item-1",
@@ -270,9 +292,25 @@ export default function AdminDealConvert() {
         quantity: 1,
         image: "",
       },
-    ],
+    ]
   );
-  const [gstRate, setGstRate] = useState(draft?.gstRate ?? 18);
+  const [gstRate, setGstRate] = useState(existingInvoice?.gstRate ?? draft?.gstRate ?? 18);
+  const [gstEnabled, setGstEnabled] = useState<boolean>(
+    existingInvoice ? existingInvoice.gstEnabled !== false : true
+  );
+  const [gstin, setGstin] = useState<string>(
+    existingInvoice?.gstin ?? "27HENPP0138G1Z9"
+  );
+  const [deliveryCharges, setDeliveryCharges] = useState<number>(
+    existingInvoice?.deliveryCharges ?? 0
+  );
+  const [isSaving, setIsSaving] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [availableProducts, setAvailableProducts] = useState<ImportProduct[]>([]);
@@ -413,23 +451,126 @@ export default function AdminDealConvert() {
     const computed = items.reduce(
       (sum, item) => {
         const amount = Number(item.unitPrice || 0) * Number(item.quantity || 0);
-        const igst = (amount * Number(gstRate || 0)) / 100;
+        const igst = gstEnabled ? (amount * Number(gstRate || 0)) / 100 : 0;
 
         return {
           subtotal: sum.subtotal + Math.round(amount),
           gstAmount: sum.gstAmount + Math.round(igst),
-          grandTotal: sum.grandTotal + Math.round(amount + igst),
         };
       },
-      { subtotal: 0, gstAmount: 0, grandTotal: 0 },
+      { subtotal: 0, gstAmount: 0 },
     );
+
+    const delivery = Math.max(0, Number(deliveryCharges || 0));
 
     return {
       subtotal: computed.subtotal,
       gstAmount: computed.gstAmount,
-      grandTotal: computed.grandTotal,
+      deliveryCharges: delivery,
+      grandTotal: computed.subtotal + computed.gstAmount + delivery,
     };
-  }, [gstRate, items]);
+  }, [gstRate, items, gstEnabled, deliveryCharges]);
+
+  const handleSaveInvoice = async () => {
+    if (isSaving) return;
+
+    if (deliveryCharges < 0 || Number.isNaN(deliveryCharges)) {
+      showToast("Delivery charges must be a valid non-negative number", "error");
+      return;
+    }
+
+    if (!quotationFor && !company) {
+      showToast("Please enter customer name or company name", "error");
+      return;
+    }
+
+    if (items.length === 0) {
+      showToast("Please add at least one line item", "error");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const token = localStorage.getItem("adminToken");
+      const payload = {
+        leadId: lead?._id || null,
+        docType,
+        customerName: quotationFor,
+        company,
+        email,
+        phone,
+        address,
+        invoiceNumber: quotationNo,
+        quotationDate,
+        validityDays,
+        currencyCode,
+        subject,
+        intro,
+        companyGstin,
+        companyUdyam,
+        companyEmail,
+        companyContact,
+        items,
+        gstEnabled,
+        gstin,
+        gstRate,
+        subtotal: totals.subtotal,
+        gstAmount: totals.gstAmount,
+        deliveryCharges: totals.deliveryCharges,
+        amount: totals.grandTotal,
+        discount: 0,
+        termsText,
+        bankDetails: {
+          accountName,
+          bankName,
+          accountNumber,
+          ifsc,
+          swift,
+          branch,
+        },
+        operationalAddress,
+        headquartersAddress,
+        authorizedSignatory,
+        signatureBrand,
+        status: "Saved",
+      };
+
+      const isEdit = Boolean(savedInvoiceId);
+      const url = isEdit
+        ? `${API_BASE_URL}/api/admin/invoice/${savedInvoiceId}`
+        : `${API_BASE_URL}/api/admin/invoice`;
+      const method = isEdit ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        if (data._id) {
+          setSavedInvoiceId(data._id);
+        }
+        showToast(
+          isEdit
+            ? `Changes saved for ${quotationNo}`
+            : `${isInvoice ? "Invoice" : "Quotation"} saved successfully!`,
+          "success"
+        );
+      } else {
+        showToast(data.message || "Failed to save invoice", "error");
+      }
+    } catch (err: any) {
+      console.error("Save invoice error:", err);
+      showToast("Failed to save invoice due to connection error", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const firstPageRows = 3;
   // 8 rows (120px each) + header + tfoot overflows the fixed 297mm .a4-page and clips the
@@ -993,8 +1134,63 @@ export default function AdminDealConvert() {
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-black uppercase text-slate-500">GST %</span>
-                <input type="number" min={0} value={gstRate} onChange={(e) => setGstRate(Number(e.target.value || 0))} className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`} />
+                <input
+                  type="number"
+                  min={0}
+                  value={gstRate === 0 ? "" : gstRate}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setGstRate(val === "" ? 0 : Math.max(0, Number(val)));
+                  }}
+                  placeholder="0"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`}
+                />
               </label>
+            </div>
+
+            <div className="rounded-xl border p-4 space-y-3 bg-slate-50">
+              <h2 className="text-sm font-black uppercase text-slate-700">GSTIN & Delivery Charges</h2>
+
+              <div className="space-y-2">
+                <label className="inline-flex items-center gap-2 cursor-pointer font-bold text-sm text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={gstEnabled}
+                    onChange={(e) => setGstEnabled(e.target.checked)}
+                    className="w-4 h-4 rounded accent-slate-900"
+                  />
+                  <span>Enable GSTIN</span>
+                </label>
+
+                {gstEnabled && (
+                  <div className="mt-2">
+                    <span className="mb-1 block text-xs font-black uppercase text-slate-500">GSTIN Value</span>
+                    <input
+                      type="text"
+                      value={gstin}
+                      onChange={(e) => setGstin(e.target.value)}
+                      placeholder="27XXXXXXXXXX1Z5"
+                      className={`w-full rounded-lg border px-3 py-2 text-sm font-mono uppercase ${printFieldClass}`}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <span className="mb-1 block text-xs font-black uppercase text-slate-500">Delivery Charges (₹)</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={deliveryCharges === 0 ? "" : deliveryCharges}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDeliveryCharges(val === "" ? 0 : Math.max(0, Number(val)));
+                  }}
+                  placeholder="0"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm ${printFieldClass}`}
+                />
+                <span className="mt-1 block text-[11px] text-slate-400">Enter ₹0 for free delivery or any valid positive amount.</span>
+              </div>
             </div>
 
             <label className="block">
@@ -1086,11 +1282,41 @@ export default function AdminDealConvert() {
               </div>
             </div>
 
+            {toast && (
+              <div className={`p-3 rounded-lg text-xs font-bold text-center border ${toast.type === "success" ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-red-50 text-red-800 border-red-300"}`}>
+                {toast.message}
+              </div>
+            )}
+
             <div className="flex gap-3">
-              <button onClick={handlePrint} className="flex-1 rounded-lg border border-slate-300 px-4 py-3 text-sm font-bold print:hidden">
+              <button
+                type="button"
+                onClick={handleSaveInvoice}
+                disabled={isSaving}
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : savedInvoiceId ? (
+                  "Save Changes"
+                ) : (
+                  isInvoice ? "Save Invoice" : "Save Quotation"
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/admin")}
+                className="rounded-lg border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={handlePrint} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold print:hidden">
                 Print
               </button>
-              <button onClick={handleDownload} className="flex-1 rounded-lg bg-slate-900 px-4 py-3 text-sm font-bold text-white print:hidden">
+              <button onClick={handleDownload} className="flex-1 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-bold text-white print:hidden">
                 Download PDF
               </button>
             </div>
@@ -1303,6 +1529,16 @@ export default function AdminDealConvert() {
                     </tbody>
                     {pageIndex === itemPages.length - 1 && (
                       <tfoot style={{ backgroundColor: "#0f172a", color: "#ffffff" }} className="border-t-2 border-slate-900">
+                        {totals.deliveryCharges > 0 && (
+                          <tr style={{ backgroundColor: "#1e293b", color: "#e2e8f0" }}>
+                            <td colSpan={7} style={{ color: "#e2e8f0", backgroundColor: "#1e293b" }} className="border border-slate-700 px-3 py-2 text-right font-bold text-xs uppercase tracking-wider">
+                              <span style={{ color: "#e2e8f0", display: "inline-block" }}>Delivery Charges</span>
+                            </td>
+                            <td style={{ color: "#e2e8f0", backgroundColor: "#1e293b" }} className="border border-slate-700 px-3 py-2 text-center font-bold text-xs">
+                              <span style={{ color: "#e2e8f0", display: "inline-block" }}>{money(totals.deliveryCharges)}</span>
+                            </td>
+                          </tr>
+                        )}
                         <tr style={{ backgroundColor: "#0f172a", color: "#ffffff" }}>
                           <td colSpan={5} style={{ color: "#ffffff", backgroundColor: "#0f172a" }} className="border border-slate-700 px-3 py-3.5 text-center font-black text-sm uppercase tracking-wider">
                             <span style={{ color: "#ffffff", display: "inline-block" }}>Grand Total</span>

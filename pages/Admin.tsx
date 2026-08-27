@@ -8,6 +8,7 @@ import AdminDealSend from "./AdminDealSend";
 import AdminInvoice from "./AdminInvoice";
 import AdminRevenue from "./AdminRevenue";
 import AdminUserOrders from "./AdminUserOrders";
+import ConfirmModal from "../components/ConfirmModal";
 import { API_BASE_URL } from "../config/api";
 import { waitForBackupOutcome } from "../utils/backupStatus";
 import {
@@ -1189,6 +1190,23 @@ const Admin: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [savedInvoicesList, setSavedInvoicesList] = useState<any[]>([]);
+  const [savedCataloguesList, setSavedCataloguesList] = useState<any[]>([]);
+  const [loadingInvoicesCatalogues, setLoadingInvoicesCatalogues] = useState(false);
+  const [invoiceSubTab, setInvoiceSubTab] = useState<"all" | "invoices" | "catalogues">("all");
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    id: string | null;
+    type: "invoice" | "catalogue" | null;
+    name: string;
+    isDeleting: boolean;
+  }>({
+    isOpen: false,
+    id: null,
+    type: null,
+    name: "",
+    isDeleting: false,
+  });
   const [updatingDeliveryOrderId, setUpdatingDeliveryOrderId] = useState<string | null>(null);
   const [syncingOrderId, setSyncingOrderId] = useState<string | null>(null);
   const [shiprocketAutoApprove, setShiprocketAutoApprove] = useState<boolean>(false);
@@ -3119,6 +3137,9 @@ const Admin: React.FC = () => {
         fetchTasks();
         fetchUsersData();
         break;
+      case "invoices":
+        fetchInvoicesAndCataloguesData();
+        break;
       case "support":
         fetchSupportMessages();
         break;
@@ -4401,6 +4422,79 @@ const Admin: React.FC = () => {
       }
     } catch (err) {
       console.error("Error updating role:", err);
+    }
+  };
+
+  const fetchInvoicesAndCataloguesData = async () => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    setLoadingInvoicesCatalogues(true);
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const [invRes, catRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/admin/invoice`, { headers }),
+        fetch(`${API_BASE_URL}/api/admin/catalogue`, { headers }),
+      ]);
+
+      if (invRes.ok) {
+        const invData = await invRes.json();
+        if (Array.isArray(invData)) setSavedInvoicesList(invData);
+      }
+      if (catRes.ok) {
+        const catData = await catRes.json();
+        if (Array.isArray(catData)) setSavedCataloguesList(catData);
+      }
+    } catch (err) {
+      console.error("Failed to fetch invoices/catalogues:", err);
+    } finally {
+      setLoadingInvoicesCatalogues(false);
+    }
+  };
+
+  const openDeleteInvoiceModal = (id: string, name: string) => {
+    setDeleteModalState({
+      isOpen: true,
+      id,
+      type: "invoice",
+      name: name || "Invoice",
+      isDeleting: false,
+    });
+  };
+
+  const openDeleteCatalogueModal = (id: string, name: string) => {
+    setDeleteModalState({
+      isOpen: true,
+      id,
+      type: "catalogue",
+      name: name || "Catalogue",
+      isDeleting: false,
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    const { id, type } = deleteModalState;
+    if (!id || !type) return;
+
+    setDeleteModalState((prev) => ({ ...prev, isDeleting: true }));
+    try {
+      const token = localStorage.getItem("adminToken");
+      const endpoint = type === "invoice" ? `/api/admin/invoice/${id}` : `/api/admin/catalogue/${id}`;
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        if (type === "invoice") {
+          setSavedInvoicesList((prev) => prev.filter((item) => item._id !== id));
+        } else {
+          setSavedCataloguesList((prev) => prev.filter((item) => item._id !== id));
+        }
+      }
+    } catch (err) {
+      console.error(`Failed to delete ${type}:`, err);
+    } finally {
+      setDeleteModalState({ isOpen: false, id: null, type: null, name: "", isDeleting: false });
     }
   };
 
@@ -8177,55 +8271,266 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
             </div>
           )}
 
-          {/* ================= INVOICES VIEW ================= */}
+          {/* ================= INVOICES & CATALOGUES VIEW ================= */}
           {currentView === "invoices" && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-black text-slate-900">Invoices &amp; Catalogues</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Generate a custom invoice or product catalogue from scratch — no lead required.
-                </p>
-              </div>
-
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* Custom Invoice */}
-                <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-white">
-                    <ReceiptLongRoundedIcon sx={{ fontSize: 26 }} />
-                  </div>
-                  <h3 className="mt-4 text-lg font-black text-slate-900">Custom Invoice</h3>
-                  <p className="mt-1 flex-1 text-sm text-slate-500">
-                    Build a professional quotation / invoice with line items, GST, terms &amp; bank
-                    details, then download or print as PDF.
+            <div className="space-y-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900">Invoices &amp; Catalogues</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Create, manage, view and edit custom saved invoices, quotations, and visual product catalogues.
                   </p>
+                </div>
+                <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
                     onClick={() => navigate("/admin/deal-convert", { state: { lead: {}, docType: "invoice" } })}
-                    className="mt-5 inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                    className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 shadow"
                   >
-                    Generate Invoice
+                    <Plus className="w-4 h-4" /> Create Invoice
                   </button>
-                </div>
-
-                {/* Custom Catalogue */}
-                <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 text-white">
-                    <DescriptionRoundedIcon sx={{ fontSize: 26 }} />
-                  </div>
-                  <h3 className="mt-4 text-lg font-black text-slate-900">Custom Catalogue</h3>
-                  <p className="mt-1 flex-1 text-sm text-slate-500">
-                    Design a visual product catalogue proposal with images, pricing and overview,
-                    then download or print as PDF.
-                  </p>
                   <button
                     type="button"
                     onClick={() => navigate("/admin/deal-send", { state: { lead: {} } })}
-                    className="mt-5 inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-indigo-500"
+                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 shadow"
                   >
-                    Generate Catalogue
+                    <Plus className="w-4 h-4" /> Create Catalogue
                   </button>
                 </div>
               </div>
+
+              <div className="flex border-b border-slate-200 gap-6 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setInvoiceSubTab("all")}
+                  className={`pb-3 text-sm font-bold border-b-2 transition ${invoiceSubTab === "all" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+                >
+                  All Documents ({savedInvoicesList.length + savedCataloguesList.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInvoiceSubTab("invoices")}
+                  className={`pb-3 text-sm font-bold border-b-2 transition ${invoiceSubTab === "invoices" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+                >
+                  Invoices &amp; Quotations ({savedInvoicesList.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInvoiceSubTab("catalogues")}
+                  className={`pb-3 text-sm font-bold border-b-2 transition ${invoiceSubTab === "catalogues" ? "border-indigo-600 text-indigo-600 font-extrabold" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+                >
+                  Saved Catalogues ({savedCataloguesList.length})
+                </button>
+              </div>
+
+              {/* SAVED INVOICES TABLE */}
+              {(invoiceSubTab === "all" || invoiceSubTab === "invoices") && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                      <ReceiptLongRoundedIcon sx={{ fontSize: 22 }} /> Saved Invoices &amp; Quotations ({savedInvoicesList.length})
+                    </h3>
+                  </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-slate-600">
+                      <thead className="bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                        <tr>
+                          <th className="px-6 py-4">Number / Type</th>
+                          <th className="px-6 py-4">Customer / Company</th>
+                          <th className="px-6 py-4">Date</th>
+                          <th className="px-6 py-4">GSTIN Status</th>
+                          <th className="px-6 py-4">Delivery</th>
+                          <th className="px-6 py-4">Total Amount</th>
+                          <th className="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {loadingInvoicesCatalogues ? (
+                          <tr>
+                            <td colSpan={7} className="px-6 py-8 text-center text-slate-400">
+                              Loading saved invoices...
+                            </td>
+                          </tr>
+                        ) : savedInvoicesList.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="px-6 py-8 text-center text-slate-400">
+                              No saved invoices or quotations found. Click "Create Invoice" above to start.
+                            </td>
+                          </tr>
+                        ) : (
+                          savedInvoicesList.map((inv) => (
+                            <tr key={inv._id} className="hover:bg-slate-50/80 transition">
+                              <td className="px-6 py-4 font-bold text-slate-900">
+                                <div>{inv.invoiceNumber}</div>
+                                <span className={`inline-block mt-0.5 text-[10px] font-black uppercase px-2 py-0.5 rounded ${inv.docType === "invoice" ? "bg-slate-900 text-white" : "bg-amber-100 text-amber-800"}`}>
+                                  {inv.docType || "Invoice"}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="font-semibold text-slate-900">{inv.customerName || inv.company || "-"}</div>
+                                <div className="text-xs text-slate-400">{inv.email || inv.phone || ""}</div>
+                              </td>
+                              <td className="px-6 py-4 text-xs font-medium text-slate-500">
+                                {inv.quotationDate || (inv.createdAt ? new Date(inv.createdAt).toISOString().slice(0, 10) : "-")}
+                              </td>
+                              <td className="px-6 py-4 text-xs">
+                                {inv.gstEnabled !== false ? (
+                                  <span className="inline-flex items-center gap-1 font-bold text-emerald-600">
+                                    <CheckCircle className="w-3.5 h-3.5" /> Enabled ({inv.gstin || "Default"})
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 font-bold text-slate-400">
+                                    <XCircle className="w-3.5 h-3.5" /> Disabled
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 text-xs font-semibold text-slate-700">
+                                ₹{inv.deliveryCharges || 0}
+                              </td>
+                              <td className="px-6 py-4 font-black text-slate-900">
+                                ₹{(inv.amount || inv.grandTotal || 0).toLocaleString("en-IN")}
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate("/admin/deal-convert", { state: { existingInvoice: inv, docType: inv.docType } })}
+                                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" /> Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openDeleteInvoiceModal(inv._id, inv.invoiceNumber)}
+                                    className="rounded-lg border border-red-100 p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700 transition"
+                                    title="Delete invoice"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              )}
+
+              {/* SAVED CATALOGUES TABLE */}
+              {(invoiceSubTab === "all" || invoiceSubTab === "catalogues") && (
+                <div className="space-y-4 pt-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                      <DescriptionRoundedIcon sx={{ fontSize: 22 }} /> Saved Catalogues ({savedCataloguesList.length})
+                    </h3>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm text-slate-600">
+                        <thead className="bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                          <tr>
+                            <th className="px-6 py-4">Catalogue No / Title</th>
+                            <th className="px-6 py-4">Customer Contact</th>
+                            <th className="px-6 py-4">Date</th>
+                            <th className="px-6 py-4">Items</th>
+                            <th className="px-6 py-4">GSTIN Status</th>
+                            <th className="px-6 py-4">Delivery</th>
+                            <th className="px-6 py-4">Total Price</th>
+                            <th className="px-6 py-4 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {loadingInvoicesCatalogues ? (
+                            <tr>
+                              <td colSpan={8} className="px-6 py-8 text-center text-slate-400">
+                                Loading saved catalogues...
+                              </td>
+                            </tr>
+                          ) : savedCataloguesList.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="px-6 py-8 text-center text-slate-400">
+                                No saved catalogues found. Click "Create Catalogue" above to design one.
+                              </td>
+                            </tr>
+                          ) : (
+                            savedCataloguesList.map((cat) => (
+                              <tr key={cat._id} className="hover:bg-slate-50/80 transition">
+                                <td className="px-6 py-4 font-bold text-slate-900">
+                                  <div>{cat.catalogueNumber}</div>
+                                  <div className="text-xs font-normal text-slate-500 truncate max-w-[200px]">{cat.title || "Advantage Collection"}</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="font-semibold text-slate-900">{cat.customerEmail || "-"}</div>
+                                  <div className="text-xs text-slate-400">{cat.customerPhone || ""}</div>
+                                </td>
+                                <td className="px-6 py-4 text-xs font-medium text-slate-500">
+                                  {cat.quotationDate || (cat.createdAt ? new Date(cat.createdAt).toISOString().slice(0, 10) : "-")}
+                                </td>
+                                <td className="px-6 py-4 text-xs font-bold text-slate-700">
+                                  {cat.items?.length || 0} items
+                                </td>
+                                <td className="px-6 py-4 text-xs">
+                                  {cat.gstEnabled !== false ? (
+                                    <span className="inline-flex items-center gap-1 font-bold text-emerald-600">
+                                      <CheckCircle className="w-3.5 h-3.5" /> Enabled
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 font-bold text-slate-400">
+                                      <XCircle className="w-3.5 h-3.5" /> Disabled
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4 text-xs font-semibold text-slate-700">
+                                  ₹{cat.deliveryCharges || 0}
+                                </td>
+                                <td className="px-6 py-4 font-black text-slate-900">
+                                  ₹{(cat.total || 0).toLocaleString("en-IN")}
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => navigate("/admin/deal-send", { state: { existingCatalogue: cat } })}
+                                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" /> Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => openDeleteCatalogueModal(cat._id, cat.catalogueNumber || cat.title || "Catalogue")}
+                                      className="rounded-lg border border-red-100 p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700 transition"
+                                      title="Delete catalogue"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <ConfirmModal
+                isOpen={deleteModalState.isOpen}
+                title={`Delete Saved ${deleteModalState.type === "invoice" ? "Invoice" : "Catalogue"}?`}
+                message={`Are you sure you want to delete ${deleteModalState.name}? This action cannot be undone.`}
+                confirmText="Delete"
+                cancelText="Cancel"
+                isConfirming={deleteModalState.isDeleting}
+                onCancel={() => setDeleteModalState({ isOpen: false, id: null, type: null, name: "", isDeleting: false })}
+                onConfirm={handleConfirmDelete}
+              />
             </div>
           )}
 
