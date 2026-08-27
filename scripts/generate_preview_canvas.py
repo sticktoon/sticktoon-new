@@ -1,5 +1,5 @@
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageChops
 import math
 
 size = 800
@@ -104,8 +104,8 @@ im = Image.alpha_composite(im, rim_img)
 final_mask = Image.new("L", (size, size), 0)
 ImageDraw.Draw(final_mask).ellipse([0, 0, size, size], fill=255)
 r_ch, g_ch, b_ch, a_ch = im.split()
-a_ch = ImageChops.multiply(a_ch, final_mask) if 'ImageChops' in globals() else a_ch
-im.putalpha(final_mask)
+a_ch = ImageChops.multiply(a_ch, final_mask)
+im.putalpha(a_ch)
 
 output_path = r"F:\Anish Projects\sticktoon-new\public\customize-canvas-preview.png"
 im.save(output_path, "PNG")

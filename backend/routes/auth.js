@@ -7,6 +7,7 @@ const sendEmail = require("../utils/sendEmail");
 const { resetPasswordEmail } = require("../utils/emailTemplates");
 const { logActivity } = require("../utils/activityLogger");
 const handleValidationError = require("../utils/handleValidationError");
+const { isSuperAdmin, isAdminEmail } = require("../middleware/roleMiddleware");
 
 const router = express.Router();
 
@@ -91,17 +92,20 @@ router.post("/signup", async (req, res) => {
   
   
 
+    const cleanEmail = email.toLowerCase().trim();
+    const role = isSuperAdmin(cleanEmail) ? "superadmin" : isAdminEmail(cleanEmail) ? "admin" : "user";
+
     const user = await User.create({
-      name: cleanName || email.split("@")[0],
-      email,
+      name: cleanName || cleanEmail.split("@")[0],
+      email: cleanEmail,
       phone: phoneNumber,
       password: hashed,
       provider: "credentials",
-      role: "user",
+      role,
     });
 
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id, role: user.role, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -109,7 +113,7 @@ router.post("/signup", async (req, res) => {
     // Generate same token as refresh token (for simplicity, they use same secret)
     // In production, you'd use a different expiry like 30 days
     const refreshToken = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id, role: user.role, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "30d" }
     );
@@ -193,14 +197,27 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    // Auto-promote super admin and admin roles based on email
+    if (isSuperAdmin(user.email)) {
+      if (user.role !== "superadmin") {
+        user.role = "superadmin";
+        await user.save();
+      }
+    } else if (isAdminEmail(user.email)) {
+      if (user.role !== "admin" && user.role !== "superadmin") {
+        user.role = "admin";
+        await user.save();
+      }
+    }
+
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id, role: user.role, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
     const refreshToken = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id, role: user.role, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "30d" }
     );
@@ -242,24 +259,42 @@ router.post("/google", async (req, res) => {
       return res.status(400).json({ message: "Google login failed" });
     }
 
-    let user = await User.findOne({ email });
+    const cleanEmail = email.toLowerCase().trim();
+    let user = await User.findOne({ email: cleanEmail });
     const isNewAccount = !user;
 
     if (!user) {
+      const initialRole = isSuperAdmin(cleanEmail)
+        ? "superadmin"
+        : isAdminEmail(cleanEmail)
+        ? "admin"
+        : "user";
+
       // Create new user with Google provider
       user = await User.create({
         // Client-supplied, so strip markup rather than reject — a bad name
         // must not block the Google sign-in itself.
         name:
           String(name ?? "").replace(/[<>]/g, "").trim().slice(0, 100) ||
-          email.split("@")[0],
-        email,
+          cleanEmail.split("@")[0],
+        email: cleanEmail,
         provider: "google",
         avatar,
-        role: "user",
+        role: initialRole,
       });
     } else {
-      // User exists - update provider to Google if it was credentials
+      // User exists - update role if superadmin or admin
+      if (isSuperAdmin(user.email)) {
+        if (user.role !== "superadmin") {
+          user.role = "superadmin";
+        }
+      } else if (isAdminEmail(user.email)) {
+        if (user.role !== "admin" && user.role !== "superadmin") {
+          user.role = "admin";
+        }
+      }
+
+      // Update provider to Google if it was credentials
       if (user.provider === "credentials") {
         user.provider = "google";
       }
@@ -271,13 +306,13 @@ router.post("/google", async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id, role: user.role, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
     const refreshToken = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id, role: user.role, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "30d" }
     );
@@ -611,7 +646,7 @@ router.post("/refresh-token", async (req, res) => {
 
     // Generate new access token
     const newAccessToken = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id, role: user.role, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );

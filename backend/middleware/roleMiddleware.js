@@ -13,6 +13,20 @@ const parseEmailList = (value) => {
     .filter(Boolean);
 };
 
+const getSuperAdminEmails = () => {
+  const envValues = [
+    process.env.DEV_EMAIL || "",
+    process.env.SUPER_ADMIN_EMAILS || "",
+    process.env.SUPER_ADMIN_EMAIL || "",
+    process.env.VITE_DEV_EMAIL || "",
+    process.env.VITE_SUPER_ADMIN_EMAILS || "",
+    process.env.VITE_SUPER_ADMIN_EMAIL || "",
+    "anishpatankar974@gmail.com",
+  ].join(",");
+
+  return parseEmailList(envValues).map(normalizeEmail).filter((email, index, array) => array.indexOf(email) === index);
+};
+
 const getAdminAccessEmails = () => {
   const envValues = [
     process.env.DEV_EMAIL || "",
@@ -20,14 +34,12 @@ const getAdminAccessEmails = () => {
     process.env.ORDERS_EMAIL || "",
     process.env.ADMIN_ACCESS_EMAILS || "",
     process.env.ADMIN_EMAILS || "",
+    process.env.SUPER_ADMIN_EMAILS || "",
+    process.env.SUPER_ADMIN_EMAIL || "",
+    getSuperAdminEmails().join(","),
   ].join(",");
 
   return parseEmailList(envValues).map(normalizeEmail).filter((email, index, array) => array.indexOf(email) === index);
-};
-
-const getSuperAdminEmails = () => {
-  const configured = process.env.DEV_EMAIL || process.env.SUPER_ADMIN_EMAILS || "";
-  return parseEmailList(configured).map(normalizeEmail).filter((email, index, array) => array.indexOf(email) === index);
 };
 
 const getOrdersEmails = () => {
@@ -59,23 +71,65 @@ const isAdminAccount = (user) => {
 };
 
 /**
+ * Async helper to definitively check if a request user is super admin,
+ * with database fallback if the JWT token lacks email or fresh role.
+ */
+const checkIsSuperAdmin = async (reqUser) => {
+  if (!reqUser) return false;
+  if (reqUser.role === "superadmin") return true;
+  if (reqUser.email && isSuperAdmin(reqUser.email)) return true;
+
+  const userId = reqUser.id || reqUser._id;
+  if (userId) {
+    try {
+      const dbUser = await User.findById(userId).select("role email");
+      if (dbUser) {
+        if (dbUser.role === "superadmin" || isSuperAdmin(dbUser.email)) {
+          if (dbUser.role !== "superadmin") {
+            dbUser.role = "superadmin";
+            await dbUser.save();
+          }
+          reqUser.role = "superadmin";
+          reqUser.email = dbUser.email;
+          return true;
+        }
+      }
+    } catch (err) {
+      console.error("checkIsSuperAdmin database lookup error:", err);
+    }
+  }
+
+  return false;
+};
+
+/**
  * Middleware: Restrict access to admin only
  */
-const adminOnly = (req, res, next) => {
-  if (!isAdminAccount(req.user)) {
-    return res.status(403).json({ message: "Admin only access required" });
+const adminOnly = async (req, res, next) => {
+  if (isAdminAccount(req.user)) {
+    return next();
   }
-  next();
+
+  const userId = req.user?.id || req.user?._id;
+  if (userId) {
+    try {
+      const dbUser = await User.findById(userId).select("role email");
+      if (dbUser && isAdminAccount(dbUser)) {
+        req.user.role = dbUser.role;
+        req.user.email = dbUser.email;
+        return next();
+      }
+    } catch (err) {
+      console.error("adminOnly database lookup error:", err);
+    }
+  }
+
+  return res.status(403).json({ message: "Admin only access required" });
 };
 
 /**
  * Admin panel sections an admin account can be granted access to.
  * The dashboard is intentionally absent - every admin can see it.
- *
- * Deliberately coarse: image upload rides on "products" and the Shiprocket
- * setting rides on "orders" because those APIs are called from inside those
- * screens. Splitting them out would let a grant look complete while the
- * screen it belongs to still half-fails.
  */
 const ADMIN_PERMISSIONS = [
   "orders",
@@ -96,13 +150,16 @@ const ADMIN_PERMISSIONS = [
  * takes effect immediately, without waiting for a re-login.
  */
 const hasPermission = async (reqUser, permission) => {
-  if (!isAdminAccount(reqUser)) return false;
-  if (isSuperAdminUser(reqUser)) return true;
+  if (await checkIsSuperAdmin(reqUser)) return true;
 
-  const account = await User.findById(reqUser.id).select("role email adminPermissions");
+  const userId = reqUser?.id || reqUser?._id;
+  if (!userId) return false;
+
+  const account = await User.findById(userId).select("role email adminPermissions");
   if (!account) return false;
 
   if (account.role === "superadmin" || isSuperAdmin(account.email)) return true;
+  if (!isAdminAccount(account)) return false;
 
   return (account.adminPermissions || []).includes(permission);
 };
@@ -128,11 +185,11 @@ const requirePermission = (permission) => async (req, res, next) => {
 /**
  * Middleware: Restrict access to super admin only
  */
-const superAdminOnly = (req, res, next) => {
-  if (!isSuperAdminUser(req.user)) {
-    return res.status(403).json({ message: "Super admin access required" });
+const superAdminOnly = async (req, res, next) => {
+  if (await checkIsSuperAdmin(req.user)) {
+    return next();
   }
-  next();
+  return res.status(403).json({ message: "Super admin access required" });
 };
 
 /**
@@ -172,6 +229,7 @@ module.exports = {
   requirePermission,
   adminOnly,
   superAdminOnly,
+  checkIsSuperAdmin,
   isSuperAdmin,
   isSuperAdminUser,
   isAdminEmail,

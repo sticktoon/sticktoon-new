@@ -42,7 +42,7 @@ const AdminLogin: React.FC = () => {
     if (adminToken && rawAdminUser) {
       try {
         const parsed = JSON.parse(rawAdminUser);
-        if (parsed?.role === "admin") {
+        if (parsed?.role === "admin" || parsed?.role === "superadmin") {
           navigate(from, { replace: true });
         }
       } catch {}
@@ -67,7 +67,7 @@ const AdminLogin: React.FC = () => {
         throw new Error(data.message || "Login failed");
       }
 
-      if (data.user?.role !== "admin") {
+      if (data.user?.role !== "admin" && data.user?.role !== "superadmin") {
         throw new Error("Only admins can access this panel");
       }
 

@@ -17,7 +17,17 @@ type CurrentAuthUser = {
   role?: string;
 };
 
-const ROLES = ["user", "influencer", "admin", "superadmin"];
+const DEV_EMAILS = [
+  import.meta.env.VITE_DEV_EMAIL || "",
+  import.meta.env.VITE_SUPER_ADMIN_EMAILS || "",
+  import.meta.env.VITE_SUPER_ADMIN_EMAIL || "",
+  "anishpatankar974@gmail.com",
+  "sticktoon.xyz@gmail.com",
+]
+  .join(",")
+  .split(",")
+  .map((email) => email.toLowerCase().trim())
+  .filter(Boolean);
 
 export default function AdminUsers() {
   const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
@@ -35,7 +45,7 @@ export default function AdminUsers() {
 
   const isSuperAdmin = Boolean(
     currentUser?.role === "superadmin" ||
-    (currentUser?.email && ["anishpatankar974@gmail.com"].includes(currentUser.email.toLowerCase()))
+    (currentUser?.email && DEV_EMAILS.includes(currentUser.email.toLowerCase().trim()))
   );
 
   const [users, setUsers] = useState<User[]>([]);

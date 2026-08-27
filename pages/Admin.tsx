@@ -58,8 +58,14 @@ import {
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 
-// Developer email (full access) configured through Vite env variables only
-const DEV_EMAILS = (import.meta.env.VITE_DEV_EMAIL || "")
+// Developer email (full access) configured through Vite env variables and super admin emails
+const DEV_EMAILS = [
+  import.meta.env.VITE_DEV_EMAIL || "",
+  import.meta.env.VITE_SUPER_ADMIN_EMAILS || "",
+  import.meta.env.VITE_SUPER_ADMIN_EMAIL || "",
+  "anishpatankar974@gmail.com",
+]
+  .join(",")
   .split(",")
   .map((email) => email.toLowerCase().trim())
   .filter(Boolean);
@@ -1210,8 +1216,11 @@ const Admin: React.FC = () => {
 
   const handleCreateUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
+    const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
+    if (!token) {
+      showToast("error", "🔒 Please login first");
+      return;
+    }
 
     setAddingUserLoading(true);
     try {
@@ -1223,16 +1232,17 @@ const Admin: React.FC = () => {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.message || "Failed to create user");
+        showToast("error", `❌ ${data.message || "Failed to create user"}`);
         return;
       }
 
-      alert("✅ User created successfully!");
+      showToast("success", `✅ ${newUserForm.role === "admin" ? "Admin" : "User"} created successfully!`);
       setShowAddUserModal(false);
       setNewUserForm({ name: "", email: "", password: "", phone: "", role: "user" });
+      setLoadedData((prev) => ({ ...prev, users: false }));
       fetchUsersData();
     } catch (err: any) {
-      alert("Failed to create user");
+      showToast("error", "❌ Failed to create user");
     } finally {
       setAddingUserLoading(false);
     }
@@ -3934,7 +3944,7 @@ const Admin: React.FC = () => {
 
     // Check if trying to delete admin without super admin privileges
     const targetUser = allUsers.find((u) => u._id === userId);
-    if (targetUser?.role === "admin" && !isSuperAdminEmail(user?.email)) {
+    if ((targetUser?.role === "admin" || targetUser?.role === "superadmin") && !isSuperAdmin) {
       showToast("error", "🔒 Only super admin can delete other admins");
       return;
     }
@@ -3975,7 +3985,7 @@ const Admin: React.FC = () => {
       // Super admin can use the full edit endpoint if changing password or avatar
       if ((updates.password || updates.avatar) && isSuperAdmin) {
         endpoint = `${API_BASE_URL}/api/admin/users/${userId}/super-edit`;
-      } else if (targetUser?.role === "admin" && !isSuperAdmin) {
+      } else if ((targetUser?.role === "admin" || targetUser?.role === "superadmin") && !isSuperAdmin) {
         showToast("error", "🔒 Only super admin can update other admins");
         return;
       }
@@ -4048,7 +4058,7 @@ const Admin: React.FC = () => {
     if (!token) return;
 
     // Check if trying to reset password without super admin privileges
-    if (!isSuperAdminEmail(user?.email)) {
+    if (!isSuperAdmin) {
       showToast("error", "🔒 Only super admin can reset passwords");
       return;
     }
@@ -4376,7 +4386,7 @@ const Admin: React.FC = () => {
 
     // Check if trying to modify admin without super admin privileges
     const targetUser = allUsers.find((u) => u._id === userId);
-    if (targetUser?.role === "admin" && !isSuperAdminEmail(user?.email)) {
+    if ((targetUser?.role === "admin" || targetUser?.role === "superadmin") && !isSuperAdmin) {
       showToast("error", "🔒 Only super admin can modify other admins");
       return;
     }
@@ -4398,9 +4408,14 @@ const Admin: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         setAllUsers(allUsers.map((u) => (u._id === userId ? data.user : u)));
+        showToast("success", `✅ Role updated to ${role}`);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast("error", data.message || "Failed to update role");
       }
     } catch (err) {
       console.error("Error updating role:", err);
+      showToast("error", "❌ Failed to update role");
     }
   };
 

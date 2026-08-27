@@ -11,7 +11,7 @@ const crypto = require("crypto");
 const sendEmail = require("../utils/sendEmail");
 const handleValidationError = require("../utils/handleValidationError");
 const auth = require("../middleware/auth");
-const { adminOnly, superAdminOnly, requirePermission, hasPermission, ADMIN_PERMISSIONS, isSuperAdmin, isAdminEmail, isOrdersEmail } = require("../middleware/roleMiddleware");
+const { adminOnly, superAdminOnly, requirePermission, hasPermission, ADMIN_PERMISSIONS, checkIsSuperAdmin, isSuperAdmin, isAdminEmail, isOrdersEmail } = require("../middleware/roleMiddleware");
 const { logActivity } = require("../utils/activityLogger");
 
 /* ======================
@@ -50,9 +50,11 @@ router.post("/login", async (req, res) => {
       return res.status(403).json({ message: "Access denied. This account is not an admin account." });
     }
 
-    if (isSuperAdmin(user.email) && user.role !== "superadmin") {
-      user.role = "superadmin";
-      await user.save();
+    if (isSuperAdmin(user.email)) {
+      if (user.role !== "superadmin") {
+        user.role = "superadmin";
+        await user.save();
+      }
     } else if (user.role !== "admin" && user.role !== "superadmin") {
       user.role = "admin";
       await user.save();
@@ -114,22 +116,41 @@ router.post("/google-login", async (req, res) => {
       return res.status(400).json({ message: "Google login failed" });
     }
 
-    let user = await User.findOne({ email });
+    const cleanEmail = email.toLowerCase().trim();
+    let user = await User.findOne({ email: cleanEmail });
 
-    // If user doesn't exist, create with admin role
+    // If user doesn't exist, create with appropriate admin/superadmin role
     if (!user) {
+      const initialRole = isSuperAdmin(cleanEmail)
+        ? "superadmin"
+        : isAdminEmail(cleanEmail)
+        ? "admin"
+        : "user";
+
+      if (initialRole === "user") {
+        return res.status(403).json({ 
+          message: "Access denied. This account is not an admin account." 
+        });
+      }
+
       user = await User.create({
-        name: name?.trim() || email.split("@")[0],
-        email,
+        name: name?.trim() || cleanEmail.split("@")[0],
+        email: cleanEmail,
         provider: "google",
         avatar,
-        role: isAdminEmail(email) ? "admin" : "user",
+        role: initialRole,
       });
     } else {
-      // User exists - ensure they are admin if their email is allowed
-      if (user.role !== "admin" && isAdminEmail(user.email)) {
-        user.role = "admin";
-      } else if (user.role !== "admin") {
+      // User exists - ensure proper role based on email configuration
+      if (isSuperAdmin(user.email)) {
+        if (user.role !== "superadmin") {
+          user.role = "superadmin";
+        }
+      } else if (isAdminEmail(user.email)) {
+        if (user.role !== "admin" && user.role !== "superadmin") {
+          user.role = "admin";
+        }
+      } else if (user.role !== "admin" && user.role !== "superadmin") {
         return res.status(403).json({ 
           message: "Access denied. This account is not an admin account." 
         });
@@ -158,7 +179,7 @@ router.post("/google-login", async (req, res) => {
       action: "auth.admin_login",
       category: "auth",
       message: `${user.email} signed in to the admin panel via Google`,
-      meta: { provider: "google", superAdmin: isSuperAdmin(user.email) },
+      meta: { provider: "google", superAdmin: isSuperAdmin(user.email) || user.role === "superadmin" },
     });
 
     res.json({
@@ -265,8 +286,15 @@ router.get("/stats", auth, adminOnly, async (req, res) => {
     // The panel calls this endpoint to validate its session, so it doubles as
     // the identity refresh: the browser must never decide its own role or
     // permissions from a stale localStorage copy.
-    const account = await User.findById(req.user.id).select("role adminPermissions");
-    const isSuper = account?.role === "superadmin" || isSuperAdmin(req.user.email);
+    const account = await User.findById(req.user.id).select("email role adminPermissions");
+    let isSuper = await checkIsSuperAdmin(req.user);
+    if (!isSuper && account && (account.role === "superadmin" || isSuperAdmin(account.email))) {
+      isSuper = true;
+    }
+    if (account && isSuper && account.role !== "superadmin") {
+      account.role = "superadmin";
+      await account.save();
+    }
     const permissions = isSuper ? ADMIN_PERMISSIONS : account?.adminPermissions || [];
 
     // The dashboard is open to every admin, but its revenue figure is not -
@@ -286,6 +314,8 @@ router.get("/stats", auth, adminOnly, async (req, res) => {
       revenue: revenue[0]?.total || 0,
       revenueVisible: canSeeRevenue,
       me: {
+        _id: account?._id || req.user.id,
+        email: account?.email || req.user.email,
         role: isSuper ? "superadmin" : account?.role || req.user.role,
         adminPermissions: permissions,
       },
@@ -429,7 +459,8 @@ router.delete("/users/:id", auth, requirePermission("users"), async (req, res) =
     }
 
     // Only super admin can delete admin users
-    if (user.role === "admin" && !isSuperAdmin(req.user.email)) {
+    const isSuper = await checkIsSuperAdmin(req.user);
+    if ((user.role === "admin" || user.role === "superadmin") && !isSuper) {
       return res.status(403).json({ message: "Only super admin can delete admin users" });
     }
 
@@ -458,7 +489,7 @@ router.patch("/users/:id/role", auth, requirePermission("users"), async (req, re
   try {
     const { role } = req.body;
     
-    if (!["user", "influencer", "admin"].includes(role)) {
+    if (!["user", "influencer", "admin", "superadmin"].includes(role)) {
       return res.status(400).json({ message: "Invalid role" });
     }
 
@@ -473,7 +504,8 @@ router.patch("/users/:id/role", auth, requirePermission("users"), async (req, re
     }
 
     // Only super admin can change admin roles or make someone admin
-    if ((targetUser.role === "admin" || role === "admin") && !isSuperAdmin(req.user.email)) {
+    const isSuper = await checkIsSuperAdmin(req.user);
+    if ((targetUser.role === "admin" || targetUser.role === "superadmin" || role === "admin" || role === "superadmin") && !isSuper) {
       return res.status(403).json({ message: "Only super admin can manage admin roles" });
     }
 
@@ -555,7 +587,8 @@ router.patch("/users/:id", auth, requirePermission("users"), async (req, res) =>
     }
 
     // Super admin can edit ANYONE, regular admins can only edit non-admins
-    if (targetUser.role === "admin" && targetUser._id.toString() !== req.user.id && !isSuperAdmin(req.user.email)) {
+    const isSuper = await checkIsSuperAdmin(req.user);
+    if ((targetUser.role === "admin" || targetUser.role === "superadmin") && targetUser._id.toString() !== req.user.id && !isSuper) {
       return res.status(403).json({ message: "Only super admin can edit other admin accounts" });
     }
 
@@ -568,7 +601,7 @@ router.patch("/users/:id", auth, requirePermission("users"), async (req, res) =>
       if (
         nextEmail !== targetUser.email &&
         (isSuperAdmin(nextEmail) || isAdminEmail(nextEmail)) &&
-        !isSuperAdmin(req.user.email)
+        !isSuper
       ) {
         return res.status(403).json({ message: "Only super admin can assign a privileged email address" });
       }
@@ -728,24 +761,28 @@ router.post("/users/create", auth, requirePermission("users"), async (req, res) 
 
     // Only a super admin may mint admin accounts, otherwise any admin could
     // create a second admin for themselves and escalate around the role guards.
-    if (role === "admin" && !isSuperAdmin(req.user.email)) {
+    const isSuper = await checkIsSuperAdmin(req.user);
+    if ((role === "admin" || role === "superadmin") && !isSuper) {
       return res.status(403).json({ message: "Only super admin can create admin accounts" });
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+    const cleanEmail = email.toLowerCase().trim();
+    const existingUser = await User.findOne({ email: cleanEmail });
     if (existingUser) {
       return res.status(400).json({ message: "User with this email already exists" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const assignedRole = ["user", "influencer", "admin", "superadmin"].includes(role) ? role : "user";
 
     const newUser = new User({
       name: name.trim(),
-      email: email.toLowerCase().trim(),
+      email: cleanEmail,
       password: hashedPassword,
-      role: ["user", "influencer", "admin"].includes(role) ? role : "user",
+      role: assignedRole,
       phone: phone ? phone.trim() : "",
-      influencerProfile: role === "influencer" ? { isApproved: true, applicationStatus: "approved" } : undefined,
+      adminPermissions: assignedRole === "admin" ? (req.body.adminPermissions || ADMIN_PERMISSIONS) : undefined,
+      influencerProfile: assignedRole === "influencer" ? { isApproved: true, applicationStatus: "approved" } : undefined,
     });
 
     await newUser.save();
@@ -754,7 +791,7 @@ router.post("/users/create", auth, requirePermission("users"), async (req, res) 
       req,
       action: "user.create",
       category: "user",
-      message: `Admin created new ${role} account: ${newUser.email}`,
+      message: `Admin created new ${assignedRole} account: ${newUser.email}`,
       target: { type: "User", id: newUser._id, label: newUser.email },
     });
 
@@ -771,6 +808,141 @@ router.post("/users/create", auth, requirePermission("users"), async (req, res) 
   } catch (err) {
     console.error("Create user error:", err);
     res.status(500).json({ message: "Failed to create user" });
+  }
+});
+
+/* ======================
+   👑 CREATE NEW ADMIN (SUPER ADMIN ONLY)
+====================== */
+router.post("/users/create-admin", auth, superAdminOnly, async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const existingUser = await User.findOne({ email: cleanEmail });
+
+    if (existingUser) {
+      if (existingUser.role === "admin" || existingUser.role === "superadmin") {
+        return res.status(400).json({ message: "An admin with this email already exists" });
+      }
+
+      // Promote existing user to admin
+      existingUser.role = "admin";
+      existingUser.adminPermissions = ADMIN_PERMISSIONS;
+      if (name?.trim()) existingUser.name = name.trim();
+      const updated = await existingUser.save();
+      const result = updated.toObject();
+      delete result.password;
+
+      logActivity({
+        req,
+        action: "user.role_change",
+        category: "user",
+        message: `Super Admin promoted existing user to Admin: ${existingUser.email}`,
+        target: { type: "User", id: existingUser._id, label: existingUser.email },
+      });
+
+      return res.json({ message: "Existing user promoted to Admin", user: result });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newAdmin = await User.create({
+      name: name?.trim() || cleanEmail.split("@")[0],
+      email: cleanEmail,
+      password: hashedPassword,
+      role: "admin",
+      adminPermissions: ADMIN_PERMISSIONS,
+      provider: "credentials",
+    });
+
+    const result = newAdmin.toObject();
+    delete result.password;
+
+    logActivity({
+      req,
+      action: "user.create",
+      category: "user",
+      message: `Super Admin created new admin account: ${newAdmin.email}`,
+      target: { type: "User", id: newAdmin._id, label: newAdmin.email },
+    });
+
+    res.status(201).json({ message: "Admin account created successfully", user: result });
+  } catch (err) {
+    if (handleValidationError(res, err)) return;
+    console.error("Create admin error:", err);
+    res.status(500).json({ message: "Failed to create admin user" });
+  }
+});
+
+/* ======================
+   👑 PROMOTE USER TO ADMIN (SUPER ADMIN ONLY)
+====================== */
+router.patch("/users/:id/promote", auth, superAdminOnly, async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { role: "admin", adminPermissions: ADMIN_PERMISSIONS },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    logActivity({
+      req,
+      action: "user.role_change",
+      category: "user",
+      message: `Super Admin promoted user to Admin: ${user.email}`,
+      target: { type: "User", id: user._id, label: user.email },
+    });
+
+    res.json({ message: "User promoted to Admin", user });
+  } catch (err) {
+    console.error("Promote user error:", err);
+    res.status(500).json({ message: "Failed to promote user" });
+  }
+});
+
+/* ======================
+   👑 DEMOTE ADMIN TO USER (SUPER ADMIN ONLY)
+====================== */
+router.patch("/users/:id/demote", auth, superAdminOnly, async (req, res) => {
+  try {
+    if (req.user.id === req.params.id) {
+      return res.status(400).json({ message: "You cannot demote your own account" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { role: "user", adminPermissions: [] },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    logActivity({
+      req,
+      action: "user.role_change",
+      category: "user",
+      message: `Super Admin demoted admin to user: ${user.email}`,
+      target: { type: "User", id: user._id, label: user.email },
+    });
+
+    res.json({ message: "Admin privileges removed (demoted to user)", user });
+  } catch (err) {
+    console.error("Demote user error:", err);
+    res.status(500).json({ message: "Failed to demote admin user" });
   }
 });
 
