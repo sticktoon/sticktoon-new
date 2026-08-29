@@ -64,6 +64,7 @@ app.use("/api/admin/orders", auth, requirePermission("orders"), require("./route
 app.use("/api/admin/revenue", auth, requirePermission("revenue"), require("./routes/adminRevenue"));
 app.use("/api/invoice", require("./routes/invoice"));
 app.use("/api/admin/invoice", auth, requirePermission("revenue"), require("./routes/adminInvoice"));
+app.use("/api/admin/catalogue", auth, requirePermission("revenue"), require("./routes/adminCatalogue"));
 app.use("/api/promo", require("./routes/promo"));
 app.use("/api/admin/promo", auth, requirePermission("promo"), require("./routes/adminPromo"));
 app.use("/api/admin/influencer", auth, requirePermission("influencers"), require("./routes/adminInfluencer"));

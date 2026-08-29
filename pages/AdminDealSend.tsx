@@ -108,21 +108,42 @@ const waitForImages = async (root: ParentNode) => {
 export default function AdminDealSend() {
   const location = useLocation();
   const navigate = useNavigate();
-  const lead = (location.state as { lead?: LeadLike } | null)?.lead;
+  const navState = location.state as { lead?: LeadLike; existingCatalogue?: any; catalogue?: any } | null;
+  const existingCatalogue = navState?.existingCatalogue || navState?.catalogue;
+  const lead = navState?.lead;
 
-  const [email, setEmail] = useState(lead?.email || "");
-  const [phone, setPhone] = useState(lead?.phone || "");
-  const [quotationNo, setQuotationNo] = useState(makeQuoteNumber());
-  const [quotationDate, setQuotationDate] = useState(new Date().toISOString().slice(0, 10));
-  const [subject, setSubject] = useState("Advantage Club Collection");
-  const [tagline, setTagline] = useState("Limited Edition");
+  const [savedCatalogueId, setSavedCatalogueId] = useState<string | null>(
+    existingCatalogue?._id || null
+  );
+
+  const [email, setEmail] = useState(existingCatalogue?.customerEmail ?? lead?.email ?? "");
+  const [phone, setPhone] = useState(existingCatalogue?.customerPhone ?? lead?.phone ?? "");
+  const [quotationNo, setQuotationNo] = useState(existingCatalogue?.catalogueNumber ?? makeQuoteNumber());
+  const [quotationDate, setQuotationDate] = useState(existingCatalogue?.quotationDate ?? new Date().toISOString().slice(0, 10));
+  const [subject, setSubject] = useState(existingCatalogue?.title ?? "Advantage Club Collection");
+  const [tagline, setTagline] = useState(existingCatalogue?.tagline ?? "Limited Edition");
   const [highlightLine, setHighlightLine] = useState(
-    "Smart Magnetic 58mm Pin Badges - Designed to Stick Anywhere in Your Office",
+    existingCatalogue?.highlightLine ??
+      "Smart Magnetic 58mm Pin Badges - Designed to Stick Anywhere in Your Office"
   );
-  const [items, setItems] = useState<QuoteItem[]>(() =>
-    makeInitialItems(Number(lead?.expectedAmount || 50)),
+  const [items, setItems] = useState<QuoteItem[]>(
+    existingCatalogue?.items ?? makeInitialItems(Number(lead?.expectedAmount || 50))
   );
-  const [gstRate, setGstRate] = useState(18);
+  const [gstRate, setGstRate] = useState(existingCatalogue?.gstRate ?? 18);
+  const [gstEnabled, setGstEnabled] = useState<boolean>(
+    existingCatalogue ? existingCatalogue.gstEnabled !== false : true
+  );
+  const [gstin, setGstin] = useState<string>(existingCatalogue?.gstin ?? "27HENPP0138G1Z9");
+  const [deliveryCharges, setDeliveryCharges] = useState<number>(
+    existingCatalogue?.deliveryCharges ?? 0
+  );
+  const [isSaving, setIsSaving] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -333,18 +354,107 @@ export default function AdminDealSend() {
     const totalUnits = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
     const subtotal = items.reduce(
       (sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0),
-      0,
+      0
     );
-    const baseUnitPrice = totalUnits > 0 ? subtotal / totalUnits : Number(lead?.expectedAmount || 50);
-    const gstPerUnit = (baseUnitPrice * Number(gstRate || 0)) / 100;
+    const baseUnitPrice = totalUnits > 0 ? subtotal / totalUnits : (items[0]?.unitPrice || 0);
+    const gstPerUnit = gstEnabled ? (baseUnitPrice * Number(gstRate || 0)) / 100 : 0;
+    const gstAmount = gstEnabled ? (subtotal * Number(gstRate || 0)) / 100 : 0;
+    const delivery = Math.max(0, Number(deliveryCharges || 0));
+    const deliveryPerUnit = totalUnits > 0 ? delivery / totalUnits : 0;
+    const total = subtotal + gstAmount + delivery;
+
     return {
       totalUnits,
       subtotal,
       baseUnitPrice,
       gstPerUnit,
-      totalPerUnit: baseUnitPrice + gstPerUnit,
+      gstAmount,
+      deliveryCharges: delivery,
+      totalPerUnit: baseUnitPrice + gstPerUnit + deliveryPerUnit,
+      total,
     };
-  }, [gstRate, items, lead?.expectedAmount]);
+  }, [gstRate, items, gstEnabled, deliveryCharges]);
+
+  const handleSaveCatalogue = async () => {
+    if (isSaving) return;
+
+    if (deliveryCharges < 0 || Number.isNaN(deliveryCharges)) {
+      showToast("Delivery charges must be a valid non-negative number", "error");
+      return;
+    }
+
+    if (items.length === 0) {
+      showToast("Please add at least one item to the catalogue", "error");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const token = localStorage.getItem("adminToken");
+      const payload = {
+        catalogueNumber: quotationNo,
+        leadId: lead?._id || null,
+        title: subject,
+        tagline,
+        highlightLine,
+        customerEmail: email,
+        customerPhone: phone,
+        quotationDate,
+        items,
+        gstEnabled,
+        gstin,
+        gstRate,
+        deliveryCharges: totals.deliveryCharges,
+        subtotal: totals.subtotal,
+        gstAmount: totals.gstAmount,
+        total: totals.total,
+        overviewPoints,
+        officeLocation,
+        contactChannels,
+        curationNote,
+        footerNote,
+        customCardTitle,
+        customCardCopy,
+        showCustomCard,
+        status: "Saved",
+      };
+
+      const isEdit = Boolean(savedCatalogueId);
+      const url = isEdit
+        ? `${API_BASE_URL}/api/admin/catalogue/${savedCatalogueId}`
+        : `${API_BASE_URL}/api/admin/catalogue`;
+      const method = isEdit ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        if (data._id) {
+          setSavedCatalogueId(data._id);
+        }
+        showToast(
+          isEdit
+            ? `Changes saved for catalogue ${quotationNo}`
+            : "Catalogue saved successfully!",
+          "success"
+        );
+      } else {
+        showToast(data.message || "Failed to save catalogue", "error");
+      }
+    } catch (err: any) {
+      console.error("Save catalogue error:", err);
+      showToast("Failed to save catalogue due to connection error", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   type RenderCard =
     | { type: "item"; item: QuoteItem }
@@ -1159,22 +1269,77 @@ export default function AdminDealSend() {
                 <input
                   type="number"
                   min={0}
-                  value={Number(totals.totalPerUnit.toFixed(2))}
+                  value={totals.baseUnitPrice === 0 ? "" : totals.baseUnitPrice}
                   onChange={(e) => {
-                    const nextTotalPerUnit = Number(e.target.value || 0);
-                    const rate = Number(gstRate || 0);
-                    const nextBaseUnitPrice = nextTotalPerUnit / (1 + rate / 100);
+                    const val = e.target.value;
+                    const nextPrice = val === "" ? 0 : Math.max(0, Number(val));
                     setItems((prev) =>
-                      prev.map((item) => ({ ...item, unitPrice: nextBaseUnitPrice }))
+                      prev.map((item) => ({ ...item, unitPrice: nextPrice }))
                     );
                   }}
+                  placeholder="0"
                   className={fieldClass}
                 />
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-black uppercase text-slate-500">GST %</span>
-                <input type="number" min={0} value={gstRate} onChange={(e) => setGstRate(Number(e.target.value || 0))} className={fieldClass} />
+                <input
+                  type="number"
+                  min={0}
+                  value={gstRate === 0 ? "" : gstRate}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setGstRate(val === "" ? 0 : Math.max(0, Number(val)));
+                  }}
+                  placeholder="0"
+                  className={fieldClass}
+                />
               </label>
+            </div>
+
+            <div className="rounded-xl border p-4 space-y-3 bg-slate-50">
+              <h2 className="text-sm font-black uppercase text-slate-700">GSTIN & Delivery Charges</h2>
+
+              <div className="space-y-2">
+                <label className="inline-flex items-center gap-2 cursor-pointer font-bold text-sm text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={gstEnabled}
+                    onChange={(e) => setGstEnabled(e.target.checked)}
+                    className="w-4 h-4 rounded accent-indigo-600"
+                  />
+                  <span>Enable GSTIN</span>
+                </label>
+
+                {gstEnabled && (
+                  <div className="mt-2">
+                    <span className="mb-1 block text-xs font-black uppercase text-slate-500">GSTIN Value</span>
+                    <input
+                      type="text"
+                      value={gstin}
+                      onChange={(e) => setGstin(e.target.value)}
+                      placeholder="27XXXXXXXXXX1Z5"
+                      className={`${fieldClass} font-mono uppercase`}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <span className="mb-1 block text-xs font-black uppercase text-slate-500">Delivery Charges (₹)</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={deliveryCharges === 0 ? "" : deliveryCharges}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDeliveryCharges(val === "" ? 0 : Math.max(0, Number(val)));
+                  }}
+                  placeholder="0"
+                  className={fieldClass}
+                />
+                <span className="mt-1 block text-[11px] text-slate-400">Enter ₹0 for free delivery or any valid positive amount.</span>
+              </div>
             </div>
 
             <label className="block">
@@ -1309,6 +1474,36 @@ export default function AdminDealSend() {
                 <span className="mb-1 block text-xs font-black uppercase text-slate-500">Curation Note</span>
                 <textarea value={curationNote} onChange={(e) => setCurationNote(e.target.value)} rows={4} className={fieldClass} />
               </label>
+            </div>
+
+            {toast && (
+              <div className={`p-3 rounded-lg text-xs font-bold text-center border ${toast.type === "success" ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-red-50 text-red-800 border-red-300"}`}>
+                {toast.message}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleSaveCatalogue}
+                disabled={isSaving}
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : savedCatalogueId ? (
+                  "Save Changes"
+                ) : (
+                  "Save Catalogue"
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/admin")}
+                className="rounded-lg border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
             </div>
 
             <div className="flex gap-3">
@@ -1565,15 +1760,29 @@ export default function AdminDealSend() {
                                   <span className="font-semibold text-slate-600">Product Price</span>
                                   <span className="font-extrabold text-slate-900">₹{totals.baseUnitPrice.toFixed(2)}</span>
                                 </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="font-semibold text-slate-600">GST ({gstRate}%)</span>
-                                  <span className="font-extrabold text-slate-900">₹{totals.gstPerUnit.toFixed(2)}</span>
-                                </div>
-                                <div className="mt-4 border-t border-slate-200 pt-4">
+                                {gstEnabled && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-semibold text-slate-600">GST ({gstRate}%)</span>
+                                    <span className="font-extrabold text-slate-900">₹{totals.gstPerUnit.toFixed(2)}</span>
+                                  </div>
+                                )}
+                                {totals.deliveryCharges > 0 && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-semibold text-slate-600">Delivery Charges</span>
+                                    <span className="font-extrabold text-slate-900">₹{totals.deliveryCharges}</span>
+                                  </div>
+                                )}
+                                <div className="mt-4 border-t border-slate-200 pt-4 space-y-2">
                                   <div className="flex items-end justify-between gap-3">
                                     <span className="text-[12px] font-black text-slate-900">Total Per Unit</span>
                                     <span className="text-[20px] font-black leading-none text-slate-900">₹{totals.totalPerUnit.toFixed(2)}</span>
                                   </div>
+                                  {totals.totalUnits > 1 && (
+                                    <div className="flex items-center justify-between text-[11px] font-extrabold text-slate-700 pt-1 border-t border-slate-100">
+                                      <span>Total ({totals.totalUnits} Units)</span>
+                                      <span>₹{totals.total.toFixed(2)}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>

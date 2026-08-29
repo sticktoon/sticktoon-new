@@ -1,26 +1,50 @@
 // backend/models/Invoice.js
 const mongoose = require("mongoose");
 
+const invoiceItemSchema = new mongoose.Schema({
+  id: String,
+  description: String,
+  subDescription: String,
+  unitPrice: Number,
+  quantity: Number,
+  image: String,
+});
+
 const invoiceSchema = new mongoose.Schema(
   {
     orderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Order",
-      unique: true,
-      required: true,
+      required: false,
+      sparse: true,
+      default: null,
     },
 
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: false, // guest checkout has no user account
+      required: false,
       default: null,
     },
 
-    email: {
-      type: String,
-      required: false, // 🔧 do NOT hard-fail webhook
+    leadId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Lead",
+      required: false,
+      default: null,
     },
+
+    docType: {
+      type: String,
+      enum: ["invoice", "quotation"],
+      default: "invoice",
+    },
+
+    customerName: String,
+    company: String,
+    email: String,
+    phone: String,
+    address: String,
 
     invoiceNumber: {
       type: String,
@@ -28,6 +52,47 @@ const invoiceSchema = new mongoose.Schema(
       required: true,
     },
 
+    quotationDate: String,
+    validityDays: {
+      type: Number,
+      default: 30,
+    },
+    currencyCode: {
+      type: String,
+      default: "INR",
+    },
+    subject: String,
+    intro: String,
+
+    companyGstin: String,
+    companyUdyam: String,
+    companyEmail: String,
+    companyContact: String,
+
+    items: [invoiceItemSchema],
+
+    gstEnabled: {
+      type: Boolean,
+      default: true,
+    },
+    gstin: String,
+    gstRate: {
+      type: Number,
+      default: 18,
+    },
+
+    subtotal: {
+      type: Number,
+      default: 0,
+    },
+    gstAmount: {
+      type: Number,
+      default: 0,
+    },
+    deliveryCharges: {
+      type: Number,
+      default: 0,
+    },
     amount: {
       type: Number,
       required: true,
@@ -41,12 +106,6 @@ const invoiceSchema = new mongoose.Schema(
     paymentMethod: String,
     paymentGateway: String,
 
-    address: {
-      name: String,
-      street: String,
-      phone: String,
-    },
-
     discount: {
       type: Number,
       default: 0,
@@ -56,8 +115,29 @@ const invoiceSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+
+    termsText: String,
+    bankDetails: {
+      accountName: String,
+      bankName: String,
+      accountNumber: String,
+      ifsc: String,
+      swift: String,
+      branch: String,
+    },
+
+    operationalAddress: String,
+    headquartersAddress: String,
+    authorizedSignatory: String,
+    signatureBrand: String,
+
+    status: {
+      type: String,
+      default: "Saved",
+    },
   },
   { timestamps: true }
 );
 
 module.exports = mongoose.model("Invoice", invoiceSchema);
+
