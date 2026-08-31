@@ -5403,9 +5403,15 @@ const Admin: React.FC = () => {
               {currentView !== "dashboard" && (
                 <button
                   type="button"
-                  onClick={() => changeView("dashboard")}
+                  onClick={() => {
+                    if (window.history.length > 1) {
+                      navigate(-1);
+                    } else {
+                      changeView("dashboard");
+                    }
+                  }}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-bold transition-all shadow-sm active:scale-95"
-                  title="Back to Dashboard"
+                  title="Go Back"
                 >
                   <ArrowLeft className="w-4 h-4 text-indigo-600" />
                   <span className="hidden sm:inline">Back</span>

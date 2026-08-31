@@ -884,7 +884,13 @@ export default function AdminDealSend() {
             Open this page from the Leads table using the Send action.
           </p>
           <button
-            onClick={() => navigate("/admin")}
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate("/admin");
+              }
+            }}
             className="mt-6 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white"
           >
             Back to Admin
@@ -1219,9 +1225,19 @@ export default function AdminDealSend() {
               <h1 className="text-2xl font-black text-slate-900">Send Catalogue</h1>
               <p className="text-sm text-slate-500">Build a visual proposal before sharing it.</p>
             </div>
-            <Link to="/admin" className="text-sm font-bold text-slate-600">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.history.length > 1) {
+                  navigate(-1);
+                } else {
+                  navigate("/admin");
+                }
+              }}
+              className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors"
+            >
               Back
-            </Link>
+            </button>
           </div>
 
           <div className="space-y-4">
@@ -1499,7 +1515,13 @@ export default function AdminDealSend() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate("/admin")}
+                onClick={() => {
+                  if (window.history.length > 1) {
+                    navigate(-1);
+                  } else {
+                    navigate("/admin");
+                  }
+                }}
                 className="rounded-lg border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100"
               >
                 Cancel
