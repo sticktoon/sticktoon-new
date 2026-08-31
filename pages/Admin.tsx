@@ -1200,15 +1200,17 @@ const Admin: React.FC = () => {
   const [savedCataloguesList, setSavedCataloguesList] = useState<any[]>([]);
   const [loadingInvoicesCatalogues, setLoadingInvoicesCatalogues] = useState(false);
   const [invoiceSubTab, setInvoiceSubTab] = useState<"all" | "invoices" | "catalogues">("all");
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
+  const [selectedCatalogueIds, setSelectedCatalogueIds] = useState<string[]>([]);
   const [deleteModalState, setDeleteModalState] = useState<{
     isOpen: boolean;
-    id: string | null;
+    ids: string[];
     type: "invoice" | "catalogue" | null;
     name: string;
     isDeleting: boolean;
   }>({
     isOpen: false,
-    id: null,
+    ids: [],
     type: null,
     name: "",
     isDeleting: false,
@@ -4470,7 +4472,7 @@ const Admin: React.FC = () => {
   const openDeleteInvoiceModal = (id: string, name: string) => {
     setDeleteModalState({
       isOpen: true,
-      id,
+      ids: [id],
       type: "invoice",
       name: name || "Invoice",
       isDeleting: false,
@@ -4480,36 +4482,93 @@ const Admin: React.FC = () => {
   const openDeleteCatalogueModal = (id: string, name: string) => {
     setDeleteModalState({
       isOpen: true,
-      id,
+      ids: [id],
       type: "catalogue",
       name: name || "Catalogue",
       isDeleting: false,
     });
   };
 
+  const openBulkDeleteInvoiceModal = () => {
+    if (selectedInvoiceIds.length === 0) return;
+    setDeleteModalState({
+      isOpen: true,
+      ids: selectedInvoiceIds,
+      type: "invoice",
+      name: `${selectedInvoiceIds.length} selected invoice${selectedInvoiceIds.length > 1 ? "s" : ""}`,
+      isDeleting: false,
+    });
+  };
+
+  const openBulkDeleteCatalogueModal = () => {
+    if (selectedCatalogueIds.length === 0) return;
+    setDeleteModalState({
+      isOpen: true,
+      ids: selectedCatalogueIds,
+      type: "catalogue",
+      name: `${selectedCatalogueIds.length} selected catalogue${selectedCatalogueIds.length > 1 ? "s" : ""}`,
+      isDeleting: false,
+    });
+  };
+
   const handleConfirmDelete = async () => {
-    const { id, type } = deleteModalState;
-    if (!id || !type) return;
+    const { ids, type } = deleteModalState;
+    if (!ids || ids.length === 0 || !type) return;
 
     setDeleteModalState((prev) => ({ ...prev, isDeleting: true }));
     try {
       const token = localStorage.getItem("adminToken");
-      const endpoint = type === "invoice" ? `/api/admin/invoice/${id}` : `/api/admin/catalogue/${id}`;
-      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method: "DELETE",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (res.ok) {
-        if (type === "invoice") {
-          setSavedInvoicesList((prev) => prev.filter((item) => item._id !== id));
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      if (ids.length === 1) {
+        const endpoint = type === "invoice" ? `/api/admin/invoice/${ids[0]}` : `/api/admin/catalogue/${ids[0]}`;
+        const res = await fetch(`${API_BASE_URL}${endpoint}`, { method: "DELETE", headers });
+        if (res.ok) {
+          if (type === "invoice") {
+            setSavedInvoicesList((prev) => prev.filter((item) => item._id !== ids[0]));
+            setSelectedInvoiceIds((prev) => prev.filter((id) => id !== ids[0]));
+          } else {
+            setSavedCataloguesList((prev) => prev.filter((item) => item._id !== ids[0]));
+            setSelectedCatalogueIds((prev) => prev.filter((id) => id !== ids[0]));
+          }
+        }
+      } else {
+        const endpoint = type === "invoice" ? `/api/admin/invoice/bulk-delete` : `/api/admin/catalogue/bulk-delete`;
+        const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ ids }),
+        });
+
+        if (res.ok) {
+          if (type === "invoice") {
+            setSavedInvoicesList((prev) => prev.filter((item) => !ids.includes(item._id)));
+            setSelectedInvoiceIds([]);
+          } else {
+            setSavedCataloguesList((prev) => prev.filter((item) => !ids.includes(item._id)));
+            setSelectedCatalogueIds([]);
+          }
         } else {
-          setSavedCataloguesList((prev) => prev.filter((item) => item._id !== id));
+          // Fallback to sequential deletes
+          await Promise.all(
+            ids.map((id) =>
+              fetch(`${API_BASE_URL}/api/admin/${type}/${id}`, { method: "DELETE", headers })
+            )
+          );
+          if (type === "invoice") {
+            setSavedInvoicesList((prev) => prev.filter((item) => !ids.includes(item._id)));
+            setSelectedInvoiceIds([]);
+          } else {
+            setSavedCataloguesList((prev) => prev.filter((item) => !ids.includes(item._id)));
+            setSelectedCatalogueIds([]);
+          }
         }
       }
     } catch (err) {
       console.error(`Failed to delete ${type}:`, err);
     } finally {
-      setDeleteModalState({ isOpen: false, id: null, type: null, name: "", isDeleting: false });
+      setDeleteModalState({ isOpen: false, ids: [], type: null, name: "", isDeleting: false });
     }
   };
 
@@ -8345,6 +8404,15 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
                       <ReceiptLongRoundedIcon sx={{ fontSize: 22 }} /> Saved Invoices &amp; Quotations ({savedInvoicesList.length})
                     </h3>
+                    {selectedInvoiceIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={openBulkDeleteInvoiceModal}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition shadow"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete Selected ({selectedInvoiceIds.length})
+                      </button>
+                    )}
                   </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -8352,6 +8420,21 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     <table className="w-full text-left text-sm text-slate-600">
                       <thead className="bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-500 border-b border-slate-200">
                         <tr>
+                          <th className="px-4 py-4 w-10 text-center">
+                            <input
+                              type="checkbox"
+                              checked={savedInvoicesList.length > 0 && selectedInvoiceIds.length === savedInvoicesList.length}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedInvoiceIds(savedInvoicesList.map((inv) => inv._id));
+                                } else {
+                                  setSelectedInvoiceIds([]);
+                                }
+                              }}
+                              className="w-4 h-4 rounded accent-slate-900 cursor-pointer"
+                              title="Select all invoices"
+                            />
+                          </th>
                           <th className="px-6 py-4">Number / Type</th>
                           <th className="px-6 py-4">Customer / Company</th>
                           <th className="px-6 py-4">Date</th>
@@ -8364,19 +8447,33 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       <tbody className="divide-y divide-slate-100">
                         {loadingInvoicesCatalogues ? (
                           <tr>
-                            <td colSpan={7} className="px-6 py-8 text-center text-slate-400">
+                            <td colSpan={8} className="px-6 py-8 text-center text-slate-400">
                               Loading saved invoices...
                             </td>
                           </tr>
                         ) : savedInvoicesList.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="px-6 py-8 text-center text-slate-400">
+                            <td colSpan={8} className="px-6 py-8 text-center text-slate-400">
                               No saved invoices or quotations found. Click "Create Invoice" above to start.
                             </td>
                           </tr>
                         ) : (
                           savedInvoicesList.map((inv) => (
                             <tr key={inv._id} className="hover:bg-slate-50/80 transition">
+                              <td className="px-4 py-4 w-10 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedInvoiceIds.includes(inv._id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedInvoiceIds((prev) => [...prev, inv._id]);
+                                    } else {
+                                      setSelectedInvoiceIds((prev) => prev.filter((id) => id !== inv._id));
+                                    }
+                                  }}
+                                  className="w-4 h-4 rounded accent-slate-900 cursor-pointer"
+                                />
+                              </td>
                               <td className="px-6 py-4 font-bold text-slate-900">
                                 <div>{inv.invoiceNumber}</div>
                                 <span className={`inline-block mt-0.5 text-[10px] font-black uppercase px-2 py-0.5 rounded ${inv.docType === "invoice" ? "bg-slate-900 text-white" : "bg-amber-100 text-amber-800"}`}>
@@ -8443,6 +8540,15 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                     <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
                       <DescriptionRoundedIcon sx={{ fontSize: 22 }} /> Saved Catalogues ({savedCataloguesList.length})
                     </h3>
+                    {selectedCatalogueIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={openBulkDeleteCatalogueModal}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition shadow"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete Selected ({selectedCatalogueIds.length})
+                      </button>
+                    )}
                   </div>
 
                   <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -8450,6 +8556,21 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       <table className="w-full text-left text-sm text-slate-600">
                         <thead className="bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-500 border-b border-slate-200">
                           <tr>
+                            <th className="px-4 py-4 w-10 text-center">
+                              <input
+                                type="checkbox"
+                                checked={savedCataloguesList.length > 0 && selectedCatalogueIds.length === savedCataloguesList.length}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedCatalogueIds(savedCataloguesList.map((cat) => cat._id));
+                                  } else {
+                                    setSelectedCatalogueIds([]);
+                                  }
+                                }}
+                                className="w-4 h-4 rounded accent-indigo-600 cursor-pointer"
+                                title="Select all catalogues"
+                              />
+                            </th>
                             <th className="px-6 py-4">Catalogue No / Title</th>
                             <th className="px-6 py-4">Customer Contact</th>
                             <th className="px-6 py-4">Date</th>
@@ -8463,19 +8584,33 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         <tbody className="divide-y divide-slate-100">
                           {loadingInvoicesCatalogues ? (
                             <tr>
-                              <td colSpan={8} className="px-6 py-8 text-center text-slate-400">
+                              <td colSpan={9} className="px-6 py-8 text-center text-slate-400">
                                 Loading saved catalogues...
                               </td>
                             </tr>
                           ) : savedCataloguesList.length === 0 ? (
                             <tr>
-                              <td colSpan={8} className="px-6 py-8 text-center text-slate-400">
+                              <td colSpan={9} className="px-6 py-8 text-center text-slate-400">
                                 No saved catalogues found. Click "Create Catalogue" above to design one.
                               </td>
                             </tr>
                           ) : (
                             savedCataloguesList.map((cat) => (
                               <tr key={cat._id} className="hover:bg-slate-50/80 transition">
+                                <td className="px-4 py-4 w-10 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedCatalogueIds.includes(cat._id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedCatalogueIds((prev) => [...prev, cat._id]);
+                                      } else {
+                                        setSelectedCatalogueIds((prev) => prev.filter((id) => id !== cat._id));
+                                      }
+                                    }}
+                                    className="w-4 h-4 rounded accent-indigo-600 cursor-pointer"
+                                  />
+                                </td>
                                 <td className="px-6 py-4 font-bold text-slate-900">
                                   <div>{cat.catalogueNumber}</div>
                                   <div className="text-xs font-normal text-slate-500 truncate max-w-[200px]">{cat.title || "Advantage Collection"}</div>
@@ -8543,7 +8678,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 confirmText="Delete"
                 cancelText="Cancel"
                 isConfirming={deleteModalState.isDeleting}
-                onCancel={() => setDeleteModalState({ isOpen: false, id: null, type: null, name: "", isDeleting: false })}
+                onCancel={() => setDeleteModalState({ isOpen: false, ids: [], type: null, name: "", isDeleting: false })}
                 onConfirm={handleConfirmDelete}
               />
             </div>

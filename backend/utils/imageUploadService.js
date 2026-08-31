@@ -1,5 +1,6 @@
 const { uploadToCloudinary, deleteFromCloudinary } = require("./cloudinaryService");
 const { uploadToGoogleDrive, deleteFromGoogleDrive } = require("./googleDriveService");
+const { compressImageBuffer } = require("./imageCompressor");
 
 /**
  * Upload image to both Cloudinary and Google Drive
@@ -10,9 +11,26 @@ const { uploadToGoogleDrive, deleteFromGoogleDrive } = require("./googleDriveSer
  * @returns {Promise<Object>} Upload results
  */
 async function uploadImageToAll(fileSource, category, fileName, options = {}) {
-  const { uploadMethod = "api", uploadedBy = null } = options;
+  const { uploadMethod = "api", uploadedBy = null, skipCompress = false } = options;
 
   console.log(`📤 Starting upload for ${fileName} to category: ${category}`);
+
+  let uploadBuffer = fileSource;
+  let finalFileName = fileName;
+
+  // Compress image to WebP (max 1200px, quality 80) unless skipCompress is true
+  if (!skipCompress) {
+    try {
+      const compressed = await compressImageBuffer(fileSource, { maxDimension: 1200, quality: 80, format: "webp" });
+      uploadBuffer = compressed.buffer;
+      if (compressed.isCompressed && !finalFileName.toLowerCase().endsWith(".webp")) {
+        const baseName = finalFileName.substring(0, finalFileName.lastIndexOf(".")) || finalFileName;
+        finalFileName = `${baseName}.webp`;
+      }
+    } catch (compressErr) {
+      console.warn("⚠️ Compression failed, proceeding with original fileSource:", compressErr.message);
+    }
+  }
 
   let cloudinaryResult = null;
   let googleDriveResult = null;
@@ -21,8 +39,8 @@ async function uploadImageToAll(fileSource, category, fileName, options = {}) {
   try {
     // Upload to both services in parallel
     const [cloudinaryRes, googleDriveRes] = await Promise.allSettled([
-      uploadToCloudinary(fileSource, category, fileName),
-      uploadToGoogleDrive(fileSource, category, fileName),
+      uploadToCloudinary(uploadBuffer, category, finalFileName),
+      uploadToGoogleDrive(uploadBuffer, category, finalFileName),
     ]);
 
     // Process Cloudinary result
@@ -53,7 +71,7 @@ async function uploadImageToAll(fileSource, category, fileName, options = {}) {
 
     // Prepare response
     const result = {
-      fileName,
+      fileName: finalFileName,
       category,
       uploadStatus,
       uploadMethod,

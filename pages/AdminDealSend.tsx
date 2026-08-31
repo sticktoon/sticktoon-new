@@ -583,7 +583,7 @@ export default function AdminDealSend() {
         let canvas: HTMLCanvasElement;
         try {
           canvas = await html2canvas(page, {
-            scale: 3,
+            scale: 2,
             backgroundColor: "#101828",
             useCORS: true,
             allowTaint: true,
@@ -618,10 +618,10 @@ export default function AdminDealSend() {
         if (!isFirst) pdf.addPage();
         isFirst = false;
 
-        const image = canvas.toDataURL("image/png");
+        const image = canvas.toDataURL("image/jpeg", 0.85);
         // The preview page is already authored at A4 proportions.
-        // Render it edge-to-edge onto the PDF page to avoid offset/letterboxing drift.
-        pdf.addImage(image, "PNG", 0, 0, pageWidth, pageHeight, undefined, "FAST");
+        // Render it edge-to-edge onto the PDF page using JPEG compression to keep PDF size small (~2MB).
+        pdf.addImage(image, "JPEG", 0, 0, pageWidth, pageHeight, undefined, "FAST");
 
         // html2canvas flattens anchors into pixels; add explicit PDF link annotations.
         const scaleX = pageWidth / pageRect.width;
