@@ -1050,23 +1050,9 @@ const CartDrawer: React.FC<{
               <span className="text-xl font-black text-slate-900">₹{subtotal.toFixed(0)}</span>
             </div>
 
-            {subtotal < 200 && (
-              <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3 text-xs font-semibold flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>
-                  Add products worth <strong className="font-extrabold text-amber-950">₹{Math.ceil(200 - subtotal)}</strong> more to proceed to checkout
-                </span>
-              </div>
-            )}
-
             <button
               onClick={goCheckout}
-              disabled={subtotal < 200}
-              className={`w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-black text-sm uppercase tracking-wide transition ${
-                subtotal < 200
-                  ? "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300 shadow-none"
-                  : "bg-slate-900 text-white hover:bg-slate-700 shadow-md"
-              }`}
+              className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-black text-sm uppercase tracking-wide transition bg-slate-900 text-white hover:bg-slate-700 shadow-md"
             >
               Checkout <ArrowRight className="w-4 h-4" />
             </button>
