@@ -745,35 +745,35 @@ export default function AdminDealConvert() {
 
       for (const pageEl of pageElements) {
         const canvas = await html2canvas(pageEl, {
-          scale: 3,
+          scale: 2,
           backgroundColor: "#ffffff",
           useCORS: true,
           allowTaint: true,
         });
         if (!isFirst) pdf.addPage();
         isFirst = false;
-        const imgData = canvas.toDataURL("image/png");
+        const imgData = canvas.toDataURL("image/jpeg", 0.85);
         const imgH = (canvas.height * pageWidth) / canvas.width;
         const yOffset = imgH < pageHeight ? (pageHeight - imgH) / 2 : 0;
-        pdf.addImage(imgData, "PNG", 0, yOffset, pageWidth, imgH);
+        pdf.addImage(imgData, "JPEG", 0, yOffset, pageWidth, imgH);
       }
 
       const finalCanvas = await html2canvas(finalElement, {
-        scale: 3,
+        scale: 2,
         backgroundColor: "#ffffff",
         useCORS: true,
         allowTaint: true,
       });
       pdf.addPage();
-      const finalImgData = finalCanvas.toDataURL("image/png");
-      const finalH = (finalCanvas.height * pageWidth) / finalCanvas.width;
-      const finalYOffset = finalH < pageHeight ? (pageHeight - finalH) / 2 : 0;
-      pdf.addImage(finalImgData, "PNG", 0, finalYOffset, pageWidth, finalH);
+      const finalImgData = finalCanvas.toDataURL("image/jpeg", 0.85);
+      const finalImgH = (finalCanvas.height * pageWidth) / finalCanvas.width;
+      const finalYOffset = finalImgH < pageHeight ? (pageHeight - finalImgH) / 2 : 0;
+      pdf.addImage(finalImgData, "JPEG", 0, finalYOffset, pageWidth, finalImgH);
 
       const footerLinks = getPdfLinkRects(
         finalElement,
         pageWidth,
-        finalH,
+        finalImgH,
         finalYOffset,
       );
       footerLinks.forEach((link) => {

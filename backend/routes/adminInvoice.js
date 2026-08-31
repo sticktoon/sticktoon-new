@@ -235,6 +235,21 @@ router.put("/:id", auth, adminOnly, async (req, res) => {
   }
 });
 
+/* 🧾 BULK DELETE INVOICES */
+router.post("/bulk-delete", auth, adminOnly, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "No invoice IDs provided for deletion" });
+    }
+    const result = await Invoice.deleteMany({ _id: { $in: ids } });
+    res.json({ message: `${result.deletedCount} invoices deleted successfully`, count: result.deletedCount });
+  } catch (err) {
+    console.error("❌ Bulk delete invoices failed:", err);
+    res.status(500).json({ message: "Failed to delete invoices" });
+  }
+});
+
 /* 🧾 DELETE INVOICE */
 router.delete("/:id", auth, adminOnly, async (req, res) => {
   try {
