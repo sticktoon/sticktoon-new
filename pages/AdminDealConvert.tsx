@@ -863,7 +863,13 @@ export default function AdminDealConvert() {
             Open this page from the Leads table using the Convert action, or from the Invoices section.
           </p>
           <button
-            onClick={() => navigate("/admin")}
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate("/admin");
+              }
+            }}
             className="mt-6 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white"
           >
             Back to Admin
@@ -1061,9 +1067,19 @@ export default function AdminDealConvert() {
               >
                 Clear
               </button>
-              <Link to="/admin" className="text-sm font-bold text-slate-600">
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.history.length > 1) {
+                    navigate(-1);
+                  } else {
+                    navigate("/admin");
+                  }
+                }}
+                className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors"
+              >
                 Back
-              </Link>
+              </button>
             </div>
           </div>
 
@@ -1305,7 +1321,13 @@ export default function AdminDealConvert() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate("/admin")}
+                onClick={() => {
+                  if (window.history.length > 1) {
+                    navigate(-1);
+                  } else {
+                    navigate("/admin");
+                  }
+                }}
                 className="rounded-lg border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100"
               >
                 Cancel
