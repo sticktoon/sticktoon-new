@@ -26,6 +26,8 @@ import {
   CreditCard,
   FileText,
   Download,
+  MessageSquare,
+  Send,
 } from "lucide-react";
 import { API_BASE_URL } from "../config/api";
 import { ConfirmModal } from "../components/ConfirmModal";
@@ -40,6 +42,33 @@ type UserProfile = {
   role: string;
   phone?: string;
   createdAt?: string;
+};
+
+type SupportMessageThreadItem = {
+  _id?: string;
+  sender?: string;
+  senderRole: "customer" | "staff" | "admin";
+  senderName?: string;
+  message: string;
+  createdAt: string;
+};
+
+type SupportRequestItem = {
+  _id: string;
+  ticketId?: string;
+  name: string;
+  email: string;
+  phone: string;
+  inquiryType: string;
+  message: string;
+  messages?: SupportMessageThreadItem[];
+  status: "New" | "In Progress" | "Resolved";
+  internalNote?: string;
+  firstResponseAt?: string;
+  resolvedAt?: string;
+  slaDeadlineAt?: string;
+  createdAt: string;
+  updatedAt?: string;
 };
 
 type AddressItem = {
@@ -96,7 +125,7 @@ type ToastType = "success" | "error" | "warning";
 export default function Profile({ addToCart }: { addToCart?: (badge: any, quantity?: number) => void } = {}) {
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<"profile" | "addresses" | "orders">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "addresses" | "orders" | "support">("profile");
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -120,6 +149,13 @@ export default function Profile({ addToCart }: { addToCart?: (badge: any, quanti
   const [orders, setOrders] = useState<UserOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
+
+  const [supportRequests, setSupportRequests] = useState<SupportRequestItem[]>([]);
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [supportFilter, setSupportFilter] = useState<"active" | "resolved">("active");
+  const [selectedSupportRequest, setSelectedSupportRequest] = useState<SupportRequestItem | null>(null);
+  const [customerReplyText, setCustomerReplyText] = useState("");
+  const [sendingCustomerReply, setSendingCustomerReply] = useState(false);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState("");
@@ -172,7 +208,14 @@ export default function Profile({ addToCart }: { addToCart?: (badge: any, quanti
     fetchProfile(token);
     fetchAddresses(token);
     fetchOrders(token);
+    fetchSupportRequests(token);
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "support") {
+      fetchSupportRequests();
+    }
+  }, [activeTab]);
 
   const fetchProfile = async (token: string) => {
     setLoading(true);
@@ -237,6 +280,62 @@ export default function Profile({ addToCart }: { addToCart?: (badge: any, quanti
       // soft fail
     } finally {
       setOrdersLoading(false);
+    }
+  };
+
+  const fetchSupportRequests = async (token?: string) => {
+    const authToken = token || getStoredToken();
+    if (!authToken) return;
+    setSupportLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/contact/my-requests`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSupportRequests(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      // soft fail
+    } finally {
+      setSupportLoading(false);
+    }
+  };
+
+  const handleSendCustomerReply = async () => {
+    if (!selectedSupportRequest || !customerReplyText.trim()) return;
+    const token = getStoredToken();
+    if (!token) return;
+
+    setSendingCustomerReply(true);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/contact/my-requests/${selectedSupportRequest._id}/reply`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ reply: customerReplyText.trim() }),
+        }
+      );
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to send reply");
+      }
+
+      showToast("Reply sent successfully!");
+      setCustomerReplyText("");
+      setSelectedSupportRequest(data);
+      setSupportRequests((prev) =>
+        prev.map((req) => (req._id === data._id ? data : req))
+      );
+    } catch (err: any) {
+      showToast(err.message || "Failed to send reply", "error");
+    } finally {
+      setSendingCustomerReply(false);
     }
   };
 
@@ -517,6 +616,7 @@ export default function Profile({ addToCart }: { addToCart?: (badge: any, quanti
     { id: "profile" as const, label: "Profile", icon: User, desc: "Manage your account" },
     { id: "addresses" as const, label: "Addresses", icon: MapPin, desc: "Manage delivery addresses" },
     { id: "orders" as const, label: "My Orders", icon: Package, desc: "View order history" },
+    { id: "support" as const, label: "Support Requests", icon: MessageSquare, desc: "Track support inquiries & SLAs" },
   ];
 
   return (
@@ -943,6 +1043,155 @@ export default function Profile({ addToCart }: { addToCart?: (badge: any, quanti
                 )}
               </div>
             )}
+
+            {/* ===== SUPPORT REQUESTS TAB ===== */}
+            {activeTab === "support" && (
+              <div className="space-y-6 animate-fadeIn">
+                <div className="bg-white/90 backdrop-blur-sm rounded-3xl border border-slate-200/80 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.05)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900">Support Requests &amp; SLAs</h2>
+                    <p className="text-slate-500 text-xs font-medium mt-1">
+                      Track customer support inquiries, view staff responses, and follow up.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/contact")}
+                    className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-extrabold text-xs tracking-wide hover:from-yellow-400 hover:to-orange-400 transition-all shadow-md active:scale-95 flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" /> New Inquiry
+                  </button>
+                </div>
+
+                {/* Filter Sub-nav */}
+                <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+                  <button
+                    type="button"
+                    onClick={() => setSupportFilter("active")}
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
+                      supportFilter === "active"
+                        ? "bg-slate-900 text-white shadow-md"
+                        : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" /> Active Requests
+                    <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-yellow-400 text-slate-950 font-black">
+                      {supportRequests.filter((r) => r.status !== "Resolved").length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSupportFilter("resolved")}
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
+                      supportFilter === "resolved"
+                        ? "bg-slate-900 text-white shadow-md"
+                        : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                    }`}
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" /> Resolved Requests
+                    <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-200 text-slate-800 font-black">
+                      {supportRequests.filter((r) => r.status === "Resolved").length}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Request Cards List */}
+                {supportLoading ? (
+                  <div className="bg-white/90 backdrop-blur-sm rounded-3xl border border-slate-200/80 p-12 text-center shadow-sm">
+                    <div className="animate-spin w-8 h-8 border-[3px] border-yellow-500 border-t-transparent rounded-full mx-auto mb-3" />
+                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Loading Support Requests...</p>
+                  </div>
+                ) : (
+                  (() => {
+                    const filtered = supportRequests.filter((req) =>
+                      supportFilter === "active" ? req.status !== "Resolved" : req.status === "Resolved"
+                    );
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="bg-white/90 backdrop-blur-sm rounded-3xl border border-slate-200/80 p-12 text-center shadow-sm">
+                          <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                          <h3 className="text-slate-900 font-extrabold text-base mb-1">
+                            No {supportFilter === "active" ? "active" : "resolved"} support requests
+                          </h3>
+                          <p className="text-slate-500 text-xs max-w-sm mx-auto mb-4 font-medium">
+                            {supportFilter === "active"
+                              ? "If you have any questions or issues with an order, feel free to contact us."
+                              : "You have no past resolved inquiries."}
+                          </p>
+                          {supportFilter === "active" && (
+                            <button
+                              type="button"
+                              onClick={() => navigate("/contact")}
+                              className="px-5 py-2.5 rounded-xl bg-slate-900 text-white font-black text-xs uppercase tracking-wider hover:bg-slate-800 transition"
+                            >
+                              Contact Support
+                            </button>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-4">
+                        {filtered.map((req) => (
+                          <div
+                            key={req._id}
+                            className="bg-white/90 backdrop-blur-sm rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all overflow-hidden"
+                          >
+                            <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50">
+                              <div className="flex items-center gap-3">
+                                <span className="font-mono text-xs font-black px-3 py-1 rounded-xl bg-slate-900 text-yellow-400">
+                                  #{req.ticketId || req._id.slice(-6)}
+                                </span>
+                                <span className="text-slate-900 font-black text-sm">{req.inquiryType}</span>
+                              </div>
+
+                              <div className="flex items-center gap-3">
+                                <span
+                                  className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider border ${
+                                    req.status === "New"
+                                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                                      : req.status === "In Progress"
+                                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                                      : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  }`}
+                                >
+                                  {req.status}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedSupportRequest(req)}
+                                  className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-wider hover:bg-slate-800 transition-all flex items-center gap-1.5 shadow-sm"
+                                >
+                                  View Details <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="p-5 sm:p-6 space-y-3">
+                              <p className="text-slate-700 text-sm font-medium line-clamp-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                                "{req.message}"
+                              </p>
+
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 pt-1">
+                                <span>Submitted: {new Date(req.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
+                                {req.messages && req.messages.length > 0 && (
+                                  <span className="font-bold text-slate-700">
+                                    💬 {req.messages.length} message{req.messages.length > 1 ? "s" : ""} in history
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1116,6 +1365,129 @@ export default function Profile({ addToCart }: { addToCart?: (badge: any, quanti
           </div>
         </div>
       )}
+      {/* Support Details / Conversation History Modal */}
+      {selectedSupportRequest && (
+        <div
+          className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto"
+          onClick={(e) => e.target === e.currentTarget && setSelectedSupportRequest(null)}
+        >
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl my-auto shadow-2xl text-slate-900 overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-black px-2.5 py-0.5 rounded-lg bg-slate-900 text-yellow-400">
+                    #{selectedSupportRequest.ticketId || selectedSupportRequest._id.slice(-6)}
+                  </span>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${
+                      selectedSupportRequest.status === "New"
+                        ? "bg-blue-50 text-blue-700 border-blue-200"
+                        : selectedSupportRequest.status === "In Progress"
+                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    }`}
+                  >
+                    {selectedSupportRequest.status}
+                  </span>
+                </div>
+                <h3 className="text-lg font-black text-slate-900 mt-1">{selectedSupportRequest.inquiryType}</h3>
+                <p className="text-slate-500 text-xs font-medium">
+                  Created: {new Date(selectedSupportRequest.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedSupportRequest(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-900 hover:bg-slate-200 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Conversation History Area */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-4 bg-slate-50/50">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-2">Conversation History</h4>
+
+              {(() => {
+                const thread = selectedSupportRequest.messages && selectedSupportRequest.messages.length > 0
+                  ? selectedSupportRequest.messages
+                  : [
+                      {
+                        senderRole: "customer" as const,
+                        senderName: selectedSupportRequest.name,
+                        message: selectedSupportRequest.message,
+                        createdAt: selectedSupportRequest.createdAt,
+                      },
+                    ];
+
+                return thread.map((item, idx) => {
+                  const isCustomer = item.senderRole === "customer";
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-4 rounded-2xl border text-sm shadow-sm space-y-1.5 ${
+                        isCustomer
+                          ? "bg-white border-slate-200 text-slate-900 ml-0 mr-6"
+                          : "bg-slate-900 border-slate-800 text-white ml-6 mr-0"
+                      }`}
+                    >
+                      <div className={`flex items-center justify-between gap-2 border-b pb-1.5 text-xs ${
+                        isCustomer ? "border-slate-100" : "border-slate-800"
+                      }`}>
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <span className={isCustomer ? "text-slate-900 font-black" : "text-yellow-400 font-black"}>
+                            {isCustomer ? `👤 ${item.senderName || selectedSupportRequest.name}` : "🛡️ StickToon Support Staff"}
+                          </span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase ${
+                            isCustomer ? "bg-yellow-100 text-yellow-900" : "bg-yellow-400 text-slate-950"
+                          }`}>
+                            {isCustomer ? "Customer" : "Staff"}
+                          </span>
+                        </div>
+                        <span className={isCustomer ? "text-slate-400 text-[11px]" : "text-slate-400 text-[11px]"}>
+                          {new Date(item.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                        </span>
+                      </div>
+                      <p className="whitespace-pre-line font-medium leading-relaxed pt-1">
+                        {item.message}
+                      </p>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Reply Input Box */}
+            <div className="p-4 border-t border-slate-200 bg-white">
+              <div className="flex flex-col gap-2">
+                <textarea
+                  rows={3}
+                  value={customerReplyText}
+                  onChange={(e) => setCustomerReplyText(e.target.value)}
+                  placeholder="Type your message or follow-up reply..."
+                  className="w-full bg-slate-50 border border-slate-300 text-slate-900 placeholder:text-slate-400 p-3 rounded-2xl focus:outline-none focus:border-yellow-500 text-sm font-medium"
+                />
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11px] text-slate-500">
+                    {selectedSupportRequest.status === "Resolved"
+                      ? "Replying will reopen this support ticket."
+                      : "Staff will be notified of your reply."}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleSendCustomerReply}
+                    disabled={sendingCustomerReply || !customerReplyText.trim()}
+                    className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-md"
+                  >
+                    <Send className="w-3.5 h-3.5 text-yellow-400" />
+                    {sendingCustomerReply ? "Sending..." : "Send Reply"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Address Confirmation Modal */}
       <ConfirmModal
         isOpen={deleteModalOpen}

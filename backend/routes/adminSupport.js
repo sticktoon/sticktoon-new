@@ -7,7 +7,24 @@ const sendEmail = require("../utils/sendEmail");
 router.get("/", auth, async (req, res) => {
   try {
     const messages = await SupportMessage.find().sort({ createdAt: -1 });
-    res.json(messages);
+
+    const formatted = messages.map((doc) => {
+      const obj = doc.toObject();
+      if (!obj.messages || obj.messages.length === 0) {
+        obj.messages = [
+          {
+            sender: obj.userId || null,
+            senderRole: "customer",
+            senderName: obj.name,
+            message: obj.message,
+            createdAt: obj.createdAt,
+          },
+        ];
+      }
+      return obj;
+    });
+
+    res.json(formatted);
   } catch (err) {
     console.error("Fetch support messages error:", err);
     res.status(500).json({ message: "Failed to fetch support messages" });
@@ -159,6 +176,26 @@ router.post("/:id/reply", auth, async (req, res) => {
     if (!emailResult?.ok) {
       return res.status(500).json({ message: "Failed to send reply email" });
     }
+
+    if (!supportMessage.messages || supportMessage.messages.length === 0) {
+      supportMessage.messages = [
+        {
+          sender: supportMessage.userId || null,
+          senderRole: "customer",
+          senderName: supportMessage.name,
+          message: supportMessage.message,
+          createdAt: supportMessage.createdAt,
+        },
+      ];
+    }
+
+    supportMessage.messages.push({
+      sender: req.user?.id || null,
+      senderRole: req.user?.role || "staff",
+      senderName: "Support Staff",
+      message: reply.trim(),
+      createdAt: new Date(),
+    });
 
     if (!supportMessage.firstResponseAt) {
       supportMessage.firstResponseAt = new Date();
