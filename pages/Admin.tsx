@@ -6044,7 +6044,7 @@ const Admin: React.FC = () => {
 
                         <span>
                           <button
-                            onClick={() => navigate(`/admin/deal-send?leadId=${lead._id || lead.id || ""}`, { state: { lead } })}
+                            onClick={() => navigate(`/admin/deal-send?leadId=${lead._id || ""}`, { state: { lead } })}
                             className="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-semibold transition"
                           >
                             Send
