@@ -1707,6 +1707,8 @@ function App() {
             <Route path="/admin/invoice/:id" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/deal-convert" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/deal-send" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/deal-send/:id" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/catalogues/:id/edit" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             {/* Influencer Portal Routes - Unified */}
             <Route path="/influencer/login" element={<Influencer />} />
             <Route path="/influencer/signup" element={<Influencer />} />

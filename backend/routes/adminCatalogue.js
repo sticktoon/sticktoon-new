@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const Catalogue = require("../models/Catalogue");
 const auth = require("../middleware/auth");
 const { adminOnly } = require("../middleware/roleMiddleware");
@@ -19,6 +20,10 @@ router.get("/", auth, adminOnly, async (req, res) => {
 /* 📚 GET CATALOGUE BY ID */
 router.get("/:id", auth, adminOnly, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid catalogue ID format" });
+    }
+
     const catalogue = await Catalogue.findById(req.params.id).populate("leadId");
 
     if (!catalogue) {
@@ -74,16 +79,28 @@ router.post("/", auth, adminOnly, async (req, res) => {
       finalNumber = `${finalNumber}-${Math.floor(100 + Math.random() * 900)}`;
     }
 
+    const validLeadId = (leadId && mongoose.Types.ObjectId.isValid(leadId)) ? leadId : null;
+
     const newCatalogue = new Catalogue({
       catalogueNumber: finalNumber,
-      leadId: leadId || null,
+      leadId: validLeadId,
       title: title || "Advantage Club Collection",
       tagline: tagline || "Limited Edition",
       highlightLine: highlightLine || "Smart Magnetic 58mm Pin Badges - Designed to Stick Anywhere in Your Office",
       customerEmail: customerEmail || "",
       customerPhone: customerPhone || "",
       quotationDate: quotationDate || new Date().toISOString().slice(0, 10),
-      items: Array.isArray(items) ? items : [],
+      items: Array.isArray(items)
+        ? items.map((item) => ({
+            id: String(item.id || ""),
+            description: String(item.description || ""),
+            unitPrice: Math.max(0, Number(item.unitPrice || 0)),
+            quantity: Math.max(1, Number(item.quantity || 1)),
+            image: String(item.image || ""),
+            defaultImage: String(item.defaultImage || ""),
+            finishLabel: String(item.finishLabel || ""),
+          }))
+        : [],
       gstEnabled: Boolean(gstEnabled),
       gstin: gstin || "",
       gstRate: Number(gstRate || 18),
@@ -114,6 +131,10 @@ router.post("/", auth, adminOnly, async (req, res) => {
 router.put("/:id", auth, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid catalogue ID format" });
+    }
+
     const existingCatalogue = await Catalogue.findById(id);
 
     if (!existingCatalogue) {
@@ -153,19 +174,34 @@ router.put("/:id", auth, adminOnly, async (req, res) => {
     const numGstAmount = gstEnabled ? Number(gstAmount || 0) : 0;
     const numTotal = Number(total || numSubtotal + numGstAmount + numDelivery);
 
+    const validLeadId = (leadId && mongoose.Types.ObjectId.isValid(leadId))
+      ? leadId
+      : (existingCatalogue.leadId && mongoose.Types.ObjectId.isValid(existingCatalogue.leadId))
+        ? existingCatalogue.leadId
+        : null;
+
     const updateFields = {
-      catalogueNumber: catalogueNumber || existingCatalogue.catalogueNumber,
-      leadId: leadId || existingCatalogue.leadId,
+      leadId: validLeadId,
       title: title ?? existingCatalogue.title,
       tagline: tagline ?? existingCatalogue.tagline,
       highlightLine: highlightLine ?? existingCatalogue.highlightLine,
       customerEmail: customerEmail ?? existingCatalogue.customerEmail,
       customerPhone: customerPhone ?? existingCatalogue.customerPhone,
       quotationDate: quotationDate || existingCatalogue.quotationDate,
-      items: Array.isArray(items) ? items : existingCatalogue.items,
+      items: Array.isArray(items)
+        ? items.map((item) => ({
+            id: String(item.id || ""),
+            description: String(item.description || ""),
+            unitPrice: Math.max(0, Number(item.unitPrice || 0)),
+            quantity: Math.max(1, Number(item.quantity || 1)),
+            image: String(item.image || ""),
+            defaultImage: String(item.defaultImage || ""),
+            finishLabel: String(item.finishLabel || ""),
+          }))
+        : existingCatalogue.items,
       gstEnabled: typeof gstEnabled === "boolean" ? gstEnabled : existingCatalogue.gstEnabled,
       gstin: gstin ?? existingCatalogue.gstin,
-      gstRate: gstRate ?? existingCatalogue.gstRate,
+      gstRate: Number(gstRate ?? existingCatalogue.gstRate ?? 18),
       deliveryCharges: numDelivery,
       subtotal: numSubtotal,
       gstAmount: numGstAmount,
@@ -180,6 +216,16 @@ router.put("/:id", auth, adminOnly, async (req, res) => {
       showCustomCard: typeof showCustomCard === "boolean" ? showCustomCard : existingCatalogue.showCustomCard,
       status: status || existingCatalogue.status,
     };
+
+    if (catalogueNumber && catalogueNumber !== existingCatalogue.catalogueNumber) {
+      let candidateNumber = catalogueNumber;
+      let duplicate = await Catalogue.findOne({ catalogueNumber: candidateNumber, _id: { $ne: id } });
+      while (duplicate) {
+        candidateNumber = `${catalogueNumber}-${Math.floor(1000 + Math.random() * 9000)}`;
+        duplicate = await Catalogue.findOne({ catalogueNumber: candidateNumber, _id: { $ne: id } });
+      }
+      updateFields.catalogueNumber = candidateNumber;
+    }
 
     const updated = await Catalogue.findByIdAndUpdate(id, updateFields, {
       new: true,
