@@ -1353,6 +1353,15 @@ const Admin: React.FC = () => {
     createdAt?: string;
   };
 
+  type SupportMessageThreadItem = {
+    _id?: string;
+    sender?: string;
+    senderRole: "customer" | "staff" | "admin";
+    senderName?: string;
+    message: string;
+    createdAt: string;
+  };
+
   type SupportMessage = {
     _id: string;
     ticketId?: string;
@@ -1361,6 +1370,7 @@ const Admin: React.FC = () => {
     phone: string;
     inquiryType: string;
     message: string;
+    messages?: SupportMessageThreadItem[];
     internalNote?: string;
     firstResponseAt?: string;
     resolvedAt?: string;
@@ -6731,8 +6741,48 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       </button>
                     </div>
 
+                    {/* Conversation Thread History */}
+                    <div className="max-h-60 overflow-y-auto p-3 bg-slate-50 rounded-lg border space-y-2 text-xs">
+                      <p className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Conversation History</p>
+                      {(() => {
+                        const thread = replyingSupportMessage.messages && replyingSupportMessage.messages.length > 0
+                          ? replyingSupportMessage.messages
+                          : [
+                              {
+                                senderRole: "customer" as const,
+                                senderName: replyingSupportMessage.name,
+                                message: replyingSupportMessage.message,
+                                createdAt: replyingSupportMessage.createdAt,
+                              },
+                            ];
+
+                        return thread.map((m, idx) => (
+                          <div
+                            key={idx}
+                            className={`p-2.5 rounded-lg border ${
+                              m.senderRole === "customer"
+                                ? "bg-white border-slate-200 text-slate-900"
+                                : "bg-slate-900 border-slate-800 text-white"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-1 text-[11px]">
+                              <span className="font-bold">
+                                {m.senderRole === "customer"
+                                  ? `👤 ${m.senderName || replyingSupportMessage.name} (Customer)`
+                                  : "🛡️ Support Staff"}
+                              </span>
+                              <span className="opacity-70">
+                                {new Date(m.createdAt).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}
+                              </span>
+                            </div>
+                            <p className="whitespace-pre-line leading-relaxed text-xs">{m.message}</p>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+
                     <textarea
-                      rows={8}
+                      rows={4}
                       value={supportReplyText}
                       onChange={(e) => setSupportReplyText(e.target.value)}
                       placeholder="Write your reply..."
