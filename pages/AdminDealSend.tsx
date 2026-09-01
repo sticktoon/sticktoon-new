@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { Camera, Search, Loader2, Check, X, Trash2, Mail } from "lucide-react";
@@ -7,6 +7,7 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { API_BASE_URL } from "../config/api";
 import { useScreenshotPrivacy } from "../utils/useScreenshotPrivacy";
 import ScreenshotPrivacyOverlay from "../utils/ScreenshotPrivacyOverlay";
+import ConfirmModal from "../components/ConfirmModal";
 
 type LeadLike = {
   _id?: string;
@@ -73,9 +74,11 @@ const reindexItems = (list: QuoteItem[]): QuoteItem[] => {
 
 const makeQuoteNumber = () => {
   const now = new Date();
-  return `ST/QTN/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}${String(
+  const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}${String(
     now.getDate(),
   ).padStart(2, "0")}`;
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  return `ST/QTN/${dateStr}/${randomSuffix}`;
 };
 
 const makeInitialItems = (unitPrice: number): QuoteItem[] => [];
@@ -108,34 +111,58 @@ const waitForImages = async (root: ParentNode) => {
 export default function AdminDealSend() {
   const location = useLocation();
   const navigate = useNavigate();
+  const params = useParams<{ id?: string }>();
+  const [searchParams] = useSearchParams();
+
   const navState = location.state as { lead?: LeadLike; existingCatalogue?: any; catalogue?: any } | null;
-  const existingCatalogue = navState?.existingCatalogue || navState?.catalogue;
-  const lead = navState?.lead;
+  const existingCatalogueState = navState?.existingCatalogue || navState?.catalogue;
+  const leadState = navState?.lead;
 
-  const [savedCatalogueId, setSavedCatalogueId] = useState<string | null>(
-    existingCatalogue?._id || null
-  );
+  const urlCatalogueId = params.id || searchParams.get("catalogueId") || searchParams.get("id") || null;
+  const urlLeadId = searchParams.get("leadId") || null;
 
-  const [email, setEmail] = useState(existingCatalogue?.customerEmail ?? lead?.email ?? "");
-  const [phone, setPhone] = useState(existingCatalogue?.customerPhone ?? lead?.phone ?? "");
-  const [quotationNo, setQuotationNo] = useState(existingCatalogue?.catalogueNumber ?? makeQuoteNumber());
-  const [quotationDate, setQuotationDate] = useState(existingCatalogue?.quotationDate ?? new Date().toISOString().slice(0, 10));
-  const [subject, setSubject] = useState(existingCatalogue?.title ?? "Advantage Club Collection");
-  const [tagline, setTagline] = useState(existingCatalogue?.tagline ?? "Limited Edition");
-  const [highlightLine, setHighlightLine] = useState(
-    existingCatalogue?.highlightLine ??
+  const initialCatalogueId = urlCatalogueId || existingCatalogueState?._id || null;
+  const initialLeadId = urlLeadId || leadState?._id || null;
+
+  const currentUserId = useMemo(() => {
+    try {
+      const u = localStorage.getItem("adminUser");
+      if (u) {
+        const parsed = JSON.parse(u);
+        return parsed.id || parsed._id || "";
+      }
+    } catch (e) {}
+    return "";
+  }, []);
+
+  const [savedCatalogueId, setSavedCatalogueId] = useState<string | null>(initialCatalogueId);
+  const [lead, setLead] = useState<LeadLike | null>(leadState || null);
+  const [isLoadingCatalogue, setIsLoadingCatalogue] = useState<boolean>(false);
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
+  const [hasUnsavedDraft, setHasUnsavedDraft] = useState<boolean>(false);
+
+  const backendDataRef = useRef<any>(existingCatalogueState || null);
+
+  const [email, setEmail] = useState<string>(existingCatalogueState?.customerEmail ?? leadState?.email ?? "");
+  const [phone, setPhone] = useState<string>(existingCatalogueState?.customerPhone ?? leadState?.phone ?? "");
+  const [quotationNo, setQuotationNo] = useState<string>(existingCatalogueState?.catalogueNumber ?? makeQuoteNumber());
+  const [quotationDate, setQuotationDate] = useState<string>(existingCatalogueState?.quotationDate ?? new Date().toISOString().slice(0, 10));
+  const [subject, setSubject] = useState<string>(existingCatalogueState?.title ?? "Advantage Club Collection");
+  const [tagline, setTagline] = useState<string>(existingCatalogueState?.tagline ?? "Limited Edition");
+  const [highlightLine, setHighlightLine] = useState<string>(
+    existingCatalogueState?.highlightLine ??
       "Smart Magnetic 58mm Pin Badges - Designed to Stick Anywhere in Your Office"
   );
   const [items, setItems] = useState<QuoteItem[]>(
-    existingCatalogue?.items ?? makeInitialItems(Number(lead?.expectedAmount || 50))
+    existingCatalogueState?.items ?? (leadState ? makeInitialItems(Number(leadState?.expectedAmount || 50)) : [])
   );
-  const [gstRate, setGstRate] = useState(existingCatalogue?.gstRate ?? 18);
+  const [gstRate, setGstRate] = useState<number>(existingCatalogueState?.gstRate ?? 18);
   const [gstEnabled, setGstEnabled] = useState<boolean>(
-    existingCatalogue ? existingCatalogue.gstEnabled !== false : true
+    existingCatalogueState ? existingCatalogueState.gstEnabled !== false : true
   );
-  const [gstin, setGstin] = useState<string>(existingCatalogue?.gstin ?? "27HENPP0138G1Z9");
+  const [gstin, setGstin] = useState<string>(existingCatalogueState?.gstin ?? "27HENPP0138G1Z9");
   const [deliveryCharges, setDeliveryCharges] = useState<number>(
-    existingCatalogue?.deliveryCharges ?? 0
+    existingCatalogueState?.deliveryCharges ?? 0
   );
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -279,6 +306,230 @@ export default function AdminDealSend() {
   const [customCardTitle, setCustomCardTitle] = useState(DEFAULT_CUSTOM_CARD_TITLE);
   const [customCardCopy, setCustomCardCopy] = useState(DEFAULT_CUSTOM_CARD_COPY);
   const [showCustomCard, setShowCustomCard] = useState(true);
+
+  const getDraftKeyFor = (catId: string | null, lId: string | null) => {
+    const userPrefix = currentUserId ? `${currentUserId}:` : "";
+    if (catId) return `catalogueDraft:${userPrefix}${catId}`;
+    if (lId) return `catalogueDraft:lead:${userPrefix}${lId}`;
+    return `catalogueDraft:new:${userPrefix}default`;
+  };
+
+  const activeDraftKey = useMemo(() => {
+    return getDraftKeyFor(savedCatalogueId, initialLeadId);
+  }, [savedCatalogueId, initialLeadId, currentUserId]);
+
+  const applyCatalogueData = (catData: any) => {
+    if (!catData) return;
+    if (catData._id) setSavedCatalogueId(catData._id);
+    if (catData.customerEmail !== undefined) setEmail(catData.customerEmail);
+    if (catData.customerPhone !== undefined) setPhone(catData.customerPhone);
+    if (catData.catalogueNumber) setQuotationNo(catData.catalogueNumber);
+    if (catData.quotationDate) setQuotationDate(catData.quotationDate);
+    if (catData.title) setSubject(catData.title);
+    if (catData.tagline !== undefined) setTagline(catData.tagline);
+    if (catData.highlightLine !== undefined) setHighlightLine(catData.highlightLine);
+    if (Array.isArray(catData.items)) setItems(catData.items);
+    if (catData.gstRate !== undefined) setGstRate(catData.gstRate);
+    if (catData.gstEnabled !== undefined) setGstEnabled(catData.gstEnabled !== false);
+    if (catData.gstin !== undefined) setGstin(catData.gstin);
+    if (catData.deliveryCharges !== undefined) setDeliveryCharges(catData.deliveryCharges);
+    if (catData.overviewPoints !== undefined) setOverviewPoints(catData.overviewPoints);
+    if (catData.officeLocation !== undefined) setOfficeLocation(catData.officeLocation);
+    if (catData.contactChannels !== undefined) setContactChannels(catData.contactChannels);
+    if (catData.curationNote !== undefined) setCurationNote(catData.curationNote);
+    if (catData.footerNote !== undefined) setFooterNote(catData.footerNote);
+    if (catData.customCardTitle !== undefined) setCustomCardTitle(catData.customCardTitle);
+    if (catData.customCardCopy !== undefined) setCustomCardCopy(catData.customCardCopy);
+    if (catData.showCustomCard !== undefined) setShowCustomCard(catData.showCustomCard !== false);
+  };
+
+  const applyDraftData = (draft: any) => {
+    if (!draft) return;
+    if (draft.email !== undefined) setEmail(draft.email);
+    if (draft.phone !== undefined) setPhone(draft.phone);
+    if (draft.quotationNo !== undefined) setQuotationNo(draft.quotationNo);
+    if (draft.quotationDate !== undefined) setQuotationDate(draft.quotationDate);
+    if (draft.subject !== undefined) setSubject(draft.subject);
+    if (draft.tagline !== undefined) setTagline(draft.tagline);
+    if (draft.highlightLine !== undefined) setHighlightLine(draft.highlightLine);
+    if (Array.isArray(draft.items)) setItems(draft.items);
+    if (draft.gstRate !== undefined) setGstRate(draft.gstRate);
+    if (draft.gstEnabled !== undefined) setGstEnabled(draft.gstEnabled !== false);
+    if (draft.gstin !== undefined) setGstin(draft.gstin);
+    if (draft.deliveryCharges !== undefined) setDeliveryCharges(draft.deliveryCharges);
+    if (draft.overviewPoints !== undefined) setOverviewPoints(draft.overviewPoints);
+    if (draft.officeLocation !== undefined) setOfficeLocation(draft.officeLocation);
+    if (draft.contactChannels !== undefined) setContactChannels(draft.contactChannels);
+    if (draft.curationNote !== undefined) setCurationNote(draft.curationNote);
+    if (draft.footerNote !== undefined) setFooterNote(draft.footerNote);
+    if (draft.customCardTitle !== undefined) setCustomCardTitle(draft.customCardTitle);
+    if (draft.customCardCopy !== undefined) setCustomCardCopy(draft.customCardCopy);
+    if (draft.showCustomCard !== undefined) setShowCustomCard(draft.showCustomCard !== false);
+  };
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const initData = async () => {
+      setIsLoaded(false);
+      let catData = existingCatalogueState || null;
+
+      if (initialCatalogueId && !catData) {
+        setIsLoadingCatalogue(true);
+        try {
+          const token = localStorage.getItem("adminToken");
+          const res = await fetch(`${API_BASE_URL}/api/admin/catalogue/${initialCatalogueId}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          if (res.ok) {
+            const fetched = await res.json();
+            if (!isCancelled) {
+              catData = fetched;
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch saved catalogue:", err);
+        } finally {
+          if (!isCancelled) {
+            setIsLoadingCatalogue(false);
+          }
+        }
+      }
+
+      if (isCancelled) return;
+
+      backendDataRef.current = catData;
+
+      if (catData) {
+        applyCatalogueData(catData);
+      } else if (leadState) {
+        setEmail(leadState.email || "");
+        setPhone(leadState.phone || "");
+        setItems(makeInitialItems(Number(leadState.expectedAmount || 50)));
+      }
+
+      // Check draft
+      const targetDraftKey = getDraftKeyFor(initialCatalogueId, initialLeadId);
+      try {
+        const storedDraft = localStorage.getItem(targetDraftKey);
+        if (storedDraft) {
+          const parsed = JSON.parse(storedDraft);
+          if (parsed && typeof parsed === "object") {
+            applyDraftData(parsed);
+            setHasUnsavedDraft(true);
+          }
+        }
+      } catch (e) {
+        console.error("Error restoring catalogue draft:", e);
+      }
+
+      setIsLoaded(true);
+    };
+
+    initData();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [initialCatalogueId, initialLeadId]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const timer = setTimeout(() => {
+      const draftData = {
+        savedCatalogueId,
+        email,
+        phone,
+        quotationNo,
+        quotationDate,
+        subject,
+        tagline,
+        highlightLine,
+        items,
+        gstRate,
+        gstEnabled,
+        gstin,
+        deliveryCharges,
+        overviewPoints,
+        officeLocation,
+        contactChannels,
+        curationNote,
+        footerNote,
+        customCardTitle,
+        customCardCopy,
+        showCustomCard,
+        updatedAt: Date.now(),
+      };
+      try {
+        localStorage.setItem(activeDraftKey, JSON.stringify(draftData));
+        setHasUnsavedDraft(true);
+      } catch (err) {
+        console.error("Failed to save draft:", err);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [
+    isLoaded,
+    activeDraftKey,
+    savedCatalogueId,
+    email,
+    phone,
+    quotationNo,
+    quotationDate,
+    subject,
+    tagline,
+    highlightLine,
+    items,
+    gstRate,
+    gstEnabled,
+    gstin,
+    deliveryCharges,
+    overviewPoints,
+    officeLocation,
+    contactChannels,
+    curationNote,
+    footerNote,
+    customCardTitle,
+    customCardCopy,
+    showCustomCard,
+  ]);
+
+  const [isDiscardModalOpen, setIsDiscardModalOpen] = useState(false);
+
+  const executeDiscardDraft = () => {
+    try {
+      localStorage.removeItem(activeDraftKey);
+    } catch (e) {}
+
+    setHasUnsavedDraft(false);
+
+    if (backendDataRef.current) {
+      applyCatalogueData(backendDataRef.current);
+    } else if (leadState) {
+      setEmail(leadState.email || "");
+      setPhone(leadState.phone || "");
+      setItems([]);
+    } else {
+      setQuotationNo(makeQuoteNumber());
+      setEmail("");
+      setPhone("");
+      setSubject("Advantage Club Collection");
+      setTagline("Limited Edition");
+      setHighlightLine("Smart Magnetic 58mm Pin Badges - Designed to Stick Anywhere in Your Office");
+      setItems([]);
+      setGstRate(18);
+      setGstEnabled(true);
+      setGstin("27HENPP0138G1Z9");
+      setDeliveryCharges(0);
+    }
+    showToast("Draft discarded and saved values restored", "success");
+  };
+
+  const handleDiscardDraft = () => {
+    setIsDiscardModalOpen(true);
+  };
   const [isExporting, setIsExporting] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
 
@@ -439,6 +690,12 @@ export default function AdminDealSend() {
         if (data._id) {
           setSavedCatalogueId(data._id);
         }
+        backendDataRef.current = data;
+        try {
+          localStorage.removeItem(activeDraftKey);
+        } catch (e) {}
+        setHasUnsavedDraft(false);
+
         showToast(
           isEdit
             ? `Changes saved for catalogue ${quotationNo}`
@@ -446,7 +703,8 @@ export default function AdminDealSend() {
           "success"
         );
       } else {
-        showToast(data.message || "Failed to save catalogue", "error");
+        const errorDetail = data.error ? `${data.message || "Failed to save catalogue"}: ${data.error}` : (data.message || "Failed to save catalogue");
+        showToast(errorDetail, "error");
       }
     } catch (err: any) {
       console.error("Save catalogue error:", err);
@@ -875,26 +1133,12 @@ export default function AdminDealSend() {
     return () => window.removeEventListener("afterprint", resetPrintMode);
   }, []);
 
-  if (!lead) {
+  if (isLoadingCatalogue) {
     return (
-      <div className="min-h-screen bg-slate-100 p-8">
-        <div className="mx-auto max-w-3xl rounded-2xl border bg-white p-8">
-          <h1 className="text-2xl font-black text-slate-900">No lead selected</h1>
-          <p className="mt-2 text-slate-600">
-            Open this page from the Leads table using the Send action.
-          </p>
-          <button
-            onClick={() => {
-              if (window.history.length > 1) {
-                navigate(-1);
-              } else {
-                navigate("/admin");
-              }
-            }}
-            className="mt-6 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white"
-          >
-            Back to Admin
-          </button>
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-8">
+        <div className="flex items-center gap-3 rounded-2xl border bg-white p-6 shadow-sm">
+          <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+          <span className="text-sm font-bold text-slate-700">Loading catalogue data...</span>
         </div>
       </div>
     );
@@ -1492,6 +1736,22 @@ export default function AdminDealSend() {
               </label>
             </div>
 
+            {hasUnsavedDraft && (
+              <div className="flex items-center justify-between p-3 rounded-lg text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200">
+                <span className="flex items-center gap-1.5 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  Unsaved Local Draft Active
+                </span>
+                <button
+                  type="button"
+                  onClick={handleDiscardDraft}
+                  className="text-amber-800 hover:text-rose-700 underline font-bold transition-colors"
+                >
+                  Discard Draft
+                </button>
+              </div>
+            )}
+
             {toast && (
               <div className={`p-3 rounded-lg text-xs font-bold text-center border ${toast.type === "success" ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-red-50 text-red-800 border-red-300"}`}>
                 {toast.message}
@@ -2032,6 +2292,20 @@ export default function AdminDealSend() {
             </div>
           </div>
         </div>
+      )}
+      {isDiscardModalOpen && (
+        <ConfirmModal
+          isOpen={isDiscardModalOpen}
+          title="Discard Unsaved Draft?"
+          message="Are you sure you want to discard your unsaved local draft? All unsaved changes will be lost and saved values will be restored."
+          confirmText="Discard Draft"
+          cancelText="Keep Draft"
+          onCancel={() => setIsDiscardModalOpen(false)}
+          onConfirm={() => {
+            executeDiscardDraft();
+            setIsDiscardModalOpen(false);
+          }}
+        />
       )}
     </div>
   );

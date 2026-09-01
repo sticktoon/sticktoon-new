@@ -1068,6 +1068,9 @@ const getViewFromPath = (pathname: string) => {
   if (cleanPath === "/admin" || cleanPath === "/admin/dashboard" || cleanPath === "") {
     return "dashboard";
   }
+  if (cleanPath.startsWith("/admin/catalogues/") || cleanPath.startsWith("/admin/deal-send")) {
+    return "deal-send";
+  }
   const view = cleanPath.replace(/^\/admin\//, "");
   const validViews = [
     "dashboard",
@@ -3072,6 +3075,8 @@ const Admin: React.FC = () => {
 
       if (pathname.startsWith("/admin/invoice/")) {
         setCurrentView("invoice" as any);
+      } else if (pathname.startsWith("/admin/catalogues/") || pathname.startsWith("/admin/deal-send")) {
+        setCurrentView("deal-send" as any);
       } else if (pathToViewMap[pathname]) {
         setCurrentView(pathToViewMap[pathname]);
       }
@@ -6039,7 +6044,7 @@ const Admin: React.FC = () => {
 
                         <span>
                           <button
-                            onClick={() => navigate("/admin/deal-send", { state: { lead } })}
+                            onClick={() => navigate(`/admin/deal-send?leadId=${lead._id || lead.id || ""}`, { state: { lead } })}
                             className="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-semibold transition"
                           >
                             Send
@@ -8371,7 +8376,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   </button>
                   <button
                     type="button"
-                    onClick={() => navigate("/admin/deal-send", { state: { lead: {} } })}
+                    onClick={() => navigate("/admin/deal-send")}
                     className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 shadow"
                   >
                     <Plus className="w-4 h-4" /> Create Catalogue
@@ -8652,7 +8657,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                   <div className="flex items-center justify-end gap-2">
                                     <button
                                       type="button"
-                                      onClick={() => navigate("/admin/deal-send", { state: { existingCatalogue: cat } })}
+                                      onClick={() => navigate(`/admin/catalogues/${cat._id}/edit`, { state: { existingCatalogue: cat } })}
                                       className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
                                     >
                                       <Edit2 className="w-3.5 h-3.5" /> Edit
