@@ -182,6 +182,7 @@ export default function Profile({
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
+  const [editAvatar, setEditAvatar] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
