@@ -223,13 +223,15 @@ const verifyAndCalculateOrder = async ({ items, address, promoCode, requestEmail
           discount = totalBeforeDiscount;
         }
 
-        discount = Math.round(discount);
+        discount = Math.round(discount * 100) / 100;
         appliedPromoCode = promo.code;
       }
     }
   }
 
-  const totalAmount = subtotal + deliveryCharges - discount;
+  subtotal = Math.round(subtotal * 100) / 100;
+  const rawTotal = subtotal + deliveryCharges - discount;
+  const totalAmount = Math.max(1, Math.round(rawTotal * 100) / 100);
 
   return {
     userId,
@@ -270,7 +272,7 @@ router.post("/create-order", async (req, res) => {
     const receiptId = `rcpt_${shortUserId}_${timestamp}`;
     
     const razorpayOrder = await razorpay.orders.create({
-      amount: totalAmount * 100, // Razorpay uses paise (multiply by 100)
+      amount: Math.round(totalAmount * 100), // Must be integer (paise)
       currency: "INR",
       receipt: receiptId,
       notes: {
@@ -369,10 +371,7 @@ router.post("/verify-payment", async (req, res) => {
 
     // 🔒 Defense-in-depth: confirm the captured amount matches the order total.
     try {
-      const payment = await razorpay.payments.fetch(razorpay_payment_id);
-      const amountPaid = Number(payment?.amount);
-      const expectedPaise = Math.round(totalAmount * 100);
-      const paymentOk = ["captured", "authorized"].includes(payment?.status);
+      const payment = await razorpay.payments.fetchq
       if (
         String(payment?.order_id) !== razorpay_order_id ||
         !paymentOk ||
