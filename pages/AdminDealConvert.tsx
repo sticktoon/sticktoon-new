@@ -49,9 +49,11 @@ type DocType = "quotation" | "invoice";
 const makeDocNumber = (docType: DocType = "quotation") => {
   const now = new Date();
   const segment = docType === "invoice" ? "INV" : "QTN";
-  return `ST/${segment}/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}${String(
+  const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}${String(
     now.getDate(),
   ).padStart(2, "0")}`;
+  const suffix = Math.floor(100 + Math.random() * 900);
+  return `ST/${segment}/${dateStr}-${suffix}`;
 };
 
 const MONTHS_SHORT = [
@@ -431,6 +433,7 @@ export default function AdminDealConvert() {
   const [signatureBrand, setSignatureBrand] = useState(draft?.signatureBrand ?? "For StickToon");
   const [isExporting, setIsExporting] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const isStaticPreview = isExporting || isPrinting;
   const isScreenProtected = useScreenshotPrivacy(!isExporting && !isPrinting);
 
@@ -843,6 +846,228 @@ export default function AdminDealConvert() {
       return;
     }
     setIsPrinting(false);
+  };
+
+  const ensureGeneratedCatalogue = async () => {
+    try {
+      const pdf = await buildPdf();
+      if (!pdf) {
+        showToast("PDF generation failed", "error");
+        return null;
+      }
+
+      const docLabel = isInvoice ? "Invoice" : "Quotation";
+      const filename = `${docLabel.toLowerCase()}-${quotationNo.replace(/[\\/:*?"<>|]+/g, "-")}.pdf`;
+      const pdfBlob = pdf.output("blob");
+
+      const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("pdfFile", pdfBlob, filename);
+      formData.append("filename", filename);
+      if (lead?._id) formData.append("leadId", lead._id);
+
+      let res: Response | null = null;
+      let uploadErr: any = null;
+
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          res = await fetch(`${API_BASE_URL}/api/admin/leads/catalogue/upload`, {
+            method: "POST",
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: formData,
+          });
+          if (res.ok) break;
+        } catch (e) {
+          uploadErr = e;
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        }
+      }
+
+      if (!res || !res.ok) {
+        const errData = res ? await res.json().catch(() => ({})) : {};
+        const msg = errData.message || uploadErr?.message || "PDF upload failed";
+        showToast(msg, "error");
+        return null;
+      }
+
+      const data = await res.json();
+      return {
+        pdf,
+        catalogueId: data.catalogueId,
+        filename: data.filename || filename,
+      };
+    } catch (err: any) {
+      console.error("Error generating PDF:", err);
+      showToast(err?.message || "PDF generation failed", "error");
+      return null;
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (isSendingEmail) return;
+
+    const targetEmail = email.trim();
+    if (!targetEmail) {
+      showToast("Customer email address is not available.", "error");
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      const adminToken = localStorage.getItem("adminToken") || localStorage.getItem("token");
+      let invoiceIdToSend = savedInvoiceId;
+
+      if (!invoiceIdToSend) {
+        const payload = {
+          leadId: lead?._id || null,
+          docType,
+          customerName: quotationFor,
+          company,
+          email,
+          phone,
+          address,
+          invoiceNumber: quotationNo,
+          quotationDate,
+          validityDays,
+          currencyCode,
+          subject,
+          intro,
+          companyGstin,
+          companyUdyam,
+          companyEmail,
+          companyContact,
+          items,
+          gstEnabled,
+          gstin,
+          gstRate,
+          subtotal: totals.subtotal,
+          gstAmount: totals.gstAmount,
+          deliveryCharges: totals.deliveryCharges,
+          amount: totals.grandTotal,
+          discount: 0,
+          termsText,
+          bankDetails: {
+            accountName,
+            bankName,
+            accountNumber,
+            ifsc,
+            swift,
+            branch,
+          },
+          operationalAddress,
+          headquartersAddress,
+          authorizedSignatory,
+          signatureBrand,
+          status: "Saved",
+        };
+
+        const saveRes = await fetch(`${API_BASE_URL}/api/admin/invoice`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const saveResult = await saveRes.json();
+        if (!saveRes.ok || !saveResult._id) {
+          showToast(saveResult.message || "Failed to save invoice before sending email", "error");
+          setIsSendingEmail(false);
+          return;
+        }
+
+        invoiceIdToSend = saveResult._id;
+        setSavedInvoiceId(saveResult._id);
+      }
+
+      const docRef = await ensureGeneratedCatalogue();
+      if (!docRef) return;
+
+      const docLabel = isInvoice ? "Invoice" : "Quotation";
+      const requestPayload = JSON.stringify({
+        leadId: lead?._id,
+        catalogueId: docRef.catalogueId,
+        email: targetEmail,
+        subject: subject ? `${docLabel} - ${subject}` : `${docLabel} - ${quotationNo}`,
+        body: intro,
+      });
+
+      let res: Response | null = null;
+      let fetchErr: any = null;
+
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          res = await fetch(`${API_BASE_URL}/api/admin/leads/gmail/create-draft`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+            },
+            body: requestPayload,
+          });
+          if (res) break;
+        } catch (err) {
+          fetchErr = err;
+          if (attempt < 3) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        }
+      }
+
+      if (!res) {
+        throw fetchErr || new Error("Failed to connect to backend server");
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        // Fallback to sending invoice email directly via sendEmail utility
+        const fallbackRes = await fetch(`${API_BASE_URL}/api/admin/invoice/${invoiceIdToSend}/send-email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+          },
+        });
+        const fallbackData = await fallbackRes.json().catch(() => ({}));
+        if (fallbackRes.ok) {
+          showToast(`${docLabel} sent successfully to ${targetEmail} via direct email.`, "success");
+          return;
+        }
+        
+        if (data.requiresGoogleAuth) {
+          showToast("Gmail OAuth token for orders.sticktoon@gmail.com is expired/revoked. Please re-authorize.", "error");
+          return;
+        }
+        showToast(data.message || fallbackData.message || "Failed to send email", "error");
+        return;
+      }
+
+      showToast(
+        `Gmail draft created under orders.sticktoon@gmail.com with ${docLabel} PDF attached! Opening Gmail...`,
+        "success"
+      );
+      window.open(data.viewUrl || "https://mail.google.com/mail/u/0/#drafts", "_blank");
+
+      // Optional background sync to invoice send-email endpoint
+      fetch(`${API_BASE_URL}/api/admin/invoice/${invoiceIdToSend}/send-email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+        },
+      }).catch(() => {});
+    } catch (err: any) {
+      console.error("Error creating Gmail draft:", err);
+      showToast(err?.message || "Failed to create Gmail draft", "error");
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const handleItemImageUpload = (id: string, file?: File | null) => {
@@ -1334,11 +1559,26 @@ export default function AdminDealConvert() {
               </button>
             </div>
 
-            <div className="flex gap-3">
-              <button onClick={handlePrint} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold print:hidden">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleSendEmail}
+                disabled={isSendingEmail}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition print:hidden"
+              >
+                {isSendingEmail ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send Email"
+                )}
+              </button>
+              <button onClick={handlePrint} className="flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-bold hover:bg-slate-50 transition print:hidden">
                 Print
               </button>
-              <button onClick={handleDownload} className="flex-1 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-bold text-white print:hidden">
+              <button onClick={handleDownload} className="flex-1 rounded-lg bg-slate-900 px-3 py-2.5 text-sm font-bold text-white hover:bg-slate-800 transition print:hidden">
                 Download PDF
               </button>
             </div>

@@ -371,7 +371,7 @@ router.post("/verify-payment", async (req, res) => {
 
     // 🔒 Defense-in-depth: confirm the captured amount matches the order total.
     try {
-      const payment = await razorpay.payments.fetchq
+      const payment = await razorpay.payments.fetch(razorpay_payment_id);
       if (
         String(payment?.order_id) !== razorpay_order_id ||
         !paymentOk ||
