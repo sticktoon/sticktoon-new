@@ -276,17 +276,12 @@ const CustomisedProductsSection: React.FC = () => {
     {
       name: "Pin-back Badge",
       image: "/badge/chat1.png",
-      // icon: "📌"
-    },
-    {
-      name: "Fridge Magnet Badge",
-      image: "/badge/fridge.png",
-      // icon: "🧲"
+      link: "/categories",
     },
     {
       name: "Stickers",
       image: "/sticker/mergesticker.jpeg",
-      // icon: "👕"
+      link: "/stickers",
     },
   ];
 
@@ -297,12 +292,9 @@ const CustomisedProductsSection: React.FC = () => {
         <div className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-yellow-500/8 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-100px] right-[-200px] w-[500px] h-[500px] bg-orange-400/8 rounded-full blur-[100px]" />
         <div className="absolute top-1/3 left-[-150px] w-[400px] h-[400px] bg-red-400/6 rounded-full blur-[90px]" />
-
-
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
-
         {/* HEADER */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-6 py-3 rounded-full mb-3 border-2 border-yellow-500/30">
@@ -319,11 +311,11 @@ const CustomisedProductsSection: React.FC = () => {
         </div>
 
         {/* GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
           {products.map((item, idx) => (
             <Link
               key={idx}
-              to={idx === 2 ? "/stickers" : "/categories"}
+              to={item.link}
               className="relative h-[280px] rounded-2xl overflow-hidden group border-[3px] border-black hover:border-slate-800 transition-all duration-300 hover:-translate-y-2 cursor-pointer"
             >
               {/* Icon Badge */}

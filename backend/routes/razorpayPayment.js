@@ -141,15 +141,20 @@ const verifyAndCalculateOrder = async ({ items, address, promoCode, requestEmail
     }
 
     if (product) {
-      const verifiedPrice = product.price;
+      const badgeStyle = item.badgeStyle || item.badgeType || "pin";
+      let verifiedPrice = product.price;
+      if (badgeStyle === "magnetic") {
+        verifiedPrice += 10;
+      }
       subtotal += verifiedPrice * quantity;
 
       verifiedItems.push({
         ...item,
+        badgeStyle,
         quantity,
-        price: verifiedPrice, // Use DB price
+        price: verifiedPrice, // Use DB price (+ ₹10 if magnetic)
         name: product.name,   // Use DB name
-        image: product.image, // Use DB display (ADV) image
+        image: badgeStyle === "magnetic" && product.imageMagnetic ? product.imageMagnetic : product.image,
         // Admin-only print artwork — flows into the order email so the badge
         // can be printed directly. Falls back to the customer image if unset.
         printImage: product.printImage || item.printImage || null,
@@ -162,6 +167,7 @@ const verifyAndCalculateOrder = async ({ items, address, promoCode, requestEmail
     }
 
     // Final fallback for items not present in Product DB (static catalog/custom stickers).
+    const badgeStyle = item.badgeStyle || item.badgeType || "pin";
     const fallbackPrice = Number(item.price);
     if (!Number.isFinite(fallbackPrice) || fallbackPrice <= 0 || fallbackPrice > 50000) {
       throw { status: 400, message: `Invalid price for ${item.name || "item"}` };
@@ -172,6 +178,7 @@ const verifyAndCalculateOrder = async ({ items, address, promoCode, requestEmail
       badgeId: rawBadgeId,
       name: item.name || "Item",
       price: fallbackPrice,
+      badgeStyle,
       quantity,
       image: item.image || null,
       printImage: item.printImage || null,

@@ -14,6 +14,13 @@ const cartItemSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    basePrice: {
+      type: Number,
+    },
+    badgeStyle: {
+      type: String,
+      default: "pin",
+    },
     quantity: {
       type: Number,
       required: true,

@@ -70,7 +70,7 @@ export const ToastNotification: React.FC<ToastProps> = ({ item, onClose }) => {
               )}
               {item.price !== undefined && (
                 <p className="text-xs font-black text-purple-700 mt-0.5">
-                  ₹{item.price}
+                  ₹{Number.isInteger(Math.round(item.price * 100) / 100) ? Math.round(item.price * 100) / 100 : (Math.round(item.price * 100) / 100).toFixed(2)}
                 </p>
               )}
             </div>

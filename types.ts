@@ -5,7 +5,8 @@ export interface Badge {
   price: number;
   category: Category;
   subcategory?: string;
-   quantity?: number; 
+  quantity?: number; 
+  badgeStyle?: 'pin' | 'magnetic';
 
   comboItems?: ComboItemPreview[];
 
@@ -32,6 +33,8 @@ export interface ComboItemPreview {
 
 export interface CartItem extends Badge {
   quantity: number;
+  badgeStyle?: 'pin' | 'magnetic';
+  basePrice?: number;
 }
 
 export interface User {

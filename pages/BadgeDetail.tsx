@@ -15,7 +15,7 @@ interface BadgeDetailUser {
 }
 
 interface BadgeDetailProps {
-  addToCart: (badge: Badge) => void;
+  addToCart: (badge: any, quantity?: number) => void;
   user?: BadgeDetailUser | null;
 }
 
@@ -458,15 +458,16 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
     );
   }
 
+  const rawUnitPrice = badgeType === 'magnetic' ? Number(badge.price) + 10 : Number(badge.price);
+  const unitPrice = Math.round(rawUnitPrice * 100) / 100;
+
   const handleBuyNow = () => {
-    addToCart(badge);
+    addToCart({ ...badge, price: unitPrice, badgeStyle: badgeType }, quantity);
     navigate('/checkout');
   };
 
   const handleAddToCart = () => {
-    for (let i = 0; i < quantity; i++) {
-      addToCart(badge);
-    }
+    addToCart({ ...badge, price: unitPrice, badgeStyle: badgeType }, quantity);
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);
   };
@@ -611,7 +612,10 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
   const baseImages = badgeType === 'magnetic' ? [badge.image, magneticImage] : [badge.image];
   const extraGalleryImages = (badge.images || []).filter((img) => !baseImages.includes(img));
   const images = [...baseImages, ...extraGalleryImages];
-  const formatPrice = (p: number) => `₹${p}`;
+  const formatPrice = (p: number) => {
+    const rounded = Math.round((Number(p) || 0) * 100) / 100;
+    return `₹${Number.isInteger(rounded) ? rounded : rounded.toFixed(2)}`;
+  };
   const canBuildCustomCombo = comboCandidates.length >= CUSTOM_COMBO_SIZE;
   const isComboSelectionComplete = totalComboQuantity === CUSTOM_COMBO_SIZE;
 
@@ -844,17 +848,17 @@ export default function BadgeDetail({ addToCart, user }: BadgeDetailProps) {
             {/* Price */}
             <div className="flex items-end gap-2.5 flex-wrap">
               <span className="text-3xl md:text-4xl font-black bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
-                {formatPrice(badge.price * quantity)}
+                {formatPrice(unitPrice * quantity)}
               </span>
               <span className="text-base line-through text-slate-300 font-bold mb-0.5">
                 {formatPrice(299 * quantity)}
               </span>
               <span className="text-[10px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full mb-0.5">
-                SAVE {Math.round((1 - badge.price / 299) * 100)}%
+                SAVE {Math.round((1 - unitPrice / 299) * 100)}%
               </span>
             </div>
             {quantity > 1 && (
-              <p className="text-[11px] text-slate-400 font-medium -mt-2">{formatPrice(badge.price)} × {quantity} items</p>
+              <p className="text-[11px] text-slate-400 font-medium -mt-2">{formatPrice(unitPrice)} × {quantity} items</p>
             )}
 
             {/* Divider */}

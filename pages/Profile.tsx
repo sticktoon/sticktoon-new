@@ -92,6 +92,7 @@ type OrderItem = {
   price: number;
   quantity: number;
   badgeId?: string;
+  badgeStyle?: string;
   customDesign?: {
     uploadedImage?: string;
     previewDataUrl?: string;
@@ -1047,6 +1048,11 @@ export default function Profile({
                                   <div>
                                     <p className="text-slate-900 font-bold text-sm">{item.title || item.name || "Sticker Badge"}</p>
                                     <p className="text-slate-500 text-xs font-medium">Qty: {item.quantity} × ₹{item.price}</p>
+                                    {item.badgeStyle && (
+                                      <p className="text-[10px] font-black uppercase text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block mt-0.5">
+                                        Badge: {item.badgeStyle === "magnetic" ? "PIN + MAGNETIC" : "PIN BADGE"}
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
                                 <button

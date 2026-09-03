@@ -203,8 +203,8 @@ const loadCheckoutDraft = () => {
 
 interface CheckoutProps {
   cart: CartItem[];
-  removeFromCart: (id: string) => void;
-  updateQuantity: (id: string, q: number) => void;
+  removeFromCart: (id: string, badgeStyle?: string) => void;
+  updateQuantity: (id: string, q: number, badgeStyle?: string) => void;
 }
 
 export default function Checkout({
@@ -638,27 +638,27 @@ export default function Checkout({
     setQuantityInputs((prev) => ({ ...prev, [id]: value }));
   };
 
-  const commitQuantity = (id: string, currentQuantity: number) => {
-    const raw = quantityInputs[id];
+  const commitQuantity = (item: CartItem, currentQuantity: number) => {
+    const raw = quantityInputs[item.id];
     const parsed = parseInt(raw || "", 10);
     const nextQuantity = Number.isNaN(parsed) ? currentQuantity : Math.max(1, parsed);
 
-    setQuantityInputs((prev) => ({ ...prev, [id]: String(nextQuantity) }));
+    setQuantityInputs((prev) => ({ ...prev, [item.id]: String(nextQuantity) }));
     if (nextQuantity !== currentQuantity) {
-      updateQuantity(id, nextQuantity);
+      updateQuantity(item.id, nextQuantity, item.badgeStyle);
     }
   };
 
   const handleIncrement = (item: CartItem) => {
     const nextQuantity = item.quantity + 1;
     setQuantityInputs((prev) => ({ ...prev, [item.id]: String(nextQuantity) }));
-    updateQuantity(item.id, nextQuantity);
+    updateQuantity(item.id, nextQuantity, item.badgeStyle);
   };
 
   const handleDecrement = (item: CartItem) => {
     const nextQuantity = Math.max(1, item.quantity - 1);
     setQuantityInputs((prev) => ({ ...prev, [item.id]: String(nextQuantity) }));
-    updateQuantity(item.id, nextQuantity);
+    updateQuantity(item.id, nextQuantity, item.badgeStyle);
   };
 
   const getBurstParticleStyle = (index: number) => {
@@ -915,6 +915,8 @@ export default function Checkout({
               quantity: item.quantity,
               image: item.image,
               printImage: item.printImage,
+              badgeStyle: item.badgeStyle || "pin",
+              comboItems: item.comboItems,
             })),
           }),
         }
@@ -966,6 +968,7 @@ export default function Checkout({
                     quantity: item.quantity,
                     image: item.image,
                     printImage: item.printImage,
+                    badgeStyle: item.badgeStyle || "pin",
                     comboItems: item.comboItems,
                   })),
                 }),
@@ -1551,10 +1554,11 @@ export default function Checkout({
   {/* ITEMS LIST */}
   {cart.map((item) => {
     const comboItems = getComboItemsForDisplay(item);
+    const badgeStyleLabel = item.badgeStyle === "magnetic" ? "PIN + MAGNETIC" : "PIN BADGE";
 
     return (
       <div
-        key={item.id}
+        key={`${item.id}-${item.badgeStyle || "pin"}`}
         className="border-b pb-5 last:border-b-0"
       >
         <div className="flex items-start gap-3">
@@ -1570,12 +1574,21 @@ export default function Checkout({
           <div className="flex-1 min-w-0">
             <p className="font-black truncate">{item.name}</p>
             <p className="text-sm text-gray-500">
-              ₹{item.price} × {item.quantity}
+              {formatPrice(item.price)} × {item.quantity}
             </p>
+            <div className="mt-1">
+              <span className={`inline-block text-[10px] font-black uppercase px-2 py-0.5 rounded ${
+                item.badgeStyle === "magnetic"
+                  ? "bg-amber-100 text-amber-800 border border-amber-300"
+                  : "bg-slate-100 text-slate-700 border border-slate-200"
+              }`}>
+                Badge: {badgeStyleLabel}
+              </span>
+            </div>
           </div>
 
           <button
-            onClick={() => removeFromCart(item.id)}
+            onClick={() => removeFromCart(item.id, item.badgeStyle)}
             className="shrink-0 p-1"
             aria-label="Remove item"
           >
@@ -1598,7 +1611,7 @@ export default function Checkout({
             step={1}
             value={quantityInputs[item.id] ?? String(item.quantity)}
             onChange={(e) => handleQuantityInputChange(item.id, e.target.value)}
-            onBlur={() => commitQuantity(item.id, item.quantity)}
+            onBlur={() => commitQuantity(item, item.quantity)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 (e.target as HTMLInputElement).blur();
@@ -1618,7 +1631,7 @@ export default function Checkout({
           </div>
 
           <p className="font-bold text-sm sm:text-base whitespace-nowrap">
-            ₹{item.price * item.quantity}
+            {formatPrice(item.price * item.quantity)}
           </p>
         </div>
 
@@ -1738,18 +1751,18 @@ export default function Checkout({
   <div className="space-y-3 mb-6 text-sm">
     <div className="flex justify-between text-slate-600">
       <span>Subtotal</span>
-      <span>₹{subtotal}</span>
+      <span>{formatPrice(subtotal)}</span>
     </div>
 
     <div className="flex justify-between text-slate-600">
       <span>Delivery</span>
-      <span>₹{deliveryCharges}</span>
+      <span>{formatPrice(deliveryCharges)}</span>
     </div>
 
     {appliedPromo && (
       <div className="flex justify-between text-green-600 font-semibold">
         <span>Discount ({appliedPromo.code})</span>
-        <span>-₹{discount}</span>
+        <span>-{formatPrice(discount)}</span>
       </div>
     )}
 

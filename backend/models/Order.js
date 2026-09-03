@@ -17,6 +17,11 @@ const orderItemSchema = new mongoose.Schema(
       required: true,
     },
 
+    badgeStyle: {
+      type: String,
+      default: "pin",
+    },
+
     quantity: {
       type: Number,
       required: true,
