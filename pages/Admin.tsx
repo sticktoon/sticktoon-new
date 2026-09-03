@@ -31,6 +31,8 @@ import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
 import NotificationsActiveRoundedIcon from "@mui/icons-material/NotificationsActiveRounded";
 import LocalOfferRoundedIcon from "@mui/icons-material/LocalOfferRounded";
 import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
+import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
+import AdminFooter from "./AdminFooter";
 import {
   Eye,
   EyeOff,
@@ -1068,6 +1070,9 @@ const getViewFromPath = (pathname: string) => {
   if (cleanPath === "/admin" || cleanPath === "/admin/dashboard" || cleanPath === "") {
     return "dashboard";
   }
+  if (cleanPath === "/admin/footer" || cleanPath === "/admin/settings/footer") {
+    return "footer";
+  }
   if (cleanPath.startsWith("/admin/catalogues/") || cleanPath.startsWith("/admin/deal-send")) {
     return "deal-send";
   }
@@ -1096,6 +1101,7 @@ const getViewFromPath = (pathname: string) => {
     "invoice",
     "revenue",
     "user-orders",
+    "footer",
   ];
   if (validViews.includes(view)) {
     return view as any;
@@ -1141,6 +1147,7 @@ const Admin: React.FC = () => {
     | "invoice"
     | "revenue"
     | "user-orders"
+    | "footer"
   >(() => {
     if (!getStoredAdminUser()) return "login";
     return getViewFromPath(window.location.pathname);
@@ -5295,6 +5302,12 @@ const Admin: React.FC = () => {
                 ],
               },
               {
+                group: "Settings",
+                items: [
+                  { id: "footer", label: "Footer Management", icon: <SettingsRoundedIcon sx={{ fontSize: 22 }} /> },
+                ],
+              },
+              {
                 group: "System",
                 items: [
                   { id: "logs", label: "Activity Logs", icon: <ScrollText className="w-5 h-5" /> },
@@ -5451,6 +5464,7 @@ const Admin: React.FC = () => {
                 {currentView === "products" && "Products"}
                 {currentView === "promo" && "Promo Codes"}
                 {currentView === "logs" && "Activity Logs"}
+                {currentView === "footer" && "Footer Management"}
                 {currentView === "profile" && "Edit Profile"}
               </h2>
             </div>
@@ -10268,6 +10282,13 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
           {currentView === "logs" && (
             <div>
               <AdminLogs />
+            </div>
+          )}
+
+          {/* FOOTER MANAGEMENT VIEW */}
+          {currentView === "footer" && (
+            <div>
+              <AdminFooter />
             </div>
           )}
 

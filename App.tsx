@@ -587,6 +587,9 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null; onCartClick: 
 const Footer: React.FC = () => {
   const location = useLocation();
   const isAdminSection = location.pathname.startsWith("/admin");
+  const isFooterAdminPage = location.pathname === "/admin/footer" || location.pathname === "/admin/settings/footer";
+
+  if (isAdminSection && !isFooterAdminPage) return null;
 
   return (
     <footer className={`bg-black text-white pt-8 pb-4 relative z-[30] ${isAdminSection ? "lg:ml-64" : ""}`}>
@@ -1702,6 +1705,8 @@ function App() {
             <Route path="/admin/reports" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/profile" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/logs" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/footer" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/settings/footer" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/revenue" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/user-orders" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/invoice/:id" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
