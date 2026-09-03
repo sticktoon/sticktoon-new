@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 
 import { Badge, CartItem, User as UserType } from './types.ts';
-import { CATEGORIES, STICKER_CATEGORIES, fetchBackendCategories, fetchBackendStickerCategories, CategoryItem } from "./constants";
+import { CATEGORIES, STICKER_CATEGORIES, fetchBackendCategories, fetchBackendStickerCategories, CategoryItem, formatPrice } from "./constants";
 import { API_BASE_URL } from "./config/api";
 import { migrateOldUserSession } from "./utils/apiClient";
 import ToastNotification, { ToastItem } from "./ToastNotification";
@@ -838,8 +838,8 @@ const CartDrawer: React.FC<{
   open: boolean;
   onClose: () => void;
   cart: CartItem[];
-  updateQuantity: (id: string, q: number) => void;
-  removeFromCart: (id: string) => void;
+  updateQuantity: (id: string, q: number, badgeStyle?: string) => void;
+  removeFromCart: (id: string, badgeStyle?: string) => void;
 }> = ({ open, onClose, cart, updateQuantity, removeFromCart }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -943,9 +943,11 @@ const CartDrawer: React.FC<{
                 }
               };
 
+              const badgeStyleLabel = item.badgeStyle === "magnetic" ? "PIN + MAGNETIC" : "PIN BADGE";
+
               return (
                 <div
-                  key={item.id}
+                  key={`${item.id}-${item.badgeStyle || "pin"}`}
                   className="flex gap-3 p-3 rounded-2xl border border-slate-100 bg-slate-50/50"
                 >
                   {/* A combo is 4 badges — show all 4, not just the first one. */}
@@ -982,9 +984,20 @@ const CartDrawer: React.FC<{
                           {/* Picks span categories — item.category is just the first pick's. */}
                           {isComboItem ? `${item.comboItems?.length ?? 0} badges` : item.category}
                         </p>
+                        {!isComboItem && (
+                          <div className="mt-1">
+                            <span className={`inline-block text-[10px] font-black uppercase px-2 py-0.5 rounded ${
+                              item.badgeStyle === "magnetic"
+                                ? "bg-amber-100 text-amber-800 border border-amber-300"
+                                : "bg-slate-100 text-slate-700 border border-slate-200"
+                            }`}>
+                              Badge: {badgeStyleLabel}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <button
-                        onClick={() => removeFromCart(item.id)}
+                        onClick={() => removeFromCart(item.id, item.badgeStyle)}
                         aria-label={`Remove ${item.name}`}
                         className="p-1 text-slate-400 hover:text-red-500 flex-shrink-0"
                       >
@@ -1002,7 +1015,7 @@ const CartDrawer: React.FC<{
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200">
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            onClick={() => updateQuantity(item.id, item.quantity - 1, item.badgeStyle)}
                             aria-label="Decrease quantity"
                             className="p-1.5 text-slate-600 hover:text-slate-900"
                           >
@@ -1010,7 +1023,7 @@ const CartDrawer: React.FC<{
                           </button>
                           <span className="text-sm font-bold w-6 text-center">{item.quantity}</span>
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            onClick={() => updateQuantity(item.id, item.quantity + 1, item.badgeStyle)}
                             aria-label="Increase quantity"
                             className="p-1.5 text-slate-600 hover:text-slate-900"
                           >
@@ -1032,7 +1045,7 @@ const CartDrawer: React.FC<{
                         )}
                       </div>
                       <p className="font-black text-sm text-slate-900">
-                        ₹{(item.price * item.quantity).toFixed(0)}
+                        {formatPrice(item.price * item.quantity)}
                       </p>
                     </div>
                   </div>
@@ -1047,7 +1060,7 @@ const CartDrawer: React.FC<{
           <div className="border-t border-slate-100 px-5 py-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-bold text-slate-500">Subtotal</span>
-              <span className="text-xl font-black text-slate-900">₹{subtotal.toFixed(0)}</span>
+              <span className="text-xl font-black text-slate-900">{formatPrice(subtotal)}</span>
             </div>
 
             <button
@@ -1229,7 +1242,9 @@ function App() {
 
   const addToCart = async (badge: any, quantity?: number) => {
     const qty = Number(quantity ?? badge.quantity ?? 1);
-    const price = Number(badge?.price);
+    const badgeStyle = badge.badgeStyle || badge.badgeType || "pin";
+    const basePrice = Number(badge.basePrice || badge.price);
+    const price = Number(badge.price);
 
     if (!Number.isFinite(qty) || qty === 0) {
       console.error("Invalid cart quantity", { badgeId: badge?.id, quantity: qty });
@@ -1252,7 +1267,7 @@ function App() {
         name: String(badge.name),
         image: badge.image ? String(badge.image) : undefined,
         price,
-        variant: badge.size || badge.category || undefined,
+        variant: badgeStyle === "magnetic" ? "PIN + MAGNETIC" : badge.size || badge.category || undefined,
       });
     }
 
@@ -1271,15 +1286,20 @@ function App() {
       id: badge.id,
       name: badge.name,
       price,
-      image: badge.image,
+      basePrice,
+      badgeStyle,
+      image: badgeStyle === "magnetic" && badge.imageMagnetic ? badge.imageMagnetic : badge.image,
       printImage: badge.printImage,
       category: badge.category,
       comboItems,
     };
 
+    const isMatch = (item: CartItem) =>
+      item.id === cartItem.id && (item.badgeStyle || "pin") === badgeStyle;
+
     if (!token) {
       setCart((prev) => {
-        const index = prev.findIndex((item) => item.id === cartItem.id);
+        const index = prev.findIndex(isMatch);
         const next = [...prev];
 
         if (index < 0) {
@@ -1297,7 +1317,7 @@ function App() {
       return;
     }
 
-    const existingItem = cart.find((item) => item.id === cartItem.id);
+    const existingItem = cart.find(isMatch);
 
     if (qty < 0 && !existingItem) {
       return;
@@ -1305,7 +1325,7 @@ function App() {
 
     // Optimistic update so cart badge/count feels instant.
     setCart((prev) => {
-      const index = prev.findIndex((item) => item.id === cartItem.id);
+      const index = prev.findIndex(isMatch);
 
       if (index < 0) {
         if (qty < 0) return prev;
@@ -1331,7 +1351,7 @@ function App() {
         const nextQty = existingItem.quantity + qty;
 
         if (nextQty <= 0) {
-          res = await fetch(`${API_BASE_URL}/api/cart/remove/${cartItem.id}`, {
+          res = await fetch(`${API_BASE_URL}/api/cart/remove/${cartItem.id}?badgeStyle=${encodeURIComponent(badgeStyle)}`, {
             method: "DELETE",
             headers: {
               Authorization: `Bearer ${token}`,
@@ -1344,7 +1364,7 @@ function App() {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ quantity: nextQty }),
+            body: JSON.stringify({ quantity: nextQty, badgeStyle }),
           });
         }
       } else {
@@ -1374,20 +1394,22 @@ function App() {
     }
   };
 
-  const removeFromCart = async (id: string) => {
+  const removeFromCart = async (id: string, badgeStyle?: string) => {
+    const style = badgeStyle || "pin";
+    const isTarget = (item: CartItem) => item.id === id && (item.badgeStyle || "pin") === style;
     const token = localStorage.getItem("token");
 
     if (!token) {
-      const nextCart = cart.filter((item) => item.id !== id);
+      const nextCart = cart.filter((item) => !isTarget(item));
       setCart(nextCart);
       saveGuestCartLocally(nextCart);
       return;
     }
 
-    setCart((prev) => prev.filter((item) => item.id !== id));
+    setCart((prev) => prev.filter((item) => !isTarget(item)));
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/cart/remove/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/cart/remove/${id}?badgeStyle=${encodeURIComponent(style)}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1407,13 +1429,15 @@ function App() {
     }
   };
 
-  const updateQuantity = async (id: string, q: number) => {
+  const updateQuantity = async (id: string, q: number, badgeStyle?: string) => {
+    const style = badgeStyle || "pin";
+    const isTarget = (item: CartItem) => item.id === id && (item.badgeStyle || "pin") === style;
     const token = localStorage.getItem("token");
 
     if (!token) {
       const nextCart = q <= 0
-        ? cart.filter((item) => item.id !== id)
-        : cart.map((item) => (item.id === id ? { ...item, quantity: q } : item));
+        ? cart.filter((item) => !isTarget(item))
+        : cart.map((item) => (isTarget(item) ? { ...item, quantity: q } : item));
       setCart(nextCart);
       saveGuestCartLocally(nextCart);
       return;
@@ -1421,11 +1445,11 @@ function App() {
 
     setCart((prev) => {
       if (q <= 0) {
-        return prev.filter((item) => item.id !== id);
+        return prev.filter((item) => !isTarget(item));
       }
 
       return prev.map((item) =>
-        item.id === id ? { ...item, quantity: q } : item,
+        isTarget(item) ? { ...item, quantity: q } : item,
       );
     });
 
@@ -1436,18 +1460,18 @@ function App() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ quantity: q }),
+        body: JSON.stringify({ quantity: q, badgeStyle: style }),
       });
 
       if (res.ok) {
         const data = await res.json();
         setCart(data.items || []);
       } else {
-        console.error("Failed to update cart quantity", await res.json());
+        console.error("Failed to update cart", await res.json());
         await syncCartWithDatabase();
       }
     } catch (err) {
-      console.error("Error updating cart quantity", err);
+      console.error("Error updating cart", err);
       await syncCartWithDatabase();
     }
   };

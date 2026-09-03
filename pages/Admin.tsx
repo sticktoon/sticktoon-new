@@ -10463,6 +10463,15 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         <p className="text-gray-400 text-sm">
                           ₹{item.price} × {item.quantity}
                         </p>
+                        {item.badgeStyle && (
+                          <span className={`inline-block text-[10px] font-bold uppercase px-2 py-0.5 rounded mt-1 ${
+                            item.badgeStyle === "magnetic"
+                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                              : "bg-slate-700/50 text-slate-300 border border-slate-600/40"
+                          }`}>
+                            Badge: {item.badgeStyle === "magnetic" ? "PIN + MAGNETIC" : "PIN BADGE"}
+                          </span>
+                        )}
                       </div>
                       <p className="text-white font-bold">
                         ₹{item.price * item.quantity}

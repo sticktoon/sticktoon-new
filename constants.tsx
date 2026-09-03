@@ -20,11 +20,8 @@ export const COLORS = {
 };
 
 export const formatPrice = (amount: number): string => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount);
+  const rounded = Math.round((Number(amount) || 0) * 100) / 100;
+  return `₹${Number.isInteger(rounded) ? rounded : rounded.toFixed(2)}`;
 };
 
 export const CATEGORY_ICON_MAP: Record<string, string> = {
