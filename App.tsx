@@ -464,7 +464,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null; onCartClick: 
                 )}
 
                 <Link
-                  to="/profile?tab=orders"
+                  to="/orders"
                   onClick={() => setProfileOpen(false)}
                   className="block px-4 py-3 text-sm font-bold hover:bg-indigo-50"
                 >
@@ -525,7 +525,7 @@ const Navbar: React.FC<{ cartCount: number; user: AuthUser | null; onCartClick: 
                 </Link>
 
                 <Link
-                  to="/profile?tab=orders"
+                  to="/orders"
                   onClick={() => setIsOpen(false)}
                   className="block mt-3 text-lg font-bold text-white focus:outline-none focus-visible:outline-none focus-visible:ring-0"
                 >
@@ -1720,6 +1720,8 @@ function App() {
             <Route path="/terms-conditions" element={<TermsConditions />} />
             <Route path="/refund-cancellation" element={<RefundCancellation />} />
             <Route path="/order-success" element={<OrderSuccess />} />
+            <Route path="/orders" element={<Profile addToCart={addToCart} defaultTab="orders" />} />
+            <Route path="/my-orders" element={<Profile addToCart={addToCart} defaultTab="orders" />} />
             <Route path="/profile" element={<Profile addToCart={addToCart} />} />
           </Routes>
         </Suspense>

@@ -1297,6 +1297,7 @@ const Admin: React.FC = () => {
 
   // 🛒 ORDERS FILTER STATE
   const [orderStatusFilter, setOrderStatusFilter] = useState<string[]>([]);
+  const [orderDeliveryFilter, setOrderDeliveryFilter] = useState<string[]>([]);
   const [orderFromDate, setOrderFromDate] = useState("");
   const [orderToDate, setOrderToDate] = useState("");
   const [orderSort, setOrderSort] = useState<"desc" | "asc">("desc"); // desc = newest
@@ -2018,6 +2019,15 @@ const Admin: React.FC = () => {
       list = list.filter((o) => orderStatusFilter.includes(o.status));
     }
 
+    // DELIVERY STATUS FILTER
+    if (orderDeliveryFilter.length > 0 && orderDeliveryFilter.length < 2) {
+      if (orderDeliveryFilter.includes("DELIVERED")) {
+        list = list.filter((o) => o.isDelivered === true);
+      } else if (orderDeliveryFilter.includes("NOT_DELIVERED")) {
+        list = list.filter((o) => !o.isDelivered);
+      }
+    }
+
     // DATE FILTER
     list = list.filter((o) => {
       const t = new Date(o.createdAt).getTime();
@@ -2043,7 +2053,7 @@ const Admin: React.FC = () => {
     });
 
     return list;
-  }, [orders, orderStatusFilter, orderFromDate, orderToDate, orderSort]);
+  }, [orders, orderStatusFilter, orderDeliveryFilter, orderFromDate, orderToDate, orderSort]);
 
   const allCustomers = useMemo(() => {
     const byCustomer = new Map<
@@ -9417,6 +9427,33 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         }
                       />
                       <span className="capitalize">{s.toLowerCase()}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {/* DELIVERY STATUS */}
+                <div className="space-y-2 text-sm">
+                  <p className="text-xs font-black uppercase text-slate-600">
+                    Delivery Status
+                  </p>
+
+                  {[
+                    { id: "DELIVERED", label: "Delivered" },
+                    { id: "NOT_DELIVERED", label: "Not Delivered" },
+                  ].map((d) => (
+                    <label key={d.id} className="flex gap-2 items-center">
+                      <input
+                        type="checkbox"
+                        checked={orderDeliveryFilter.includes(d.id)}
+                        onChange={() =>
+                          setOrderDeliveryFilter((prev) =>
+                            prev.includes(d.id)
+                              ? prev.filter((x) => x !== d.id)
+                              : [...prev, d.id],
+                          )
+                        }
+                      />
+                      <span>{d.label}</span>
                     </label>
                   ))}
                 </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   User,
   MapPin,
@@ -122,10 +122,32 @@ type UserOrder = {
 
 type ToastType = "success" | "error" | "warning";
 
-export default function Profile({ addToCart }: { addToCart?: (badge: any, quantity?: number) => void } = {}) {
+export default function Profile({
+  addToCart,
+  defaultTab,
+}: {
+  addToCart?: (badge: any, quantity?: number) => void;
+  defaultTab?: "profile" | "addresses" | "orders" | "support";
+} = {}) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tabFromQuery = searchParams.get("tab") as "profile" | "addresses" | "orders" | "support" | null;
 
-  const [activeTab, setActiveTab] = useState<"profile" | "addresses" | "orders" | "support">("profile");
+  const validTabs = ["profile", "addresses", "orders", "support"];
+  const initialTab =
+    defaultTab ||
+    (tabFromQuery && validTabs.includes(tabFromQuery) ? tabFromQuery : "profile");
+
+  const [activeTab, setActiveTab] = useState<"profile" | "addresses" | "orders" | "support">(initialTab);
+
+  useEffect(() => {
+    const targetTab =
+      defaultTab ||
+      (tabFromQuery && validTabs.includes(tabFromQuery) ? tabFromQuery : null);
+    if (targetTab && targetTab !== activeTab) {
+      setActiveTab(targetTab);
+    }
+  }, [defaultTab, tabFromQuery]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
