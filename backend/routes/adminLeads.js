@@ -464,8 +464,16 @@ router.post("/gmail/create-draft", ...leadsAccess, async (req, res) => {
     });
   } catch (err) {
     console.error("Create Gmail draft error:", err);
-    const errMsg = err?.message || "Failed to create Gmail draft";
-    if (errMsg.includes("invalid_grant") || errMsg.includes("Token")) {
+    const errString = JSON.stringify(err?.response?.data || err || {});
+    const errMsg = err?.message || err?.response?.data?.error_description || "Failed to create Gmail draft";
+    
+    if (
+      errString.includes("invalid_grant") ||
+      errString.includes("expired or revoked") ||
+      err?.response?.data?.error === "invalid_grant" ||
+      errMsg.includes("invalid_grant") ||
+      errMsg.includes("Token")
+    ) {
       return res.status(401).json({
         message: "Gmail OAuth refresh token for orders.sticktoon@gmail.com is invalid or expired. Please re-authorize.",
         requiresGoogleAuth: true,
