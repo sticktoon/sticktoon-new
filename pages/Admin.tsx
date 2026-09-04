@@ -1384,6 +1384,7 @@ const Admin: React.FC = () => {
     resolvedAt?: string;
     slaDeadlineAt?: string;
     status: "New" | "In Progress" | "Resolved";
+    orderId?: any;
     createdAt?: string;
   };
 
@@ -6667,6 +6668,55 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                           <p className="text-sm font-medium text-slate-800">{msg.inquiryType}</p>
                         </div>
 
+                        {msg.orderId && (
+                          <div className="bg-indigo-50/80 border border-indigo-100 rounded-xl p-3 space-y-2">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold uppercase tracking-wider text-indigo-900 flex items-center gap-1">
+                                  📦 Linked Order:
+                                </span>
+                                <span className="font-bold text-sm text-indigo-950 font-mono">
+                                  #{typeof msg.orderId === 'object' && msg.orderId !== null ? (msg.orderId.orderId || (msg.orderId._id ? msg.orderId._id.slice(-8) : msg.orderId)) : msg.orderId}
+                                </span>
+                              </div>
+                              {typeof msg.orderId === 'object' && msg.orderId !== null && (
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingOrder(msg.orderId)}
+                                  className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-lg transition shadow-sm flex items-center gap-1"
+                                >
+                                  View Order →
+                                </button>
+                              )}
+                            </div>
+                            {typeof msg.orderId === 'object' && msg.orderId !== null && (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-indigo-900/80 pt-1.5 border-t border-indigo-100">
+                                <div>
+                                  <span className="text-slate-500">Status: </span>
+                                  <span className={`font-bold px-1.5 py-0.5 rounded text-[10px] uppercase ${
+                                    msg.orderId.status === "SUCCESS" ? "bg-emerald-100 text-emerald-800" :
+                                    msg.orderId.status === "PENDING" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"
+                                  }`}>
+                                    {msg.orderId.status || "N/A"}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-500">Date: </span>
+                                  <span className="font-semibold">
+                                    {msg.orderId.createdAt ? formatDate(msg.orderId.createdAt) : "N/A"}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-500">Amount: </span>
+                                  <span className="font-bold text-emerald-700">
+                                    ₹{msg.orderId.amount ?? 0}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                             Message
@@ -6752,6 +6802,22 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         <p className="text-sm text-slate-600">
                           {replyingSupportMessage.email}
                         </p>
+                        {replyingSupportMessage.orderId && (
+                          <div className="mt-2 text-xs bg-indigo-50 border border-indigo-100 rounded-lg p-2 flex items-center justify-between gap-2">
+                            <span className="font-bold text-indigo-950 font-mono">
+                              📦 Linked Order: #{typeof replyingSupportMessage.orderId === 'object' && replyingSupportMessage.orderId !== null ? (replyingSupportMessage.orderId.orderId || (replyingSupportMessage.orderId._id ? replyingSupportMessage.orderId._id.slice(-8) : replyingSupportMessage.orderId)) : replyingSupportMessage.orderId}
+                            </span>
+                            {typeof replyingSupportMessage.orderId === 'object' && replyingSupportMessage.orderId !== null && (
+                              <button
+                                type="button"
+                                onClick={() => setViewingOrder(replyingSupportMessage.orderId)}
+                                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[11px] font-bold transition shadow-sm"
+                              >
+                                View Order
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <button
                         type="button"

@@ -23,11 +23,15 @@ const DEV_EMAILS = [
   import.meta.env.VITE_SUPER_ADMIN_EMAIL || "",
   "anishpatankar974@gmail.com",
   "sticktoon.xyz@gmail.com",
+  "harsh1214.be22@chitkara.edu.in",
+  "superadmin@sticktoon.com",
 ]
   .join(",")
   .split(",")
   .map((email) => email.toLowerCase().trim())
   .filter(Boolean);
+
+const ROLES = ["user", "influencer", "admin"];
 
 export default function AdminUsers() {
   const token = localStorage.getItem("adminToken") || localStorage.getItem("token");

@@ -6,7 +6,9 @@ const sendEmail = require("../utils/sendEmail");
 
 router.get("/", auth, async (req, res) => {
   try {
-    const messages = await SupportMessage.find().sort({ createdAt: -1 });
+    const messages = await SupportMessage.find()
+      .populate("orderId")
+      .sort({ createdAt: -1 });
 
     const formatted = messages.map((doc) => {
       const obj = doc.toObject();
