@@ -139,7 +139,6 @@ const ADMIN_PERMISSIONS = [
   "promo",
   "revenue",
   "leads",
-  "tasks",
   "support",
   "logs",
 ];

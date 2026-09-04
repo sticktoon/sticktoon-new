@@ -1723,7 +1723,6 @@ function App() {
             <Route path="/admin/deals" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/invoices" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/support" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
-            <Route path="/admin/tasks" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/notifications" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/customers" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/reports" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />

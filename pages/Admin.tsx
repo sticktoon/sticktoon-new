@@ -20,7 +20,6 @@ import {
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import DescriptionRoundedIcon from "@mui/icons-material/DescriptionRounded";
 import SupportAgentRoundedIcon from "@mui/icons-material/SupportAgentRounded";
-import AssignmentTurnedInRoundedIcon from "@mui/icons-material/AssignmentTurnedInRounded";
 import PeopleAltRoundedIcon from "@mui/icons-material/PeopleAltRounded";
 import Groups2RoundedIcon from "@mui/icons-material/Groups2Rounded";
 import PendingActionsRoundedIcon from "@mui/icons-material/PendingActionsRounded";
@@ -90,7 +89,6 @@ const ADMIN_PERMISSIONS = [
   "promo",
   "revenue",
   "leads",
-  "tasks",
   "support",
   "logs",
 ] as const;
@@ -103,7 +101,6 @@ const ADMIN_PERMISSION_LABELS: Record<string, string> = {
   promo: "Promo Codes",
   revenue: "Revenue & Invoices",
   leads: "Leads & Deals",
-  tasks: "Tasks",
   support: "Support",
   logs: "Activity Logs",
 };
@@ -124,7 +121,6 @@ const VIEW_PERMISSIONS: Record<string, string> = {
   revenue: "revenue",
   reports: "revenue",
   support: "support",
-  tasks: "tasks",
   users: "users",
   customers: "users",
   "all-influencers": "influencers",
@@ -953,67 +949,6 @@ const createDefaultPromoFormData = (): PromoFormData => ({
   earningPerUnit: 5,
 });
 
-type TaskStatus =
-  | "Pending"
-  | "In Progress"
-  | "Waiting on Customer"
-  | "Completed"
-  | "Cancelled";
-
-type TaskItem = {
-  _id?: string;
-  user?: { _id?: string; name?: string; email?: string };
-  assignedTo?: { _id?: string; name?: string; email?: string } | string;
-  title: string;
-  description?: string;
-  status: TaskStatus | string;
-  dueDate?: string;
-  reminderAt?: string;
-  relatedToType?: "Lead" | "Contact" | "Order" | "Support Ticket" | "Influencer" | "";
-  relatedToId?: string;
-  taskType?:
-    | "Call"
-    | "Email"
-    | "WhatsApp Follow-up"
-    | "Order Confirmation"
-    | "Refund Processing"
-    | "Influencer Follow-up"
-    | "Internal Task";
-  comments?: { authorName: string; text: string; createdAt: string }[];
-  activityTimeline?: { message: string; createdAt: string }[];
-  createdAt?: string;
-};
-
-type TaskFormState = {
-  title: string;
-  relatedToType: "Lead" | "Contact" | "Order" | "Support Ticket" | "Influencer" | "";
-  relatedToId: string;
-  taskType:
-    | "Call"
-    | "Email"
-    | "WhatsApp Follow-up"
-    | "Order Confirmation"
-    | "Refund Processing"
-    | "Influencer Follow-up"
-    | "Internal Task";
-  status: TaskStatus;
-  dueDate: string;
-  reminderAt: string;
-  assignedTo: string;
-  description: string;
-};
-
-const createDefaultTaskForm = (): TaskFormState => ({
-  title: "",
-  relatedToType: "Lead",
-  relatedToId: "",
-  taskType: "Call",
-  status: "Pending",
-  dueDate: "",
-  reminderAt: "",
-  assignedTo: "",
-  description: "",
-});
 /* ===========================
    INITIAL ADMIN SESSION (optimistic)
    Reads any existing admin session synchronously so we don't flash the
@@ -1084,7 +1019,6 @@ const getViewFromPath = (pathname: string) => {
     "deals",
     "invoices",
     "support",
-    "tasks",
     "users",
     "all-influencers",
     "influencers",
@@ -1130,7 +1064,6 @@ const Admin: React.FC = () => {
     | "deals"
     | "invoices"
     | "support"
-    | "tasks"
     | "users"
     | "all-influencers"
     | "influencers"
@@ -1463,22 +1396,6 @@ const Admin: React.FC = () => {
     status: "New",
   });
 
-  /* ================= TASK STATES ================= */
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [showCreateTask, setShowCreateTask] = useState(false);
-  const [showDeleteTaskModal, setShowDeleteTaskModal] = useState(false);
-  const [taskToDelete, setTaskToDelete] = useState<TaskItem | null>(null);
-  const [newTask, setNewTask] = useState<TaskFormState>(createDefaultTaskForm());
-  const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
-  const [viewingTask, setViewingTask] = useState<TaskItem | null>(null);
-  const [taskCommentText, setTaskCommentText] = useState("");
-  const [showPendingTasks, setShowPendingTasks] = useState(true);
-  const [showInProgressTasks, setShowInProgressTasks] = useState(true);
-  const [showCompletedTasks, setShowCompletedTasks] = useState(true);
-  const [taskFromDate, setTaskFromDate] = useState("");
-  const [taskToDate, setTaskToDate] = useState("");
-  const [taskSort, setTaskSort] = useState<"desc" | "asc">("desc");
-
   const createLead = async () => {
     if (isSubmittingLead) return; // 🚀 prevent double click
     setIsSubmittingLead(true);
@@ -1671,225 +1588,6 @@ const Admin: React.FC = () => {
         [field]: value,
       },
     }));
-  };
-
-  const normalizeTaskStatus = (value?: string): TaskStatus => {
-    const v = (value || "").toLowerCase();
-    if (v === "pending") return "Pending";
-    if (v === "in-progress" || v === "in progress") return "In Progress";
-    if (v === "waiting on customer") return "Waiting on Customer";
-    if (v === "completed") return "Completed";
-    if (v === "cancelled") return "Cancelled";
-    return "Pending";
-  };
-
-  const fetchTasks = async () => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/tasks`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (handleUnauthorized(res)) return;
-
-      if (res.ok) {
-        const data = await res.json();
-        const normalized = (Array.isArray(data) ? data : []).map((task: TaskItem) => ({
-          ...task,
-          status: normalizeTaskStatus(task.status),
-        }));
-        setTasks(normalized);
-      } else {
-        showToast("error", "❌ Failed to fetch tasks");
-      }
-    } catch (err) {
-      console.error("Fetch tasks error:", err);
-      showToast("error", "❌ Failed to fetch tasks");
-    }
-  };
-
-  const handleUpdateTaskStatus = async (taskId: string, status: TaskStatus) => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status }),
-      });
-      if (handleUnauthorized(res)) return;
-
-      if (res.ok) {
-        const updated = await res.json();
-        setTasks((prev) =>
-          prev.map((task) =>
-            task._id === taskId ? { ...updated, status: normalizeTaskStatus(updated.status) } : task,
-          ),
-        );
-      } else {
-        showToast("error", "❌ Failed to update task status");
-      }
-    } catch (err) {
-      console.error("Update task status error:", err);
-      showToast("error", "❌ Failed to update task status");
-    }
-  };
-
-  const handleDeleteTask = async () => {
-    if (!taskToDelete?._id) return;
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/admin/tasks/${taskToDelete._id}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      if (handleUnauthorized(res)) return;
-
-      if (res.ok) {
-        setTasks((prev) => prev.filter((t) => t._id !== taskToDelete._id));
-        setShowDeleteTaskModal(false);
-        setTaskToDelete(null);
-      } else {
-        showToast("error", "❌ Failed to delete task");
-      }
-    } catch (err) {
-      console.error("Delete task error:", err);
-      showToast("error", "❌ Failed to delete task");
-    }
-  };
-
-  const handleCreateTask = async () => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-    const currentUserId = (user as any)?._id || user?.id;
-    if (!newTask.title?.trim()) {
-      showToast("warning", "⚠️ Task title is required");
-      return;
-    }
-    const assignedId = newTask.assignedTo || currentUserId;
-    if (!assignedId) {
-      showToast("error", "❌ Missing user id. Please login again.");
-      return;
-    }
-
-    try {
-      const payload = {
-        user: assignedId,
-        assignedTo: assignedId,
-        title: newTask.title.trim(),
-        description: newTask.description?.trim() || "",
-        status: newTask.status,
-        dueDate: newTask.dueDate || undefined,
-        reminderAt: newTask.reminderAt || undefined,
-        relatedToType: newTask.relatedToType,
-        relatedToId: newTask.relatedToId?.trim() || "",
-        taskType: newTask.taskType,
-      };
-
-      const endpoint = editingTask?._id
-        ? `${API_BASE_URL}/api/admin/tasks/${editingTask._id}`
-        : `${API_BASE_URL}/api/admin/tasks`;
-      const method = editingTask?._id ? "PATCH" : "POST";
-      const res = await fetch(endpoint, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      if (handleUnauthorized(res)) return;
-
-      if (res.ok) {
-        const updatedTask = await res.json();
-        if (editingTask?._id) {
-          setTasks((prev) =>
-            prev.map((t) =>
-              t._id === editingTask._id
-                ? { ...updatedTask, status: normalizeTaskStatus(updatedTask.status) }
-                : t,
-            ),
-          );
-        } else {
-          setTasks((prev) => [
-            { ...updatedTask, status: normalizeTaskStatus(updatedTask.status) },
-            ...prev,
-          ]);
-        }
-        setShowCreateTask(false);
-        setEditingTask(null);
-        setNewTask(createDefaultTaskForm());
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        showToast("error", `❌ ${errData.message || "Failed to create task"}`);
-      }
-    } catch (err) {
-      console.error("Create task error:", err);
-      showToast("error", "❌ Failed to create task");
-    }
-  };
-
-  const openEditTask = (task: TaskItem) => {
-    setEditingTask(task);
-    setNewTask({
-      title: task.title || "",
-      relatedToType: task.relatedToType || "Lead",
-      relatedToId: task.relatedToId || "",
-      taskType: task.taskType || "Internal Task",
-      status: normalizeTaskStatus(task.status),
-      dueDate: task.dueDate ? toDateTimeLocalValue(task.dueDate) : "",
-      reminderAt: task.reminderAt ? toDateTimeLocalValue(task.reminderAt) : "",
-      assignedTo:
-        typeof task.assignedTo === "string"
-          ? task.assignedTo
-          : task.assignedTo?._id || task.user?._id || "",
-      description: task.description || "",
-    });
-    setShowCreateTask(true);
-  };
-
-  const addTaskComment = async () => {
-    if (!viewingTask?._id) return;
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-    const text = taskCommentText.trim();
-    if (!text) return;
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/tasks/${viewingTask._id}/comments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ text }),
-      });
-      if (handleUnauthorized(res)) return;
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to add comment");
-      }
-
-      const updated = await res.json();
-      const normalized = { ...updated, status: normalizeTaskStatus(updated.status) };
-      setTasks((prev) => prev.map((t) => (t._id === viewingTask._id ? normalized : t)));
-      setViewingTask(normalized);
-      setTaskCommentText("");
-    } catch (err) {
-      console.error("Add task comment error:", err);
-      showToast("error", "❌ Failed to add comment");
-    }
   };
 
   const [startDate, setStartDate] = useState("");
@@ -2619,68 +2317,9 @@ const Admin: React.FC = () => {
     supportSort,
   ]);
 
-  // ===============================
-  // FILTERED TASKS
-  // ===============================
-  const filteredTasks = useMemo(() => {
-    let list = [...tasks];
-
-    list = list.filter((task) => {
-      const status = normalizeTaskStatus(task.status);
-      if (!showPendingTasks && status === "Pending") return false;
-      if (!showInProgressTasks && status === "In Progress") return false;
-      if (!showCompletedTasks && status === "Completed") return false;
-      return true;
-    });
-
-    list = list.filter((task) => {
-      const rawDate = task.dueDate || task.createdAt;
-      if (!rawDate) return !taskFromDate && !taskToDate;
-
-      const t = new Date(rawDate).getTime();
-      if (Number.isNaN(t)) return !taskFromDate && !taskToDate;
-
-      if (taskFromDate) {
-        const from = new Date(taskFromDate).setHours(0, 0, 0, 0);
-        if (t < from) return false;
-      }
-
-      if (taskToDate) {
-        const to = new Date(taskToDate).setHours(23, 59, 59, 999);
-        if (t > to) return false;
-      }
-
-      return true;
-    });
-
-    list.sort((a, b) => {
-      const da = new Date(a.dueDate || a.createdAt || 0).getTime();
-      const db = new Date(b.dueDate || b.createdAt || 0).getTime();
-      return taskSort === "asc" ? da - db : db - da;
-    });
-
-    return list;
-  }, [
-    tasks,
-    showPendingTasks,
-    showInProgressTasks,
-    showCompletedTasks,
-    taskFromDate,
-    taskToDate,
-    taskSort,
-  ]);
-
-  const isTaskOverdue = (task: TaskItem) => {
-    const status = normalizeTaskStatus(task.status);
-    if (status === "Completed" || status === "Cancelled") return false;
-    const dueMs = task.dueDate ? new Date(task.dueDate).getTime() : NaN;
-    if (Number.isNaN(dueMs)) return false;
-    return dueMs < Date.now();
-  };
-
   type AdminNotification = {
     id: string;
-    category: "lead" | "support" | "task";
+    category: "lead" | "support";
     severity: "high" | "medium";
     title: string;
     detail: string;
@@ -2742,31 +2381,6 @@ const Admin: React.FC = () => {
       });
     });
 
-    tasks.forEach((task, index) => {
-      const taskStatus = (task.status || "").toLowerCase();
-      if (taskStatus === "completed") return;
-
-      const dueMs = task.dueDate ? new Date(task.dueDate).getTime() : NaN;
-      if (Number.isNaN(dueMs)) return;
-
-      const diff = dueMs - now;
-      if (diff > oneDayMs) return;
-
-      const isOverdue = diff < 0;
-      const taskId = task._id || index;
-      items.push({
-        id: `task-${taskId}`,
-        category: "task",
-        severity: isOverdue ? "high" : "medium",
-        title: `Task Deadline: ${task.title || "Untitled Task"}`,
-        detail: isOverdue
-          ? `Task is overdue by ${formatDurationFromMs(Math.abs(diff))}.`
-          : `Task is due in ${formatDurationFromMs(diff)}.`,
-        whenText: formatDateTime(dueMs),
-        whenMs: dueMs,
-      });
-    });
-
     return items.sort((a, b) => {
       const severityOrder = (x: AdminNotification["severity"]) =>
         x === "high" ? 0 : 1;
@@ -2775,7 +2389,7 @@ const Admin: React.FC = () => {
       }
       return a.whenMs - b.whenMs;
     });
-  }, [leads, supportMessages, tasks]);
+  }, [leads, supportMessages]);
 
   // 🔍 NOTIFICATIONS FILTER STATE
   const [notificationCategoryFilter, setNotificationCategoryFilter] = useState<
@@ -3088,7 +2702,6 @@ const Admin: React.FC = () => {
         "/admin/deals": "deals",
         "/admin/invoices": "invoices",
         "/admin/support": "support",
-        "/admin/tasks": "tasks",
         "/admin/notifications": "notifications",
         "/admin/customers": "customers",
         "/admin/reports": "reports",
@@ -3130,7 +2743,7 @@ const Admin: React.FC = () => {
         }
       } else if (view && [
         "dashboard", "notifications", "leads", "deals", "invoices", "support",
-        "tasks", "users", "all-influencers", "influencers", "withdrawals",
+        "users", "all-influencers", "influencers", "withdrawals",
         "customers", "products", "promo", "orders", "reports", "profile"
       ].includes(view)) {
         setCurrentView(view as any);
@@ -3177,10 +2790,6 @@ const Admin: React.FC = () => {
       case "deals":
         fetchLeadsData();
         break;
-      case "tasks":
-        fetchTasks();
-        fetchUsersData();
-        break;
       case "invoices":
         fetchInvoicesAndCataloguesData();
         break;
@@ -3189,7 +2798,6 @@ const Admin: React.FC = () => {
         break;
       case "notifications":
         fetchLeadsData();
-        fetchTasks();
         fetchSupportMessages();
         break;
 
@@ -5300,7 +4908,6 @@ const Admin: React.FC = () => {
                   { id: "deals", label: "Deals", icon: <BriefcaseBusiness className="w-5 h-5" /> },
                   { id: "invoices", label: "Invoices", icon: <ReceiptLongRoundedIcon sx={{ fontSize: 22 }} /> },
                   { id: "support", label: "Support", icon: <SupportAgentRoundedIcon sx={{ fontSize: 22 }} /> },
-                  { id: "tasks", label: "Tasks", icon: <AssignmentTurnedInRoundedIcon sx={{ fontSize: 22 }} /> },
                 ],
               },
               {
@@ -5463,7 +5070,6 @@ const Admin: React.FC = () => {
                 {currentView === "deals" && "Deals"}
                 {currentView === "invoices" && "Invoices"}
                 {currentView === "support" && "Support"}
-                {currentView === "tasks" && "Tasks"}
                 {currentView === "users" && "All Users"}
                 {currentView === "all-influencers" && "All Influencers"}
                 {currentView === "influencers" && "Pending Approvals"}
@@ -6393,7 +5999,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 <div>
                   <h3 className="text-lg font-black text-slate-900">Action Alerts</h3>
                   <p className="text-sm text-slate-600">
-                    Leads follow-up, Support SLA, and Task deadlines within 1 day.
+                    Leads follow-up and Support SLA deadlines within 1 day.
                   </p>
                 </div>
                 <span className="text-sm font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-700">
@@ -6410,7 +6016,6 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   {[
                     { value: "lead", label: "Lead" },
                     { value: "support", label: "Support" },
-                    { value: "task", label: "Task" },
                   ].map((c) => (
                     <label
                       key={c.value}
@@ -6493,11 +6098,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         type="button"
                         onClick={() =>
                           setCurrentView(
-                            item.category === "lead"
-                              ? "leads"
-                              : item.category === "support"
-                                ? "support"
-                                : "tasks",
+                            item.category === "lead" ? "leads" : "support"
                           )
                         }
                         className="shrink-0 border rounded-lg px-3 py-1.5 text-xs font-semibold bg-white hover:bg-slate-50"
@@ -6870,431 +6471,9 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   </div>
                 </div>
               )}
-              </div>
             </div>
-          )}
-
-          
-
-          {/* ================= TASKS VIEW ================= */}
-          {currentView === "tasks" && (
-            <div className="flex flex-col xl:flex-row gap-4 xl:gap-6 min-w-0">
-              <aside className="w-full xl:w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
-                <h3 className="font-black text-sm">Filters</h3>
-
-                <div className="space-y-2 text-sm">
-                  <p className="text-xs font-black uppercase text-slate-600">Status</p>
-                  <label className="flex gap-2 items-center">
-                    <input
-                      type="checkbox"
-                      checked={showInProgressTasks}
-                      onChange={(e) => setShowInProgressTasks(e.target.checked)}
-                    />
-                    In Progress
-                  </label>
-                  <label className="flex gap-2 items-center">
-                    <input
-                      type="checkbox"
-                      checked={showPendingTasks}
-                      onChange={(e) => setShowPendingTasks(e.target.checked)}
-                    />
-                    Pending
-                  </label>
-                  <label className="flex gap-2 items-center">
-                    <input
-                      type="checkbox"
-                      checked={showCompletedTasks}
-                      onChange={(e) => setShowCompletedTasks(e.target.checked)}
-                    />
-                    Completed
-                  </label>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-black uppercase text-slate-600">Date</p>
-                  <input
-                    type="date"
-                    value={taskFromDate}
-                    onChange={(e) => setTaskFromDate(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  />
-                  <input
-                    type="date"
-                    value={taskToDate}
-                    onChange={(e) => setTaskToDate(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  />
-                </div>
-              </aside>
-
-              <div className="flex-1 min-w-0 flex flex-col gap-6">
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                  <h2 className="text-2xl font-black">Tasks ({filteredTasks.length})</h2>
-                  <button
-                    onClick={() => {
-                      setEditingTask(null);
-                      setNewTask(createDefaultTaskForm());
-                      setShowCreateTask(true);
-                    }}
-                    className="bg-indigo-600 hover:bg-indigo-700 admin-zoho-keep-white px-4 py-2 rounded-lg text-sm font-semibold"
-                  >
-                    + Create Task
-                  </button>
-                </div>
-
-                <div className="bg-white border rounded-xl overflow-x-auto">
-                  <div className="min-w-[1180px]">
-                    <div className="grid grid-cols-8 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left">
-                      <span>Title</span>
-                      <span>Related To</span>
-                      <span>Type</span>
-                      <span>Status</span>
-                      <span>Due Date</span>
-                      <span>Reminder</span>
-                      <span>Assigned To</span>
-                      <span>Actions</span>
-                    </div>
-
-                    {filteredTasks.length === 0 ? (
-                      <div className="p-10 text-center text-slate-400">No tasks found</div>
-                    ) : (
-                      filteredTasks.map((task, index) => {
-                        const overdue = isTaskOverdue(task);
-                        const taskStatus = overdue ? "Overdue" : normalizeTaskStatus(task.status);
-
-                        return (
-                          <div
-                            key={task._id || index}
-                            className={`grid grid-cols-8 px-6 py-4 text-sm border-b items-center ${
-                              overdue ? "bg-red-50" : "hover:bg-slate-50"
-                            }`}
-                          >
-                            <button
-                              type="button"
-                              className="text-left font-semibold hover:underline"
-                              onClick={() => setViewingTask(task)}
-                            >
-                              {task.title}
-                            </button>
-                            <span>
-                              {task.relatedToType && task.relatedToId
-                                ? `${task.relatedToType} #${task.relatedToId}`
-                                : "—"}
-                            </span>
-                            <span>{task.taskType || "Internal Task"}</span>
-                            <span>
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                  taskStatus === "Overdue"
-                                    ? "bg-red-100 text-red-700"
-                                    : taskStatus === "Completed"
-                                      ? "bg-green-100 text-green-700"
-                                      : taskStatus === "In Progress"
-                                        ? "bg-blue-100 text-blue-700"
-                                        : "bg-amber-100 text-amber-700"
-                                }`}
-                              >
-                                {taskStatus}
-                              </span>
-                            </span>
-                            <span>{task.dueDate ? formatDate(task.dueDate) : "—"}</span>
-                            <span>
-                              {task.reminderAt ? formatDateTime(task.reminderAt) : "—"}
-                            </span>
-                            <span>
-                              {typeof task.assignedTo === "object"
-                                ? task.assignedTo?.name || task.assignedTo?.email || "—"
-                                : task.user?.name || task.user?.email || "—"}
-                            </span>
-                            <span className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setViewingTask(task)}
-                                className="border rounded-lg px-2 py-1 text-xs hover:bg-slate-100"
-                              >
-                                View
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openEditTask(task)}
-                                className="border rounded-lg px-2 py-1 text-xs hover:bg-slate-100"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setTaskToDelete(task);
-                                  setShowDeleteTaskModal(true);
-                                }}
-                                className="text-red-600 border border-red-300 px-2 py-1 rounded-lg hover:bg-red-50 text-xs"
-                              >
-                                Delete
-                              </button>
-                            </span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {showCreateTask && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white w-full max-w-3xl rounded-xl p-6 space-y-5 border max-h-[90vh] overflow-y-auto">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-xl font-bold">
-                        {editingTask ? "Edit Task" : "Create Task"}
-                      </h3>
-                      <button
-                        onClick={() => {
-                          setShowCreateTask(false);
-                          setEditingTask(null);
-                          setNewTask(createDefaultTaskForm());
-                        }}
-                        className="text-sm text-slate-500 hover:text-slate-800"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <input
-                        placeholder="Task Title"
-                        value={newTask.title}
-                        onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                        className="border rounded-lg px-3 py-2 md:col-span-2"
-                      />
-
-                      <select
-                        value={newTask.relatedToType}
-                        onChange={(e) =>
-                          setNewTask({
-                            ...newTask,
-                            relatedToType: e.target.value as TaskFormState["relatedToType"],
-                          })
-                        }
-                        className="border rounded-lg px-3 py-2"
-                      >
-                        <option value="Lead">Lead</option>
-                        <option value="Contact">Contact</option>
-                        <option value="Order">Order</option>
-                        <option value="Support Ticket">Support Ticket</option>
-                        <option value="Influencer">Influencer</option>
-                      </select>
-                      <input
-                        placeholder="Select Entity ID"
-                        value={newTask.relatedToId}
-                        onChange={(e) => setNewTask({ ...newTask, relatedToId: e.target.value })}
-                        className="border rounded-lg px-3 py-2"
-                      />
-
-                      <select
-                        value={newTask.taskType}
-                        onChange={(e) =>
-                          setNewTask({
-                            ...newTask,
-                            taskType: e.target.value as TaskFormState["taskType"],
-                          })
-                        }
-                        className="border rounded-lg px-3 py-2"
-                      >
-                        <option value="Call">Call</option>
-                        <option value="Email">Email</option>
-                        <option value="WhatsApp Follow-up">WhatsApp Follow-up</option>
-                        <option value="Order Confirmation">Order Confirmation</option>
-                        <option value="Refund Processing">Refund Processing</option>
-                        <option value="Influencer Follow-up">Influencer Follow-up</option>
-                        <option value="Internal Task">Internal Task</option>
-                      </select>
-
-                      <select
-                        value={newTask.status}
-                        onChange={(e) =>
-                          setNewTask({ ...newTask, status: e.target.value as TaskStatus })
-                        }
-                        className="border rounded-lg px-3 py-2"
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Waiting on Customer">Waiting on Customer</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Cancelled">Cancelled</option>
-                      </select>
-
-                      <input
-                        type="datetime-local"
-                        value={newTask.dueDate}
-                        onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
-                        className="border rounded-lg px-3 py-2"
-                      />
-                      <input
-                        type="datetime-local"
-                        value={newTask.reminderAt}
-                        onChange={(e) => setNewTask({ ...newTask, reminderAt: e.target.value })}
-                        className="border rounded-lg px-3 py-2"
-                      />
-
-                      <select
-                        value={newTask.assignedTo}
-                        onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
-                        className="border rounded-lg px-3 py-2"
-                      >
-                        <option value="">Select Assignee</option>
-                        {allUsers.map((u: any) => (
-                          <option key={u._id} value={u._id}>
-                            {u.name || u.email}
-                          </option>
-                        ))}
-                      </select>
-
-                      <textarea
-                        placeholder="Description"
-                        value={newTask.description}
-                        onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                        className="border rounded-lg px-3 py-2 md:col-span-2"
-                        rows={4}
-                      />
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-2 border-t">
-                      <button
-                        onClick={() => {
-                          setShowCreateTask(false);
-                          setEditingTask(null);
-                          setNewTask(createDefaultTaskForm());
-                        }}
-                        className="px-4 py-2 border rounded-lg"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleCreateTask}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 admin-zoho-keep-white rounded-lg font-semibold"
-                      >
-                        Save Task
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {viewingTask && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white w-full max-w-3xl rounded-xl border p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-xl font-bold">{viewingTask.title}</h3>
-                        <p className="text-sm text-slate-600">
-                          Related To →{" "}
-                          {viewingTask.relatedToType && viewingTask.relatedToId
-                            ? `${viewingTask.relatedToType} #${viewingTask.relatedToId}`
-                            : "—"}
-                        </p>
-                        <p className="text-sm text-slate-600">
-                          Assigned To →{" "}
-                          {typeof viewingTask.assignedTo === "object"
-                            ? viewingTask.assignedTo?.name || viewingTask.assignedTo?.email || "—"
-                            : viewingTask.user?.name || viewingTask.user?.email || "—"}
-                        </p>
-                        <p className="text-sm text-slate-600">
-                          Status → {isTaskOverdue(viewingTask) ? "Overdue" : normalizeTaskStatus(viewingTask.status)}
-                        </p>
-                        <p className="text-sm text-slate-600">
-                          Due → {viewingTask.dueDate ? formatDateTime(viewingTask.dueDate) : "—"}
-                        </p>
-                        <p className="text-sm text-slate-600">
-                          Reminder →{" "}
-                          {viewingTask.reminderAt ? formatDateTime(viewingTask.reminderAt) : "—"}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setViewingTask(null);
-                          setTaskCommentText("");
-                        }}
-                        className="text-sm text-slate-500 hover:text-slate-800"
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    <div className="border rounded-xl p-4 space-y-3">
-                      <h4 className="font-bold">Comments</h4>
-                      {(viewingTask.comments || []).length === 0 ? (
-                        <p className="text-sm text-slate-500">No comments yet.</p>
-                      ) : (
-                        (viewingTask.comments || []).map((c, idx) => (
-                          <div key={idx} className="border-b pb-2">
-                            <p className="text-sm font-semibold">{c.authorName}</p>
-                            <p className="text-xs text-slate-500">
-                              {formatDateTime(c.createdAt)}
-                            </p>
-                            <p className="text-sm mt-1">{c.text}</p>
-                          </div>
-                        ))
-                      )}
-                      <div className="flex gap-2 pt-2">
-                        <input
-                          value={taskCommentText}
-                          onChange={(e) => setTaskCommentText(e.target.value)}
-                          placeholder="Add comment"
-                          className="flex-1 border rounded-lg px-3 py-2 text-sm"
-                        />
-                        <button
-                          type="button"
-                          onClick={addTaskComment}
-                          className="px-3 py-2 border rounded-lg text-sm font-semibold hover:bg-slate-50"
-                        >
-                          Send
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="border rounded-xl p-4 space-y-3">
-                      <h4 className="font-bold">Activity Timeline</h4>
-                      {(viewingTask.activityTimeline || []).length === 0 ? (
-                        <p className="text-sm text-slate-500">No activity yet.</p>
-                      ) : (
-                        (viewingTask.activityTimeline || []).map((a, idx) => (
-                          <p key={idx} className="text-sm">
-                            {formatDateTime(a.createdAt)} - {a.message}
-                          </p>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {showDeleteTaskModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-xl p-6 w-full max-w-[400px] mx-4 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
-                    <h3 className="text-lg font-bold text-red-600">Delete Task?</h3>
-                    <p className="text-sm text-slate-600">
-                      Are you sure you want to delete this task?
-                    </p>
-                    <div className="flex justify-end gap-3">
-                      <button
-                        onClick={() => setShowDeleteTaskModal(false)}
-                        className="px-4 py-2 border rounded-lg"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleDeleteTask}
-                        className="text-red-600 border border-red-500 px-3 py-1 rounded-lg hover:bg-red-50 text-sm"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          </div>
+        )}
 
 
           {/* INFLUENCERS VIEW */}
