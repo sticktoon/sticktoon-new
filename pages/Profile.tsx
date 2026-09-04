@@ -67,6 +67,7 @@ type SupportRequestItem = {
   firstResponseAt?: string;
   resolvedAt?: string;
   slaDeadlineAt?: string;
+  orderId?: any;
   createdAt: string;
   updatedAt?: string;
 };
@@ -1020,6 +1021,16 @@ export default function Profile({
                             <FileText className="w-3.5 h-3.5 text-yellow-800" />
                             {downloadingInvoiceId === order._id ? "Downloading..." : "Invoice"}
                           </button>
+
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/contact?orderId=${order._id}&category=Where is my order?`)}
+                            className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm"
+                            title="Need help with this order? Create a support ticket"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
+                            Need Help?
+                          </button>
                         </div>
                       </div>
 
@@ -1200,6 +1211,25 @@ export default function Profile({
                             </div>
 
                             <div className="p-5 sm:p-6 space-y-3">
+                              {req.orderId && (
+                                <div className="flex items-center justify-between gap-2 p-2.5 bg-indigo-50/80 border border-indigo-100 rounded-2xl text-xs">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-indigo-900">📦 Linked Order:</span>
+                                    <span className="font-mono font-bold text-indigo-950">
+                                      #{typeof req.orderId === 'object' && req.orderId !== null ? (req.orderId.orderId || (req.orderId._id ? req.orderId._id.slice(-8) : req.orderId)) : req.orderId}
+                                    </span>
+                                    {typeof req.orderId === 'object' && req.orderId?.status && (
+                                      <span className="px-2 py-0.5 rounded-full bg-white border border-indigo-200 text-[10px] font-black text-indigo-700 uppercase">
+                                        {req.orderId.status}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {typeof req.orderId === 'object' && req.orderId?.amount !== undefined && (
+                                    <span className="font-black text-emerald-700">₹{req.orderId.amount}</span>
+                                  )}
+                                </div>
+                              )}
+
                               <p className="text-slate-700 text-sm font-medium line-clamp-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                                 "{req.message}"
                               </p>
@@ -1423,6 +1453,18 @@ export default function Profile({
                 <p className="text-slate-500 text-xs font-medium">
                   Created: {new Date(selectedSupportRequest.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
                 </p>
+                {selectedSupportRequest.orderId && (
+                  <div className="mt-2 text-xs bg-indigo-50 border border-indigo-100 rounded-xl p-2 flex items-center justify-between gap-2">
+                    <span className="font-bold text-indigo-950 font-mono">
+                      📦 Linked Order: #{typeof selectedSupportRequest.orderId === 'object' && selectedSupportRequest.orderId !== null ? (selectedSupportRequest.orderId.orderId || (selectedSupportRequest.orderId._id ? selectedSupportRequest.orderId._id.slice(-8) : selectedSupportRequest.orderId)) : selectedSupportRequest.orderId}
+                    </span>
+                    {typeof selectedSupportRequest.orderId === 'object' && selectedSupportRequest.orderId?.status && (
+                      <span className="px-2 py-0.5 rounded-md bg-white border border-indigo-200 text-[10px] font-black text-indigo-700 uppercase">
+                        {selectedSupportRequest.orderId.status}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               <button
                 onClick={() => setSelectedSupportRequest(null)}
