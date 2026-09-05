@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Tag, Percent, IndianRupe
 import AdminBackButton from "./AdminBackButton";
 import { API_BASE_URL } from "../config/api";
 import { formatDate, formatDateTime } from "../utils/formatDate";
+import ConfirmModal from "../components/ConfirmModal";
 
 type UsageHistoryItem = {
   userId: { _id: string; name?: string; email: string } | null;
@@ -72,6 +73,9 @@ export default function AdminPromo() {
   const [formData, setFormData] = useState<PromoFormData>(defaultFormData);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Confirmation modal state
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Usage history modal state
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -197,9 +201,12 @@ export default function AdminPromo() {
   };
 
   // Delete promo code
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this promo code?")) return;
+  const handleDelete = (id: string) => {
+    setDeleteConfirmId(id);
+  };
 
+  const executeDelete = async (id: string) => {
+    setDeleteConfirmId(null);
     try {
       await fetch(`${API_BASE_URL}/api/admin/promo/${id}`, {
         method: "DELETE",
@@ -856,6 +863,18 @@ export default function AdminPromo() {
             </div>
           </div>
         </div>
+      )}
+
+      {deleteConfirmId && (
+        <ConfirmModal
+          isOpen={!!deleteConfirmId}
+          title="Delete Promo Code?"
+          message="Are you sure you want to delete this promo code? This action cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          onCancel={() => setDeleteConfirmId(null)}
+          onConfirm={() => executeDelete(deleteConfirmId)}
+        />
       )}
     </div>
   );

@@ -20,6 +20,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { API_BASE_URL } from "../config/api";
+import ConfirmModal from "../components/ConfirmModal";
 
 export interface FooterLinkItem {
   label: string;
@@ -104,6 +105,7 @@ export const AdminFooter: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [activeTab, setActiveTab] = useState<"about" | "social" | "archive" | "info" | "location" | "bottom">("about");
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });
@@ -168,10 +170,13 @@ export const AdminFooter: React.FC = () => {
   };
 
   const handleResetDefaults = () => {
-    if (window.confirm("Are you sure you want to reset all footer fields to default values?")) {
-      setFooterData(defaultFooterState);
-      showToast("Reset to standard defaults", "success");
-    }
+    setResetConfirmOpen(true);
+  };
+
+  const executeResetDefaults = () => {
+    setResetConfirmOpen(false);
+    setFooterData(defaultFooterState);
+    showToast("Reset to standard defaults", "success");
   };
 
   // Helper link manipulators
@@ -684,6 +689,16 @@ export const AdminFooter: React.FC = () => {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={resetConfirmOpen}
+        title="Reset Footer Defaults?"
+        message="Are you sure you want to reset all footer fields to default values? Any unsaved changes will be lost."
+        confirmText="Reset Defaults"
+        cancelText="Cancel"
+        onCancel={() => setResetConfirmOpen(false)}
+        onConfirm={executeResetDefaults}
+      />
     </div>
   );
 };

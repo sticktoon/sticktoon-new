@@ -678,7 +678,6 @@ export default function AdminDealConvert() {
   ]);
 
   const handleClearDraft = () => {
-    if (!window.confirm("Clear this draft and start fresh? Unsaved changes will be lost.")) return;
     try {
       localStorage.removeItem(DEAL_DRAFT_KEY);
     } catch {

@@ -923,6 +923,8 @@ type PromoCode = {
   description: string;
   earningPerUnit: number;
   totalEarnings: number;
+  createdBy?: { _id: string; name?: string; email?: string } | any;
+  assignedInfluencers?: Array<{ _id: string; name?: string; email?: string }>;
 };
 
 type PromoFormData = {
@@ -937,6 +939,7 @@ type PromoFormData = {
   validUntil: string;
   description: string;
   earningPerUnit: number;
+  assignedInfluencers: string[];
 };
 
 const createDefaultPromoFormData = (): PromoFormData => ({
@@ -951,6 +954,7 @@ const createDefaultPromoFormData = (): PromoFormData => ({
   validUntil: "",
   description: "",
   earningPerUnit: 5,
+  assignedInfluencers: [],
 });
 
 type TaskStatus =
@@ -1225,6 +1229,7 @@ const Admin: React.FC = () => {
     name: "",
     isDeleting: false,
   });
+  const [deletePromoConfirmId, setDeletePromoConfirmId] = useState<string | null>(null);
   const [updatingDeliveryOrderId, setUpdatingDeliveryOrderId] = useState<string | null>(null);
   const [syncingOrderId, setSyncingOrderId] = useState<string | null>(null);
   const [shiprocketAutoApprove, setShiprocketAutoApprove] = useState<boolean>(false);
@@ -4635,6 +4640,12 @@ const Admin: React.FC = () => {
   const openPromoModal = (promo?: PromoCode) => {
     if (promo) {
       setEditingPromoId(promo._id);
+      const assignedIds = Array.isArray(promo.assignedInfluencers)
+        ? promo.assignedInfluencers.map((i: any) => String(i._id || i))
+        : promo.createdBy?._id
+        ? [String(promo.createdBy._id)]
+        : [];
+
       setPromoForm({
         code: promo.code,
         promoType: promo.promoType || "company",
@@ -4647,6 +4658,7 @@ const Admin: React.FC = () => {
         validUntil: promo.validUntil ? String(promo.validUntil).split("T")[0] : "",
         description: promo.description || "",
         earningPerUnit: promo.earningPerUnit || 5,
+        assignedInfluencers: assignedIds,
       });
     } else {
       setEditingPromoId(null);
@@ -4738,10 +4750,14 @@ const Admin: React.FC = () => {
     }
   };
 
-  const deletePromoCode = async (promoId: string) => {
+  const deletePromoCode = (promoId: string) => {
+    setDeletePromoConfirmId(promoId);
+  };
+
+  const executeDeletePromoCode = async (promoId: string) => {
+    setDeletePromoConfirmId(null);
     const token = localStorage.getItem("adminToken");
     if (!token) return;
-    if (!window.confirm("Delete this promo code?")) return;
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/promo/${promoId}`, {
@@ -8766,6 +8782,18 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 onCancel={() => setDeleteModalState({ isOpen: false, ids: [], type: null, name: "", isDeleting: false })}
                 onConfirm={handleConfirmDelete}
               />
+
+              {deletePromoConfirmId && (
+                <ConfirmModal
+                  isOpen={!!deletePromoConfirmId}
+                  title="Delete Promo Code?"
+                  message="Are you sure you want to delete this promo code? This action cannot be undone."
+                  confirmText="Delete"
+                  cancelText="Cancel"
+                  onCancel={() => setDeletePromoConfirmId(null)}
+                  onConfirm={() => executeDeletePromoCode(deletePromoConfirmId)}
+                />
+              )}
             </div>
           )}
 
@@ -8809,14 +8837,14 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
               </div>
 
               <div className="bg-white border rounded-xl overflow-hidden">
-                <div className="grid grid-cols-8 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left">
+                <div className="grid grid-cols-9 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left gap-2">
                   <span>Code</span>
                   <span>Type</span>
+                  <span className="col-span-2">Assigned Influencer(s)</span>
                   <span>Discount</span>
                   <span>Usage</span>
                   <span>Valid Until</span>
                   <span>Status</span>
-                  <span>Toggle</span>
                   <span>Actions</span>
                 </div>
 
@@ -8828,10 +8856,33 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   promos.map((promo) => (
                     <div
                       key={promo._id}
-                      className="grid grid-cols-8 px-6 py-4 text-sm border-b hover:bg-slate-50 text-left items-center"
+                      className="grid grid-cols-9 px-6 py-4 text-sm border-b hover:bg-slate-50 text-left items-center gap-2"
                     >
                       <span className="font-mono font-bold text-indigo-600">{promo.code}</span>
                       <span className="capitalize">{promo.promoType}</span>
+                      <span className="col-span-2">
+                        {promo.assignedInfluencers && promo.assignedInfluencers.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {promo.assignedInfluencers.map((inf: any) => (
+                              <span
+                                key={inf._id || inf}
+                                className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200"
+                                title={`${inf.name || "Influencer"} (${inf.email || ""}) ID: ${inf._id || inf}`}
+                              >
+                                👤 {inf.name || inf.email || String(inf._id || inf).slice(-6)}
+                              </span>
+                            ))}
+                          </div>
+                        ) : promo.createdBy && typeof promo.createdBy === "object" && promo.createdBy.name ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                            👤 {promo.createdBy.name}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                            Not Assigned
+                          </span>
+                        )}
+                      </span>
                       <span>
                         {promo.discountType === "percentage"
                           ? `${promo.discountValue}%`
@@ -8857,7 +8908,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                           </span>
                         )}
                       </span>
-                      <span>
+                      <span className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => togglePromoStatus(promo._id)}
@@ -8865,8 +8916,6 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         >
                           {promo.isActive ? "Disable" : "Enable"}
                         </button>
-                      </span>
-                      <span className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => openPromoModal(promo)}
@@ -9029,6 +9078,59 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         }
                         className="border rounded-lg px-3 py-2 sm:col-span-2"
                       />
+
+                      {/* INFLUENCER SELECTION BLOCK */}
+                      <div className="sm:col-span-2 space-y-1.5 border-t pt-3">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                          Assign to Influencer(s)
+                        </label>
+                        <p className="text-xs text-slate-500">
+                          Select one or multiple influencers to link with this promo code.
+                        </p>
+                        {(() => {
+                          const influencers = allUsers.filter((u: any) => u.role === "influencer");
+                          if (influencers.length === 0) {
+                            return <p className="text-xs text-slate-400 italic">No approved influencers found.</p>;
+                          }
+                          return (
+                            <div className="max-h-36 overflow-y-auto border rounded-lg p-2.5 space-y-1.5 bg-slate-50">
+                              {influencers.map((inf: any) => {
+                                const isChecked = promoForm.assignedInfluencers.includes(inf._id);
+                                return (
+                                  <label
+                                    key={inf._id}
+                                    className="flex items-center gap-2 text-xs font-medium text-slate-800 cursor-pointer hover:bg-white p-1 rounded transition"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={(e) => {
+                                        let updated = [...promoForm.assignedInfluencers];
+                                        if (e.target.checked) {
+                                          if (!updated.includes(inf._id)) updated.push(inf._id);
+                                        } else {
+                                          updated = updated.filter((id) => id !== inf._id);
+                                        }
+                                        setPromoForm({
+                                          ...promoForm,
+                                          assignedInfluencers: updated,
+                                          promoType: updated.length > 0 ? "influencer" : promoForm.promoType,
+                                        });
+                                      }}
+                                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="font-bold">{inf.name || inf.email}</span>
+                                    <span className="text-slate-400 font-mono">({inf.email})</span>
+                                    <span className="text-[10px] text-slate-400 font-mono ml-auto">
+                                      ID: {inf._id.slice(-6)}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
 
                     {promoFormError && (
@@ -9266,19 +9368,9 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                             </button>
 
                             <button
-                              onClick={() => setEditingUser({ ...u })}
-                              disabled={locked}
-                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
-                              title={locked ? "Only super admin can edit an admin" : "Edit user"}
-                            >
-                              Edit
-                            </button>
-
-                            <button
                               onClick={async () => {
                                 const token = localStorage.getItem("adminToken");
                                 if (!token) return;
-                                if (!window.confirm(`Send password reset email link to ${u.email}?`)) return;
                                 try {
                                   const res = await fetch(`${API_BASE_URL}/api/admin/users/${u._id}/send-reset-email`, {
                                     method: "POST",
@@ -9286,12 +9378,12 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                   });
                                   const data = await res.json();
                                   if (res.ok) {
-                                    alert(data.message || `Password reset link sent to ${u.email}`);
+                                    showToast("success", data.message || `Password reset link sent to ${u.email}`);
                                   } else {
-                                    alert(data.message || "Failed to send reset email.");
+                                    showToast("error", data.message || "Failed to send reset email.");
                                   }
                                 } catch {
-                                  alert("Failed to send reset email.");
+                                  showToast("error", "Failed to send reset email.");
                                 }
                               }}
                               className="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition flex items-center gap-1"
