@@ -279,7 +279,7 @@ export default function AdminDealSend() {
       finishLabel: "Premium 58mm Glossy",
     }));
 
-    setItems(newItems);
+    setItems((prev) => reindexItems([...prev, ...newItems]));
     setSelectedProductIds([]);
     setIsImportModalOpen(false);
   };

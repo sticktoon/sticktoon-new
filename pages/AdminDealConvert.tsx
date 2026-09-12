@@ -395,7 +395,7 @@ export default function AdminDealConvert() {
       image: prod.image,
     }));
 
-    setItems(newItems);
+    setItems((prev) => [...prev, ...newItems]);
     setSelectedProductIds([]);
     setIsImportModalOpen(false);
   };
