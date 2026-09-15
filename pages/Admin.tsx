@@ -58,6 +58,7 @@ import {
   ChevronDown,
   Filter,
   ArrowLeft,
+  ArrowUpDown,
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 
@@ -2466,6 +2467,28 @@ const Admin: React.FC = () => {
   const [leadTypeFilter, setLeadTypeFilter] = useState<string[]>([]);
   const [leadSort, setLeadSort] = useState<"asc" | "desc">("desc");
 
+  // 🔍 DEALS SORT & FILTER STATE
+  const [dealSortOption, setDealSortOption] = useState<string>("");
+  const [dealStageFilter, setDealStageFilter] = useState<string>("All");
+  const [dealSourceFilter, setDealSourceFilter] = useState<string>("All");
+  const [isDealSortOpen, setIsDealSortOpen] = useState<boolean>(false);
+  const dealSortDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dealSortDropdownRef.current &&
+        !dealSortDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsDealSortOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   // ===============================
   // FILTERED LEADS
   // ===============================
@@ -2504,6 +2527,120 @@ const Admin: React.FC = () => {
 
     return list;
   }, [leads, leadSearch, leadStatusFilter, leadTypeFilter, leadSort]);
+
+  const dealStageOptions = useMemo(() => {
+    const defaultStages = ["New", "Contacted", "Interested", "Lost"];
+    const fromData = leads
+      .map((l) => String(getDealDraftValue(l, "status") || l.status || ""))
+      .filter(Boolean);
+    return Array.from(new Set([...defaultStages, ...fromData]));
+  }, [leads, dealDrafts]);
+
+  const dealSourceOptions = useMemo(() => {
+    const defaultSources = [
+      "WhatsApp",
+      "Phone contact",
+      "Social Media",
+      "Email",
+      "Referral",
+      "Website",
+    ];
+    const fromData = leads
+      .map((l) => String(getDealDraftValue(l, "leadSource") || l.leadSource || ""))
+      .filter(Boolean);
+    return Array.from(new Set([...defaultSources, ...fromData]));
+  }, [leads, dealDrafts]);
+
+  const filteredAndSortedDeals = useMemo(() => {
+    let list = [...leads];
+
+    // STAGE FILTER
+    if (dealStageFilter && dealStageFilter !== "All") {
+      list = list.filter((l) => {
+        const stg = String(getDealDraftValue(l, "status") || l.status || "New");
+        return stg === dealStageFilter;
+      });
+    }
+
+    // LEAD SOURCE FILTER
+    if (dealSourceFilter && dealSourceFilter !== "All") {
+      list = list.filter((l) => {
+        const src = String(getDealDraftValue(l, "leadSource") || l.leadSource || "");
+        return src === dealSourceFilter;
+      });
+    }
+
+    // SORT
+    if (dealSortOption) {
+      list.sort((a, b) => {
+        if (dealSortOption === "date-desc") {
+          const da = new Date(a.createdAt || 0).getTime();
+          const db = new Date(b.createdAt || 0).getTime();
+          return db - da;
+        }
+        if (dealSortOption === "date-asc") {
+          const da = new Date(a.createdAt || 0).getTime();
+          const db = new Date(b.createdAt || 0).getTime();
+          return da - db;
+        }
+        if (dealSortOption === "amount-desc" || dealSortOption === "amount-asc") {
+          const getVal = (item: Lead) => {
+            const raw = getDealDraftValue(item, "expectedAmount") ?? item.expectedAmount;
+            if (typeof raw === "number") return raw;
+            const parsed = parseFloat(String(raw || "0").replace(/[^0-9.-]+/g, ""));
+            return Number.isNaN(parsed) ? 0 : parsed;
+          };
+          const va = getVal(a);
+          const vb = getVal(b);
+          return dealSortOption === "amount-desc" ? vb - va : va - vb;
+        }
+        if (dealSortOption === "name-asc" || dealSortOption === "name-desc") {
+          const getName = (item: Lead) => {
+            const fn = String(getDealDraftValue(item, "firstName") || item.firstName || "").trim();
+            const ln = String(getDealDraftValue(item, "lastName") || item.lastName || "").trim();
+            return `${fn} ${ln}`.trim().toLowerCase();
+          };
+          const na = getName(a);
+          const nb = getName(b);
+          const cmp = na.localeCompare(nb);
+          return dealSortOption === "name-asc" ? cmp : -cmp;
+        }
+        return 0;
+      });
+    }
+
+    return list;
+  }, [leads, dealDrafts, dealStageFilter, dealSourceFilter, dealSortOption]);
+
+  const handleClearDealFilters = () => {
+    setDealSortOption("");
+    setDealStageFilter("All");
+    setDealSourceFilter("All");
+  };
+
+  const isDealFiltersActive =
+    dealSortOption !== "" ||
+    dealStageFilter !== "All" ||
+    dealSourceFilter !== "All";
+
+  const getSortLabel = (opt: string) => {
+    switch (opt) {
+      case "date-desc":
+        return "Date: Newest first";
+      case "date-asc":
+        return "Date: Oldest first";
+      case "amount-desc":
+        return "Expected Amount: Highest first";
+      case "amount-asc":
+        return "Expected Amount: Lowest first";
+      case "name-asc":
+        return "Name: A → Z";
+      case "name-desc":
+        return "Name: Z → A";
+      default:
+        return "Sort by";
+    }
+  };
 
   const toDateInputValue = (value?: string) => {
     if (!value) return "";
@@ -6251,6 +6388,191 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 </div>
               </div>
 
+              {/* SORT & FILTER CONTROLS TOOLBAR */}
+              <div className="bg-white rounded-xl border p-4 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* STAGE FILTER */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Stage:</span>
+                    <select
+                      value={dealStageFilter}
+                      onChange={(e) => setDealStageFilter(e.target.value)}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    >
+                      <option value="All">All Stages</option>
+                      {dealStageOptions.map((stg) => (
+                        <option key={stg} value={stg}>
+                          {stg}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* LEAD SOURCE FILTER */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Source:</span>
+                    <select
+                      value={dealSourceFilter}
+                      onChange={(e) => setDealSourceFilter(e.target.value)}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    >
+                      <option value="All">All Sources</option>
+                      {dealSourceOptions.map((src) => (
+                        <option key={src} value={src}>
+                          {src}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* SORT BY DROPDOWN POPOVER */}
+                  <div className="relative" ref={dealSortDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsDealSortOpen((prev) => !prev)}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${
+                        dealSortOption
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <ArrowUpDown className="h-4 w-4" />
+                      <span>{dealSortOption ? getSortLabel(dealSortOption) : "Sort by"}</span>
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${
+                          isDealSortOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {isDealSortOpen && (
+                      <div className="absolute left-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-xl z-20 space-y-2">
+                        {/* DATE SECTION */}
+                        <div>
+                          <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Date
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDealSortOption("date-desc");
+                              setIsDealSortOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-sm rounded-md font-medium transition ${
+                              dealSortOption === "date-desc"
+                                ? "bg-slate-100 font-bold text-slate-900"
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            Newest first
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDealSortOption("date-asc");
+                              setIsDealSortOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-sm rounded-md font-medium transition ${
+                              dealSortOption === "date-asc"
+                                ? "bg-slate-100 font-bold text-slate-900"
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            Oldest first
+                          </button>
+                        </div>
+
+                        <div className="border-t border-slate-100" />
+
+                        {/* EXPECTED AMOUNT SECTION */}
+                        <div>
+                          <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Expected Amount
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDealSortOption("amount-desc");
+                              setIsDealSortOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-sm rounded-md font-medium transition ${
+                              dealSortOption === "amount-desc"
+                                ? "bg-slate-100 font-bold text-slate-900"
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            Highest first
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDealSortOption("amount-asc");
+                              setIsDealSortOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-sm rounded-md font-medium transition ${
+                              dealSortOption === "amount-asc"
+                                ? "bg-slate-100 font-bold text-slate-900"
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            Lowest first
+                          </button>
+                        </div>
+
+                        <div className="border-t border-slate-100" />
+
+                        {/* NAME SECTION */}
+                        <div>
+                          <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Name
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDealSortOption("name-asc");
+                              setIsDealSortOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-sm rounded-md font-medium transition ${
+                              dealSortOption === "name-asc"
+                                ? "bg-slate-100 font-bold text-slate-900"
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            A → Z
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDealSortOption("name-desc");
+                              setIsDealSortOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-sm rounded-md font-medium transition ${
+                              dealSortOption === "name-desc"
+                                ? "bg-slate-100 font-bold text-slate-900"
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            Z → A
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* CLEAR FILTERS BUTTON */}
+                {isDealFiltersActive && (
+                  <button
+                    type="button"
+                    onClick={handleClearDealFilters}
+                    className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Clear filters
+                  </button>
+                )}
+              </div>
+
               <div className="bg-white rounded-xl border overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[1100px]">
@@ -6266,14 +6588,14 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredLeads.length === 0 ? (
+                      {filteredAndSortedDeals.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">
                             No deals found.
                           </td>
                         </tr>
                       ) : (
-                        filteredLeads.map((lead) => (
+                        filteredAndSortedDeals.map((lead) => (
                           <tr
                             key={lead._id || `${lead.email}-${lead.phone}`}
                             className="border-b last:border-b-0"
