@@ -350,32 +350,27 @@ function buildMimeMessage({ to, subject, bodyText, filename, pdfBuffer }) {
     `Subject: =?UTF-8?B?${Buffer.from(subject || "Sticktoon Product Catalogue").toString("base64")}?=`,
     `MIME-Version: 1.0`,
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    ``,
   ];
 
-  const textPart = [
+  const body = [
     `--${boundary}`,
-    `Content-Type: text/plain; charset="UTF-8"`,
+    `Content-Type: text/plain; charset=UTF-8`,
     `Content-Transfer-Encoding: 7bit`,
     ``,
-    bodyText || "Please review our product catalogue.",
+    bodyText || "",
     ``,
-  ];
-
-  const pdfBase64 = pdfBuffer.toString("base64");
-  const attachmentPart = [
     `--${boundary}`,
-    `Content-Type: application/pdf; name="${filename}"`,
-    `Content-Disposition: attachment; filename="${filename}"`,
+    `Content-Type: application/pdf; name="${filename || "catalogue.pdf"}"`,
+    `Content-Disposition: attachment; filename="${filename || "catalogue.pdf"}"`,
     `Content-Transfer-Encoding: base64`,
     ``,
-    pdfBase64,
+    pdfBuffer.toString("base64"),
     ``,
     `--${boundary}--`,
     ``,
-  ];
+  ].join("\r\n");
 
-  return headers.concat(textPart, attachmentPart).join("\r\n");
+  return `${headers.join("\r\n")}\r\n\r\n${body}`;
 }
 
 function base64UrlEncode(str) {
@@ -393,9 +388,10 @@ router.post("/gmail/create-draft", ...leadsAccess, async (req, res) => {
     const { oauth2Client, hasRefreshToken } = getGmailOAuthClient();
 
     if (!hasRefreshToken) {
-      return res.status(400).json({
-        message: "Google Gmail authorization is required for orders.sticktoon@gmail.com. Please run node scripts/generateGmailToken.js or connect orders.sticktoon@gmail.com.",
+      return res.status(401).json({
         requiresGoogleAuth: true,
+        errorCode: "GMAIL_REFRESH_TOKEN_MISSING",
+        message: "Gmail refresh token is not configured.",
       });
     }
 
@@ -463,15 +459,28 @@ router.post("/gmail/create-draft", ...leadsAccess, async (req, res) => {
       viewUrl: "https://mail.google.com/mail/u/0/#drafts",
     });
   } catch (err) {
-    console.error("Create Gmail draft error:", err);
-    const errMsg = err?.message || "Failed to create Gmail draft";
-    if (errMsg.includes("invalid_grant") || errMsg.includes("Token")) {
+    const errMsg = err?.message || err?.response?.data?.error_description || "Failed to create Gmail draft";
+    const errCode = err?.code || err?.response?.data?.error || "GMAIL_API_ERROR";
+
+    const isInvalidGrant =
+      errMsg.includes("invalid_grant") ||
+      errMsg.includes("Token") ||
+      errCode === "invalid_grant" ||
+      err?.response?.data?.error === "invalid_grant";
+
+    if (isInvalidGrant) {
       return res.status(401).json({
-        message: "Gmail OAuth refresh token for orders.sticktoon@gmail.com is invalid or expired. Please re-authorize.",
         requiresGoogleAuth: true,
+        errorCode: "GMAIL_REFRESH_TOKEN_INVALID",
+        message: "Gmail authorization has expired or been revoked. Please reconnect Gmail.",
       });
     }
-    return res.status(500).json({ message: errMsg });
+
+    console.error("Gmail API request error:", errMsg);
+    return res.status(500).json({
+      message: errMsg,
+      errorCode: errCode,
+    });
   }
 });
 
