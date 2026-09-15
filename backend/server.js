@@ -78,7 +78,6 @@ app.use("/api/badge-doc", require("./routes/badgeDoc"));
 // Image upload is driven from the product form, so it follows "products".
 app.use("/api/admin/images", auth, requirePermission("products"), require("./routes/adminImages"));
 app.use("/api/admin/leads", require("./routes/adminLeads"));
-app.use("/api/admin/tasks", auth, requirePermission("tasks"), require("./routes/adminTasks"));
 app.use("/api/admin/support", auth, requirePermission("support"), require("./routes/adminSupport"));
 // Settings currently holds only the Shiprocket toggle on the Orders screen.
 app.use("/api/admin/settings", auth, requirePermission("orders"), require("./routes/adminSettings"));
