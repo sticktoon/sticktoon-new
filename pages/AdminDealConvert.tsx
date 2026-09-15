@@ -395,7 +395,7 @@ export default function AdminDealConvert() {
       image: prod.image,
     }));
 
-    setItems(newItems);
+    setItems((prev) => [...prev, ...newItems]);
     setSelectedProductIds([]);
     setIsImportModalOpen(false);
   };
@@ -435,7 +435,11 @@ export default function AdminDealConvert() {
   const isScreenProtected = useScreenshotPrivacy(!isExporting && !isPrinting);
 
   const currency = CURRENCIES.find((c) => c.code === currencyCode) ?? CURRENCIES[0];
-  const formatMoney = (value: number) => Math.round(value).toLocaleString(currency.locale);
+  const formatMoney = (value: number) =>
+    Number(value || 0).toLocaleString(currency.locale, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   const money = (value: number) => `${currency.symbol} ${formatMoney(value)}`;
 
   const termLines = useMemo(
@@ -448,17 +452,20 @@ export default function AdminDealConvert() {
   );
 
   const totals = useMemo(() => {
+    const rate = gstEnabled ? Number(gstRate || 0) : 0;
     const computed = items.reduce(
       (sum, item) => {
-        const amount = Number(item.unitPrice || 0) * Number(item.quantity || 0);
-        const igst = gstEnabled ? (amount * Number(gstRate || 0)) / 100 : 0;
+        const lineTotalInclusive = Number(item.unitPrice || 0) * Number(item.quantity || 0);
+        const lineBaseAmount = rate > 0 ? lineTotalInclusive / (1 + rate / 100) : lineTotalInclusive;
+        const lineGstAmount = lineTotalInclusive - lineBaseAmount;
 
         return {
-          subtotal: sum.subtotal + Math.round(amount),
-          gstAmount: sum.gstAmount + Math.round(igst),
+          subtotal: sum.subtotal + lineBaseAmount,
+          gstAmount: sum.gstAmount + lineGstAmount,
+          totalInclusive: sum.totalInclusive + lineTotalInclusive,
         };
       },
-      { subtotal: 0, gstAmount: 0 },
+      { subtotal: 0, gstAmount: 0, totalInclusive: 0 },
     );
 
     const delivery = Math.max(0, Number(deliveryCharges || 0));
@@ -467,7 +474,7 @@ export default function AdminDealConvert() {
       subtotal: computed.subtotal,
       gstAmount: computed.gstAmount,
       deliveryCharges: delivery,
-      grandTotal: computed.subtotal + computed.gstAmount + delivery,
+      grandTotal: computed.totalInclusive + delivery,
     };
   }, [gstRate, items, gstEnabled, deliveryCharges]);
 
@@ -678,7 +685,6 @@ export default function AdminDealConvert() {
   ]);
 
   const handleClearDraft = () => {
-    if (!window.confirm("Clear this draft and start fresh? Unsaved changes will be lost.")) return;
     try {
       localStorage.removeItem(DEAL_DRAFT_KEY);
     } catch {
@@ -1447,8 +1453,10 @@ export default function AdminDealConvert() {
                           itemPages
                             .slice(0, pageIndex)
                             .reduce((sum, page) => sum + page.length, 0);
-                        const amount = item.unitPrice * item.quantity;
-                        const igst = (amount * gstRate) / 100;
+                        const lineTotalInclusive = Number(item.unitPrice || 0) * Number(item.quantity || 0);
+                        const rate = gstEnabled ? Number(gstRate || 0) : 0;
+                        const lineBaseAmount = rate > 0 ? lineTotalInclusive / (1 + rate / 100) : lineTotalInclusive;
+                        const lineGstAmount = lineTotalInclusive - lineBaseAmount;
                         return (
                           <tr key={item.id} className="h-[100px]">
                             <td className={rowCellClass}>{globalIndex + 1}</td>
@@ -1530,11 +1538,11 @@ export default function AdminDealConvert() {
                                 />
                               )}
                             </td>
-                            <td className={rowCellClass}>{formatMoney(amount)}</td>
-                            <td className={rowCellClass}>{formatMoney(igst)}</td>
+                            <td className={rowCellClass}>{formatMoney(lineBaseAmount)}</td>
+                            <td className={rowCellClass}>{formatMoney(lineGstAmount)}</td>
                             <td className={`${rowCellClass} font-black`}>
                               <div className={`flex items-center justify-center ${isStaticPreview ? "" : "flex-col gap-2"}`}>
-                                <span>{money(amount + igst)}</span>
+                                <span>{money(lineTotalInclusive)}</span>
                                 {!isStaticPreview && (
                                   <button
                                     onClick={() => removeItem(item.id)}

@@ -335,8 +335,14 @@ router.get("/earnings", auth, approvedInfluencerOnly, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
 
-    // Get all promo codes for this influencer
-    const promoCodes = await PromoCode.find({ createdBy: req.user.id });
+    // Get all promo codes for this influencer (created by or assigned to them)
+    const promoCodes = await PromoCode.find({
+      $or: [
+        { createdBy: req.user.id },
+        { assignedInfluencers: req.user.id },
+        ...(user.influencerProfile?.promoCodeId ? [{ _id: user.influencerProfile.promoCodeId }] : []),
+      ],
+    }).sort({ createdAt: -1 });
     
     // For backward compatibility, also return single promoCode (first one)
     const promoCode = promoCodes.length > 0 ? promoCodes[0] : null;
