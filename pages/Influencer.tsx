@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
 import { formatDate } from "../utils/formatDate";
 import { Eye, EyeOff, TrendingUp, DollarSign, Users, Award, Copy, Check, LogOut } from "lucide-react";
+import ConfirmModal from "../components/ConfirmModal";
 
 /* ===========================
    TYPES & INTERFACES
@@ -98,6 +99,9 @@ const Influencer: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Confirmation modal state
+  const [deleteConfirmPromoId, setDeleteConfirmPromoId] = useState<string | null>(null);
 
   // Dashboard data
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
@@ -414,9 +418,12 @@ const Influencer: React.FC = () => {
     }
   };
 
-  const handleDeletePromo = async (promoId: string) => {
-    if (!confirm("Are you sure you want to delete this promo code?")) return;
+  const handleDeletePromo = (promoId: string) => {
+    setDeleteConfirmPromoId(promoId);
+  };
 
+  const executeDeletePromo = async (promoId: string) => {
+    setDeleteConfirmPromoId(null);
     const token = localStorage.getItem("influencerToken");
     if (!token) return;
 
@@ -1044,7 +1051,7 @@ const Influencer: React.FC = () => {
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
               <h3 className="text-xl font-bold text-white mb-4">Your Promo Codes ({promoCodes.length})</h3>
               {promoCodes.length === 0 ? (
-                <p className="text-gray-400 text-center py-8">No promo codes yet. Create one above!</p>
+                <p className="text-gray-400 text-center py-8">No assigned promo codes yet. Create one above or ask your admin to assign one!</p>
               ) : (
                 <div className="space-y-4">
                   {promoCodes.map((promo) => (
@@ -1414,6 +1421,18 @@ const Influencer: React.FC = () => {
           </div>
         )}
       </div>
+
+      {deleteConfirmPromoId && (
+        <ConfirmModal
+          isOpen={!!deleteConfirmPromoId}
+          title="Delete Promo Code?"
+          message="Are you sure you want to delete this promo code? This action cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          onCancel={() => setDeleteConfirmPromoId(null)}
+          onConfirm={() => executeDeletePromo(deleteConfirmPromoId)}
+        />
+      )}
     </div>
   );
 };
