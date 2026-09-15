@@ -58,8 +58,11 @@ import {
   ChevronDown,
   Filter,
   ArrowLeft,
+  IndianRupee,
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
+import AdminLoginSteps, { type AdminLoginStep } from "../components/AdminLoginSteps";
+import PasswordRules, { ADMIN_PASSWORD_HINT, meetsAdminPasswordRules } from "../components/PasswordRules";
 
 // Developer email (full access) configured through Vite env variables and super admin emails
 const DEV_EMAILS = [
@@ -1190,6 +1193,8 @@ const Admin: React.FC = () => {
   // Login state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  // Set after the password / Google step: new password and 2-step code still to come.
+  const [loginStep, setLoginStep] = useState<AdminLoginStep | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -3249,6 +3254,9 @@ const Admin: React.FC = () => {
     setIsAuthenticated(false);
     setUser(null);
     setCurrentView("login");
+    if (window.location.pathname !== "/admin/login") {
+      navigate("/admin/login", { replace: true });
+    }
   };
 
   const handleUnauthorized = (res: Response) => {
@@ -3256,10 +3264,33 @@ const Admin: React.FC = () => {
     clearAdminSession();
     if (!authToastShownRef.current) {
       authToastShownRef.current = true;
-      showToast("error", "🔒 Session expired. Please login again.");
+      showToast("error", "🔒 Please sign in to the admin panel again.");
     }
     return true;
   };
+
+  // Each admin section (Revenue, Logs, Invoices...) makes its own requests, so
+  // one watch on fetch sends the panel back to sign-in whenever any admin API
+  // says the token is expired or predates 2-step verification. The sign-in
+  // endpoints are skipped: their 401s mean "start sign-in again", handled there.
+  useEffect(() => {
+    const originalFetch = window.fetch;
+    window.fetch = async (...args: Parameters<typeof fetch>) => {
+      const res = await originalFetch(...args);
+      if (res.status === 401) {
+        const input = args[0];
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as any)?.url || "";
+        if (typeof url === "string" && url.includes("/api/admin") && !/\/api\/admin\/(login|google-login)/.test(url)) {
+          handleUnauthorized(res);
+        }
+      }
+      return res;
+    };
+    return () => {
+      window.fetch = originalFetch;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate]);
 
   const checkAuth = async () => {
     let token = localStorage.getItem("adminToken");
@@ -3272,7 +3303,10 @@ const Admin: React.FC = () => {
       if (storefrontToken && storefrontUserRaw) {
         try {
           const sfUser = JSON.parse(storefrontUserRaw);
-          if (sfUser.role === "admin" || sfUser.role === "superadmin") {
+          // Only a token that went through admin 2-step verification opens the panel;
+          // a plain storefront sign-in would just bounce with "session expired".
+          const claims = JSON.parse(atob(storefrontToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+          if ((sfUser.role === "admin" || sfUser.role === "superadmin") && claims.mfa === true) {
             // Set for admin panel
             localStorage.setItem("adminToken", storefrontToken);
             localStorage.setItem("adminUser", storefrontUserRaw);
@@ -3677,27 +3711,31 @@ const Admin: React.FC = () => {
         throw new Error(data.message || "Login failed");
       }
 
-      // Check if user is admin or superadmin
-      if (data.user?.role !== "admin" && data.user?.role !== "superadmin") {
-        throw new Error("Only admins can access this panel");
-      }
-
-      localStorage.setItem("adminToken", data.token);
-      localStorage.setItem("adminUser", JSON.stringify(data.user));
-      // Mirror into the storefront session so the shop recognises the admin
-      // and the shop <-> admin panel toggle works in both directions.
-      syncStorefrontSession(data.token, data.user);
-
-      authToastShownRef.current = false;
-      setIsAuthenticated(true);
-      setUser(data.user);
-      setCurrentView("dashboard");
-      await fetchDashboardData(data.token);
+      // Password accepted. The server says what's left (new password, 2-step code).
+      setLoginStep(data);
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
+  };
+
+  // Runs when the last sign-in step hands back the admin token.
+  const completeAdminLogin = async (data: { token: string; user: any }) => {
+    setLoginStep(null);
+    setLoginPassword("");
+    setError("");
+    localStorage.setItem("adminToken", data.token);
+    localStorage.setItem("adminUser", JSON.stringify(data.user));
+    // Mirror into the storefront session so the shop recognises the admin
+    // and the shop <-> admin panel toggle works in both directions.
+    syncStorefrontSession(data.token, data.user);
+
+    authToastShownRef.current = false;
+    setIsAuthenticated(true);
+    setUser(data.user);
+    setCurrentView("dashboard");
+    await fetchDashboardData(data.token);
   };
 
   const handleLogout = () => {
@@ -3748,8 +3786,9 @@ const Admin: React.FC = () => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               name: googleUser.name,
-              email: googleUser.email,
               avatar: googleUser.picture,
+              // The server asks Google who this token belongs to; the email is never taken from the browser.
+              accessToken: tokenResponse.access_token,
             }),
           },
         );
@@ -3761,17 +3800,8 @@ const Admin: React.FC = () => {
           return;
         }
 
-        localStorage.setItem("adminToken", data.token);
-        localStorage.setItem("adminUser", JSON.stringify(data.user));
-        // Mirror into the storefront session so the shop recognises the admin
-        // and the shop <-> admin panel toggle works in both directions.
-        syncStorefrontSession(data.token, data.user);
-
-        authToastShownRef.current = false;
-        setIsAuthenticated(true);
-        setUser(data.user);
-        setCurrentView("dashboard");
-        await fetchDashboardData(data.token);
+        // Google accepted. The 2-step code is still required.
+        setLoginStep(data);
       } catch {
         setError("Google login failed");
       } finally {
@@ -3800,8 +3830,8 @@ const Admin: React.FC = () => {
 
       // Only include password fields if new password is provided
       if (profileForm.newPassword) {
-        if (profileForm.newPassword.length < 6) {
-          setError("New password must be at least 6 characters");
+        if (!meetsAdminPasswordRules(profileForm.newPassword)) {
+          setError(ADMIN_PASSWORD_HINT);
           setUpdatingProfile(false);
           return;
         }
@@ -4107,6 +4137,12 @@ const Admin: React.FC = () => {
       return false;
     }
   };
+
+  // Admin accounts need the full password policy; customers keep the 6-character minimum.
+  const resetTargetIsAdmin = (target: { role?: string } | null) =>
+    target?.role === "admin" || target?.role === "superadmin";
+  const resetPasswordAllowed = (target: { role?: string } | null, password: string) =>
+    resetTargetIsAdmin(target) ? meetsAdminPasswordRules(password) : password.length >= 6;
 
   const handleResetPassword = async (userId: string, newPassword: string) => {
     const token = localStorage.getItem("adminToken");
@@ -5124,6 +5160,18 @@ const Admin: React.FC = () => {
               </div>
             )}
 
+            {loginStep ? (
+              <AdminLoginSteps
+                initial={loginStep}
+                onSignedIn={completeAdminLogin}
+                onCancel={(message) => {
+                  setLoginStep(null);
+                  setLoginPassword("");
+                  setError(message || "");
+                }}
+              />
+            ) : (
+            <>
             <form onSubmit={handleAdminLogin} className="space-y-4">
               <div>
                 <label className="block text-sm font-bold text-black mb-1.5">
@@ -5239,6 +5287,8 @@ const Admin: React.FC = () => {
               </svg>
               {isGoogleLoading ? "Connecting..." : "Continue with Google"}
             </button>
+            </>
+            )}
           </div>
         </div>
       </div>
@@ -5283,6 +5333,7 @@ const Admin: React.FC = () => {
                   { id: "dashboard", label: "Dashboard", icon: <DashboardRoundedIcon sx={{ fontSize: 22 }} /> },
                   { id: "notifications", label: "Notifications", icon: <NotificationsActiveRoundedIcon sx={{ fontSize: 22 }} />, badge: notifications.length },
                   { id: "reports", label: "Reports", icon: <BarChart3 className="w-5 h-5" /> },
+                  { id: "revenue", label: "Revenue", icon: <IndianRupee className="w-5 h-5" /> },
                 ],
               },
               {
@@ -5458,6 +5509,7 @@ const Admin: React.FC = () => {
 
               <h2 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-900 truncate">
                 {currentView === "dashboard" && "Dashboard"}
+                {currentView === "revenue" && "Revenue"}
                 {currentView === "notifications" && "Notifications"}
                 {currentView === "leads" && "Leads"}
                 {currentView === "deals" && "Deals"}
@@ -10283,8 +10335,10 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                             })
                           }
                           className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-medium focus:bg-white focus:border-indigo-600 focus:outline-none transition-all text-sm"
-                          placeholder="Min 6 characters"
+                          placeholder="12+ characters"
+                          autoComplete="new-password"
                         />
+                        {profileForm.newPassword && <PasswordRules password={profileForm.newPassword} />}
                       </div>
                     </div>
 
@@ -11297,28 +11351,25 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   <div className="relative">
                     <input
                       type="password"
-                      placeholder="Min 6 characters (A-z, 0-9, !@#)"
+                      placeholder={resetTargetIsAdmin(resettingPassword) ? "12+ characters (A-Z, a-z, 0-9, !@#)" : "Min 6 characters"}
+                      autoComplete="new-password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       className="w-full px-4 py-2.5 bg-white/10 border border-yellow-500/30 hover:border-yellow-500/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 transition-all"
                     />
                   </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <span
-                      className={`text-xs font-medium ${
-                        newPassword.length >= 6
-                          ? "text-emerald-400"
-                          : "text-gray-500"
-                      }`}
-                    >
-                      {newPassword.length >= 6
-                        ? "✓ Strong"
-                        : "○ Min 6 characters"}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {newPassword.length}/20
-                    </span>
-                  </div>
+                  {resetTargetIsAdmin(resettingPassword) ? (
+                    <>
+                      <PasswordRules password={newPassword} />
+                      <p className="mt-2 text-xs text-gray-500">
+                        They'll be asked to choose their own password at their next sign-in.
+                      </p>
+                    </>
+                  ) : (
+                    <p className={`mt-2 text-xs font-medium ${newPassword.length >= 6 ? "text-green-600" : "text-gray-500"}`}>
+                      {newPassword.length >= 6 ? "✓ Long enough" : "○ Min 6 characters"}
+                    </p>
+                  )}
                 </div>
 
                 {/* Actions */}
@@ -11328,11 +11379,11 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       handleResetPassword(resettingPassword._id, newPassword)
                     }
                     className={`flex-1 py-2.5 rounded-lg text-white font-semibold transition-all duration-200 ${
-                      newPassword.length >= 6
+                      resetPasswordAllowed(resettingPassword, newPassword)
                         ? "bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-500 hover:to-yellow-600 shadow-lg hover:shadow-lg hover:shadow-yellow-500/30"
                         : "bg-gray-600 cursor-not-allowed opacity-50"
                     }`}
-                    disabled={newPassword.length < 6}
+                    disabled={!resetPasswordAllowed(resettingPassword, newPassword)}
                   >
                     🔐 Reset Password
                   </button>

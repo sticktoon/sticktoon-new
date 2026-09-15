@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import AdminBackButton from "./AdminBackButton";
 import { API_BASE_URL } from "../config/api";
+import { ADMIN_PASSWORD_HINT, meetsAdminPasswordRules } from "../components/PasswordRules";
 
 type User = {
   _id: string;
@@ -28,6 +29,8 @@ const DEV_EMAILS = [
   .split(",")
   .map((email) => email.toLowerCase().trim())
   .filter(Boolean);
+
+const ROLES = ["user", "influencer", "admin", "superadmin"];
 
 export default function AdminUsers() {
   const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
@@ -107,7 +110,12 @@ export default function AdminUsers() {
       flash("error", "Name and email are required");
       return;
     }
-    if (form.newPassword.trim() && form.newPassword.trim().length < 6) {
+    const newPassword = form.newPassword.trim();
+    if (newPassword && (form.role === "admin" || form.role === "superadmin") && !meetsAdminPasswordRules(newPassword)) {
+      flash("error", ADMIN_PASSWORD_HINT);
+      return;
+    }
+    if (newPassword && newPassword.length < 6) {
       flash("error", "Password must be at least 6 characters");
       return;
     }
@@ -162,8 +170,8 @@ export default function AdminUsers() {
       flash("error", "Email and password are required");
       return;
     }
-    if (addAdminForm.password.length < 6) {
-      flash("error", "Password must be at least 6 characters");
+    if (!meetsAdminPasswordRules(addAdminForm.password.trim())) {
+      flash("error", ADMIN_PASSWORD_HINT);
       return;
     }
 

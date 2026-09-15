@@ -251,15 +251,22 @@ router.post("/login", async (req, res) => {
 /* =========================
    GOOGLE LOGIN
 ========================= */
+const { verifyGoogleAccessToken, GoogleSignInError } = require("../utils/googleIdentity");
+const { passwordErrorForRole } = require("../utils/passwordPolicy");
+
 router.post("/google", async (req, res) => {
   try {
-    const { name, email, avatar } = req.body;
+    const { name, avatar, accessToken } = req.body;
 
-    if (!email) {
-      return res.status(400).json({ message: "Google login failed" });
+    // The email comes from Google, never from the browser.
+    let cleanEmail;
+    try {
+      ({ email: cleanEmail } = await verifyGoogleAccessToken(accessToken));
+    } catch (err) {
+      if (err instanceof GoogleSignInError) return res.status(401).json({ message: err.message });
+      throw err;
     }
 
-    const cleanEmail = email.toLowerCase().trim();
     let user = await User.findOne({ email: cleanEmail });
     const isNewAccount = !user;
 
@@ -473,10 +480,6 @@ router.post("/reset-password/:token", async (req, res) => {
   try {
     const { password } = req.body;
 
-    if (!password || password.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
-    }
-
     const hashedToken = crypto
       .createHash("sha256")
       .update(req.params.token)
@@ -491,7 +494,14 @@ router.post("/reset-password/:token", async (req, res) => {
       return res.status(400).json({ message: "Invalid or expired token" });
     }
 
+    // Admin accounts get the full password policy; customers keep the 6-character minimum.
+    const passwordProblem = passwordErrorForRole(user.role, password, user.email);
+    if (passwordProblem) {
+      return res.status(400).json({ message: passwordProblem });
+    }
+
     user.password = await bcrypt.hash(password, 10);
+    user.passwordChangedAt = new Date();
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
     await user.save();

@@ -62,6 +62,28 @@ app.use("/api/razorpay", require("./routes/razorpayPayment"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/admin/orders", auth, requirePermission("orders"), require("./routes/adminOrders"));
 app.use("/api/admin/revenue", auth, requirePermission("revenue"), require("./routes/adminRevenue"));
+
+// Read-only revenue totals for AYUS ops (Anish's command center). A static token,
+// not an admin JWT, so whoever holds it can read this one summary and nothing else.
+// AYUS_REVENUE_TOKEN unset = the route answers 404 to everyone.
+app.get("/api/ayus/revenue", async (req, res) => {
+  const expected = Buffer.from(process.env.AYUS_REVENUE_TOKEN || "");
+  const given = Buffer.from(String(req.headers["x-ayus-token"] || ""));
+  const allowed =
+    expected.length >= 32 && given.length === expected.length && require("crypto").timingSafeEqual(given, expected);
+  if (!allowed) return res.status(404).json({ message: "Not found" });
+
+  const { readRange, totalsFor } = require("./routes/adminRevenue");
+  const range = readRange(req.query);
+  if (!range) return res.status(400).json({ message: "Invalid date range" });
+
+  try {
+    res.json({ range: { from: range.from, to: range.to }, ...(await totalsFor(range.start, range.end)) });
+  } catch (err) {
+    console.error("AYUS revenue error:", err);
+    res.status(500).json({ message: "Failed to load revenue" });
+  }
+});
 app.use("/api/invoice", require("./routes/invoice"));
 app.use("/api/admin/invoice", auth, requirePermission("revenue"), require("./routes/adminInvoice"));
 app.use("/api/admin/catalogue", auth, requirePermission("revenue"), require("./routes/adminCatalogue"));

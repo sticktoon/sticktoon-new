@@ -11,8 +11,80 @@ const crypto = require("crypto");
 const sendEmail = require("../utils/sendEmail");
 const handleValidationError = require("../utils/handleValidationError");
 const auth = require("../middleware/auth");
-const { adminOnly, superAdminOnly, requirePermission, hasPermission, ADMIN_PERMISSIONS, checkIsSuperAdmin, isSuperAdmin, isAdminEmail, isOrdersEmail } = require("../middleware/roleMiddleware");
+const { adminOnly, superAdminOnly, requirePermission, hasPermission, ADMIN_PERMISSIONS, checkIsSuperAdmin, isSuperAdmin, isAdminEmail, isOrdersEmail, isAdminAccount } = require("../middleware/roleMiddleware");
 const { logActivity } = require("../utils/activityLogger");
+const {
+  newLoginCode,
+  codeMatches,
+  maskEmail,
+  loginCodeEmail,
+  RESEND_AFTER_MS,
+  MAX_ATTEMPTS,
+} = require("../utils/loginCode");
+const { adminPasswordError, passwordErrorForRole, passwordExpired } = require("../utils/passwordPolicy");
+const { verifyGoogleAccessToken, GoogleSignInError } = require("../utils/googleIdentity");
+
+/* ======================
+   ADMIN SIGN-IN STEPS
+   1. Password, or Google (verified with Google on the server).
+   2. Password sign-in only: replace the password if it's weak or over a year old.
+   3. 2-step verification code, emailed to the admin.
+   Only step 3 issues an admin token. It carries `mfa: true`, which
+   roleMiddleware requires on every admin route.
+====================== */
+const CHALLENGE_TTL = "10m";
+
+const SIGN_IN_TIMED_OUT = { message: "Your sign-in timed out. Please sign in again." };
+
+const signChallenge = (user, stage, via) =>
+  jwt.sign(
+    { id: user._id, purpose: "admin_signin", stage, via, jti: crypto.randomUUID() },
+    process.env.JWT_SECRET,
+    { expiresIn: CHALLENGE_TTL }
+  );
+
+const readChallenge = (token, stage) => {
+  try {
+    const data = jwt.verify(String(token || ""), process.env.JWT_SECRET);
+    return data.purpose === "admin_signin" && data.stage === stage ? data : null;
+  } catch {
+    return null;
+  }
+};
+
+const sendAdminLoginCode = async (user, via) => {
+  const { code, hash, expiresAt } = newLoginCode(process.env.JWT_SECRET);
+  user.loginCode = {
+    hash,
+    expiresAt,
+    sentAt: new Date(),
+    attempts: 0,
+  };
+  await user.save();
+
+  Promise.resolve(
+    sendEmail({
+      to: user.email,
+      subject: "Your StickToon admin sign-in code",
+      html: loginCodeEmail(code),
+    })
+  ).catch((err) => console.error("Admin sign-in code email failed:", err.message));
+
+  return {
+    step: "verify_email_code",
+    challengeToken: signChallenge(user, "2fa", via),
+    email: maskEmail(user.email),
+  };
+};
+
+const adminUserJson = (user) => ({
+  _id: user._id,
+  name: user.name,
+  email: user.email,
+  avatar: user.avatar,
+  role: user.role,
+  adminPermissions: user.role === "superadmin" ? ADMIN_PERMISSIONS : user.adminPermissions || [],
+});
 
 /* ======================
    ADMIN LOGIN
@@ -74,34 +146,157 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    // Password is right. Still needed: a strong, current password, then the 2-step code.
+    const weak = adminPasswordError(password, user.email);
+    if (weak || passwordExpired(user.passwordChangedAt)) {
+      return res.json({
+        step: "change_password",
+        reason: weak ? "weak" : "expired",
+        challengeToken: signChallenge(user, "password", "credentials"),
+      });
+    }
+
+    res.json(await sendAdminLoginCode(user, "credentials"));
+  } catch (err) {
+    console.error("Admin login error:", err);
+    res.status(500).json({ message: "Login failed" });
+  }
+});
+
+/* ======================
+   SIGN-IN: REPLACE WEAK / EXPIRED PASSWORD
+====================== */
+router.post("/login/change-password", async (req, res) => {
+  const challenge = readChallenge(req.body?.challengeToken, "password");
+  if (!challenge) return res.status(401).json(SIGN_IN_TIMED_OUT);
+
+  try {
+    const user = await User.findById(challenge.id).select("+password");
+    if (!user || !isAdminAccount(user)) return res.status(401).json(SIGN_IN_TIMED_OUT);
+
+    const { newPassword } = req.body;
+    const problem = adminPasswordError(newPassword, user.email);
+    if (problem) return res.status(400).json({ message: problem });
+    if (user.password && (await bcrypt.compare(newPassword, user.password))) {
+      return res.status(400).json({ message: "Choose a password you haven't used here before" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.passwordChangedAt = new Date();
+    await user.save();
 
     logActivity({
       req,
       actor: { id: user._id, name: user.name, email: user.email, role: user.role },
-      action: "auth.admin_login",
+      action: "auth.password_change",
       category: "auth",
-      message: `${user.email} signed in to the admin panel`,
-      meta: { provider: "credentials", superAdmin: isSuperAdmin(user.email) },
+      message: `${user.email} set a new admin password while signing in`,
     });
 
-    res.json({
-      token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        adminPermissions: user.role === "superadmin" ? ADMIN_PERMISSIONS : user.adminPermissions || [],
-      },
-    });
+    res.json(await sendAdminLoginCode(user, challenge.via));
   } catch (err) {
-    console.error("Admin login error:", err);
-    res.status(500).json({ message: "Login failed" });
+    if (handleValidationError(res, err)) return;
+    console.error("Sign-in password change error:", err);
+    res.status(500).json({ message: "Failed to save the new password" });
+  }
+});
+
+/* ======================
+   SIGN-IN: RESEND EMAIL CODE
+====================== */
+router.post("/login/email-code/resend", async (req, res) => {
+  const challenge = readChallenge(req.body?.challengeToken, "2fa");
+  if (!challenge) return res.status(401).json(SIGN_IN_TIMED_OUT);
+
+  try {
+    const user = await User.findById(challenge.id).select(
+      "+loginCode.hash +loginCode.expiresAt +loginCode.sentAt +loginCode.attempts"
+    );
+    if (!user || !isAdminAccount(user)) return res.status(401).json(SIGN_IN_TIMED_OUT);
+
+    const sentAt = user.loginCode?.sentAt ? new Date(user.loginCode.sentAt).getTime() : 0;
+    const elapsed = Date.now() - sentAt;
+    if (elapsed < RESEND_AFTER_MS) {
+      const retryAfter = Math.ceil((RESEND_AFTER_MS - elapsed) / 1000);
+      return res.status(429).json({
+        message: `Please wait ${retryAfter}s before requesting a new code`,
+        retryAfter,
+      });
+    }
+
+    res.json(await sendAdminLoginCode(user, challenge.via));
+  } catch (err) {
+    console.error("Resend sign-in code error:", err);
+    res.status(500).json({ message: "Failed to resend sign-in code" });
+  }
+});
+
+/* ======================
+   SIGN-IN: CHECK EMAIL CODE -> ADMIN TOKEN
+====================== */
+router.post("/login/2fa", async (req, res) => {
+  const challenge = readChallenge(req.body?.challengeToken, "2fa");
+  if (!challenge) return res.status(401).json(SIGN_IN_TIMED_OUT);
+
+  try {
+    const user = await User.findById(challenge.id).select(
+      "+loginCode.hash +loginCode.expiresAt +loginCode.attempts"
+    );
+    if (!user || !isAdminAccount(user)) return res.status(401).json(SIGN_IN_TIMED_OUT);
+
+    if (!user.loginCode?.hash || !user.loginCode?.expiresAt) {
+      return res.status(400).json({ message: "No active sign-in code. Please sign in again." });
+    }
+
+    if (Date.now() > new Date(user.loginCode.expiresAt).getTime()) {
+      return res.status(400).json({ message: "That code has expired. Request a new code to sign in." });
+    }
+
+    if ((user.loginCode.attempts || 0) >= MAX_ATTEMPTS) {
+      return res.status(429).json({ message: "Too many wrong codes. Please sign in again." });
+    }
+
+    const matched = codeMatches(req.body?.code, user.loginCode.hash, process.env.JWT_SECRET);
+    if (!matched) {
+      user.loginCode.attempts = (user.loginCode.attempts || 0) + 1;
+      await user.save();
+
+      logActivity({
+        req,
+        actor: { id: user._id, name: user.name, email: user.email, role: user.role },
+        action: "auth.admin_2fa",
+        category: "auth",
+        status: "failure",
+        message: `Wrong sign-in code for ${user.email}`,
+        meta: { attempt: user.loginCode.attempts },
+      });
+      return res.status(400).json({ message: "That code didn't work. Check your email or request a new code." });
+    }
+
+    user.loginCode = undefined;
+    await user.save();
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role, email: user.email, mfa: true },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    const actor = { id: user._id, name: user.name, email: user.email, role: user.role };
+    logActivity({
+      req,
+      actor,
+      action: "auth.admin_login",
+      category: "auth",
+      message: `${user.email} signed in to the admin panel${challenge.via === "google" ? " via Google" : ""}`,
+      meta: { provider: challenge.via, superAdmin: user.role === "superadmin", twoFactor: true },
+    });
+
+    res.json({ token, user: adminUserJson(user) });
+  } catch (err) {
+    if (handleValidationError(res, err)) return;
+    console.error("2FA verify error:", err);
+    res.status(500).json({ message: "Sign-in failed" });
   }
 });
 
@@ -110,13 +305,17 @@ router.post("/login", async (req, res) => {
 ====================== */
 router.post("/google-login", async (req, res) => {
   try {
-    const { name, email, avatar } = req.body;
+    const { name, avatar, accessToken } = req.body;
 
-    if (!email) {
-      return res.status(400).json({ message: "Google login failed" });
+    // The email comes from Google, never from the browser.
+    let cleanEmail;
+    try {
+      ({ email: cleanEmail } = await verifyGoogleAccessToken(accessToken));
+    } catch (err) {
+      if (err instanceof GoogleSignInError) return res.status(401).json({ message: err.message });
+      throw err;
     }
 
-    const cleanEmail = email.toLowerCase().trim();
     let user = await User.findOne({ email: cleanEmail });
 
     // If user doesn't exist, create with appropriate admin/superadmin role
@@ -167,32 +366,8 @@ router.post("/google-login", async (req, res) => {
       await user.save();
     }
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    logActivity({
-      req,
-      actor: { id: user._id, name: user.name, email: user.email, role: user.role },
-      action: "auth.admin_login",
-      category: "auth",
-      message: `${user.email} signed in to the admin panel via Google`,
-      meta: { provider: "google", superAdmin: isSuperAdmin(user.email) || user.role === "superadmin" },
-    });
-
-    res.json({
-      token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        avatar: user.avatar,
-        role: user.role,
-        adminPermissions: user.role === "superadmin" ? ADMIN_PERMISSIONS : user.adminPermissions || [],
-      },
-    });
+    // Google proved the email; the 2-step code is still required.
+    res.json(await sendAdminLoginCode(user, "google"));
   } catch (err) {
     console.error("Admin Google login error:", err);
     res.status(500).json({ message: "Google login failed" });
@@ -231,8 +406,9 @@ router.put("/profile", auth, adminOnly, async (req, res) => {
 
     // Update password if provided
     if (newPassword) {
-      if (newPassword.length < 6) {
-        return res.status(400).json({ message: "New password must be at least 6 characters" });
+      const problem = adminPasswordError(newPassword, user.email);
+      if (problem) {
+        return res.status(400).json({ message: problem });
       }
 
       // Only verify current password for non-super admins
@@ -249,6 +425,7 @@ router.put("/profile", auth, adminOnly, async (req, res) => {
 
       // Hash and set new password
       user.password = await bcrypt.hash(newPassword, 10);
+      user.passwordChangedAt = new Date();
       // Update provider to credentials if it was Google
       if (user.provider === "google") {
         user.provider = "credentials";
@@ -538,15 +715,22 @@ router.patch("/users/:id/reset-password", auth, superAdminOnly, async (req, res)
   try {
     const { newPassword } = req.body;
 
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    const target = await User.findById(req.params.id).select("role email");
+    if (!target) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const problem = passwordErrorForRole(target.role, newPassword, target.email);
+    if (problem) {
+      return res.status(400).json({ message: problem });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    
+
+    // Set by someone else, so an admin has to replace it at their next sign-in.
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { password: hashedPassword },
+      { password: hashedPassword, passwordChangedAt: null },
       { new: true }
     ).select("_id name email");
 
@@ -668,10 +852,13 @@ router.put("/users/:id/super-edit", auth, superAdminOnly, async (req, res) => {
     
     // Super admin can change password without verification
     if (password) {
-      if (password.length < 6) {
-        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      const problem = passwordErrorForRole(targetUser.role, password, updateData.email || targetUser.email);
+      if (problem) {
+        return res.status(400).json({ message: problem });
       }
       updateData.password = await bcrypt.hash(password, 10);
+      // Set by someone else, so an admin has to replace it at their next sign-in.
+      updateData.passwordChangedAt = null;
       updateData.provider = "credentials";
     }
 
@@ -755,8 +942,9 @@ router.post("/users/create", auth, requirePermission("users"), async (req, res) 
       return res.status(400).json({ message: "Name, email, and password are required" });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    const passwordProblem = passwordErrorForRole(role, password, email);
+    if (passwordProblem) {
+      return res.status(400).json({ message: passwordProblem });
     }
 
     // Only a super admin may mint admin accounts, otherwise any admin could
@@ -822,8 +1010,9 @@ router.post("/users/create-admin", auth, superAdminOnly, async (req, res) => {
       return res.status(400).json({ message: "Email and password are required" });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    const passwordProblem = adminPasswordError(password, email);
+    if (passwordProblem) {
+      return res.status(400).json({ message: passwordProblem });
     }
 
     const cleanEmail = email.toLowerCase().trim();

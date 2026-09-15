@@ -264,8 +264,9 @@ export default function Login() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               name: googleUser.name,
-              email: googleUser.email,
               avatar: googleUser.picture,
+              // The server asks Google who this token belongs to; the email is never taken from the browser.
+              accessToken: tokenResponse.access_token,
             }),
           }
         );
