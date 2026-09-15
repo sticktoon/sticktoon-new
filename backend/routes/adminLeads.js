@@ -264,11 +264,24 @@ router.get("/catalogue/:catalogueId/download", async (req, res) => {
 
 const { google } = require("googleapis");
 
-function getGmailOAuthClient() {
+function getGmailOAuthClient(req = null) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const refreshToken = process.env.GMAIL_REFRESH_TOKEN || process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
-  const redirectUri = process.env.GMAIL_OAUTH_REDIRECT_URI || `${process.env.WEBHOOK_BASE_URL || "http://localhost:5000"}/api/admin/leads/gmail/callback`;
+
+  let redirectUri = process.env.GMAIL_OAUTH_REDIRECT_URI;
+  if (!redirectUri) {
+    if (process.env.WEBHOOK_BASE_URL) {
+      const base = process.env.WEBHOOK_BASE_URL.replace(/\/$/, "");
+      redirectUri = `${base}/api/admin/leads/gmail/callback`;
+    } else if (req) {
+      const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
+      const host = req.headers["x-forwarded-host"] || req.get("host") || "localhost:5000";
+      redirectUri = `${protocol}://${host}/api/admin/leads/gmail/callback`;
+    } else {
+      redirectUri = "http://localhost:5000/api/admin/leads/gmail/callback";
+    }
+  }
 
   if (!clientId || !clientSecret) {
     throw new Error("Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET in backend environment variables.");
@@ -287,7 +300,7 @@ function getGmailOAuthClient() {
 ================================ */
 router.get("/gmail/auth", async (req, res) => {
   try {
-    const { oauth2Client } = getGmailOAuthClient();
+    const { oauth2Client } = getGmailOAuthClient(req);
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: "offline",
       prompt: "consent",
@@ -307,7 +320,7 @@ router.get("/gmail/callback", async (req, res) => {
       return res.status(400).send("Authorization code missing");
     }
 
-    const { oauth2Client } = getGmailOAuthClient();
+    const { oauth2Client } = getGmailOAuthClient(req);
     const { tokens } = await oauth2Client.getToken(code);
 
     if (tokens.refresh_token) {
@@ -385,7 +398,7 @@ router.post("/gmail/create-draft", ...leadsAccess, async (req, res) => {
   try {
     const { leadId, catalogueId, email, subject, body } = req.body || {};
 
-    const { oauth2Client, hasRefreshToken } = getGmailOAuthClient();
+    const { oauth2Client, hasRefreshToken } = getGmailOAuthClient(req);
 
     if (!hasRefreshToken) {
       return res.status(401).json({
