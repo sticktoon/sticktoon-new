@@ -7,6 +7,7 @@ const fs = require("fs");
 const connectDB = require("./config/db");
 const { initializeFileWatcher } = require("./services/fileWatcher");
 const { startWeeklyBackup } = require("./services/weeklyBackup");
+const { startAmazonSync } = require("./services/amazonSync");
 const { uploadImageToAll } = require("./utils/imageUploadService");
 const ImageUpload = require("./models/ImageUpload");
 
@@ -184,6 +185,9 @@ const startServer = (port) => {
     // Sunday data backup. Production only, so local dev never mails admin.
     if (process.env.RENDER || process.env.NODE_ENV === "production") {
       startWeeklyBackup();
+      // Daily Amazon settlement pull. Local dev can still sync on demand from
+      // the Revenue page, so two machines don't fight over the same reports.
+      startAmazonSync();
     }
   });
 

@@ -10,6 +10,8 @@ const { logActivity } = require("../utils/activityLogger");
 const { uploadToCloudinary } = require("../utils/cloudinaryService");
 const { parseSettlementReport } = require("../utils/amazonSettlement");
 const { readReceipt, ReceiptReadError } = require("../utils/receiptReader");
+const { storeSettlement } = require("../utils/amazonSettlementStore");
+const { syncSettlements, getSyncStatus } = require("../services/amazonSync");
 
 const router = express.Router();
 
@@ -575,42 +577,9 @@ router.post("/amazon/import", reportUpload("file"), async (req, res) => {
       });
     }
 
-    await AmazonSettlement.findOneAndUpdate(
-      { settlementId: report.settlementId },
-      {
-        $set: {
-          ...report,
-          source: "amazon_report",
-          fileName: req.file.originalname,
-          importedBy: req.user.id,
-          importedAt: new Date(),
-        },
-      },
-      { upsert: true, setDefaultsOnInsert: true }
-    );
-
-    // Same key as a hand-typed payout, so a manual entry for this settlement
-    // is upgraded in place (its note kept) instead of being counted twice.
-    await LedgerEntry.findOneAndUpdate(
-      { dedupeKey },
-      {
-        $set: {
-          source: "amazon_report",
-          type: "payout",
-          channel: "amazon",
-          occurredAt: dayStart(istDay(report.depositDate)),
-          amountPaise: report.netPaise,
-          breakdown: {
-            salesPaise: report.salesPaise,
-            feesPaise: report.feesPaise,
-            refundsPaise: report.refundsPaise,
-          },
-          settlementId: report.settlementId,
-        },
-        $setOnInsert: { createdBy: req.user.id },
-      },
-      { upsert: true, setDefaultsOnInsert: true }
-    );
+    // Same helper the daily sync uses, so an uploaded file and a synced report
+    // end up identical: re-importing replaces, a hand-typed payout is upgraded.
+    await storeSettlement(report, { fileName: req.file.originalname, userId: req.user.id });
 
     logActivity({
       req,
@@ -630,6 +599,35 @@ router.post("/amazon/import", reportUpload("file"), async (req, res) => {
   } catch (err) {
     console.error("Amazon import error:", err);
     res.status(500).json({ message: "Failed to import the report" });
+  }
+});
+
+/* =========================
+   AMAZON AUTO-SYNC (SP-API)
+========================= */
+router.get("/amazon/status", async (req, res) => {
+  try {
+    res.json(await getSyncStatus());
+  } catch (err) {
+    console.error("Amazon sync status error:", err);
+    res.status(500).json({ message: "Failed to read the sync status" });
+  }
+});
+
+// Runs the pull the daily job would run, right now.
+router.post("/amazon/sync", async (req, res) => {
+  try {
+    const result = await syncSettlements({ trigger: "manual", actor: req.user.id, req });
+    if (!result.configured) {
+      return res.status(503).json({
+        message: "Amazon auto-sync isn't set up yet. Add the Amazon keys to the backend settings.",
+      });
+    }
+    res.json({ ...result, status: await getSyncStatus() });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
+    console.error("Amazon sync error:", err);
+    res.status(500).json({ message: "Amazon sync failed" });
   }
 });
 
