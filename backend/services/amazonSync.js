@@ -4,15 +4,17 @@
 const Setting = require("../models/Setting");
 const AmazonSettlement = require("../models/AmazonSettlement");
 const { parseSettlementReport } = require("../utils/amazonSettlement");
-const { storeSettlement, istDay } = require("../utils/amazonSettlementStore");
-const { spApiConfigured, listSettlementReports, downloadReport } = require("../utils/amazonSpApi");
+const { storeSettlement, storeFinanceGroup, around, istDay } = require("../utils/amazonSettlementStore");
+const { spApiConfigured, listSettlementReports, listFinancialEventGroups, downloadReport } = require("../utils/amazonSpApi");
 const { logActivity } = require("../utils/activityLogger");
 
 const STATE_KEY = "amazon_settlement_sync";
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const RUN_HOUR_IST = 7;
-// How far back the very first sync looks. Older settlements can still be uploaded by hand.
+// Amazon keeps report files downloadable for about 90 days.
 const FIRST_RUN_DAYS = 90;
+// Older payouts have no file left, so their totals come from the finances API.
+const BACKFILL_DAYS = 730;
 
 // Render runs on UTC. IST is a fixed +5:30 with no DST, so shifting the
 // timestamp lets the plain getUTC* readers report IST wall-clock time.
@@ -31,6 +33,43 @@ async function getSyncStatus() {
     lastImported: state.lastImported || 0,
     runsDailyAtIst: `${String(RUN_HOUR_IST).padStart(2, "0")}:00`,
   };
+}
+
+/**
+ * Fills in payouts whose report file Amazon no longer offers: the finances API
+ * still lists every closed settlement with the amount it transferred. These
+ * carry no fee lines, and a report for the same period replaces them.
+ */
+async function backfillFromFinances({ since, actor = null }) {
+  const added = [];
+  const groups = await listFinancialEventGroups({ startedAfter: since });
+
+  for (const group of groups) {
+    if (group.ProcessingStatus !== "Closed" || !group.FundTransferDate) continue;
+    const netPaise = Math.round(Number(group.OriginalTotal?.CurrencyAmount || 0) * 100);
+    if (!netPaise) continue; // settlements that moved no money
+
+    const periodEnd = group.FinancialEventGroupEnd ? new Date(group.FinancialEventGroupEnd) : null;
+    // A report for this period is better than a bare total, so leave it alone.
+    const covered = periodEnd
+      ? await AmazonSettlement.findOne({ periodEnd: around(periodEnd), source: { $ne: "amazon_finances" } })
+          .select("_id")
+          .lean()
+      : null;
+    if (covered) continue;
+
+    const known = await AmazonSettlement.findOne({ settlementId: group.FinancialEventGroupId }).select("_id").lean();
+    await storeFinanceGroup(group, { userId: actor });
+    if (!known) {
+      added.push({
+        settlementId: group.FinancialEventGroupId,
+        netPaise,
+        depositDate: istDay(group.FundTransferDate),
+      });
+    }
+  }
+
+  return added;
 }
 
 /**
@@ -92,6 +131,20 @@ async function syncSettlements({ trigger = "schedule", actor = null, req = null 
     }
   }
 
+  // Payouts older than the report window. Walking two years of finances groups
+  // costs a string of throttled calls, so it runs on demand and weekly, not
+  // on every daily pull.
+  const lastBackfill = state.lastBackfillAt ? new Date(state.lastBackfillAt).getTime() : 0;
+  const backfillDue = trigger === "manual" || Date.now() - lastBackfill > 7 * 86400000;
+  let backfilled = [];
+  if (backfillDue) {
+    try {
+      backfilled = await backfillFromFinances({ since: new Date(Date.now() - BACKFILL_DAYS * 86400000), actor });
+    } catch (err) {
+      failed.push({ reason: `older payouts: ${err.message}` });
+    }
+  }
+
   const ranAt = new Date();
   await writeState({
     ...state,
@@ -100,6 +153,7 @@ async function syncSettlements({ trigger = "schedule", actor = null, req = null 
     lastError: failed.length ? failed[0].reason : null,
     lastReportAt: newestReportAt,
     lastImported: imported.length,
+    lastBackfillAt: backfillDue && !failed.length ? ranAt : state.lastBackfillAt || null,
     lastDay: istDay(ranAt),
   });
 
@@ -109,11 +163,11 @@ async function syncSettlements({ trigger = "schedule", actor = null, req = null 
     action: "revenue.amazon_sync",
     category: "revenue",
     status: failed.length ? "failure" : "success",
-    message: `Amazon sync (${trigger}): ${imported.length} new, ${updated.length} refreshed, ${failed.length} skipped`,
-    meta: { imported, updated, failed },
+    message: `Amazon sync (${trigger}): ${imported.length} new, ${updated.length} refreshed, ${backfilled.length} older payouts, ${failed.length} skipped`,
+    meta: { imported, updated, backfilled, failed },
   });
 
-  return { configured: true, imported, updated, failed, ranAt };
+  return { configured: true, imported, updated, backfilled, failed, ranAt };
 }
 
 const runIfDue = async () => {

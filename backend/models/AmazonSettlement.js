@@ -38,7 +38,9 @@ const amazonSettlementSchema = new mongoose.Schema(
 
     rows: { type: [rowSchema], default: [] },
 
-    source: { type: String, enum: ["amazon_report", "amazon_api"], default: "amazon_report" },
+    // amazon_finances: no report file was available, so only the payout total
+    // came from Amazon's finances API and `rows` is empty.
+    source: { type: String, enum: ["amazon_report", "amazon_api", "amazon_finances"], default: "amazon_report" },
     fileName: { type: String, default: "" },
     importedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     importedAt: { type: Date, default: null },

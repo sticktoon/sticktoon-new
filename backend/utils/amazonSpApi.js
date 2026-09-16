@@ -97,6 +97,47 @@ async function listSettlementReports({ createdSince }) {
   return Array.isArray(data?.reports) ? data.reports : [];
 }
 
+/**
+ * Every settlement Amazon has closed, with the amount it transferred - the same
+ * list Seller Central shows under Payments. Report files are only downloadable
+ * for about 90 days, but these groups go back years, so old payouts can still
+ * be brought in (without the fee lines).
+ *
+ * Asking for one long window returns only part of the history, so this walks
+ * the range in chunks. The finances API is heavily rate limited, hence the pause.
+ */
+async function listFinancialEventGroups({ startedAfter, chunkDays = 120, maxCalls = 40 }) {
+  const byId = new Map();
+  let windowStart = new Date(startedAfter);
+  const now = Date.now();
+  let calls = 0;
+
+  while (windowStart.getTime() < now && calls < maxCalls) {
+    const windowEnd = new Date(Math.min(windowStart.getTime() + chunkDays * 86400000, now));
+    let params = {
+      FinancialEventGroupStartedAfter: windowStart.toISOString(),
+      FinancialEventGroupStartedBefore: windowEnd.toISOString(),
+      MaxResultsPerPage: 100,
+    };
+
+    for (let page = 0; page < 10 && calls < maxCalls; page++) {
+      const { payload = {} } = await spApiGet("/finances/v0/financialEventGroups", params);
+      calls++;
+      for (const group of payload.FinancialEventGroupList || []) {
+        if (group.FinancialEventGroupId) byId.set(group.FinancialEventGroupId, group);
+      }
+      if (!payload.NextToken) break;
+      params = { NextToken: payload.NextToken };
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+    }
+
+    windowStart = windowEnd;
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+  }
+
+  return [...byId.values()];
+}
+
 // Report documents come back as a signed URL, sometimes gzipped.
 const decodeReport = async (buffer, compressionAlgorithm) =>
   (compressionAlgorithm === "GZIP" ? await gunzip(buffer) : buffer).toString("utf8");
@@ -118,6 +159,7 @@ module.exports = {
   spApiConfigured,
   getAccessToken,
   listSettlementReports,
+  listFinancialEventGroups,
   downloadReport,
   decodeReport,
   SpApiError,
