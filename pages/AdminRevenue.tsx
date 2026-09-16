@@ -1203,9 +1203,21 @@ function Settlements({ range, refreshKey, onUpload }: { range: Range; refreshKey
                       <td className="px-4 py-3.5 text-slate-700">{fmtDay(istDay(row.occurredAt), true)}</td>
                       <td className="px-4 py-3.5 text-right tabular-nums text-slate-700">{s ? s.orderCount : "—"}</td>
                       <td className="px-4 py-3.5 text-right tabular-nums text-slate-700">{rupees(b.salesPaise)}</td>
-                      <td className="px-4 py-3.5 text-right tabular-nums text-red-600">{b.feesPaise ? `−${rupees(b.feesPaise)}` : "—"}</td>
-                      <td className="px-4 py-3.5 text-right tabular-nums text-red-600">{b.refundsPaise ? `−${rupees(b.refundsPaise)}` : "—"}</td>
-                      <td className="px-4 py-3.5 text-right tabular-nums font-black text-slate-900">{rupees(row.amountPaise)}</td>
+                      {/* Amazon credits fees back sometimes, and a settlement can end up owing
+                          Amazon money, so every figure carries its own sign. */}
+                      <td className={`px-4 py-3.5 text-right tabular-nums ${b.feesPaise > 0 ? "text-green-600" : "text-red-600"}`}>
+                        {b.feesPaise ? signed(b.feesPaise) : "—"}
+                      </td>
+                      <td className={`px-4 py-3.5 text-right tabular-nums ${b.refundsPaise > 0 ? "text-green-600" : "text-red-600"}`}>
+                        {b.refundsPaise ? signed(b.refundsPaise) : "—"}
+                      </td>
+                      <td
+                        className={`px-4 py-3.5 text-right tabular-nums font-black ${
+                          row.amountPaise < 0 ? "text-red-600" : "text-slate-900"
+                        }`}
+                      >
+                        {row.amountPaise < 0 ? `−${rupees(row.amountPaise)}` : rupees(row.amountPaise)}
+                      </td>
                       <td className="px-4 py-3.5">
                         <span
                           className={`${CHIP} ${
