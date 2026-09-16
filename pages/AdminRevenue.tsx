@@ -79,6 +79,9 @@ type Summary = {
 
 type SettlementMeta = {
   settlementId: string;
+  // "amazon_finances" means only the payout total is known: Amazon no longer
+  // offers the report file for that period.
+  source?: "amazon_report" | "amazon_api" | "amazon_finances";
   periodStart?: string;
   periodEnd?: string;
   depositDate: string;
@@ -1065,8 +1068,11 @@ function Settlements({ range, refreshKey, onUpload }: { range: Range; refreshKey
   const { data, error } = useData<SettlementRow[]>(`/amazon/settlements${qs(range)}`, refreshKey + syncKey);
   const status = useData<SyncStatus>("/amazon/status", refreshKey + syncKey);
   const [open, setOpen] = useState<string | null>(null);
-  // Hand-typed payouts have no report behind them, so there is nothing to fetch.
-  const hasReport = !!data?.some((r) => r.settlementId === open && r.settlement);
+  // Hand-typed payouts, and ones Amazon only gave us a total for, have no
+  // report behind them, so there is nothing to fetch.
+  const hasReport = !!data?.some(
+    (r) => r.settlementId === open && r.settlement && r.settlement.source !== "amazon_finances"
+  );
   const detail = useData<SettlementDetail>(open && hasReport ? `/amazon/settlements/${open}` : null, refreshKey + syncKey);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
@@ -1196,7 +1202,10 @@ function Settlements({ range, refreshKey, onUpload }: { range: Range; refreshKey
                       onClick={() => setOpen(isOpen ? null : row.settlementId || null)}
                       className={`border-t border-slate-100 whitespace-nowrap cursor-pointer hover:bg-slate-50 ${isOpen ? "bg-slate-50" : ""}`}
                     >
-                      <td className="px-4 py-3.5 font-bold text-slate-900 tabular-nums">{row.settlementId}</td>
+                      <td className="px-4 py-3.5 font-bold text-slate-900 tabular-nums" title={row.settlementId || ""}>
+                        {/* Payouts filled in from the finances API carry a long internal id, not a settlement number. */}
+                        {row.settlement?.source === "amazon_finances" ? "—" : row.settlementId}
+                      </td>
                       <td className="px-4 py-3.5 text-slate-700">
                         {s?.periodStart && s.periodEnd ? `${fmtDay(istDay(s.periodStart))} – ${fmtDay(istDay(s.periodEnd))}` : "—"}
                       </td>
@@ -1224,7 +1233,11 @@ function Settlements({ range, refreshKey, onUpload }: { range: Range; refreshKey
                             row.source === "manual" ? "bg-white border border-slate-300 text-slate-700" : "bg-slate-100 text-slate-600"
                           }`}
                         >
-                          {row.source === "manual" ? "Manual" : "Report"}
+                          {row.source === "manual"
+                            ? "Manual"
+                            : row.settlement?.source === "amazon_finances"
+                            ? "Amazon total"
+                            : "Report"}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 text-slate-400">
@@ -1234,7 +1247,12 @@ function Settlements({ range, refreshKey, onUpload }: { range: Range; refreshKey
                     {isOpen && (
                       <tr className="bg-slate-50 border-t border-slate-200">
                         <td colSpan={10} className="px-5 sm:px-6 py-5">
-                          {!s ? (
+                          {s?.source === "amazon_finances" ? (
+                            <p className="text-sm text-slate-600">
+                              Amazon only gives the payout total for this period — the report file with the fee lines
+                              isn't offered any more. If you still have the file, upload it and this row will fill in.
+                            </p>
+                          ) : !s ? (
                             <p className="text-sm text-slate-600">
                               Entered by hand{row.createdBy?.name ? ` by ${row.createdBy.name}` : ""}
                               {row.note ? ` · ${row.note}` : ""}. Upload this settlement's report to see the full
