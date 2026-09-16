@@ -269,6 +269,44 @@ router.get("/summary", async (req, res) => {
 });
 
 /* =========================
+   SEARCH ENTRIES (across all dates)
+========================= */
+router.get("/search", async (req, res) => {
+  const q = String(req.query.q || "").trim();
+  if (!q) return res.json({ entries: [], totalCount: 0 });
+
+  try {
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "i");
+
+    const entries = await LedgerEntry.find({
+      voidedAt: null,
+      $or: [
+        { note: regex },
+        { orderRef: regex },
+        { settlementId: regex },
+        { channel: regex },
+        { type: regex },
+        { "attachment.name": regex },
+      ],
+    })
+      .sort({ occurredAt: -1, createdAt: -1 })
+      .limit(100)
+      .populate("createdBy", "name email")
+      .lean();
+
+    res.json({
+      entries,
+      totalCount: entries.length,
+      query: q,
+    });
+  } catch (err) {
+    console.error("Revenue search error:", err);
+    res.status(500).json({ message: "Failed to search entries" });
+  }
+});
+
+/* =========================
    TIMELINE
 ========================= */
 // ponytail: returns the whole range in one response (a few rows per day);
