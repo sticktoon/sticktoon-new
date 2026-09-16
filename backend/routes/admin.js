@@ -52,8 +52,21 @@ const readChallenge = (token, stage) => {
   }
 };
 
+// The email goes out before the code is saved: if sending fails, nothing is
+// stored, so the admin can try again at once instead of waiting out the resend
+// cooldown for a code that never arrived.
 const sendAdminLoginCode = async (user, via) => {
   const { code, hash, expiresAt } = newLoginCode(process.env.JWT_SECRET);
+
+  const sent = await sendEmail({
+    to: user.email,
+    subject: "Your StickToon admin sign-in code",
+    html: loginCodeEmail(code),
+  });
+  if (!sent?.ok) {
+    throw new Error(typeof sent?.error === "string" ? sent.error : "the email service rejected it");
+  }
+
   user.loginCode = {
     hash,
     expiresAt,
@@ -62,19 +75,21 @@ const sendAdminLoginCode = async (user, via) => {
   };
   await user.save();
 
-  Promise.resolve(
-    sendEmail({
-      to: user.email,
-      subject: "Your StickToon admin sign-in code",
-      html: loginCodeEmail(code),
-    })
-  ).catch((err) => console.error("Admin sign-in code email failed:", err.message));
-
   return {
     step: "verify_email_code",
     challengeToken: signChallenge(user, "2fa", via),
     email: maskEmail(user.email),
   };
+};
+
+// A code that never left must not look like one that did.
+const respondWithCode = async (res, user, via) => {
+  try {
+    res.json(await sendAdminLoginCode(user, via));
+  } catch (err) {
+    console.error("Admin sign-in code failed:", err.message);
+    res.status(502).json({ message: "Couldn't email your sign-in code. Please try again in a minute." });
+  }
 };
 
 const adminUserJson = (user) => ({
@@ -156,7 +171,7 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    res.json(await sendAdminLoginCode(user, "credentials"));
+    await respondWithCode(res, user, "credentials");
   } catch (err) {
     console.error("Admin login error:", err);
     res.status(500).json({ message: "Login failed" });
@@ -193,7 +208,7 @@ router.post("/login/change-password", async (req, res) => {
       message: `${user.email} set a new admin password while signing in`,
     });
 
-    res.json(await sendAdminLoginCode(user, challenge.via));
+    await respondWithCode(res, user, challenge.via);
   } catch (err) {
     if (handleValidationError(res, err)) return;
     console.error("Sign-in password change error:", err);
@@ -224,7 +239,7 @@ router.post("/login/email-code/resend", async (req, res) => {
       });
     }
 
-    res.json(await sendAdminLoginCode(user, challenge.via));
+    await respondWithCode(res, user, challenge.via);
   } catch (err) {
     console.error("Resend sign-in code error:", err);
     res.status(500).json({ message: "Failed to resend sign-in code" });
@@ -367,7 +382,7 @@ router.post("/google-login", async (req, res) => {
     }
 
     // Google proved the email; the 2-step code is still required.
-    res.json(await sendAdminLoginCode(user, "google"));
+    await respondWithCode(res, user, "google");
   } catch (err) {
     console.error("Admin Google login error:", err);
     res.status(500).json({ message: "Google login failed" });
