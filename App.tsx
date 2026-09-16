@@ -739,7 +739,30 @@ const Footer: React.FC = () => {
               <div className="mt-2 w-6 h-[2px] bg-white/30 rounded-full"></div>
             </div>
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-lg">🇮🇳</div>
+              <div className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+                <svg
+                  className="w-6 h-6 rounded-full shadow"
+                  viewBox="0 0 36 36"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <clipPath id="india-flag-circle">
+                    <circle cx="18" cy="18" r="18" />
+                  </clipPath>
+                  <g clipPath="url(#india-flag-circle)">
+                    <rect width="36" height="12" fill="#FF9933" />
+                    <rect y="12" width="36" height="12" fill="#FFFFFF" />
+                    <rect y="24" width="36" height="12" fill="#138808" />
+                    <circle cx="18" cy="18" r="4.2" stroke="#000080" strokeWidth="0.8" fill="none" />
+                    <circle cx="18" cy="18" r="1" fill="#000080" />
+                    <path
+                      d="M18 14v8M14 18h8M15.2 15.2l5.6 5.6M15.2 20.8l5.6-5.6M16.4 14.3l3.2 7.4M14.3 16.4l7.4 3.2M14.3 19.6l7.4-3.2M16.4 21.7l3.2-7.4"
+                      stroke="#000080"
+                      strokeWidth="0.5"
+                      strokeLinecap="round"
+                    />
+                  </g>
+                </svg>
+              </div>
               <p className="text-slate-400 text-sm leading-relaxed max-w-[220px]">
                 Proudly designed and produced in India—crafted with care, quality, and local talent.
               </p>
