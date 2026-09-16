@@ -136,6 +136,16 @@ type ReceiptFields = {
   confidence: "high" | "medium" | "low";
 };
 
+// Daily Amazon settlement pull (services/amazonSync.js).
+type SyncStatus = {
+  configured: boolean;
+  lastRunAt: string | null;
+  lastOkAt: string | null;
+  lastError: string | null;
+  lastImported: number;
+  runsDailyAtIst: string;
+};
+
 type Range = { from: string; to: string };
 type Tab = "overview" | "timeline" | "settlements" | "website";
 
@@ -607,6 +617,7 @@ function Overview({
   onManual: () => void;
 }) {
   const summary = useData<Summary>(`/summary${qs(range)}`, refreshKey);
+  const sync = useData<SyncStatus>("/amazon/status", refreshKey);
   const timeline = useData<TimelineData>(`/timeline${qs(range)}`, refreshKey);
 
   if (summary.error) return <Failed message={summary.error} />;
@@ -773,8 +784,16 @@ function Overview({
               tone="amz"
               icon={<RefreshCw className="w-5 h-5" />}
               title="Amazon auto-sync"
-              detail="Not connected yet"
-              action={<LinkButton onClick={() => onTab("settlements")}>Set up</LinkButton>}
+              detail={
+                sync.data?.configured
+                  ? sync.data.lastOkAt
+                    ? `On · last synced ${fmtDay(istDay(sync.data.lastOkAt), true)}`
+                    : "On · first sync still to run"
+                  : "Not connected yet"
+              }
+              action={
+                <LinkButton onClick={() => onTab("settlements")}>{sync.data?.configured ? "View" : "Set up"}</LinkButton>
+              }
             />
             <SourceRow
               tone="man"
@@ -1034,18 +1053,45 @@ function Timeline({
    AMAZON SETTLEMENTS
 ========================= */
 const SETUP_STEPS = [
-  ["Developer access", "Seller Central → Apps and Services → Develop Apps. Register as a private developer with the Finance and Accounting role only."],
-  ["Create the app", "Add a new app client of type SP-API and copy its LWA client ID and client secret."],
+  ["Developer profile", "Solution Provider Portal → Developer Central. Register as a private developer and get the roles approved."],
+  ["Create the app", "Add new app client: SP-API, Production, Sellers, with the approved roles. Copy its client ID and secret."],
   ["Authorize your store", "Authorize the app on your own seller account to get a refresh token."],
-  ["Send the keys", "Share the three values so they can go in the backend .env. Auto-sync is switched on from there."],
+  ["Add the keys", "Put the client ID, secret and refresh token in the backend settings (the AMAZON_ variables). No AWS account needed."],
 ];
 
 function Settlements({ range, refreshKey, onUpload }: { range: Range; refreshKey: number; onUpload: () => void }) {
-  const { data, error } = useData<SettlementRow[]>(`/amazon/settlements${qs(range)}`, refreshKey);
+  // Bumped after a manual sync so the list and status reload.
+  const [syncKey, setSyncKey] = useState(0);
+  const { data, error } = useData<SettlementRow[]>(`/amazon/settlements${qs(range)}`, refreshKey + syncKey);
+  const status = useData<SyncStatus>("/amazon/status", refreshKey + syncKey);
   const [open, setOpen] = useState<string | null>(null);
   // Hand-typed payouts have no report behind them, so there is nothing to fetch.
   const hasReport = !!data?.some((r) => r.settlementId === open && r.settlement);
-  const detail = useData<SettlementDetail>(open && hasReport ? `/amazon/settlements/${open}` : null, refreshKey);
+  const detail = useData<SettlementDetail>(open && hasReport ? `/amazon/settlements/${open}` : null, refreshKey + syncKey);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
+
+  const connected = !!status.data?.configured;
+
+  const syncNow = async () => {
+    setSyncing(true);
+    setSyncMessage("");
+    try {
+      const result = await api<{ imported: unknown[]; updated: unknown[]; failed: { reason: string }[] }>("/amazon/sync", {
+        method: "POST",
+      });
+      const parts = [
+        `${result.imported.length} new`,
+        result.updated.length ? `${result.updated.length} refreshed` : "",
+        result.failed.length ? `${result.failed.length} skipped (${result.failed[0].reason})` : "",
+      ].filter(Boolean);
+      setSyncMessage(`Synced: ${parts.join(" · ")}`);
+      setSyncKey((k) => k + 1);
+    } catch (err) {
+      setSyncMessage((err as Error).message);
+    }
+    setSyncing(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -1054,33 +1100,62 @@ function Settlements({ range, refreshKey, onUpload }: { range: Range; refreshKey
           <div className="max-w-3xl">
             <h4 className="flex items-center gap-2.5 text-lg font-black text-slate-900">
               Amazon auto-sync
-              <span className={`${CHIP} bg-slate-100 text-slate-600`}>Not connected</span>
+              {connected ? (
+                <span className={`${CHIP} bg-green-50 text-green-600`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
+                  Connected
+                </span>
+              ) : (
+                <span className={`${CHIP} bg-slate-100 text-slate-600`}>Not connected</span>
+              )}
             </h4>
             <p className="mt-1 text-sm text-slate-500">
-              Until it's connected, open Seller Central → Payments → All statements, use “Download Flat File V2” on a
-              settlement, and upload that file here. You can also type a payout in by hand.
+              {connected
+                ? `New settlements arrive on their own every morning at ${status.data?.runsDailyAtIst} IST. ${
+                    status.data?.lastOkAt ? `Last synced ${fmtDay(istDay(status.data.lastOkAt), true)}.` : "First sync still to run."
+                  }`
+                : "Until it's connected, open Seller Central → Payments → All statements, use “Download Flat File V2” on a settlement, and upload that file here. You can also type a payout in by hand."}
             </p>
+            {syncMessage && <p className="mt-1.5 text-sm font-bold text-slate-700">{syncMessage}</p>}
+            {connected && status.data?.lastError && (
+              <p className="mt-1.5 text-sm font-bold text-red-600">Last run had a problem: {status.data.lastError}</p>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={onUpload}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold"
-          >
-            <Upload className="w-4 h-4" />
-            Upload report
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {connected && (
+              <button
+                type="button"
+                onClick={syncNow}
+                disabled={syncing}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 bg-white text-sm font-bold disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
+                {syncing ? "Syncing…" : "Sync now"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onUpload}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold"
+            >
+              <Upload className="w-4 h-4" />
+              Upload report
+            </button>
+          </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-          {SETUP_STEPS.map(([title, text], i) => (
-            <div key={title} className="rounded-lg border border-slate-200 p-3.5">
-              <span className="inline-flex w-6 h-6 rounded-full bg-slate-100 text-slate-600 items-center justify-center text-xs font-black">
-                {i + 1}
-              </span>
-              <p className="mt-2 text-sm font-bold text-slate-900">{title}</p>
-              <p className="mt-1 text-xs leading-[18px] text-slate-500">{text}</p>
-            </div>
-          ))}
-        </div>
+        {!connected && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+            {SETUP_STEPS.map(([title, text], i) => (
+              <div key={title} className="rounded-lg border border-slate-200 p-3.5">
+                <span className="inline-flex w-6 h-6 rounded-full bg-slate-100 text-slate-600 items-center justify-center text-xs font-black">
+                  {i + 1}
+                </span>
+                <p className="mt-2 text-sm font-bold text-slate-900">{title}</p>
+                <p className="mt-1 text-xs leading-[18px] text-slate-500">{text}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
