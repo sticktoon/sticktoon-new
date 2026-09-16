@@ -1992,22 +1992,27 @@ function SearchResults({
 }) {
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const PAGE = 50;
 
   useEffect(() => {
     const q = query.trim();
     if (!q) {
       setEntries([]);
+      setTotal(0);
       return;
     }
     let alive = true;
     setLoading(true);
     setError("");
     const timer = setTimeout(() => {
-      api<{ entries: Entry[]; totalCount: number }>(`/search?q=${encodeURIComponent(q)}`)
+      api<{ entries: Entry[]; totalCount: number }>(`/search?q=${encodeURIComponent(q)}&limit=${PAGE}`)
         .then((res) => {
           if (!alive) return;
           setEntries(res.entries || []);
+          setTotal(res.totalCount || 0);
           setLoading(false);
         })
         .catch((err: Error) => {
@@ -2022,6 +2027,22 @@ function SearchResults({
       clearTimeout(timer);
     };
   }, [query, refreshKey]);
+
+  // The server sends 50 at a time; this appends the next page.
+  const loadMore = async () => {
+    setLoadingMore(true);
+    setError("");
+    try {
+      const res = await api<{ entries: Entry[]; totalCount: number }>(
+        `/search?q=${encodeURIComponent(query.trim())}&limit=${PAGE}&skip=${entries.length}`
+      );
+      setEntries((list) => [...list, ...(res.entries || [])]);
+      setTotal(res.totalCount || 0);
+    } catch (err) {
+      setError((err as Error).message || "Failed to search entries");
+    }
+    setLoadingMore(false);
+  };
 
   const totalExpense = useMemo(
     () => entries.filter((e) => e.type === "expense" || e.type === "refund").reduce((s, e) => s + Math.abs(e.amountPaise), 0),
@@ -2042,11 +2063,17 @@ function SearchResults({
               "{query.trim()}"
             </span>
             <span className="text-xs font-semibold text-slate-500">
-              ({loading ? "Searching..." : `${entries.length} found across all dates`})
+              (
+              {loading
+                ? "Searching..."
+                : total > entries.length
+                ? `showing ${entries.length} of ${total} across all dates`
+                : `${total} found across all dates`}
+              )
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Matches raw material, notes, vendor/order references, channels, and receipts.
+            Matches notes, vendor and invoice references, settlement IDs and receipt file names — on any date.
           </p>
         </div>
         <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
@@ -2054,12 +2081,12 @@ function SearchResults({
             <div className="flex items-center gap-2 text-xs font-bold flex-wrap">
               {totalExpense > 0 && (
                 <span className="px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200">
-                  Total Expenses: −{rupees(totalExpense)}
+                  Expenses shown: −{rupees(totalExpense)}
                 </span>
               )}
               {totalIncome > 0 && (
                 <span className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Total Inflow: +{rupees(totalIncome)}
+                  Inflow shown: +{rupees(totalIncome)}
                 </span>
               )}
             </div>
@@ -2192,6 +2219,18 @@ function SearchResults({
               })}
             </tbody>
           </table>
+          {total > entries.length && (
+            <div className="border-t border-slate-200 p-3 text-center">
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                {loadingMore ? "Loading…" : `Load ${Math.min(PAGE, total - entries.length)} more`}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

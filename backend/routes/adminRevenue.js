@@ -273,32 +273,41 @@ router.get("/summary", async (req, res) => {
 ========================= */
 router.get("/search", async (req, res) => {
   const q = String(req.query.q || "").trim();
-  if (!q) return res.json({ entries: [], totalCount: 0 });
+  if (!q) return res.json({ entries: [], totalCount: 0, skip: 0, limit: 0 });
+
+  const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+  const skip = Math.max(Number(req.query.skip) || 0, 0);
 
   try {
+    // The query is text an admin typed, never a pattern.
     const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const regex = new RegExp(escaped, "i");
 
-    const entries = await LedgerEntry.find({
+    const filter = {
       voidedAt: null,
-      $or: [
-        { note: regex },
-        { orderRef: regex },
-        { settlementId: regex },
-        { channel: regex },
-        { type: regex },
-        { "attachment.name": regex },
-      ],
-    })
-      .sort({ occurredAt: -1, createdAt: -1 })
-      .limit(100)
-      .populate("createdBy", "name email")
-      .lean();
+      $or: [{ note: regex }, { orderRef: regex }, { settlementId: regex }, { "attachment.name": regex }],
+    };
+    // "expense" or "amazon" should mean the type or channel, not every note containing the word.
+    const exact = q.toLowerCase();
+    if (TYPES.includes(exact)) filter.$or.push({ type: exact });
+    if (CHANNELS.includes(exact)) filter.$or.push({ channel: exact });
+
+    const [entries, totalCount] = await Promise.all([
+      LedgerEntry.find(filter)
+        .sort({ occurredAt: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("createdBy", "name email")
+        .lean(),
+      LedgerEntry.countDocuments(filter),
+    ]);
 
     res.json({
       entries,
-      totalCount: entries.length,
+      totalCount,
       query: q,
+      skip,
+      limit,
     });
   } catch (err) {
     console.error("Revenue search error:", err);
