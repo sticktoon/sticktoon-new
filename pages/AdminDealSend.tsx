@@ -1022,7 +1022,8 @@ export default function AdminDealSend() {
     await incrementQuotationCounter();
   };
 
-  const handleSendEmail = async () => {
+  const handleSendEmail = async (e?: React.MouseEvent) => {
+    if (e && e.preventDefault) e.preventDefault();
     setSendStatus(null);
     const targetEmail = email.trim();
 
@@ -1803,14 +1804,34 @@ export default function AdminDealSend() {
             </div>
 
             <div className="flex gap-3">
-              <button onClick={handlePrint} className="flex-1 rounded-lg border border-slate-300 px-3 py-3 text-xs font-bold hover:bg-slate-50 transition">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handlePrint();
+                }}
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-3 text-xs font-bold hover:bg-slate-50 transition"
+              >
                 Print
               </button>
-              <button onClick={handleDownload} disabled={isExporting || isGeneratingCatalogue} className="flex-1 rounded-lg bg-slate-900 px-3 py-3 text-xs font-bold text-white hover:bg-slate-800 transition flex items-center justify-center gap-1.5">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDownload();
+                }}
+                disabled={isExporting || isGeneratingCatalogue}
+                className="flex-1 rounded-lg bg-slate-900 px-3 py-3 text-xs font-bold text-white hover:bg-slate-800 transition flex items-center justify-center gap-1.5"
+              >
                 {isGeneratingCatalogue ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                 Download PDF
               </button>
-              <button onClick={handleSendEmail} disabled={isSendingEmail || isGeneratingCatalogue} className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-3 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+              <button
+                type="button"
+                onClick={handleSendEmail}
+                disabled={isSendingEmail || isGeneratingCatalogue}
+                className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-3 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm"
+              >
                 {isSendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
                 Send Email
               </button>
@@ -1842,7 +1863,11 @@ export default function AdminDealSend() {
                 </span>
               ) : (
                 <button
-                  onClick={ensureGeneratedCatalogue}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    ensureGeneratedCatalogue();
+                  }}
                   disabled={isGeneratingCatalogue}
                   className="text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-2 rounded-xl transition border border-indigo-200"
                 >
@@ -1887,7 +1912,11 @@ export default function AdminDealSend() {
 
               <div className="flex items-end gap-3">
                 <button
-                  onClick={handleDownload}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleDownload();
+                  }}
                   disabled={isExporting || isGeneratingCatalogue}
                   className="flex-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 transition flex items-center justify-center gap-1.5 h-[40px]"
                 >
@@ -1895,6 +1924,7 @@ export default function AdminDealSend() {
                   Download Catalogue
                 </button>
                 <button
+                  type="button"
                   onClick={handleSendEmail}
                   disabled={isSendingEmail || isGeneratingCatalogue}
                   className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-bold transition flex items-center justify-center gap-2 h-[40px] shadow-sm"
