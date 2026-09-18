@@ -87,6 +87,8 @@ router.patch("/:id", ...leadsAccess, async (req, res) => {
   }
 });
 
+
+
 /* ===============================
    UPDATE STATUS
 ================================ */
@@ -399,24 +401,28 @@ router.post("/gmail/create-draft", ...leadsAccess, async (req, res) => {
     const { oauth2Client, hasRefreshToken } = getGmailOAuthClient(req);
 
     if (!hasRefreshToken) {
+      const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
+      const host = req.headers["x-forwarded-host"] || req.get("host") || "localhost:5000";
+      const authUrl = `${protocol}://${host}/api/admin/leads/gmail/auth`;
       return res.status(401).json({
         requiresGoogleAuth: true,
         errorCode: "GMAIL_REFRESH_TOKEN_MISSING",
-        message: "Gmail refresh token is not configured.",
+        message: "Google Gmail authorization is required for orders.sticktoon@gmail.com.",
+        authUrl,
       });
     }
 
-    let recipientEmail = email;
+    let recipientEmail = (email || "").trim();
     let leadObj = null;
 
     if (leadId) {
       leadObj = await Lead.findById(leadId);
-      if (leadObj) {
-        recipientEmail = leadObj.email || recipientEmail;
-      }
+    }
+    if (!recipientEmail && leadObj) {
+      recipientEmail = (leadObj.email || "").trim();
     }
 
-    if (!recipientEmail || !recipientEmail.trim()) {
+    if (!recipientEmail) {
       return res.status(400).json({ message: "Lead has no email address" });
     }
 
@@ -426,7 +432,7 @@ router.post("/gmail/create-draft", ...leadsAccess, async (req, res) => {
 
     const pdfFilePath = path.join(CATALOGUE_TMP_DIR, `${catalogueId}.pdf`);
     if (!fs.existsSync(pdfFilePath)) {
-      return res.status(404).json({ message: "Catalogue PDF file not found" });
+      return res.status(404).json({ message: "Catalogue PDF file not found. Please regenerate catalogue." });
     }
 
     let attachmentFilename = "catalogue.pdf";
@@ -478,16 +484,20 @@ router.post("/gmail/create-draft", ...leadsAccess, async (req, res) => {
     const isInvalidGrant =
       errString.includes("invalid_grant") ||
       errString.includes("expired or revoked") ||
-      err?.response?.data?.error === "invalid_grant" ||
       errMsg.includes("invalid_grant") ||
       errMsg.includes("Token") ||
-      errCode === "invalid_grant";
+      errCode === "invalid_grant" ||
+      err?.response?.data?.error === "invalid_grant";
 
     if (isInvalidGrant) {
+      const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
+      const host = req.headers["x-forwarded-host"] || req.get("host") || "localhost:5000";
+      const authUrl = `${protocol}://${host}/api/admin/leads/gmail/auth`;
       return res.status(401).json({
         requiresGoogleAuth: true,
         errorCode: "GMAIL_REFRESH_TOKEN_INVALID",
-        message: "Gmail OAuth refresh token for orders.sticktoon@gmail.com is invalid or expired. Please re-authorize.",
+        message: "Gmail authorization has expired or been revoked. Please reconnect Gmail.",
+        authUrl,
       });
     }
 
@@ -570,4 +580,17 @@ router.post("/send-catalogue", ...leadsAccess, async (req, res) => {
     });
 
     if (!result.ok) {
-      return res.status(500).json({ message: `Email sending failed: ${result.error?.message ||
+      return res.status(500).json({ message: `Email sending failed: ${result.error?.message || result.error || "Unknown error"}` });
+    }
+
+    return res.json({
+      success: true,
+      message: `Catalogue sent successfully to ${recipientEmail}`,
+    });
+  } catch (err) {
+    console.error("Send catalogue error:", err);
+    return res.status(500).json({ message: "Email sending failed" });
+  }
+});
+
+module.exports = router;
