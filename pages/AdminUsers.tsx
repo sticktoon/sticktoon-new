@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import AdminBackButton from "./AdminBackButton";
 import { API_BASE_URL } from "../config/api";
+import { ADMIN_PASSWORD_HINT, meetsAdminPasswordRules } from "../components/PasswordRules";
+import ConfirmModal from "../components/ConfirmModal";
 
 type User = {
   _id: string;
@@ -28,6 +30,8 @@ const DEV_EMAILS = [
   .split(",")
   .map((email) => email.toLowerCase().trim())
   .filter(Boolean);
+
+const ROLES = ["user", "influencer", "admin", "superadmin"];
 
 export default function AdminUsers() {
   const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
@@ -60,6 +64,15 @@ export default function AdminUsers() {
   const [showAddAdminModal, setShowAddAdminModal] = useState(false);
   const [addAdminForm, setAddAdminForm] = useState({ name: "", email: "", password: "" });
   const [creatingAdmin, setCreatingAdmin] = useState(false);
+
+  // Confirmation Modal state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   const flash = (type: "success" | "error", msg: string) => {
     setNotice({ type, msg });
@@ -107,7 +120,12 @@ export default function AdminUsers() {
       flash("error", "Name and email are required");
       return;
     }
-    if (form.newPassword.trim() && form.newPassword.trim().length < 6) {
+    const newPassword = form.newPassword.trim();
+    if (newPassword && (form.role === "admin" || form.role === "superadmin") && !meetsAdminPasswordRules(newPassword)) {
+      flash("error", ADMIN_PASSWORD_HINT);
+      return;
+    }
+    if (newPassword && newPassword.length < 6) {
       flash("error", "Password must be at least 6 characters");
       return;
     }
@@ -162,8 +180,8 @@ export default function AdminUsers() {
       flash("error", "Email and password are required");
       return;
     }
-    if (addAdminForm.password.length < 6) {
-      flash("error", "Password must be at least 6 characters");
+    if (!meetsAdminPasswordRules(addAdminForm.password.trim())) {
+      flash("error", ADMIN_PASSWORD_HINT);
       return;
     }
 
@@ -213,9 +231,18 @@ export default function AdminUsers() {
     }
   };
 
-  const handleDemoteFromAdmin = async (u: User) => {
-    if (!window.confirm(`Remove admin privileges from "${u.name || u.email}"?`)) return;
+  const handleDemoteFromAdmin = (u: User) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Remove Admin Privileges?",
+      message: `Remove admin privileges from "${u.name || u.email}"?`,
+      confirmText: "Remove Admin",
+      onConfirm: () => executeDemoteFromAdmin(u),
+    });
+  };
 
+  const executeDemoteFromAdmin = async (u: User) => {
+    setConfirmDialog(null);
     setActionLoadingId(u._id);
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/users/${u._id}/demote`, {
@@ -235,8 +262,18 @@ export default function AdminUsers() {
     }
   };
 
-  const handleDelete = async (u: User) => {
-    if (!window.confirm(`Delete user "${u.name || u.email}"? This cannot be undone.`)) return;
+  const handleDelete = (u: User) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Delete User?",
+      message: `Delete user "${u.name || u.email}"? This action cannot be undone.`,
+      confirmText: "Delete User",
+      onConfirm: () => executeDeleteUser(u),
+    });
+  };
+
+  const executeDeleteUser = async (u: User) => {
+    setConfirmDialog(null);
     setDeletingId(u._id);
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/users/${u._id}`, {
@@ -594,6 +631,19 @@ export default function AdminUsers() {
         >
           {notice.msg}
         </div>
+      )}
+
+      {/* ================= CONFIRMATION MODAL ================= */}
+      {confirmDialog && (
+        <ConfirmModal
+          isOpen={confirmDialog.isOpen}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText={confirmDialog.confirmText}
+          cancelText="Cancel"
+          onCancel={() => setConfirmDialog(null)}
+          onConfirm={confirmDialog.onConfirm}
+        />
       )}
     </div>
   );

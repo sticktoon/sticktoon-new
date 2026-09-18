@@ -51,6 +51,23 @@ const UserSchema = new mongoose.Schema(
       select: false, // 🔐 NEVER return password by default
     },
 
+    // When the owner last set their password. Null means it was set by
+    // someone else (or before this existed), so an admin has to replace it at
+    // their next sign-in. See utils/passwordPolicy.js.
+    passwordChangedAt: {
+      type: Date,
+      default: null,
+    },
+
+    // Admin sign-in code: the second step, emailed and valid for 10 minutes.
+    // Only a keyed hash is stored (utils/loginCode.js); never returned by default.
+    loginCode: {
+      hash: { type: String, select: false },
+      expiresAt: { type: Date, select: false },
+      sentAt: { type: Date, select: false },
+      attempts: { type: Number, select: false },
+    },
+
     provider: {
       type: String,
       enum: ["credentials", "google"],

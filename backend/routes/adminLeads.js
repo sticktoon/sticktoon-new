@@ -87,8 +87,6 @@ router.patch("/:id", ...leadsAccess, async (req, res) => {
   }
 });
 
-
-
 /* ===============================
    UPDATE STATUS
 ================================ */
@@ -264,11 +262,24 @@ router.get("/catalogue/:catalogueId/download", async (req, res) => {
 
 const { google } = require("googleapis");
 
-function getGmailOAuthClient() {
+function getGmailOAuthClient(req = null) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const refreshToken = process.env.GMAIL_REFRESH_TOKEN || process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
-  const redirectUri = process.env.GMAIL_OAUTH_REDIRECT_URI || `${process.env.WEBHOOK_BASE_URL || "http://localhost:5000"}/api/admin/leads/gmail/callback`;
+
+  let redirectUri = process.env.GMAIL_OAUTH_REDIRECT_URI;
+  if (!redirectUri) {
+    if (process.env.WEBHOOK_BASE_URL) {
+      const base = process.env.WEBHOOK_BASE_URL.replace(/\/$/, "");
+      redirectUri = `${base}/api/admin/leads/gmail/callback`;
+    } else if (req) {
+      const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
+      const host = req.headers["x-forwarded-host"] || req.get("host") || "localhost:5000";
+      redirectUri = `${protocol}://${host}/api/admin/leads/gmail/callback`;
+    } else {
+      redirectUri = "http://localhost:5000/api/admin/leads/gmail/callback";
+    }
+  }
 
   if (!clientId || !clientSecret) {
     throw new Error("Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET in backend environment variables.");
@@ -287,7 +298,7 @@ function getGmailOAuthClient() {
 ================================ */
 router.get("/gmail/auth", async (req, res) => {
   try {
-    const { oauth2Client } = getGmailOAuthClient();
+    const { oauth2Client } = getGmailOAuthClient(req);
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: "offline",
       prompt: "consent",
@@ -307,7 +318,7 @@ router.get("/gmail/callback", async (req, res) => {
       return res.status(400).send("Authorization code missing");
     }
 
-    const { oauth2Client } = getGmailOAuthClient();
+    const { oauth2Client } = getGmailOAuthClient(req);
     const { tokens } = await oauth2Client.getToken(code);
 
     if (tokens.refresh_token) {
@@ -350,32 +361,27 @@ function buildMimeMessage({ to, subject, bodyText, filename, pdfBuffer }) {
     `Subject: =?UTF-8?B?${Buffer.from(subject || "Sticktoon Product Catalogue").toString("base64")}?=`,
     `MIME-Version: 1.0`,
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    ``,
   ];
 
-  const textPart = [
+  const body = [
     `--${boundary}`,
-    `Content-Type: text/plain; charset="UTF-8"`,
+    `Content-Type: text/plain; charset=UTF-8`,
     `Content-Transfer-Encoding: 7bit`,
     ``,
-    bodyText || "Please review our product catalogue.",
+    bodyText || "",
     ``,
-  ];
-
-  const pdfBase64 = pdfBuffer.toString("base64");
-  const attachmentPart = [
     `--${boundary}`,
-    `Content-Type: application/pdf; name="${filename}"`,
-    `Content-Disposition: attachment; filename="${filename}"`,
+    `Content-Type: application/pdf; name="${filename || "catalogue.pdf"}"`,
+    `Content-Disposition: attachment; filename="${filename || "catalogue.pdf"}"`,
     `Content-Transfer-Encoding: base64`,
     ``,
-    pdfBase64,
+    pdfBuffer.toString("base64"),
     ``,
     `--${boundary}--`,
     ``,
-  ];
+  ].join("\r\n");
 
-  return headers.concat(textPart, attachmentPart).join("\r\n");
+  return `${headers.join("\r\n")}\r\n\r\n${body}`;
 }
 
 function base64UrlEncode(str) {
@@ -390,12 +396,13 @@ router.post("/gmail/create-draft", ...leadsAccess, async (req, res) => {
   try {
     const { leadId, catalogueId, email, subject, body } = req.body || {};
 
-    const { oauth2Client, hasRefreshToken } = getGmailOAuthClient();
+    const { oauth2Client, hasRefreshToken } = getGmailOAuthClient(req);
 
     if (!hasRefreshToken) {
-      return res.status(400).json({
-        message: "Google Gmail authorization is required for orders.sticktoon@gmail.com. Please run node scripts/generateGmailToken.js or connect orders.sticktoon@gmail.com.",
+      return res.status(401).json({
         requiresGoogleAuth: true,
+        errorCode: "GMAIL_REFRESH_TOKEN_MISSING",
+        message: "Gmail refresh token is not configured.",
       });
     }
 
@@ -466,20 +473,29 @@ router.post("/gmail/create-draft", ...leadsAccess, async (req, res) => {
     console.error("Create Gmail draft error:", err);
     const errString = JSON.stringify(err?.response?.data || err || {});
     const errMsg = err?.message || err?.response?.data?.error_description || "Failed to create Gmail draft";
-    
-    if (
+    const errCode = err?.code || err?.response?.data?.error || "GMAIL_API_ERROR";
+
+    const isInvalidGrant =
       errString.includes("invalid_grant") ||
       errString.includes("expired or revoked") ||
       err?.response?.data?.error === "invalid_grant" ||
       errMsg.includes("invalid_grant") ||
-      errMsg.includes("Token")
-    ) {
+      errMsg.includes("Token") ||
+      errCode === "invalid_grant";
+
+    if (isInvalidGrant) {
       return res.status(401).json({
-        message: "Gmail OAuth refresh token for orders.sticktoon@gmail.com is invalid or expired. Please re-authorize.",
         requiresGoogleAuth: true,
+        errorCode: "GMAIL_REFRESH_TOKEN_INVALID",
+        message: "Gmail OAuth refresh token for orders.sticktoon@gmail.com is invalid or expired. Please re-authorize.",
       });
     }
-    return res.status(500).json({ message: errMsg });
+
+    console.error("Gmail API request error:", errMsg);
+    return res.status(500).json({
+      message: errMsg,
+      errorCode: errCode,
+    });
   }
 });
 
@@ -554,17 +570,4 @@ router.post("/send-catalogue", ...leadsAccess, async (req, res) => {
     });
 
     if (!result.ok) {
-      return res.status(500).json({ message: `Email sending failed: ${result.error?.message || result.error || "Unknown error"}` });
-    }
-
-    return res.json({
-      success: true,
-      message: `Catalogue sent successfully to ${recipientEmail}`,
-    });
-  } catch (err) {
-    console.error("Send catalogue error:", err);
-    return res.status(500).json({ message: "Email sending failed" });
-  }
-});
-
-module.exports = router;
+      return res.status(500).json({ message: `Email sending failed: ${result.error?.message ||

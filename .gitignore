@@ -43,14 +43,17 @@ Thumbs.db
 
 # Environment files
 .env
-.env.local
-.env.*.local
+.env.*
+*.env
+*.env.*
+*.env.prod
 backend/.env
-backend/.env.local
+backend/.env.*
 
 # But keep example files
 !.env.example
 !backend/.env.example
+!*.env.example
 
 # Local dev scratch — kept on disk, out of git
 tmp_*.js

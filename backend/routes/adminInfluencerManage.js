@@ -24,13 +24,23 @@ router.get("/", auth, adminOnly, async (req, res) => {
     const allPromos = await PromoCode.find({
       $or: [
         { createdBy: { $in: influencerIds } },
+        { assignedInfluencers: { $in: influencerIds } },
         { promoType: "influencer" }
       ]
-    }).lean();
+    })
+      .populate("assignedInfluencers", "name email")
+      .populate("createdBy", "name email")
+      .lean();
 
     const influencers = rawInfluencers.map((inf) => {
       const userPromos = allPromos.filter(
-        (p) => String(p.createdBy) === String(inf._id) || (inf.influencerProfile?.promoCodeId && String(p._id) === String(inf.influencerProfile.promoCodeId._id || inf.influencerProfile.promoCodeId))
+        (p) =>
+          String(p.createdBy?._id || p.createdBy) === String(inf._id) ||
+          (Array.isArray(p.assignedInfluencers) &&
+            p.assignedInfluencers.some((ai) => String(ai._id || ai) === String(inf._id))) ||
+          (inf.influencerProfile?.promoCodeId &&
+            String(p._id) ===
+              String(inf.influencerProfile.promoCodeId._id || inf.influencerProfile.promoCodeId))
       );
       return {
         ...inf,
@@ -385,45 +395,60 @@ router.patch("/:id/earning-rate", auth, adminOnly, async (req, res) => {
 ========================= */
 router.patch("/:id/assign-promo", auth, adminOnly, async (req, res) => {
   try {
-    const { code, discountType, discountValue, earningPerUnit, validUntil } = req.body;
+    const { promoCodeId, code, discountType, discountValue, earningPerUnit, validUntil } = req.body;
 
     const user = await User.findById(req.params.id);
     if (!user || user.role !== "influencer") {
       return res.status(404).json({ message: "Influencer not found" });
     }
 
-    const cleanCode = code ? code.toUpperCase().trim() : `INF_${user.name.replace(/\s+/g, "").toUpperCase()}`;
-
-    // Check if code already exists under another user/promo
-    const existing = await PromoCode.findOne({ code: cleanCode });
     let promo;
 
-    if (existing) {
-      // If code belongs to this user or is editable, update it
-      existing.discountType = discountType || existing.discountType || "percentage";
-      existing.discountValue = discountValue !== undefined ? discountValue : existing.discountValue;
-      existing.earningPerUnit = earningPerUnit !== undefined ? earningPerUnit : existing.earningPerUnit;
-      if (validUntil) existing.validUntil = validUntil;
-      existing.isActive = true;
-      existing.promoType = "influencer";
-      existing.createdBy = user._id;
-      await existing.save();
-      promo = existing;
+    if (promoCodeId) {
+      // Assigning an existing promo code by ID
+      promo = await PromoCode.findById(promoCodeId);
+      if (!promo) {
+        return res.status(404).json({ message: "Promo code not found" });
+      }
+      promo.promoType = "influencer";
+      if (!promo.assignedInfluencers.some((id) => String(id._id || id) === String(user._id))) {
+        promo.assignedInfluencers.push(user._id);
+      }
+      await promo.save();
     } else {
-      // Create new promo code
-      const farFuture = new Date();
-      farFuture.setFullYear(farFuture.getFullYear() + 5);
+      const cleanCode = code ? code.toUpperCase().trim() : `INF_${user.name.replace(/\s+/g, "").toUpperCase()}`;
 
-      promo = await PromoCode.create({
-        code: cleanCode,
-        promoType: "influencer",
-        discountType: discountType || "percentage",
-        discountValue: discountValue !== undefined ? discountValue : 10,
-        earningPerUnit: earningPerUnit !== undefined ? earningPerUnit : 5,
-        validUntil: validUntil || farFuture,
-        createdBy: user._id,
-        isActive: true,
-      });
+      // Check if code already exists
+      const existing = await PromoCode.findOne({ code: cleanCode });
+
+      if (existing) {
+        existing.discountType = discountType || existing.discountType || "percentage";
+        existing.discountValue = discountValue !== undefined ? discountValue : existing.discountValue;
+        existing.earningPerUnit = earningPerUnit !== undefined ? earningPerUnit : existing.earningPerUnit;
+        if (validUntil) existing.validUntil = validUntil;
+        existing.isActive = true;
+        existing.promoType = "influencer";
+        if (!existing.assignedInfluencers.some((id) => String(id._id || id) === String(user._id))) {
+          existing.assignedInfluencers.push(user._id);
+        }
+        await existing.save();
+        promo = existing;
+      } else {
+        const farFuture = new Date();
+        farFuture.setFullYear(farFuture.getFullYear() + 5);
+
+        promo = await PromoCode.create({
+          code: cleanCode,
+          promoType: "influencer",
+          discountType: discountType || "percentage",
+          discountValue: discountValue !== undefined ? discountValue : 10,
+          earningPerUnit: earningPerUnit !== undefined ? earningPerUnit : 5,
+          validUntil: validUntil || farFuture,
+          createdBy: user._id,
+          assignedInfluencers: [user._id],
+          isActive: true,
+        });
+      }
     }
 
     // Link to user profile
@@ -431,10 +456,65 @@ router.patch("/:id/assign-promo", auth, adminOnly, async (req, res) => {
     user.influencerProfile.promoCodeId = promo._id;
     await user.save();
 
-    res.json({ message: "Promo code assigned successfully", promo, user });
+    const populatedPromo = await PromoCode.findById(promo._id)
+      .populate("assignedInfluencers", "name email")
+      .populate("createdBy", "name email");
+
+    res.json({ message: "Promo code assigned successfully", promo: populatedPromo, user });
   } catch (err) {
     console.error("Assign promo error:", err);
     res.status(500).json({ message: "Failed to assign promo code" });
+  }
+});
+
+/* =========================
+   UNASSIGN / REMOVE INFLUENCER PROMO CODE
+   (Disassociates the promo code from the influencer without deleting the promo code itself)
+========================= */
+router.post("/:id/unassign-promo", auth, adminOnly, async (req, res) => {
+  try {
+    const { promoId } = req.body;
+    if (!promoId) {
+      return res.status(400).json({ message: "Promo code ID is required" });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user || user.role !== "influencer") {
+      return res.status(404).json({ message: "Influencer not found" });
+    }
+
+    const promo = await PromoCode.findById(promoId);
+    if (!promo) {
+      return res.status(404).json({ message: "Promo code not found" });
+    }
+
+    // Remove influencer from promo's assignedInfluencers list
+    promo.assignedInfluencers = (promo.assignedInfluencers || []).filter(
+      (id) => String(id._id || id) !== String(user._id)
+    );
+
+    if (String(promo.createdBy) === String(user._id)) {
+      promo.createdBy = null;
+    }
+
+    await promo.save();
+
+    // If this promo code was set on the user profile, update it to remaining promo or null
+    if (user.influencerProfile?.promoCodeId?.toString() === String(promo._id)) {
+      const remainingPromo = await PromoCode.findOne({
+        $or: [
+          { assignedInfluencers: user._id },
+          { createdBy: user._id },
+        ],
+      });
+      user.influencerProfile.promoCodeId = remainingPromo?._id || null;
+      await user.save();
+    }
+
+    res.json({ message: `Promo code '${promo.code}' unassigned from ${user.name}` });
+  } catch (err) {
+    console.error("Unassign promo error:", err);
+    res.status(500).json({ message: "Failed to unassign promo code" });
   }
 });
 

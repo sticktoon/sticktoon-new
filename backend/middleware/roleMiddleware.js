@@ -103,11 +103,24 @@ const checkIsSuperAdmin = async (reqUser) => {
 };
 
 /**
+ * Admin routes only accept tokens minted after 2-step verification
+ * (routes/admin.js sets `mfa`). An admin account signed in on the storefront
+ * is told to sign in to the admin panel; everyone else keeps getting 403.
+ */
+const withMfa = (req, res, next) => {
+  if (req.user?.mfa) return next();
+  return res.status(401).json({
+    code: "ADMIN_2FA_REQUIRED",
+    message: "Please sign in to the admin panel again",
+  });
+};
+
+/**
  * Middleware: Restrict access to admin only
  */
 const adminOnly = async (req, res, next) => {
   if (isAdminAccount(req.user)) {
-    return next();
+    return withMfa(req, res, next);
   }
 
   const userId = req.user?.id || req.user?._id;
@@ -117,7 +130,7 @@ const adminOnly = async (req, res, next) => {
       if (dbUser && isAdminAccount(dbUser)) {
         req.user.role = dbUser.role;
         req.user.email = dbUser.email;
-        return next();
+        return withMfa(req, res, next);
       }
     } catch (err) {
       console.error("adminOnly database lookup error:", err);
@@ -139,7 +152,6 @@ const ADMIN_PERMISSIONS = [
   "promo",
   "revenue",
   "leads",
-  "tasks",
   "support",
   "logs",
 ];
@@ -169,7 +181,7 @@ const hasPermission = async (reqUser, permission) => {
  */
 const requirePermission = (permission) => async (req, res, next) => {
   try {
-    if (await hasPermission(req.user, permission)) return next();
+    if (await hasPermission(req.user, permission)) return withMfa(req, res, next);
 
     return res.status(403).json({
       message: isAdminAccount(req.user)
@@ -187,7 +199,7 @@ const requirePermission = (permission) => async (req, res, next) => {
  */
 const superAdminOnly = async (req, res, next) => {
   if (await checkIsSuperAdmin(req.user)) {
-    return next();
+    return withMfa(req, res, next);
   }
   return res.status(403).json({ message: "Super admin access required" });
 };
