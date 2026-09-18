@@ -38,6 +38,11 @@ const SupportMessageSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    orderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Order",
+      default: null,
+    },
     messages: [
       {
         sender: {

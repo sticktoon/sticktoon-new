@@ -3,8 +3,11 @@ const router = express.Router();
 const jwt = require("jsonwebtoken");
 const sendEmail = require("../utils/sendEmail");
 const esc = require("../utils/escapeHtml");
+const mongoose = require("mongoose");
 const SupportMessage = require("../models/SupportMessage");
 const User = require("../models/User");
+const Order = require("../models/Order");
+const UserOrders = require("../models/User_Orders");
 const auth = require("../middleware/auth");
 
 const getNextTicketId = async () => {
@@ -53,7 +56,7 @@ const extractUserFromToken = async (req) => {
 ========================================================= */
 router.post("/", async (req, res) => {
   try {
-    const { name, email, phone, inquiryType, message } = req.body || {};
+    const { name, email, phone, inquiryType, message, orderId } = req.body || {};
 
     if (!name || !email || !phone || !inquiryType || !message) {
       return res.status(400).json({ message: "All fields are required" });
@@ -65,6 +68,46 @@ router.post("/", async (req, res) => {
     let user = await extractUserFromToken(req);
     if (!user) {
       user = await User.findOne({ email: trimmedEmail }).select("_id email name");
+    }
+
+    // Security: Validate order ownership before linking order to ticket
+    let validatedOrderId = null;
+    let linkedOrder = null;
+
+    if (orderId) {
+      if (!mongoose.Types.ObjectId.isValid(orderId)) {
+        return res.status(400).json({ message: "Invalid order ID format" });
+      }
+
+      linkedOrder = await Order.findById(orderId);
+      if (!linkedOrder) {
+        return res.status(404).json({ message: "Specified order not found" });
+      }
+
+      let userIds = user ? [user._id.toString()] : [];
+      if (trimmedEmail) {
+        const usersWithEmail = await User.find({ email: trimmedEmail }).select("_id");
+        userIds = Array.from(new Set([...userIds, ...usersWithEmail.map(u => u._id.toString())]));
+      }
+
+      const isDirectOwner =
+        (linkedOrder.userId && userIds.includes(linkedOrder.userId.toString())) ||
+        (linkedOrder.userEmail && linkedOrder.userEmail.toLowerCase() === trimmedEmail);
+
+      let isMappedOwner = false;
+      if (!isDirectOwner && userIds.length > 0) {
+        const mapping = await UserOrders.findOne({
+          userId: { $in: userIds },
+          orderId: linkedOrder._id,
+        });
+        if (mapping) isMappedOwner = true;
+      }
+
+      if (!isDirectOwner && !isMappedOwner) {
+        return res.status(403).json({ message: "Selected order does not belong to your account" });
+      }
+
+      validatedOrderId = linkedOrder._id;
     }
 
     let supportMessage = null;
@@ -79,6 +122,7 @@ router.post("/", async (req, res) => {
           message,
           ticketId,
           userId: user?._id || null,
+          orderId: validatedOrderId,
           messages: [
             {
               sender: user?._id || null,
@@ -106,6 +150,10 @@ router.post("/", async (req, res) => {
       process.env.ADMIN_EMAIL || process.env.FROM_EMAIL || "sticktoon.xyz@gmail.com";
 
     const subject = `New Contact Inquiry [${supportMessage.ticketId}]: ${inquiryType}`;
+    const orderHtmlSection = linkedOrder
+      ? `<p><strong>Linked Order:</strong> #${linkedOrder._id} (Amount: ₹${linkedOrder.amount}, Status: ${linkedOrder.status})</p>`
+      : "";
+
     const html = `
       <h2>New Contact Form Submission</h2>
       <p><strong>Ticket ID:</strong> ${supportMessage.ticketId}</p>
@@ -113,6 +161,7 @@ router.post("/", async (req, res) => {
       <p><strong>Email:</strong> ${esc(trimmedEmail)}</p>
       <p><strong>Phone:</strong> ${esc(phone)}</p>
       <p><strong>Inquiry Type:</strong> ${esc(inquiryType)}</p>
+      ${orderHtmlSection}
       <p><strong>Message:</strong></p>
       <p>${esc(message).replace(/\n/g, "<br/>")}</p>
     `;
@@ -174,7 +223,9 @@ router.get("/my-requests", auth, async (req, res) => {
       return res.json([]);
     }
 
-    const requests = await SupportMessage.find({ $or: filterConditions }).sort({ createdAt: -1 });
+    const requests = await SupportMessage.find({ $or: filterConditions })
+      .populate("orderId")
+      .sort({ createdAt: -1 });
 
     // Format requests and ensure legacy requests without messages array have fallback initial message
     const formatted = requests.map((doc) => {
@@ -205,7 +256,7 @@ router.get("/my-requests", auth, async (req, res) => {
 ========================================================= */
 router.get("/my-requests/:id", auth, async (req, res) => {
   try {
-    const request = await SupportMessage.findById(req.params.id);
+    const request = await SupportMessage.findById(req.params.id).populate("orderId");
     if (!request) {
       return res.status(404).json({ message: "Support request not found" });
     }

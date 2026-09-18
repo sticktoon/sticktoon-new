@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Mail, Send, Loader2, CheckCircle2, MessageCircle, Phone, MapPin, Clock, ArrowRight, Sparkles, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Mail, Send, Loader2, CheckCircle2, MessageCircle, Phone, MapPin, Clock, ArrowRight, Sparkles, X, ShoppingBag, AlertCircle } from 'lucide-react';
 import { Instagram } from "lucide-react";
 import { API_BASE_URL } from '../config/api';
 
@@ -12,6 +12,9 @@ export default function Contact() {
     inquiryType: '',
     message: '',
   });
+  const [selectedOrderId, setSelectedOrderId] = useState<string>('');
+  const [userOrders, setUserOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submittedTicketId, setSubmittedTicketId] = useState('');
@@ -19,11 +22,73 @@ export default function Contact() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const inquiryOptions = [
+    'Where is my order?',
+    'Order delayed / Not received',
+    'Return / Refund / Exchange',
+    'Damaged or Wrong Product Received',
+    'Cancel Order',
     'Customer Support (Existing Order Issue)',
     'Product Inquiry',
     'Feedback / Suggestions',
     'Other',
   ];
+
+  const orderRelatedCategories = [
+    'Where is my order?',
+    'Order delayed / Not received',
+    'Return / Refund / Exchange',
+    'Damaged or Wrong Product Received',
+    'Cancel Order',
+    'Customer Support (Existing Order Issue)',
+  ];
+
+  const isOrderRelated = orderRelatedCategories.includes(formData.inquiryType);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const paramOrderId = searchParams.get('orderId');
+    const paramInquiryType = searchParams.get('inquiryType');
+
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        setFormData((prev) => ({
+          ...prev,
+          name: prev.name || parsed.name || '',
+          email: prev.email || parsed.email || '',
+          phone: prev.phone || parsed.phone || '',
+        }));
+      } catch (e) {}
+    }
+
+    if (token) {
+      setOrdersLoading(true);
+      fetch(`${API_BASE_URL}/api/user-orders/my-orders`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setUserOrders(data);
+            if (paramOrderId && data.some((o: any) => o._id === paramOrderId)) {
+              setSelectedOrderId(paramOrderId);
+            }
+          }
+        })
+        .catch((err) => console.error('Failed to fetch orders for contact form:', err))
+        .finally(() => setOrdersLoading(false));
+    }
+
+    if (paramInquiryType) {
+      setFormData((prev) => ({ ...prev, inquiryType: paramInquiryType }));
+    } else if (paramOrderId) {
+      setFormData((prev) => ({ ...prev, inquiryType: 'Where is my order?' }));
+      setSelectedOrderId(paramOrderId);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,10 +96,19 @@ export default function Contact() {
     setIsSubmitting(true);
 
     try {
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const payload = {
+        ...formData,
+        orderId: isOrderRelated && selectedOrderId ? selectedOrderId : undefined,
+      };
+
       const res = await fetch(`${API_BASE_URL}/api/contact`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        headers,
+        body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
 
@@ -45,6 +119,7 @@ export default function Contact() {
       setSubmittedTicketId(data.ticketId || '');
       setSubmitted(true);
       setFormData({ name: '', email: '', phone: '', inquiryType: '', message: '' });
+      setSelectedOrderId('');
     } catch (error: any) {
       setSubmitError(error.message || 'Failed to send inquiry');
     } finally {
@@ -185,6 +260,64 @@ export default function Contact() {
                         ))}
                       </select>
                     </div>
+
+                    {/* Select Order Field (shows when inquiry type is order-related) */}
+                    {isOrderRelated && (
+                      <div className="bg-yellow-50/60 rounded-2xl border-2 border-yellow-200 p-4 space-y-2 animate-fadeIn">
+                        <label className="block text-slate-900 text-xs font-black uppercase tracking-wider flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-yellow-950">
+                            <ShoppingBag className="w-4 h-4 text-yellow-600" />
+                            Select Relevant Order {userOrders.length > 0 ? "*" : "(Optional)"}
+                          </span>
+                          {selectedOrderId && (
+                            <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                              ✓ Order Linked
+                            </span>
+                          )}
+                        </label>
+
+                        {ordersLoading ? (
+                          <div className="flex items-center gap-2 text-slate-600 text-xs font-bold py-2">
+                            <Loader2 className="w-4 h-4 animate-spin text-yellow-600" />
+                            Loading your orders...
+                          </div>
+                        ) : userOrders.length > 0 ? (
+                          <select
+                            value={selectedOrderId}
+                            onChange={(e) => setSelectedOrderId(e.target.value)}
+                            required={isOrderRelated && userOrders.length > 0}
+                            className="w-full px-4 py-3 bg-white border-2 border-slate-300 rounded-xl text-slate-900 font-semibold text-sm focus:border-yellow-500 focus:outline-none shadow-sm cursor-pointer"
+                          >
+                            <option value="">-- Choose Order --</option>
+                            {userOrders.map((o: any) => {
+                              const dateStr = new Date(o.createdAt).toLocaleDateString("en-IN", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              });
+                              const itemsCount = o.items?.length || 0;
+                              return (
+                                <option key={o._id} value={o._id}>
+                                  Order #{o._id.slice(-8)} — ₹{o.amount} ({o.status}) — {dateStr} ({itemsCount} {itemsCount === 1 ? 'item' : 'items'})
+                                </option>
+                              );
+                            })}
+                          </select>
+                        ) : (
+                          <div className="text-xs text-slate-600 space-y-1">
+                            <p className="font-bold flex items-center gap-1 text-amber-800">
+                              <AlertCircle className="w-3.5 h-3.5" />
+                              {localStorage.getItem('token')
+                                ? "No past orders found on your account."
+                                : "Not logged in."}
+                            </p>
+                            <p className="text-slate-500">
+                              You can still submit your message. Log in to your account to link your order directly.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Message */}
                     <div>

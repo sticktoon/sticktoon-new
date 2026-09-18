@@ -25,6 +25,8 @@ const DEV_EMAILS = [
   import.meta.env.VITE_SUPER_ADMIN_EMAIL || "",
   "anishpatankar974@gmail.com",
   "sticktoon.xyz@gmail.com",
+  "harsh1214.be22@chitkara.edu.in",
+  "superadmin@sticktoon.com",
 ]
   .join(",")
   .split(",")
@@ -52,7 +54,9 @@ export default function AdminUsers() {
     (currentUser?.email && DEV_EMAILS.includes(currentUser.email.toLowerCase().trim()))
   );
 
-  const [users, setUsers] = useState<User[]>([]);
+  const users = useState<User[]>([]);
+  const userList = users[0];
+  const setUsers = users[1];
   const [editing, setEditing] = useState<User | null>(null);
   const [form, setForm] = useState({ name: "", email: "", role: "user", newPassword: "" });
   const [saving, setSaving] = useState(false);
@@ -367,7 +371,7 @@ export default function AdminUsers() {
             </thead>
 
             <tbody>
-              {users.map((u, index) => (
+              {userList.map((u, index) => (
                 <tr key={u._id} className="border-t hover:bg-slate-50">
                   <td className="p-2 md:p-3 font-semibold text-slate-500">{index + 1}</td>
                   <td className="p-2 md:p-4 font-mono text-xs text-slate-500">{u._id}</td>
@@ -420,7 +424,7 @@ export default function AdminUsers() {
                 </tr>
               ))}
 
-              {users.length === 0 && (
+              {userList.length === 0 && (
                 <tr>
                   <td
                     colSpan={7}
