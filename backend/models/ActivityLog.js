@@ -47,6 +47,7 @@ const ActivityLogSchema = new mongoose.Schema(
         "cart",
         "support",
         "settings",
+        "revenue",
         "other",
       ],
       default: "other",

@@ -12,7 +12,6 @@ const Review = require("../models/Review");
 const WithdrawalRequest = require("../models/WithdrawalRequest");
 const InfluencerEarning = require("../models/InfluencerEarning");
 const SupportMessage = require("../models/SupportMessage");
-const Task = require("../models/Task");
 const ImageUpload = require("../models/ImageUpload");
 
 /**
@@ -36,7 +35,6 @@ const MODELS = {
   "withdrawal-requests": WithdrawalRequest,
   "influencer-earnings": InfluencerEarning,
   "support-messages": SupportMessage,
-  tasks: Task,
   "image-uploads": ImageUpload,
 };
 

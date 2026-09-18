@@ -20,7 +20,6 @@ import {
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import DescriptionRoundedIcon from "@mui/icons-material/DescriptionRounded";
 import SupportAgentRoundedIcon from "@mui/icons-material/SupportAgentRounded";
-import AssignmentTurnedInRoundedIcon from "@mui/icons-material/AssignmentTurnedInRounded";
 import PeopleAltRoundedIcon from "@mui/icons-material/PeopleAltRounded";
 import Groups2RoundedIcon from "@mui/icons-material/Groups2Rounded";
 import PendingActionsRoundedIcon from "@mui/icons-material/PendingActionsRounded";
@@ -58,8 +57,12 @@ import {
   ChevronDown,
   Filter,
   ArrowLeft,
+  IndianRupee,
+  ArrowUpDown,
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
+import AdminLoginSteps, { type AdminLoginStep } from "../components/AdminLoginSteps";
+import PasswordRules, { ADMIN_PASSWORD_HINT, meetsAdminPasswordRules } from "../components/PasswordRules";
 
 // Developer email (full access) configured through Vite env variables and super admin emails
 const DEV_EMAILS = [
@@ -90,7 +93,6 @@ const ADMIN_PERMISSIONS = [
   "promo",
   "revenue",
   "leads",
-  "tasks",
   "support",
   "logs",
 ] as const;
@@ -103,7 +105,6 @@ const ADMIN_PERMISSION_LABELS: Record<string, string> = {
   promo: "Promo Codes",
   revenue: "Revenue & Invoices",
   leads: "Leads & Deals",
-  tasks: "Tasks",
   support: "Support",
   logs: "Activity Logs",
 };
@@ -124,7 +125,6 @@ const VIEW_PERMISSIONS: Record<string, string> = {
   revenue: "revenue",
   reports: "revenue",
   support: "support",
-  tasks: "tasks",
   users: "users",
   customers: "users",
   "all-influencers": "influencers",
@@ -923,6 +923,8 @@ type PromoCode = {
   description: string;
   earningPerUnit: number;
   totalEarnings: number;
+  createdBy?: { _id: string; name?: string; email?: string } | any;
+  assignedInfluencers?: Array<{ _id: string; name?: string; email?: string }>;
 };
 
 type PromoFormData = {
@@ -937,6 +939,7 @@ type PromoFormData = {
   validUntil: string;
   description: string;
   earningPerUnit: number;
+  assignedInfluencers: string[];
 };
 
 const createDefaultPromoFormData = (): PromoFormData => ({
@@ -951,69 +954,9 @@ const createDefaultPromoFormData = (): PromoFormData => ({
   validUntil: "",
   description: "",
   earningPerUnit: 5,
+  assignedInfluencers: [],
 });
 
-type TaskStatus =
-  | "Pending"
-  | "In Progress"
-  | "Waiting on Customer"
-  | "Completed"
-  | "Cancelled";
-
-type TaskItem = {
-  _id?: string;
-  user?: { _id?: string; name?: string; email?: string };
-  assignedTo?: { _id?: string; name?: string; email?: string } | string;
-  title: string;
-  description?: string;
-  status: TaskStatus | string;
-  dueDate?: string;
-  reminderAt?: string;
-  relatedToType?: "Lead" | "Contact" | "Order" | "Support Ticket" | "Influencer" | "";
-  relatedToId?: string;
-  taskType?:
-    | "Call"
-    | "Email"
-    | "WhatsApp Follow-up"
-    | "Order Confirmation"
-    | "Refund Processing"
-    | "Influencer Follow-up"
-    | "Internal Task";
-  comments?: { authorName: string; text: string; createdAt: string }[];
-  activityTimeline?: { message: string; createdAt: string }[];
-  createdAt?: string;
-};
-
-type TaskFormState = {
-  title: string;
-  relatedToType: "Lead" | "Contact" | "Order" | "Support Ticket" | "Influencer" | "";
-  relatedToId: string;
-  taskType:
-    | "Call"
-    | "Email"
-    | "WhatsApp Follow-up"
-    | "Order Confirmation"
-    | "Refund Processing"
-    | "Influencer Follow-up"
-    | "Internal Task";
-  status: TaskStatus;
-  dueDate: string;
-  reminderAt: string;
-  assignedTo: string;
-  description: string;
-};
-
-const createDefaultTaskForm = (): TaskFormState => ({
-  title: "",
-  relatedToType: "Lead",
-  relatedToId: "",
-  taskType: "Call",
-  status: "Pending",
-  dueDate: "",
-  reminderAt: "",
-  assignedTo: "",
-  description: "",
-});
 /* ===========================
    INITIAL ADMIN SESSION (optimistic)
    Reads any existing admin session synchronously so we don't flash the
@@ -1084,7 +1027,6 @@ const getViewFromPath = (pathname: string) => {
     "deals",
     "invoices",
     "support",
-    "tasks",
     "users",
     "all-influencers",
     "influencers",
@@ -1130,7 +1072,6 @@ const Admin: React.FC = () => {
     | "deals"
     | "invoices"
     | "support"
-    | "tasks"
     | "users"
     | "all-influencers"
     | "influencers"
@@ -1190,6 +1131,8 @@ const Admin: React.FC = () => {
   // Login state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  // Set after the password / Google step: new password and 2-step code still to come.
+  const [loginStep, setLoginStep] = useState<AdminLoginStep | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -1225,6 +1168,7 @@ const Admin: React.FC = () => {
     name: "",
     isDeleting: false,
   });
+  const [deletePromoConfirmId, setDeletePromoConfirmId] = useState<string | null>(null);
   const [updatingDeliveryOrderId, setUpdatingDeliveryOrderId] = useState<string | null>(null);
   const [syncingOrderId, setSyncingOrderId] = useState<string | null>(null);
   const [shiprocketAutoApprove, setShiprocketAutoApprove] = useState<boolean>(false);
@@ -1464,22 +1408,6 @@ const Admin: React.FC = () => {
     status: "New",
   });
 
-  /* ================= TASK STATES ================= */
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [showCreateTask, setShowCreateTask] = useState(false);
-  const [showDeleteTaskModal, setShowDeleteTaskModal] = useState(false);
-  const [taskToDelete, setTaskToDelete] = useState<TaskItem | null>(null);
-  const [newTask, setNewTask] = useState<TaskFormState>(createDefaultTaskForm());
-  const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
-  const [viewingTask, setViewingTask] = useState<TaskItem | null>(null);
-  const [taskCommentText, setTaskCommentText] = useState("");
-  const [showPendingTasks, setShowPendingTasks] = useState(true);
-  const [showInProgressTasks, setShowInProgressTasks] = useState(true);
-  const [showCompletedTasks, setShowCompletedTasks] = useState(true);
-  const [taskFromDate, setTaskFromDate] = useState("");
-  const [taskToDate, setTaskToDate] = useState("");
-  const [taskSort, setTaskSort] = useState<"desc" | "asc">("desc");
-
   const createLead = async () => {
     if (isSubmittingLead) return; // 🚀 prevent double click
     setIsSubmittingLead(true);
@@ -1672,225 +1600,6 @@ const Admin: React.FC = () => {
         [field]: value,
       },
     }));
-  };
-
-  const normalizeTaskStatus = (value?: string): TaskStatus => {
-    const v = (value || "").toLowerCase();
-    if (v === "pending") return "Pending";
-    if (v === "in-progress" || v === "in progress") return "In Progress";
-    if (v === "waiting on customer") return "Waiting on Customer";
-    if (v === "completed") return "Completed";
-    if (v === "cancelled") return "Cancelled";
-    return "Pending";
-  };
-
-  const fetchTasks = async () => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/tasks`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (handleUnauthorized(res)) return;
-
-      if (res.ok) {
-        const data = await res.json();
-        const normalized = (Array.isArray(data) ? data : []).map((task: TaskItem) => ({
-          ...task,
-          status: normalizeTaskStatus(task.status),
-        }));
-        setTasks(normalized);
-      } else {
-        showToast("error", "❌ Failed to fetch tasks");
-      }
-    } catch (err) {
-      console.error("Fetch tasks error:", err);
-      showToast("error", "❌ Failed to fetch tasks");
-    }
-  };
-
-  const handleUpdateTaskStatus = async (taskId: string, status: TaskStatus) => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status }),
-      });
-      if (handleUnauthorized(res)) return;
-
-      if (res.ok) {
-        const updated = await res.json();
-        setTasks((prev) =>
-          prev.map((task) =>
-            task._id === taskId ? { ...updated, status: normalizeTaskStatus(updated.status) } : task,
-          ),
-        );
-      } else {
-        showToast("error", "❌ Failed to update task status");
-      }
-    } catch (err) {
-      console.error("Update task status error:", err);
-      showToast("error", "❌ Failed to update task status");
-    }
-  };
-
-  const handleDeleteTask = async () => {
-    if (!taskToDelete?._id) return;
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/admin/tasks/${taskToDelete._id}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      if (handleUnauthorized(res)) return;
-
-      if (res.ok) {
-        setTasks((prev) => prev.filter((t) => t._id !== taskToDelete._id));
-        setShowDeleteTaskModal(false);
-        setTaskToDelete(null);
-      } else {
-        showToast("error", "❌ Failed to delete task");
-      }
-    } catch (err) {
-      console.error("Delete task error:", err);
-      showToast("error", "❌ Failed to delete task");
-    }
-  };
-
-  const handleCreateTask = async () => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-    const currentUserId = (user as any)?._id || user?.id;
-    if (!newTask.title?.trim()) {
-      showToast("warning", "⚠️ Task title is required");
-      return;
-    }
-    const assignedId = newTask.assignedTo || currentUserId;
-    if (!assignedId) {
-      showToast("error", "❌ Missing user id. Please login again.");
-      return;
-    }
-
-    try {
-      const payload = {
-        user: assignedId,
-        assignedTo: assignedId,
-        title: newTask.title.trim(),
-        description: newTask.description?.trim() || "",
-        status: newTask.status,
-        dueDate: newTask.dueDate || undefined,
-        reminderAt: newTask.reminderAt || undefined,
-        relatedToType: newTask.relatedToType,
-        relatedToId: newTask.relatedToId?.trim() || "",
-        taskType: newTask.taskType,
-      };
-
-      const endpoint = editingTask?._id
-        ? `${API_BASE_URL}/api/admin/tasks/${editingTask._id}`
-        : `${API_BASE_URL}/api/admin/tasks`;
-      const method = editingTask?._id ? "PATCH" : "POST";
-      const res = await fetch(endpoint, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      if (handleUnauthorized(res)) return;
-
-      if (res.ok) {
-        const updatedTask = await res.json();
-        if (editingTask?._id) {
-          setTasks((prev) =>
-            prev.map((t) =>
-              t._id === editingTask._id
-                ? { ...updatedTask, status: normalizeTaskStatus(updatedTask.status) }
-                : t,
-            ),
-          );
-        } else {
-          setTasks((prev) => [
-            { ...updatedTask, status: normalizeTaskStatus(updatedTask.status) },
-            ...prev,
-          ]);
-        }
-        setShowCreateTask(false);
-        setEditingTask(null);
-        setNewTask(createDefaultTaskForm());
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        showToast("error", `❌ ${errData.message || "Failed to create task"}`);
-      }
-    } catch (err) {
-      console.error("Create task error:", err);
-      showToast("error", "❌ Failed to create task");
-    }
-  };
-
-  const openEditTask = (task: TaskItem) => {
-    setEditingTask(task);
-    setNewTask({
-      title: task.title || "",
-      relatedToType: task.relatedToType || "Lead",
-      relatedToId: task.relatedToId || "",
-      taskType: task.taskType || "Internal Task",
-      status: normalizeTaskStatus(task.status),
-      dueDate: task.dueDate ? toDateTimeLocalValue(task.dueDate) : "",
-      reminderAt: task.reminderAt ? toDateTimeLocalValue(task.reminderAt) : "",
-      assignedTo:
-        typeof task.assignedTo === "string"
-          ? task.assignedTo
-          : task.assignedTo?._id || task.user?._id || "",
-      description: task.description || "",
-    });
-    setShowCreateTask(true);
-  };
-
-  const addTaskComment = async () => {
-    if (!viewingTask?._id) return;
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-    const text = taskCommentText.trim();
-    if (!text) return;
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/tasks/${viewingTask._id}/comments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ text }),
-      });
-      if (handleUnauthorized(res)) return;
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to add comment");
-      }
-
-      const updated = await res.json();
-      const normalized = { ...updated, status: normalizeTaskStatus(updated.status) };
-      setTasks((prev) => prev.map((t) => (t._id === viewingTask._id ? normalized : t)));
-      setViewingTask(normalized);
-      setTaskCommentText("");
-    } catch (err) {
-      console.error("Add task comment error:", err);
-      showToast("error", "❌ Failed to add comment");
-    }
   };
 
   const [startDate, setStartDate] = useState("");
@@ -2467,6 +2176,28 @@ const Admin: React.FC = () => {
   const [leadTypeFilter, setLeadTypeFilter] = useState<string[]>([]);
   const [leadSort, setLeadSort] = useState<"asc" | "desc">("desc");
 
+  // 🔍 DEALS SORT & FILTER STATE
+  const [dealSortOption, setDealSortOption] = useState<string>("");
+  const [dealStageFilter, setDealStageFilter] = useState<string>("All");
+  const [dealSourceFilter, setDealSourceFilter] = useState<string>("All");
+  const [isDealSortOpen, setIsDealSortOpen] = useState<boolean>(false);
+  const dealSortDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dealSortDropdownRef.current &&
+        !dealSortDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsDealSortOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   // ===============================
   // FILTERED LEADS
   // ===============================
@@ -2505,6 +2236,120 @@ const Admin: React.FC = () => {
 
     return list;
   }, [leads, leadSearch, leadStatusFilter, leadTypeFilter, leadSort]);
+
+  const dealStageOptions = useMemo(() => {
+    const defaultStages = ["New", "Contacted", "Interested", "Lost"];
+    const fromData = leads
+      .map((l) => String(getDealDraftValue(l, "status") || l.status || ""))
+      .filter(Boolean);
+    return Array.from(new Set([...defaultStages, ...fromData]));
+  }, [leads, dealDrafts]);
+
+  const dealSourceOptions = useMemo(() => {
+    const defaultSources = [
+      "WhatsApp",
+      "Phone contact",
+      "Social Media",
+      "Email",
+      "Referral",
+      "Website",
+    ];
+    const fromData = leads
+      .map((l) => String(getDealDraftValue(l, "leadSource") || l.leadSource || ""))
+      .filter(Boolean);
+    return Array.from(new Set([...defaultSources, ...fromData]));
+  }, [leads, dealDrafts]);
+
+  const filteredAndSortedDeals = useMemo(() => {
+    let list = [...leads];
+
+    // STAGE FILTER
+    if (dealStageFilter && dealStageFilter !== "All") {
+      list = list.filter((l) => {
+        const stg = String(getDealDraftValue(l, "status") || l.status || "New");
+        return stg === dealStageFilter;
+      });
+    }
+
+    // LEAD SOURCE FILTER
+    if (dealSourceFilter && dealSourceFilter !== "All") {
+      list = list.filter((l) => {
+        const src = String(getDealDraftValue(l, "leadSource") || l.leadSource || "");
+        return src === dealSourceFilter;
+      });
+    }
+
+    // SORT
+    if (dealSortOption) {
+      list.sort((a, b) => {
+        if (dealSortOption === "date-desc") {
+          const da = new Date(a.createdAt || 0).getTime();
+          const db = new Date(b.createdAt || 0).getTime();
+          return db - da;
+        }
+        if (dealSortOption === "date-asc") {
+          const da = new Date(a.createdAt || 0).getTime();
+          const db = new Date(b.createdAt || 0).getTime();
+          return da - db;
+        }
+        if (dealSortOption === "amount-desc" || dealSortOption === "amount-asc") {
+          const getVal = (item: Lead) => {
+            const raw = getDealDraftValue(item, "expectedAmount") ?? item.expectedAmount;
+            if (typeof raw === "number") return raw;
+            const parsed = parseFloat(String(raw || "0").replace(/[^0-9.-]+/g, ""));
+            return Number.isNaN(parsed) ? 0 : parsed;
+          };
+          const va = getVal(a);
+          const vb = getVal(b);
+          return dealSortOption === "amount-desc" ? vb - va : va - vb;
+        }
+        if (dealSortOption === "name-asc" || dealSortOption === "name-desc") {
+          const getName = (item: Lead) => {
+            const fn = String(getDealDraftValue(item, "firstName") || item.firstName || "").trim();
+            const ln = String(getDealDraftValue(item, "lastName") || item.lastName || "").trim();
+            return `${fn} ${ln}`.trim().toLowerCase();
+          };
+          const na = getName(a);
+          const nb = getName(b);
+          const cmp = na.localeCompare(nb);
+          return dealSortOption === "name-asc" ? cmp : -cmp;
+        }
+        return 0;
+      });
+    }
+
+    return list;
+  }, [leads, dealDrafts, dealStageFilter, dealSourceFilter, dealSortOption]);
+
+  const handleClearDealFilters = () => {
+    setDealSortOption("");
+    setDealStageFilter("All");
+    setDealSourceFilter("All");
+  };
+
+  const isDealFiltersActive =
+    dealSortOption !== "" ||
+    dealStageFilter !== "All" ||
+    dealSourceFilter !== "All";
+
+  const getSortLabel = (opt: string) => {
+    switch (opt) {
+      case "date-desc":
+        return "Date: Newest first";
+      case "date-asc":
+        return "Date: Oldest first";
+      case "amount-desc":
+        return "Expected Amount: Highest first";
+      case "amount-asc":
+        return "Expected Amount: Lowest first";
+      case "name-asc":
+        return "Name: A → Z";
+      case "name-desc":
+        return "Name: Z → A";
+      default:
+        return "Sort by";
+    }
+  };
 
   const toDateInputValue = (value?: string) => {
     if (!value) return "";
@@ -2620,68 +2465,9 @@ const Admin: React.FC = () => {
     supportSort,
   ]);
 
-  // ===============================
-  // FILTERED TASKS
-  // ===============================
-  const filteredTasks = useMemo(() => {
-    let list = [...tasks];
-
-    list = list.filter((task) => {
-      const status = normalizeTaskStatus(task.status);
-      if (!showPendingTasks && status === "Pending") return false;
-      if (!showInProgressTasks && status === "In Progress") return false;
-      if (!showCompletedTasks && status === "Completed") return false;
-      return true;
-    });
-
-    list = list.filter((task) => {
-      const rawDate = task.dueDate || task.createdAt;
-      if (!rawDate) return !taskFromDate && !taskToDate;
-
-      const t = new Date(rawDate).getTime();
-      if (Number.isNaN(t)) return !taskFromDate && !taskToDate;
-
-      if (taskFromDate) {
-        const from = new Date(taskFromDate).setHours(0, 0, 0, 0);
-        if (t < from) return false;
-      }
-
-      if (taskToDate) {
-        const to = new Date(taskToDate).setHours(23, 59, 59, 999);
-        if (t > to) return false;
-      }
-
-      return true;
-    });
-
-    list.sort((a, b) => {
-      const da = new Date(a.dueDate || a.createdAt || 0).getTime();
-      const db = new Date(b.dueDate || b.createdAt || 0).getTime();
-      return taskSort === "asc" ? da - db : db - da;
-    });
-
-    return list;
-  }, [
-    tasks,
-    showPendingTasks,
-    showInProgressTasks,
-    showCompletedTasks,
-    taskFromDate,
-    taskToDate,
-    taskSort,
-  ]);
-
-  const isTaskOverdue = (task: TaskItem) => {
-    const status = normalizeTaskStatus(task.status);
-    if (status === "Completed" || status === "Cancelled") return false;
-    const dueMs = task.dueDate ? new Date(task.dueDate).getTime() : NaN;
-    if (Number.isNaN(dueMs)) return false;
-    return dueMs < Date.now();
-  };
-
   type AdminNotification = {
     id: string;
-    category: "lead" | "support" | "task";
+    category: "lead" | "support";
     severity: "high" | "medium";
     title: string;
     detail: string;
@@ -2743,31 +2529,6 @@ const Admin: React.FC = () => {
       });
     });
 
-    tasks.forEach((task, index) => {
-      const taskStatus = (task.status || "").toLowerCase();
-      if (taskStatus === "completed") return;
-
-      const dueMs = task.dueDate ? new Date(task.dueDate).getTime() : NaN;
-      if (Number.isNaN(dueMs)) return;
-
-      const diff = dueMs - now;
-      if (diff > oneDayMs) return;
-
-      const isOverdue = diff < 0;
-      const taskId = task._id || index;
-      items.push({
-        id: `task-${taskId}`,
-        category: "task",
-        severity: isOverdue ? "high" : "medium",
-        title: `Task Deadline: ${task.title || "Untitled Task"}`,
-        detail: isOverdue
-          ? `Task is overdue by ${formatDurationFromMs(Math.abs(diff))}.`
-          : `Task is due in ${formatDurationFromMs(diff)}.`,
-        whenText: formatDateTime(dueMs),
-        whenMs: dueMs,
-      });
-    });
-
     return items.sort((a, b) => {
       const severityOrder = (x: AdminNotification["severity"]) =>
         x === "high" ? 0 : 1;
@@ -2776,7 +2537,7 @@ const Admin: React.FC = () => {
       }
       return a.whenMs - b.whenMs;
     });
-  }, [leads, supportMessages, tasks]);
+  }, [leads, supportMessages]);
 
   // 🔍 NOTIFICATIONS FILTER STATE
   const [notificationCategoryFilter, setNotificationCategoryFilter] = useState<
@@ -3089,7 +2850,6 @@ const Admin: React.FC = () => {
         "/admin/deals": "deals",
         "/admin/invoices": "invoices",
         "/admin/support": "support",
-        "/admin/tasks": "tasks",
         "/admin/notifications": "notifications",
         "/admin/customers": "customers",
         "/admin/reports": "reports",
@@ -3131,7 +2891,7 @@ const Admin: React.FC = () => {
         }
       } else if (view && [
         "dashboard", "notifications", "leads", "deals", "invoices", "support",
-        "tasks", "users", "all-influencers", "influencers", "withdrawals",
+        "users", "all-influencers", "influencers", "withdrawals",
         "customers", "products", "promo", "orders", "reports", "profile"
       ].includes(view)) {
         setCurrentView(view as any);
@@ -3178,10 +2938,6 @@ const Admin: React.FC = () => {
       case "deals":
         fetchLeadsData();
         break;
-      case "tasks":
-        fetchTasks();
-        fetchUsersData();
-        break;
       case "invoices":
         fetchInvoicesAndCataloguesData();
         break;
@@ -3190,7 +2946,6 @@ const Admin: React.FC = () => {
         break;
       case "notifications":
         fetchLeadsData();
-        fetchTasks();
         fetchSupportMessages();
         break;
 
@@ -3250,6 +3005,9 @@ const Admin: React.FC = () => {
     setIsAuthenticated(false);
     setUser(null);
     setCurrentView("login");
+    if (window.location.pathname !== "/admin/login") {
+      navigate("/admin/login", { replace: true });
+    }
   };
 
   const handleUnauthorized = (res: Response) => {
@@ -3257,10 +3015,33 @@ const Admin: React.FC = () => {
     clearAdminSession();
     if (!authToastShownRef.current) {
       authToastShownRef.current = true;
-      showToast("error", "🔒 Session expired. Please login again.");
+      showToast("error", "🔒 Please sign in to the admin panel again.");
     }
     return true;
   };
+
+  // Each admin section (Revenue, Logs, Invoices...) makes its own requests, so
+  // one watch on fetch sends the panel back to sign-in whenever any admin API
+  // says the token is expired or predates 2-step verification. The sign-in
+  // endpoints are skipped: their 401s mean "start sign-in again", handled there.
+  useEffect(() => {
+    const originalFetch = window.fetch;
+    window.fetch = async (...args: Parameters<typeof fetch>) => {
+      const res = await originalFetch(...args);
+      if (res.status === 401) {
+        const input = args[0];
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as any)?.url || "";
+        if (typeof url === "string" && url.includes("/api/admin") && !/\/api\/admin\/(login|google-login)/.test(url)) {
+          handleUnauthorized(res);
+        }
+      }
+      return res;
+    };
+    return () => {
+      window.fetch = originalFetch;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate]);
 
   const checkAuth = async () => {
     let token = localStorage.getItem("adminToken");
@@ -3273,7 +3054,10 @@ const Admin: React.FC = () => {
       if (storefrontToken && storefrontUserRaw) {
         try {
           const sfUser = JSON.parse(storefrontUserRaw);
-          if (sfUser.role === "admin" || sfUser.role === "superadmin") {
+          // Only a token that went through admin 2-step verification opens the panel;
+          // a plain storefront sign-in would just bounce with "session expired".
+          const claims = JSON.parse(atob(storefrontToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+          if ((sfUser.role === "admin" || sfUser.role === "superadmin") && claims.mfa === true) {
             // Set for admin panel
             localStorage.setItem("adminToken", storefrontToken);
             localStorage.setItem("adminUser", storefrontUserRaw);
@@ -3678,27 +3462,31 @@ const Admin: React.FC = () => {
         throw new Error(data.message || "Login failed");
       }
 
-      // Check if user is admin or superadmin
-      if (data.user?.role !== "admin" && data.user?.role !== "superadmin") {
-        throw new Error("Only admins can access this panel");
-      }
-
-      localStorage.setItem("adminToken", data.token);
-      localStorage.setItem("adminUser", JSON.stringify(data.user));
-      // Mirror into the storefront session so the shop recognises the admin
-      // and the shop <-> admin panel toggle works in both directions.
-      syncStorefrontSession(data.token, data.user);
-
-      authToastShownRef.current = false;
-      setIsAuthenticated(true);
-      setUser(data.user);
-      setCurrentView("dashboard");
-      await fetchDashboardData(data.token);
+      // Password accepted. The server says what's left (new password, 2-step code).
+      setLoginStep(data);
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
+  };
+
+  // Runs when the last sign-in step hands back the admin token.
+  const completeAdminLogin = async (data: { token: string; user: any }) => {
+    setLoginStep(null);
+    setLoginPassword("");
+    setError("");
+    localStorage.setItem("adminToken", data.token);
+    localStorage.setItem("adminUser", JSON.stringify(data.user));
+    // Mirror into the storefront session so the shop recognises the admin
+    // and the shop <-> admin panel toggle works in both directions.
+    syncStorefrontSession(data.token, data.user);
+
+    authToastShownRef.current = false;
+    setIsAuthenticated(true);
+    setUser(data.user);
+    setCurrentView("dashboard");
+    await fetchDashboardData(data.token);
   };
 
   const handleLogout = () => {
@@ -3749,8 +3537,9 @@ const Admin: React.FC = () => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               name: googleUser.name,
-              email: googleUser.email,
               avatar: googleUser.picture,
+              // The server asks Google who this token belongs to; the email is never taken from the browser.
+              accessToken: tokenResponse.access_token,
             }),
           },
         );
@@ -3762,17 +3551,8 @@ const Admin: React.FC = () => {
           return;
         }
 
-        localStorage.setItem("adminToken", data.token);
-        localStorage.setItem("adminUser", JSON.stringify(data.user));
-        // Mirror into the storefront session so the shop recognises the admin
-        // and the shop <-> admin panel toggle works in both directions.
-        syncStorefrontSession(data.token, data.user);
-
-        authToastShownRef.current = false;
-        setIsAuthenticated(true);
-        setUser(data.user);
-        setCurrentView("dashboard");
-        await fetchDashboardData(data.token);
+        // Google accepted. The 2-step code is still required.
+        setLoginStep(data);
       } catch {
         setError("Google login failed");
       } finally {
@@ -3801,8 +3581,8 @@ const Admin: React.FC = () => {
 
       // Only include password fields if new password is provided
       if (profileForm.newPassword) {
-        if (profileForm.newPassword.length < 6) {
-          setError("New password must be at least 6 characters");
+        if (!meetsAdminPasswordRules(profileForm.newPassword)) {
+          setError(ADMIN_PASSWORD_HINT);
           setUpdatingProfile(false);
           return;
         }
@@ -4108,6 +3888,12 @@ const Admin: React.FC = () => {
       return false;
     }
   };
+
+  // Admin accounts need the full password policy; customers keep the 6-character minimum.
+  const resetTargetIsAdmin = (target: { role?: string } | null) =>
+    target?.role === "admin" || target?.role === "superadmin";
+  const resetPasswordAllowed = (target: { role?: string } | null, password: string) =>
+    resetTargetIsAdmin(target) ? meetsAdminPasswordRules(password) : password.length >= 6;
 
   const handleResetPassword = async (userId: string, newPassword: string) => {
     const token = localStorage.getItem("adminToken");
@@ -4636,6 +4422,12 @@ const Admin: React.FC = () => {
   const openPromoModal = (promo?: PromoCode) => {
     if (promo) {
       setEditingPromoId(promo._id);
+      const assignedIds = Array.isArray(promo.assignedInfluencers)
+        ? promo.assignedInfluencers.map((i: any) => String(i._id || i))
+        : promo.createdBy?._id
+        ? [String(promo.createdBy._id)]
+        : [];
+
       setPromoForm({
         code: promo.code,
         promoType: promo.promoType || "company",
@@ -4648,6 +4440,7 @@ const Admin: React.FC = () => {
         validUntil: promo.validUntil ? String(promo.validUntil).split("T")[0] : "",
         description: promo.description || "",
         earningPerUnit: promo.earningPerUnit || 5,
+        assignedInfluencers: assignedIds,
       });
     } else {
       setEditingPromoId(null);
@@ -4739,10 +4532,14 @@ const Admin: React.FC = () => {
     }
   };
 
-  const deletePromoCode = async (promoId: string) => {
+  const deletePromoCode = (promoId: string) => {
+    setDeletePromoConfirmId(promoId);
+  };
+
+  const executeDeletePromoCode = async (promoId: string) => {
+    setDeletePromoConfirmId(null);
     const token = localStorage.getItem("adminToken");
     if (!token) return;
-    if (!window.confirm("Delete this promo code?")) return;
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/promo/${promoId}`, {
@@ -5125,6 +4922,18 @@ const Admin: React.FC = () => {
               </div>
             )}
 
+            {loginStep ? (
+              <AdminLoginSteps
+                initial={loginStep}
+                onSignedIn={completeAdminLogin}
+                onCancel={(message) => {
+                  setLoginStep(null);
+                  setLoginPassword("");
+                  setError(message || "");
+                }}
+              />
+            ) : (
+            <>
             <form onSubmit={handleAdminLogin} className="space-y-4">
               <div>
                 <label className="block text-sm font-bold text-black mb-1.5">
@@ -5240,6 +5049,8 @@ const Admin: React.FC = () => {
               </svg>
               {isGoogleLoading ? "Connecting..." : "Continue with Google"}
             </button>
+            </>
+            )}
           </div>
         </div>
       </div>
@@ -5284,6 +5095,7 @@ const Admin: React.FC = () => {
                   { id: "dashboard", label: "Dashboard", icon: <DashboardRoundedIcon sx={{ fontSize: 22 }} /> },
                   { id: "notifications", label: "Notifications", icon: <NotificationsActiveRoundedIcon sx={{ fontSize: 22 }} />, badge: notifications.length },
                   { id: "reports", label: "Reports", icon: <BarChart3 className="w-5 h-5" /> },
+                  { id: "revenue", label: "Revenue", icon: <IndianRupee className="w-5 h-5" /> },
                 ],
               },
               {
@@ -5301,7 +5113,6 @@ const Admin: React.FC = () => {
                   { id: "deals", label: "Deals", icon: <BriefcaseBusiness className="w-5 h-5" /> },
                   { id: "invoices", label: "Invoices", icon: <ReceiptLongRoundedIcon sx={{ fontSize: 22 }} /> },
                   { id: "support", label: "Support", icon: <SupportAgentRoundedIcon sx={{ fontSize: 22 }} /> },
-                  { id: "tasks", label: "Tasks", icon: <AssignmentTurnedInRoundedIcon sx={{ fontSize: 22 }} /> },
                 ],
               },
               {
@@ -5459,12 +5270,12 @@ const Admin: React.FC = () => {
 
               <h2 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-900 truncate">
                 {currentView === "dashboard" && "Dashboard"}
+                {currentView === "revenue" && "Revenue"}
                 {currentView === "notifications" && "Notifications"}
                 {currentView === "leads" && "Leads"}
                 {currentView === "deals" && "Deals"}
                 {currentView === "invoices" && "Invoices"}
                 {currentView === "support" && "Support"}
-                {currentView === "tasks" && "Tasks"}
                 {currentView === "users" && "All Users"}
                 {currentView === "all-influencers" && "All Influencers"}
                 {currentView === "influencers" && "Pending Approvals"}
@@ -6252,6 +6063,191 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 </div>
               </div>
 
+              {/* SORT & FILTER CONTROLS TOOLBAR */}
+              <div className="bg-white rounded-xl border p-4 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* STAGE FILTER */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Stage:</span>
+                    <select
+                      value={dealStageFilter}
+                      onChange={(e) => setDealStageFilter(e.target.value)}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    >
+                      <option value="All">All Stages</option>
+                      {dealStageOptions.map((stg) => (
+                        <option key={stg} value={stg}>
+                          {stg}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* LEAD SOURCE FILTER */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Source:</span>
+                    <select
+                      value={dealSourceFilter}
+                      onChange={(e) => setDealSourceFilter(e.target.value)}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    >
+                      <option value="All">All Sources</option>
+                      {dealSourceOptions.map((src) => (
+                        <option key={src} value={src}>
+                          {src}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* SORT BY DROPDOWN POPOVER */}
+                  <div className="relative" ref={dealSortDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsDealSortOpen((prev) => !prev)}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${
+                        dealSortOption
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <ArrowUpDown className="h-4 w-4" />
+                      <span>{dealSortOption ? getSortLabel(dealSortOption) : "Sort by"}</span>
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${
+                          isDealSortOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {isDealSortOpen && (
+                      <div className="absolute left-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-xl z-20 space-y-2">
+                        {/* DATE SECTION */}
+                        <div>
+                          <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Date
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDealSortOption("date-desc");
+                              setIsDealSortOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-sm rounded-md font-medium transition ${
+                              dealSortOption === "date-desc"
+                                ? "bg-slate-100 font-bold text-slate-900"
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            Newest first
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDealSortOption("date-asc");
+                              setIsDealSortOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-sm rounded-md font-medium transition ${
+                              dealSortOption === "date-asc"
+                                ? "bg-slate-100 font-bold text-slate-900"
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            Oldest first
+                          </button>
+                        </div>
+
+                        <div className="border-t border-slate-100" />
+
+                        {/* EXPECTED AMOUNT SECTION */}
+                        <div>
+                          <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Expected Amount
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDealSortOption("amount-desc");
+                              setIsDealSortOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-sm rounded-md font-medium transition ${
+                              dealSortOption === "amount-desc"
+                                ? "bg-slate-100 font-bold text-slate-900"
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            Highest first
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDealSortOption("amount-asc");
+                              setIsDealSortOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-sm rounded-md font-medium transition ${
+                              dealSortOption === "amount-asc"
+                                ? "bg-slate-100 font-bold text-slate-900"
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            Lowest first
+                          </button>
+                        </div>
+
+                        <div className="border-t border-slate-100" />
+
+                        {/* NAME SECTION */}
+                        <div>
+                          <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Name
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDealSortOption("name-asc");
+                              setIsDealSortOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-sm rounded-md font-medium transition ${
+                              dealSortOption === "name-asc"
+                                ? "bg-slate-100 font-bold text-slate-900"
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            A → Z
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDealSortOption("name-desc");
+                              setIsDealSortOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-sm rounded-md font-medium transition ${
+                              dealSortOption === "name-desc"
+                                ? "bg-slate-100 font-bold text-slate-900"
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            Z → A
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* CLEAR FILTERS BUTTON */}
+                {isDealFiltersActive && (
+                  <button
+                    type="button"
+                    onClick={handleClearDealFilters}
+                    className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Clear filters
+                  </button>
+                )}
+              </div>
+
               <div className="bg-white rounded-xl border overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[1100px]">
@@ -6267,14 +6263,14 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredLeads.length === 0 ? (
+                      {filteredAndSortedDeals.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">
                             No deals found.
                           </td>
                         </tr>
                       ) : (
-                        filteredLeads.map((lead) => (
+                        filteredAndSortedDeals.map((lead) => (
                           <tr
                             key={lead._id || `${lead.email}-${lead.phone}`}
                             className="border-b last:border-b-0"
@@ -6394,7 +6390,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 <div>
                   <h3 className="text-lg font-black text-slate-900">Action Alerts</h3>
                   <p className="text-sm text-slate-600">
-                    Leads follow-up, Support SLA, and Task deadlines within 1 day.
+                    Leads follow-up and Support SLA deadlines within 1 day.
                   </p>
                 </div>
                 <span className="text-sm font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-700">
@@ -6411,7 +6407,6 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   {[
                     { value: "lead", label: "Lead" },
                     { value: "support", label: "Support" },
-                    { value: "task", label: "Task" },
                   ].map((c) => (
                     <label
                       key={c.value}
@@ -6494,11 +6489,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         type="button"
                         onClick={() =>
                           setCurrentView(
-                            item.category === "lead"
-                              ? "leads"
-                              : item.category === "support"
-                                ? "support"
-                                : "tasks",
+                            item.category === "lead" ? "leads" : "support"
                           )
                         }
                         className="shrink-0 border rounded-lg px-3 py-1.5 text-xs font-semibold bg-white hover:bg-slate-50"
@@ -6936,431 +6927,9 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   </div>
                 </div>
               )}
-              </div>
             </div>
-          )}
-
-          
-
-          {/* ================= TASKS VIEW ================= */}
-          {currentView === "tasks" && (
-            <div className="flex flex-col xl:flex-row gap-4 xl:gap-6 min-w-0">
-              <aside className="w-full xl:w-[260px] shrink-0 bg-white rounded-xl border p-5 space-y-6 h-fit">
-                <h3 className="font-black text-sm">Filters</h3>
-
-                <div className="space-y-2 text-sm">
-                  <p className="text-xs font-black uppercase text-slate-600">Status</p>
-                  <label className="flex gap-2 items-center">
-                    <input
-                      type="checkbox"
-                      checked={showInProgressTasks}
-                      onChange={(e) => setShowInProgressTasks(e.target.checked)}
-                    />
-                    In Progress
-                  </label>
-                  <label className="flex gap-2 items-center">
-                    <input
-                      type="checkbox"
-                      checked={showPendingTasks}
-                      onChange={(e) => setShowPendingTasks(e.target.checked)}
-                    />
-                    Pending
-                  </label>
-                  <label className="flex gap-2 items-center">
-                    <input
-                      type="checkbox"
-                      checked={showCompletedTasks}
-                      onChange={(e) => setShowCompletedTasks(e.target.checked)}
-                    />
-                    Completed
-                  </label>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-black uppercase text-slate-600">Date</p>
-                  <input
-                    type="date"
-                    value={taskFromDate}
-                    onChange={(e) => setTaskFromDate(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  />
-                  <input
-                    type="date"
-                    value={taskToDate}
-                    onChange={(e) => setTaskToDate(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  />
-                </div>
-              </aside>
-
-              <div className="flex-1 min-w-0 flex flex-col gap-6">
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                  <h2 className="text-2xl font-black">Tasks ({filteredTasks.length})</h2>
-                  <button
-                    onClick={() => {
-                      setEditingTask(null);
-                      setNewTask(createDefaultTaskForm());
-                      setShowCreateTask(true);
-                    }}
-                    className="bg-indigo-600 hover:bg-indigo-700 admin-zoho-keep-white px-4 py-2 rounded-lg text-sm font-semibold"
-                  >
-                    + Create Task
-                  </button>
-                </div>
-
-                <div className="bg-white border rounded-xl overflow-x-auto">
-                  <div className="min-w-[1180px]">
-                    <div className="grid grid-cols-8 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left">
-                      <span>Title</span>
-                      <span>Related To</span>
-                      <span>Type</span>
-                      <span>Status</span>
-                      <span>Due Date</span>
-                      <span>Reminder</span>
-                      <span>Assigned To</span>
-                      <span>Actions</span>
-                    </div>
-
-                    {filteredTasks.length === 0 ? (
-                      <div className="p-10 text-center text-slate-400">No tasks found</div>
-                    ) : (
-                      filteredTasks.map((task, index) => {
-                        const overdue = isTaskOverdue(task);
-                        const taskStatus = overdue ? "Overdue" : normalizeTaskStatus(task.status);
-
-                        return (
-                          <div
-                            key={task._id || index}
-                            className={`grid grid-cols-8 px-6 py-4 text-sm border-b items-center ${
-                              overdue ? "bg-red-50" : "hover:bg-slate-50"
-                            }`}
-                          >
-                            <button
-                              type="button"
-                              className="text-left font-semibold hover:underline"
-                              onClick={() => setViewingTask(task)}
-                            >
-                              {task.title}
-                            </button>
-                            <span>
-                              {task.relatedToType && task.relatedToId
-                                ? `${task.relatedToType} #${task.relatedToId}`
-                                : "—"}
-                            </span>
-                            <span>{task.taskType || "Internal Task"}</span>
-                            <span>
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                  taskStatus === "Overdue"
-                                    ? "bg-red-100 text-red-700"
-                                    : taskStatus === "Completed"
-                                      ? "bg-green-100 text-green-700"
-                                      : taskStatus === "In Progress"
-                                        ? "bg-blue-100 text-blue-700"
-                                        : "bg-amber-100 text-amber-700"
-                                }`}
-                              >
-                                {taskStatus}
-                              </span>
-                            </span>
-                            <span>{task.dueDate ? formatDate(task.dueDate) : "—"}</span>
-                            <span>
-                              {task.reminderAt ? formatDateTime(task.reminderAt) : "—"}
-                            </span>
-                            <span>
-                              {typeof task.assignedTo === "object"
-                                ? task.assignedTo?.name || task.assignedTo?.email || "—"
-                                : task.user?.name || task.user?.email || "—"}
-                            </span>
-                            <span className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setViewingTask(task)}
-                                className="border rounded-lg px-2 py-1 text-xs hover:bg-slate-100"
-                              >
-                                View
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openEditTask(task)}
-                                className="border rounded-lg px-2 py-1 text-xs hover:bg-slate-100"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setTaskToDelete(task);
-                                  setShowDeleteTaskModal(true);
-                                }}
-                                className="text-red-600 border border-red-300 px-2 py-1 rounded-lg hover:bg-red-50 text-xs"
-                              >
-                                Delete
-                              </button>
-                            </span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {showCreateTask && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white w-full max-w-3xl rounded-xl p-6 space-y-5 border max-h-[90vh] overflow-y-auto">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-xl font-bold">
-                        {editingTask ? "Edit Task" : "Create Task"}
-                      </h3>
-                      <button
-                        onClick={() => {
-                          setShowCreateTask(false);
-                          setEditingTask(null);
-                          setNewTask(createDefaultTaskForm());
-                        }}
-                        className="text-sm text-slate-500 hover:text-slate-800"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <input
-                        placeholder="Task Title"
-                        value={newTask.title}
-                        onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                        className="border rounded-lg px-3 py-2 md:col-span-2"
-                      />
-
-                      <select
-                        value={newTask.relatedToType}
-                        onChange={(e) =>
-                          setNewTask({
-                            ...newTask,
-                            relatedToType: e.target.value as TaskFormState["relatedToType"],
-                          })
-                        }
-                        className="border rounded-lg px-3 py-2"
-                      >
-                        <option value="Lead">Lead</option>
-                        <option value="Contact">Contact</option>
-                        <option value="Order">Order</option>
-                        <option value="Support Ticket">Support Ticket</option>
-                        <option value="Influencer">Influencer</option>
-                      </select>
-                      <input
-                        placeholder="Select Entity ID"
-                        value={newTask.relatedToId}
-                        onChange={(e) => setNewTask({ ...newTask, relatedToId: e.target.value })}
-                        className="border rounded-lg px-3 py-2"
-                      />
-
-                      <select
-                        value={newTask.taskType}
-                        onChange={(e) =>
-                          setNewTask({
-                            ...newTask,
-                            taskType: e.target.value as TaskFormState["taskType"],
-                          })
-                        }
-                        className="border rounded-lg px-3 py-2"
-                      >
-                        <option value="Call">Call</option>
-                        <option value="Email">Email</option>
-                        <option value="WhatsApp Follow-up">WhatsApp Follow-up</option>
-                        <option value="Order Confirmation">Order Confirmation</option>
-                        <option value="Refund Processing">Refund Processing</option>
-                        <option value="Influencer Follow-up">Influencer Follow-up</option>
-                        <option value="Internal Task">Internal Task</option>
-                      </select>
-
-                      <select
-                        value={newTask.status}
-                        onChange={(e) =>
-                          setNewTask({ ...newTask, status: e.target.value as TaskStatus })
-                        }
-                        className="border rounded-lg px-3 py-2"
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Waiting on Customer">Waiting on Customer</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Cancelled">Cancelled</option>
-                      </select>
-
-                      <input
-                        type="datetime-local"
-                        value={newTask.dueDate}
-                        onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
-                        className="border rounded-lg px-3 py-2"
-                      />
-                      <input
-                        type="datetime-local"
-                        value={newTask.reminderAt}
-                        onChange={(e) => setNewTask({ ...newTask, reminderAt: e.target.value })}
-                        className="border rounded-lg px-3 py-2"
-                      />
-
-                      <select
-                        value={newTask.assignedTo}
-                        onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
-                        className="border rounded-lg px-3 py-2"
-                      >
-                        <option value="">Select Assignee</option>
-                        {allUsers.map((u: any) => (
-                          <option key={u._id} value={u._id}>
-                            {u.name || u.email}
-                          </option>
-                        ))}
-                      </select>
-
-                      <textarea
-                        placeholder="Description"
-                        value={newTask.description}
-                        onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                        className="border rounded-lg px-3 py-2 md:col-span-2"
-                        rows={4}
-                      />
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-2 border-t">
-                      <button
-                        onClick={() => {
-                          setShowCreateTask(false);
-                          setEditingTask(null);
-                          setNewTask(createDefaultTaskForm());
-                        }}
-                        className="px-4 py-2 border rounded-lg"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleCreateTask}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 admin-zoho-keep-white rounded-lg font-semibold"
-                      >
-                        Save Task
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {viewingTask && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white w-full max-w-3xl rounded-xl border p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-xl font-bold">{viewingTask.title}</h3>
-                        <p className="text-sm text-slate-600">
-                          Related To →{" "}
-                          {viewingTask.relatedToType && viewingTask.relatedToId
-                            ? `${viewingTask.relatedToType} #${viewingTask.relatedToId}`
-                            : "—"}
-                        </p>
-                        <p className="text-sm text-slate-600">
-                          Assigned To →{" "}
-                          {typeof viewingTask.assignedTo === "object"
-                            ? viewingTask.assignedTo?.name || viewingTask.assignedTo?.email || "—"
-                            : viewingTask.user?.name || viewingTask.user?.email || "—"}
-                        </p>
-                        <p className="text-sm text-slate-600">
-                          Status → {isTaskOverdue(viewingTask) ? "Overdue" : normalizeTaskStatus(viewingTask.status)}
-                        </p>
-                        <p className="text-sm text-slate-600">
-                          Due → {viewingTask.dueDate ? formatDateTime(viewingTask.dueDate) : "—"}
-                        </p>
-                        <p className="text-sm text-slate-600">
-                          Reminder →{" "}
-                          {viewingTask.reminderAt ? formatDateTime(viewingTask.reminderAt) : "—"}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setViewingTask(null);
-                          setTaskCommentText("");
-                        }}
-                        className="text-sm text-slate-500 hover:text-slate-800"
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    <div className="border rounded-xl p-4 space-y-3">
-                      <h4 className="font-bold">Comments</h4>
-                      {(viewingTask.comments || []).length === 0 ? (
-                        <p className="text-sm text-slate-500">No comments yet.</p>
-                      ) : (
-                        (viewingTask.comments || []).map((c, idx) => (
-                          <div key={idx} className="border-b pb-2">
-                            <p className="text-sm font-semibold">{c.authorName}</p>
-                            <p className="text-xs text-slate-500">
-                              {formatDateTime(c.createdAt)}
-                            </p>
-                            <p className="text-sm mt-1">{c.text}</p>
-                          </div>
-                        ))
-                      )}
-                      <div className="flex gap-2 pt-2">
-                        <input
-                          value={taskCommentText}
-                          onChange={(e) => setTaskCommentText(e.target.value)}
-                          placeholder="Add comment"
-                          className="flex-1 border rounded-lg px-3 py-2 text-sm"
-                        />
-                        <button
-                          type="button"
-                          onClick={addTaskComment}
-                          className="px-3 py-2 border rounded-lg text-sm font-semibold hover:bg-slate-50"
-                        >
-                          Send
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="border rounded-xl p-4 space-y-3">
-                      <h4 className="font-bold">Activity Timeline</h4>
-                      {(viewingTask.activityTimeline || []).length === 0 ? (
-                        <p className="text-sm text-slate-500">No activity yet.</p>
-                      ) : (
-                        (viewingTask.activityTimeline || []).map((a, idx) => (
-                          <p key={idx} className="text-sm">
-                            {formatDateTime(a.createdAt)} - {a.message}
-                          </p>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {showDeleteTaskModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-xl p-6 w-full max-w-[400px] mx-4 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
-                    <h3 className="text-lg font-bold text-red-600">Delete Task?</h3>
-                    <p className="text-sm text-slate-600">
-                      Are you sure you want to delete this task?
-                    </p>
-                    <div className="flex justify-end gap-3">
-                      <button
-                        onClick={() => setShowDeleteTaskModal(false)}
-                        className="px-4 py-2 border rounded-lg"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleDeleteTask}
-                        className="text-red-600 border border-red-500 px-3 py-1 rounded-lg hover:bg-red-50 text-sm"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          </div>
+        )}
 
 
           {/* INFLUENCERS VIEW */}
@@ -8832,6 +8401,18 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                 onCancel={() => setDeleteModalState({ isOpen: false, ids: [], type: null, name: "", isDeleting: false })}
                 onConfirm={handleConfirmDelete}
               />
+
+              {deletePromoConfirmId && (
+                <ConfirmModal
+                  isOpen={!!deletePromoConfirmId}
+                  title="Delete Promo Code?"
+                  message="Are you sure you want to delete this promo code? This action cannot be undone."
+                  confirmText="Delete"
+                  cancelText="Cancel"
+                  onCancel={() => setDeletePromoConfirmId(null)}
+                  onConfirm={() => executeDeletePromoCode(deletePromoConfirmId)}
+                />
+              )}
             </div>
           )}
 
@@ -8875,14 +8456,14 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
               </div>
 
               <div className="bg-white border rounded-xl overflow-hidden">
-                <div className="grid grid-cols-8 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left">
+                <div className="grid grid-cols-9 px-6 py-4 text-sm font-bold border-b bg-slate-50 text-left gap-2">
                   <span>Code</span>
                   <span>Type</span>
+                  <span className="col-span-2">Assigned Influencer(s)</span>
                   <span>Discount</span>
                   <span>Usage</span>
                   <span>Valid Until</span>
                   <span>Status</span>
-                  <span>Toggle</span>
                   <span>Actions</span>
                 </div>
 
@@ -8894,10 +8475,33 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   promos.map((promo) => (
                     <div
                       key={promo._id}
-                      className="grid grid-cols-8 px-6 py-4 text-sm border-b hover:bg-slate-50 text-left items-center"
+                      className="grid grid-cols-9 px-6 py-4 text-sm border-b hover:bg-slate-50 text-left items-center gap-2"
                     >
                       <span className="font-mono font-bold text-indigo-600">{promo.code}</span>
                       <span className="capitalize">{promo.promoType}</span>
+                      <span className="col-span-2">
+                        {promo.assignedInfluencers && promo.assignedInfluencers.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {promo.assignedInfluencers.map((inf: any) => (
+                              <span
+                                key={inf._id || inf}
+                                className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200"
+                                title={`${inf.name || "Influencer"} (${inf.email || ""}) ID: ${inf._id || inf}`}
+                              >
+                                👤 {inf.name || inf.email || String(inf._id || inf).slice(-6)}
+                              </span>
+                            ))}
+                          </div>
+                        ) : promo.createdBy && typeof promo.createdBy === "object" && promo.createdBy.name ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                            👤 {promo.createdBy.name}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                            Not Assigned
+                          </span>
+                        )}
+                      </span>
                       <span>
                         {promo.discountType === "percentage"
                           ? `${promo.discountValue}%`
@@ -8923,7 +8527,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                           </span>
                         )}
                       </span>
-                      <span>
+                      <span className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => togglePromoStatus(promo._id)}
@@ -8931,8 +8535,6 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         >
                           {promo.isActive ? "Disable" : "Enable"}
                         </button>
-                      </span>
-                      <span className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => openPromoModal(promo)}
@@ -9095,6 +8697,59 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                         }
                         className="border rounded-lg px-3 py-2 sm:col-span-2"
                       />
+
+                      {/* INFLUENCER SELECTION BLOCK */}
+                      <div className="sm:col-span-2 space-y-1.5 border-t pt-3">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                          Assign to Influencer(s)
+                        </label>
+                        <p className="text-xs text-slate-500">
+                          Select one or multiple influencers to link with this promo code.
+                        </p>
+                        {(() => {
+                          const influencers = allUsers.filter((u: any) => u.role === "influencer");
+                          if (influencers.length === 0) {
+                            return <p className="text-xs text-slate-400 italic">No approved influencers found.</p>;
+                          }
+                          return (
+                            <div className="max-h-36 overflow-y-auto border rounded-lg p-2.5 space-y-1.5 bg-slate-50">
+                              {influencers.map((inf: any) => {
+                                const isChecked = promoForm.assignedInfluencers.includes(inf._id);
+                                return (
+                                  <label
+                                    key={inf._id}
+                                    className="flex items-center gap-2 text-xs font-medium text-slate-800 cursor-pointer hover:bg-white p-1 rounded transition"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={(e) => {
+                                        let updated = [...promoForm.assignedInfluencers];
+                                        if (e.target.checked) {
+                                          if (!updated.includes(inf._id)) updated.push(inf._id);
+                                        } else {
+                                          updated = updated.filter((id) => id !== inf._id);
+                                        }
+                                        setPromoForm({
+                                          ...promoForm,
+                                          assignedInfluencers: updated,
+                                          promoType: updated.length > 0 ? "influencer" : promoForm.promoType,
+                                        });
+                                      }}
+                                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="font-bold">{inf.name || inf.email}</span>
+                                    <span className="text-slate-400 font-mono">({inf.email})</span>
+                                    <span className="text-[10px] text-slate-400 font-mono ml-auto">
+                                      ID: {inf._id.slice(-6)}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
 
                     {promoFormError && (
@@ -9332,19 +8987,9 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                             </button>
 
                             <button
-                              onClick={() => setEditingUser({ ...u })}
-                              disabled={locked}
-                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
-                              title={locked ? "Only super admin can edit an admin" : "Edit user"}
-                            >
-                              Edit
-                            </button>
-
-                            <button
                               onClick={async () => {
                                 const token = localStorage.getItem("adminToken");
                                 if (!token) return;
-                                if (!window.confirm(`Send password reset email link to ${u.email}?`)) return;
                                 try {
                                   const res = await fetch(`${API_BASE_URL}/api/admin/users/${u._id}/send-reset-email`, {
                                     method: "POST",
@@ -9352,12 +8997,12 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                                   });
                                   const data = await res.json();
                                   if (res.ok) {
-                                    alert(data.message || `Password reset link sent to ${u.email}`);
+                                    showToast("success", data.message || `Password reset link sent to ${u.email}`);
                                   } else {
-                                    alert(data.message || "Failed to send reset email.");
+                                    showToast("error", data.message || "Failed to send reset email.");
                                   }
                                 } catch {
-                                  alert("Failed to send reset email.");
+                                  showToast("error", "Failed to send reset email.");
                                 }
                               }}
                               className="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition flex items-center gap-1"
@@ -10349,8 +9994,10 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                             })
                           }
                           className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-medium focus:bg-white focus:border-indigo-600 focus:outline-none transition-all text-sm"
-                          placeholder="Min 6 characters"
+                          placeholder="12+ characters"
+                          autoComplete="new-password"
                         />
+                        {profileForm.newPassword && <PasswordRules password={profileForm.newPassword} />}
                       </div>
                     </div>
 
@@ -11363,28 +11010,25 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                   <div className="relative">
                     <input
                       type="password"
-                      placeholder="Min 6 characters (A-z, 0-9, !@#)"
+                      placeholder={resetTargetIsAdmin(resettingPassword) ? "12+ characters (A-Z, a-z, 0-9, !@#)" : "Min 6 characters"}
+                      autoComplete="new-password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       className="w-full px-4 py-2.5 bg-white/10 border border-yellow-500/30 hover:border-yellow-500/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 transition-all"
                     />
                   </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <span
-                      className={`text-xs font-medium ${
-                        newPassword.length >= 6
-                          ? "text-emerald-400"
-                          : "text-gray-500"
-                      }`}
-                    >
-                      {newPassword.length >= 6
-                        ? "✓ Strong"
-                        : "○ Min 6 characters"}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {newPassword.length}/20
-                    </span>
-                  </div>
+                  {resetTargetIsAdmin(resettingPassword) ? (
+                    <>
+                      <PasswordRules password={newPassword} />
+                      <p className="mt-2 text-xs text-gray-500">
+                        They'll be asked to choose their own password at their next sign-in.
+                      </p>
+                    </>
+                  ) : (
+                    <p className={`mt-2 text-xs font-medium ${newPassword.length >= 6 ? "text-green-600" : "text-gray-500"}`}>
+                      {newPassword.length >= 6 ? "✓ Long enough" : "○ Min 6 characters"}
+                    </p>
+                  )}
                 </div>
 
                 {/* Actions */}
@@ -11394,11 +11038,11 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
                       handleResetPassword(resettingPassword._id, newPassword)
                     }
                     className={`flex-1 py-2.5 rounded-lg text-white font-semibold transition-all duration-200 ${
-                      newPassword.length >= 6
+                      resetPasswordAllowed(resettingPassword, newPassword)
                         ? "bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-500 hover:to-yellow-600 shadow-lg hover:shadow-lg hover:shadow-yellow-500/30"
                         : "bg-gray-600 cursor-not-allowed opacity-50"
                     }`}
-                    disabled={newPassword.length < 6}
+                    disabled={!resetPasswordAllowed(resettingPassword, newPassword)}
                   >
                     🔐 Reset Password
                   </button>

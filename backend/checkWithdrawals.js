@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
-const MONGO_URI = 'mongodb+srv://sticktoonxyz_db_user:Rt4xGCUS18ovAWMA@cluster0.c2kwzel.mongodb.net/?appName=Cluster0';
+const { MONGO_URI } = process.env;
 
 (async () => {
   try {

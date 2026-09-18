@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
 import { formatDate } from "../utils/formatDate";
 import { Search, UserCheck, Clock, CreditCard, Instagram, Youtube, ExternalLink, CheckCircle, XCircle, AlertCircle, RefreshCw, DollarSign, Tag, Edit3, Power, Plus, Award } from "lucide-react";
+import ConfirmModal from "../components/ConfirmModal";
 
 interface Influencer {
   _id: string;
@@ -42,6 +43,7 @@ interface PromoCodeItem {
   usedCount: number;
   isActive: boolean;
   createdBy?: any;
+  assignedInfluencers?: Array<{ _id: string; name: string; email: string }>;
   validUntil: string;
   createdAt: string;
 }
@@ -126,6 +128,7 @@ export default function AdminInfluencerManage({ initialTab = "approved" }: Admin
   // Edit / Assign Promo Code modal
   const [editPromoModal, setEditPromoModal] = useState<any | null>(null);
   const [assignModalUser, setAssignModalUser] = useState<Influencer | null>(null);
+  const [selectedExistingPromoId, setSelectedExistingPromoId] = useState<string>("");
   const [promoForm, setPromoForm] = useState({
     code: "",
     discountType: "percentage" as "percentage" | "fixed",
@@ -133,6 +136,15 @@ export default function AdminInfluencerManage({ initialTab = "approved" }: Admin
     earningPerUnit: 5,
     validUntil: "",
   });
+
+  // Reusable confirmation modal state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   const getToken = () => localStorage.getItem("adminToken") || localStorage.getItem("token");
 
@@ -244,9 +256,18 @@ export default function AdminInfluencerManage({ initialTab = "approved" }: Admin
     }
   };
 
-  const handleReject = async (id: string) => {
-    if (!confirm("Are you sure you want to reject/suspend this influencer application?")) return;
+  const handleReject = (id: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Reject / Suspend Application?",
+      message: "Are you sure you want to reject/suspend this influencer application?",
+      confirmText: "Reject",
+      onConfirm: () => executeReject(id),
+    });
+  };
 
+  const executeReject = async (id: string) => {
+    setConfirmDialog(null);
     setProcessing(id);
     const token = getToken();
 
@@ -341,19 +362,25 @@ export default function AdminInfluencerManage({ initialTab = "approved" }: Admin
 
     try {
       if (assignModalUser) {
-        // Assign/Create promo code for influencer
+        // Assign existing or create promo code for influencer
+        const payload = selectedExistingPromoId
+          ? { promoCodeId: selectedExistingPromoId }
+          : promoForm;
+
         const res = await fetch(`${API_BASE_URL}/api/admin/influencer-manage/${assignModalUser._id}/assign-promo`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(promoForm),
+          body: JSON.stringify(payload),
         });
 
         if (res.ok) {
-          setSuccessMsg(`Promo code '${promoForm.code}' assigned to ${assignModalUser.name}!`);
+          const data = await res.json();
+          setSuccessMsg(data.message || `Promo code assigned to ${assignModalUser.name}!`);
           setAssignModalUser(null);
+          setSelectedExistingPromoId("");
           fetchData();
           if (selectedInfluencerId === assignModalUser._id) {
             fetchInfluencerDetail(assignModalUser._id);
@@ -364,7 +391,7 @@ export default function AdminInfluencerManage({ initialTab = "approved" }: Admin
         }
       } else if (editPromoModal) {
         // Update existing promo code
-        const res = await fetch(`${API_BASE_URL}/api/admin/promos/${editPromoModal._id}`, {
+        const res = await fetch(`${API_BASE_URL}/api/admin/promo/${editPromoModal._id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -387,8 +414,53 @@ export default function AdminInfluencerManage({ initialTab = "approved" }: Admin
     }
   };
 
+  const handleUnassignPromo = (influencerId: string, promoId: string, codeName: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Unassign Promo Code?",
+      message: `Unassign promo code '${codeName}' from this influencer? The promo code itself will not be deleted.`,
+      confirmText: "Unassign",
+      onConfirm: () => executeUnassignPromo(influencerId, promoId, codeName),
+    });
+  };
+
+  const executeUnassignPromo = async (influencerId: string, promoId: string, codeName: string) => {
+    setConfirmDialog(null);
+    const token = getToken();
+    setProcessing(promoId);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/admin/influencer-manage/${influencerId}/unassign-promo`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ promoId }),
+        }
+      );
+
+      if (res.ok) {
+        setSuccessMsg(`Promo code '${codeName}' unassigned successfully`);
+        fetchData();
+        if (selectedInfluencerId === influencerId) {
+          fetchInfluencerDetail(influencerId);
+        }
+      } else {
+        const data = await res.json();
+        setError(data.message || "Failed to unassign promo code");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to unassign promo code");
+    } finally {
+      setProcessing(null);
+    }
+  };
+
   const openAssignModal = (inf: Influencer) => {
     setAssignModalUser(inf);
+    setSelectedExistingPromoId("");
     setPromoForm({
       code: inf.influencerProfile?.promoCodeId?.code || `INF_${inf.name.replace(/\s+/g, "").toUpperCase()}`,
       discountType: (inf.influencerProfile?.promoCodeId?.discountType as any) || "percentage",
@@ -400,6 +472,7 @@ export default function AdminInfluencerManage({ initialTab = "approved" }: Admin
 
   const openEditPromoModal = (p: PromoCodeItem) => {
     setEditPromoModal(p);
+    setSelectedExistingPromoId("");
     setPromoForm({
       code: p.code,
       discountType: p.discountType,
@@ -609,8 +682,30 @@ export default function AdminInfluencerManage({ initialTab = "approved" }: Admin
                       </td>
 
                       <td className="px-6 py-4">
-                        <p className="font-bold text-slate-900">{p.createdBy?.name || "Influencer"}</p>
-                        <p className="text-xs text-slate-500">{p.createdBy?.email || "N/A"}</p>
+                        {p.assignedInfluencers && p.assignedInfluencers.length > 0 ? (
+                          <div className="flex flex-col gap-1">
+                            {p.assignedInfluencers.map((inf: any) => (
+                              <div key={inf._id || inf} className="flex items-center gap-1.5 text-xs">
+                                <span className="font-bold text-slate-900">{inf.name || inf.email}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUnassignPromo(inf._id || inf, p._id, p.code)}
+                                  className="text-slate-400 hover:text-red-600 transition-colors p-0.5"
+                                  title={`Remove ${p.code} from ${inf.name || inf.email}`}
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : p.createdBy?.name ? (
+                          <div>
+                            <p className="font-bold text-slate-900">{p.createdBy.name}</p>
+                            <p className="text-xs text-slate-500">{p.createdBy.email || "N/A"}</p>
+                          </div>
+                        ) : (
+                          <span className="text-xs font-semibold text-slate-400 italic">Not Assigned</span>
+                        )}
                       </td>
 
                       <td className="px-6 py-4 font-bold text-slate-900">
@@ -793,15 +888,25 @@ export default function AdminInfluencerManage({ initialTab = "approved" }: Admin
                                 <span className="font-mono font-black text-xs text-purple-900">{p.code}</span>
                                 <span className="text-[10px] text-emerald-600 font-bold">₹{p.earningPerUnit || 5}/u</span>
                                 <button
+                                  type="button"
                                   onClick={() => openEditPromoModal(p)}
                                   className="ml-auto text-slate-400 hover:text-indigo-600"
                                   title="Edit Promo Code"
                                 >
                                   <Edit3 className="w-3 h-3" />
                                 </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUnassignPromo(inf._id, p._id, p.code)}
+                                  className="text-slate-400 hover:text-red-600 transition-colors"
+                                  title="Unassign Promo Code from Influencer"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                             ))}
                             <button
+                              type="button"
                               onClick={() => openAssignModal(inf)}
                               className="text-[11px] font-bold text-indigo-600 hover:underline flex items-center gap-1 pt-0.5"
                             >
@@ -819,15 +924,35 @@ export default function AdminInfluencerManage({ initialTab = "approved" }: Admin
                               </p>
                             </div>
                             <button
+                              type="button"
                               onClick={() => openAssignModal(inf)}
                               className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
                               title="Edit/Reassign Promo Code"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const pId =
+                                  typeof inf.influencerProfile?.promoCodeId === "object"
+                                    ? inf.influencerProfile.promoCodeId._id
+                                    : String(inf.influencerProfile?.promoCodeId || "");
+                                const pCode =
+                                  typeof inf.influencerProfile?.promoCodeId === "object"
+                                    ? inf.influencerProfile.promoCodeId.code
+                                    : "Promo";
+                                handleUnassignPromo(inf._id, pId, pCode);
+                              }}
+                              className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                              title="Unassign Promo Code from Influencer"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         ) : (
                           <button
+                            type="button"
                             onClick={() => openAssignModal(inf)}
                             className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
                           >
@@ -1132,6 +1257,41 @@ export default function AdminInfluencerManage({ initialTab = "approved" }: Admin
               {assignModalUser ? `Assign Promo Code (${assignModalUser.name})` : "Edit Promo Code"}
             </h3>
 
+            {assignModalUser && promos && promos.length > 0 && (
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+                  Select Existing Promo Code
+                </label>
+                <select
+                  value={selectedExistingPromoId}
+                  onChange={(e) => {
+                    const pId = e.target.value;
+                    setSelectedExistingPromoId(pId);
+                    if (pId) {
+                      const found = promos.find((p) => p._id === pId);
+                      if (found) {
+                        setPromoForm({
+                          code: found.code,
+                          discountType: found.discountType as any,
+                          discountValue: found.discountValue,
+                          earningPerUnit: found.earningPerUnit || 5,
+                          validUntil: found.validUntil ? found.validUntil.split("T")[0] : "",
+                        });
+                      }
+                    }
+                  }}
+                  className="w-full px-3 py-2.5 bg-indigo-50/60 border border-indigo-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                >
+                  <option value="">-- Create New / Custom Code --</option>
+                  {promos.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.code} ({p.discountType === "percentage" ? `${p.discountValue}% OFF` : `₹${p.discountValue} OFF`})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
                 Promo Code
@@ -1305,6 +1465,19 @@ export default function AdminInfluencerManage({ initialTab = "approved" }: Admin
             </button>
           </div>
         </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmDialog && (
+        <ConfirmModal
+          isOpen={confirmDialog.isOpen}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText={confirmDialog.confirmText}
+          cancelText="Cancel"
+          onCancel={() => setConfirmDialog(null)}
+          onConfirm={confirmDialog.onConfirm}
+        />
       )}
     </div>
   );

@@ -42,6 +42,9 @@ module.exports = (req, res, next) => {
       id: decoded.id,
       role: decoded.role,
       email: decoded.email,
+      // Only admin-panel tokens minted after 2-step verification carry this
+      // (routes/admin.js); roleMiddleware requires it for admin routes.
+      mfa: decoded.mfa === true,
     };
     next();
   } catch (err) {

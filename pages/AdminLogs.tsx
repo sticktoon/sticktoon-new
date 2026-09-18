@@ -66,6 +66,7 @@ const CATEGORY_STYLES: Record<string, string> = {
   cart: "bg-orange-100 text-orange-700",
   support: "bg-cyan-100 text-cyan-700",
   settings: "bg-slate-200 text-slate-700",
+  revenue: "bg-lime-100 text-lime-700",
   other: "bg-slate-100 text-slate-600",
 };
 

@@ -93,6 +93,14 @@ const promoCodeSchema = new mongoose.Schema(
       default: null, // Admin/Influencer who created this promo
     },
 
+    // Assigned Influencer(s) associated with this promo code
+    assignedInfluencers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
     // Track promo usage history
     usageHistory: [
       {

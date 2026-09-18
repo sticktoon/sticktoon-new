@@ -279,7 +279,7 @@ export default function AdminDealSend() {
       finishLabel: "Premium 58mm Glossy",
     }));
 
-    setItems(newItems);
+    setItems((prev) => reindexItems([...prev, ...newItems]));
     setSelectedProductIds([]);
     setIsImportModalOpen(false);
   };
@@ -543,7 +543,7 @@ export default function AdminDealSend() {
   const [generatedCatalogue, setGeneratedCatalogue] = useState<GeneratedCatalogueRef | null>(null);
   const [isGeneratingCatalogue, setIsGeneratingCatalogue] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [sendStatus, setSendStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [sendStatus, setSendStatus] = useState<{ type: "success" | "error"; message: string; authUrl?: string } | null>(null);
 
   useEffect(() => {
     setGeneratedCatalogue(null);
@@ -603,25 +603,38 @@ export default function AdminDealSend() {
 
   const totals = useMemo(() => {
     const totalUnits = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-    const subtotal = items.reduce(
+    const totalInclusiveProductAmount = items.reduce(
       (sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0),
       0
     );
-    const baseUnitPrice = totalUnits > 0 ? subtotal / totalUnits : (items[0]?.unitPrice || 0);
-    const gstPerUnit = gstEnabled ? (baseUnitPrice * Number(gstRate || 0)) / 100 : 0;
-    const gstAmount = gstEnabled ? (subtotal * Number(gstRate || 0)) / 100 : 0;
+    const inclusiveUnitPrice = totalUnits > 0 ? totalInclusiveProductAmount / totalUnits : (items[0]?.unitPrice || 0);
+
+    const rate = gstEnabled ? Number(gstRate || 0) : 0;
+    let subtotal = totalInclusiveProductAmount;
+    let gstAmount = 0;
+    let baseUnitPrice = inclusiveUnitPrice;
+    let gstPerUnit = 0;
+
+    if (rate > 0) {
+      subtotal = totalInclusiveProductAmount / (1 + rate / 100);
+      gstAmount = totalInclusiveProductAmount - subtotal;
+      baseUnitPrice = inclusiveUnitPrice / (1 + rate / 100);
+      gstPerUnit = inclusiveUnitPrice - baseUnitPrice;
+    }
+
     const delivery = Math.max(0, Number(deliveryCharges || 0));
     const deliveryPerUnit = totalUnits > 0 ? delivery / totalUnits : 0;
-    const total = subtotal + gstAmount + delivery;
+    const total = totalInclusiveProductAmount + delivery;
 
     return {
       totalUnits,
       subtotal,
       baseUnitPrice,
+      inclusiveUnitPrice,
       gstPerUnit,
       gstAmount,
       deliveryCharges: delivery,
-      totalPerUnit: baseUnitPrice + gstPerUnit + deliveryPerUnit,
+      totalPerUnit: inclusiveUnitPrice + deliveryPerUnit,
       total,
     };
   }, [gstRate, items, gstEnabled, deliveryCharges]);
@@ -1009,7 +1022,8 @@ export default function AdminDealSend() {
     await incrementQuotationCounter();
   };
 
-  const handleSendEmail = async () => {
+  const handleSendEmail = async (e?: React.MouseEvent) => {
+    if (e && e.preventDefault) e.preventDefault();
     setSendStatus(null);
     const targetEmail = email.trim();
 
@@ -1064,7 +1078,8 @@ export default function AdminDealSend() {
         if (data.requiresGoogleAuth) {
           setSendStatus({
             type: "error",
-            message: "Google Gmail authorization is required for orders.sticktoon@gmail.com.",
+            message: data.message || "Google Gmail authorization is required for orders.sticktoon@gmail.com.",
+            authUrl: data.authUrl || `${API_BASE_URL}/api/admin/leads/gmail/auth`,
           });
           return;
         }
@@ -1529,7 +1544,7 @@ export default function AdminDealSend() {
                 <input
                   type="number"
                   min={0}
-                  value={totals.baseUnitPrice === 0 ? "" : totals.baseUnitPrice}
+                  value={totals.inclusiveUnitPrice === 0 ? "" : totals.inclusiveUnitPrice}
                   onChange={(e) => {
                     const val = e.target.value;
                     const nextPrice = val === "" ? 0 : Math.max(0, Number(val));
@@ -1789,14 +1804,34 @@ export default function AdminDealSend() {
             </div>
 
             <div className="flex gap-3">
-              <button onClick={handlePrint} className="flex-1 rounded-lg border border-slate-300 px-3 py-3 text-xs font-bold hover:bg-slate-50 transition">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handlePrint();
+                }}
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-3 text-xs font-bold hover:bg-slate-50 transition"
+              >
                 Print
               </button>
-              <button onClick={handleDownload} disabled={isExporting || isGeneratingCatalogue} className="flex-1 rounded-lg bg-slate-900 px-3 py-3 text-xs font-bold text-white hover:bg-slate-800 transition flex items-center justify-center gap-1.5">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDownload();
+                }}
+                disabled={isExporting || isGeneratingCatalogue}
+                className="flex-1 rounded-lg bg-slate-900 px-3 py-3 text-xs font-bold text-white hover:bg-slate-800 transition flex items-center justify-center gap-1.5"
+              >
                 {isGeneratingCatalogue ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                 Download PDF
               </button>
-              <button onClick={handleSendEmail} disabled={isSendingEmail || isGeneratingCatalogue} className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-3 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+              <button
+                type="button"
+                onClick={handleSendEmail}
+                disabled={isSendingEmail || isGeneratingCatalogue}
+                className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-3 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm"
+              >
                 {isSendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
                 Send Email
               </button>
@@ -1828,7 +1863,11 @@ export default function AdminDealSend() {
                 </span>
               ) : (
                 <button
-                  onClick={ensureGeneratedCatalogue}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    ensureGeneratedCatalogue();
+                  }}
                   disabled={isGeneratingCatalogue}
                   className="text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-2 rounded-xl transition border border-indigo-200"
                 >
@@ -1873,7 +1912,11 @@ export default function AdminDealSend() {
 
               <div className="flex items-end gap-3">
                 <button
-                  onClick={handleDownload}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleDownload();
+                  }}
                   disabled={isExporting || isGeneratingCatalogue}
                   className="flex-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 transition flex items-center justify-center gap-1.5 h-[40px]"
                 >
@@ -1881,6 +1924,7 @@ export default function AdminDealSend() {
                   Download Catalogue
                 </button>
                 <button
+                  type="button"
                   onClick={handleSendEmail}
                   disabled={isSendingEmail || isGeneratingCatalogue}
                   className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-bold transition flex items-center justify-center gap-2 h-[40px] shadow-sm"
@@ -1894,16 +1938,28 @@ export default function AdminDealSend() {
             {/* Status feedback */}
             {sendStatus && (
               <div
-                className={`p-3 rounded-xl text-xs font-bold flex items-center justify-between transition ${
+                className={`p-3 rounded-xl text-xs font-bold flex flex-col gap-2 transition ${
                   sendStatus.type === "success"
                     ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
                     : "bg-rose-50 border border-rose-200 text-rose-800"
                 }`}
               >
-                <span>{sendStatus.message}</span>
-                <button onClick={() => setSendStatus(null)} className="text-slate-400 hover:text-slate-600">
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex items-center justify-between">
+                  <span>{sendStatus.message}</span>
+                  <button onClick={() => setSendStatus(null)} className="text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                {sendStatus.authUrl && (
+                  <a
+                    href={sendStatus.authUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block rounded-lg bg-rose-600 px-3 py-1.5 text-center text-xs font-extrabold text-white hover:bg-rose-700 transition shadow-sm w-fit"
+                  >
+                    🔐 Re-authorize orders.sticktoon@gmail.com
+                  </a>
+                )}
               </div>
             )}
           </div>

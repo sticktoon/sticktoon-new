@@ -7,6 +7,7 @@ const fs = require("fs");
 const connectDB = require("./config/db");
 const { initializeFileWatcher } = require("./services/fileWatcher");
 const { startWeeklyBackup } = require("./services/weeklyBackup");
+const { startAmazonSync } = require("./services/amazonSync");
 const { uploadImageToAll } = require("./utils/imageUploadService");
 const ImageUpload = require("./models/ImageUpload");
 
@@ -62,6 +63,28 @@ app.use("/api/razorpay", require("./routes/razorpayPayment"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/admin/orders", auth, requirePermission("orders"), require("./routes/adminOrders"));
 app.use("/api/admin/revenue", auth, requirePermission("revenue"), require("./routes/adminRevenue"));
+
+// Read-only revenue totals for AYUS ops (Anish's command center). A static token,
+// not an admin JWT, so whoever holds it can read this one summary and nothing else.
+// AYUS_REVENUE_TOKEN unset = the route answers 404 to everyone.
+app.get("/api/ayus/revenue", async (req, res) => {
+  const expected = Buffer.from(process.env.AYUS_REVENUE_TOKEN || "");
+  const given = Buffer.from(String(req.headers["x-ayus-token"] || ""));
+  const allowed =
+    expected.length >= 32 && given.length === expected.length && require("crypto").timingSafeEqual(given, expected);
+  if (!allowed) return res.status(404).json({ message: "Not found" });
+
+  const { readRange, totalsFor } = require("./routes/adminRevenue");
+  const range = readRange(req.query);
+  if (!range) return res.status(400).json({ message: "Invalid date range" });
+
+  try {
+    res.json({ range: { from: range.from, to: range.to }, ...(await totalsFor(range.start, range.end)) });
+  } catch (err) {
+    console.error("AYUS revenue error:", err);
+    res.status(500).json({ message: "Failed to load revenue" });
+  }
+});
 app.use("/api/invoice", require("./routes/invoice"));
 app.use("/api/admin/invoice", auth, requirePermission("revenue"), require("./routes/adminInvoice"));
 app.use("/api/admin/catalogue", auth, requirePermission("revenue"), require("./routes/adminCatalogue"));
@@ -78,7 +101,6 @@ app.use("/api/badge-doc", require("./routes/badgeDoc"));
 // Image upload is driven from the product form, so it follows "products".
 app.use("/api/admin/images", auth, requirePermission("products"), require("./routes/adminImages"));
 app.use("/api/admin/leads", require("./routes/adminLeads"));
-app.use("/api/admin/tasks", auth, requirePermission("tasks"), require("./routes/adminTasks"));
 app.use("/api/admin/support", auth, requirePermission("support"), require("./routes/adminSupport"));
 // Settings currently holds only the Shiprocket toggle on the Orders screen.
 app.use("/api/admin/settings", auth, requirePermission("orders"), require("./routes/adminSettings"));
@@ -163,6 +185,9 @@ const startServer = (port) => {
     // Sunday data backup. Production only, so local dev never mails admin.
     if (process.env.RENDER || process.env.NODE_ENV === "production") {
       startWeeklyBackup();
+      // Daily Amazon settlement pull. Local dev can still sync on demand from
+      // the Revenue page, so two machines don't fight over the same reports.
+      startAmazonSync();
     }
   });
 
