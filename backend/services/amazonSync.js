@@ -137,9 +137,14 @@ async function syncSettlements({ trigger = "schedule", actor = null, req = null 
   const lastBackfill = state.lastBackfillAt ? new Date(state.lastBackfillAt).getTime() : 0;
   const backfillDue = trigger === "manual" || Date.now() - lastBackfill > 7 * 86400000;
   let backfilled = [];
+  let backfillOk = false;
+  // Report problems decide whether the sync counts as done; the backfill is an
+  // extra, so its failure is reported but doesn't hold back "last synced".
+  const reportsOk = !failed.length;
   if (backfillDue) {
     try {
       backfilled = await backfillFromFinances({ since: new Date(Date.now() - BACKFILL_DAYS * 86400000), actor });
+      backfillOk = true;
     } catch (err) {
       failed.push({ reason: `older payouts: ${err.message}` });
     }
@@ -149,11 +154,11 @@ async function syncSettlements({ trigger = "schedule", actor = null, req = null 
   await writeState({
     ...state,
     lastRunAt: ranAt,
-    lastOkAt: failed.length ? state.lastOkAt || null : ranAt,
+    lastOkAt: reportsOk ? ranAt : state.lastOkAt || null,
     lastError: failed.length ? failed[0].reason : null,
     lastReportAt: newestReportAt,
     lastImported: imported.length,
-    lastBackfillAt: backfillDue && !failed.length ? ranAt : state.lastBackfillAt || null,
+    lastBackfillAt: backfillOk ? ranAt : state.lastBackfillAt || null,
     lastDay: istDay(ranAt),
   });
 

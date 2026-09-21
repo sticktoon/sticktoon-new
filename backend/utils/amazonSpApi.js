@@ -80,6 +80,8 @@ async function spApiGet(path, params) {
       throw new SpApiError("Amazon refused the request. Check that the app is authorized for this seller account.", 502);
     }
     if (status === 429) throw new SpApiError("Amazon is rate limiting us. Try again in a few minutes.", 503);
+    // Amazon answered but said no: its message says why, so pass it on.
+    if (err.response) throw new SpApiError(`Amazon rejected the request: ${reason(err)}`, 502);
     throw new SpApiError("Couldn't reach Amazon. Try again.", 502);
   }
 }
@@ -109,7 +111,8 @@ async function listSettlementReports({ createdSince }) {
 async function listFinancialEventGroups({ startedAfter, chunkDays = 120, maxCalls = 40 }) {
   const byId = new Map();
   let windowStart = new Date(startedAfter);
-  const now = Date.now();
+  // Amazon rejects a StartedBefore later than two minutes before the request.
+  const now = Date.now() - 5 * 60 * 1000;
   let calls = 0;
 
   while (windowStart.getTime() < now && calls < maxCalls) {
