@@ -2,11 +2,23 @@ const express = require("express");
 const router = express.Router();
 const Invoice = require("../models/Invoice");
 const generateInvoicePDF = require("../utils/generateInvoicePDF");
+const auth = require("../middleware/auth");
+const { hasPermission } = require("../middleware/roleMiddleware");
+
+// An invoice carries the customer's name, email, phone and address, so only
+// the buyer or an admin with order access may read it.
+async function canSeeInvoice(user, invoice) {
+  const order = invoice.orderId || {};
+  const ownerId = String(order.userId || invoice.userId?._id || invoice.userId || "");
+  if (user.id && ownerId === String(user.id)) return true;
+  if (user.email && order.userEmail && order.userEmail === String(user.email).toLowerCase()) return true;
+  return Boolean(user.mfa) && ((await hasPermission(user, "orders")) || (await hasPermission(user, "revenue")));
+}
 
 /* =========================
    GET INVOICE (BY INVOICE ID OR ORDER ID)
 ========================= */
-router.get("/:id", async (req, res) => {
+router.get("/:id", auth, async (req, res) => {
   try {
     const id = req.params.id;
 
@@ -25,6 +37,10 @@ router.get("/:id", async (req, res) => {
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
     }
+    // Same answer as "missing", so invoice IDs can't be probed.
+    if (!(await canSeeInvoice(req.user, invoice))) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
 
     return res.json(invoice);
   } catch (err) {
@@ -36,7 +52,7 @@ router.get("/:id", async (req, res) => {
 /* =========================
    DOWNLOAD INVOICE PDF
 ========================= */
-router.get("/:id/download", async (req, res) => {
+router.get("/:id/download", auth, async (req, res) => {
   try {
     const id = req.params.id;
 
@@ -53,6 +69,10 @@ router.get("/:id/download", async (req, res) => {
     }
 
     if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+    // Same answer as "missing", so invoice IDs can't be probed.
+    if (!(await canSeeInvoice(req.user, invoice))) {
       return res.status(404).json({ message: "Invoice not found" });
     }
 
@@ -83,7 +103,7 @@ router.get("/:id/download", async (req, res) => {
   } catch (err) {
     console.error("❌ Invoice download error:", err);
     console.error("❌ Error details:", err.message, err.stack);
-    return res.status(500).json({ message: "Failed to generate PDF", error: err.message });
+    return res.status(500).json({ message: "Failed to generate PDF" });
   }
 });
 

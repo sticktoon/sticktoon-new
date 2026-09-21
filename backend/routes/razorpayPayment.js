@@ -10,6 +10,7 @@ const {
   razorpayMode,
 } = require("../config/razorpay");
 const Order = require("../models/Order");
+const PendingCheckout = require("../models/PendingCheckout");
 const Invoice = require("../models/Invoice");
 const esc = require("../utils/escapeHtml");
 const { uploadCustomArtwork, isCustomItem } = require("../utils/customArtwork");
@@ -253,17 +254,14 @@ router.post("/create-order", async (req, res) => {
     const { address, items, promoCode, email: requestEmail } = req.body;
     const reqAuthHeader = req.headers.authorization;
 
-    const {
-      userId,
-      email,
-      totalAmount,
-    } = await verifyAndCalculateOrder({
+    const checkout = await verifyAndCalculateOrder({
       items,
       address,
       promoCode,
       requestEmail,
       reqAuthHeader,
     });
+    const { userId, email, totalAmount } = checkout;
 
     // Create Razorpay Order
     // receipt max length is 40 characters
@@ -282,8 +280,9 @@ router.post("/create-order", async (req, res) => {
       },
     });
 
-    // NOTE: Application Order document in MongoDB is NOT created here.
-    // It is created ONLY after successful payment verification in /verify-payment.
+    // The Order itself is created only once payment is proven (verify-payment
+    // or the webhook). The priced cart is kept so either path can build it.
+    await PendingCheckout.create({ razorpayOrderId: razorpayOrder.id, checkout: { ...checkout, address } });
 
     res.json({
       success: true,
@@ -301,6 +300,552 @@ router.post("/create-order", async (req, res) => {
     res.status(500).json({ message: "Failed to create order" });
   }
 });
+
+/* =========================
+   BUILD THE PAID ORDER
+   Shared by verify-payment (browser) and the Razorpay webhook.
+========================= */
+// Stock 0 means "not tracked" on the storefront, so only tracked stock moves,
+// and it stops at 0 instead of going negative when an order outsells it.
+const takeStock = (productId, quantity) =>
+  Product.updateOne({ _id: productId, stock: { $gt: 0 } }, [
+    { $set: { stock: { $max: [0, { $subtract: ["$stock", quantity] }] } } },
+  ], { updatePipeline: true });
+
+async function fulfilOrder({ checkout, razorpay_order_id, razorpay_payment_id, req }) {
+  const { userId, email, verifiedItems, subtotal, deliveryCharges, discount, appliedPromoCode, totalAmount, address } =
+    checkout;
+
+  // ✅ CREATE THE ACTUAL APPLICATION ORDER IN MONGODB ONLY NOW AFTER VERIFICATION
+  const order = await Order.create({
+    userId,
+    userEmail: email,
+    items: verifiedItems,
+    subtotal,
+    deliveryCharges,
+    discount,
+    promoCode: appliedPromoCode,
+    amount: totalAmount,
+    gatewayOrderId: razorpay_order_id,
+    gatewayPaymentId: razorpay_payment_id,
+    address,
+    status: "SUCCESS",
+    paymentGateway: "razorpay",
+  });
+
+  // ✅ UPDATE / REDUCE PRODUCT STOCK AFTER SUCCESSFUL PAYMENT
+  for (const item of verifiedItems) {
+    if (item.badgeId && mongoose.Types.ObjectId.isValid(item.badgeId)) {
+      await takeStock(item.badgeId, item.quantity);
+    }
+    if (Array.isArray(item.comboItems)) {
+      for (const comboItem of item.comboItems) {
+        if (comboItem.id && mongoose.Types.ObjectId.isValid(comboItem.id)) {
+          const comboQty = (Number(comboItem.quantity) || 1) * item.quantity;
+          await takeStock(comboItem.id, comboQty);
+        }
+      }
+    }
+  }
+
+  logActivity({
+    req,
+    actor: { id: order.userId, email: order.userEmail, role: "user" },
+    action: "order.paid",
+    category: "order",
+    message: `Order paid — ₹${order.amount} by ${order.userEmail || "guest"}`,
+    target: { type: "Order", id: order._id, label: String(order._id) },
+    meta: {
+      amount: order.amount,
+      itemCount: order.items?.length || 0,
+      gatewayPaymentId: razorpay_payment_id,
+    },
+  });
+
+  let shiprocketSynced = false;
+  // Auto-approve Shiprocket logic
+  try {
+    const Setting = require("../models/Setting");
+    const { pushOrderToShiprocket } = require("../services/shiprocketService");
+    const autoApproveSetting = await Setting.findOne({ key: "shiprocket_auto_approve" });
+    const isAutoApprove = autoApproveSetting ? autoApproveSetting.value === true : false;
+    if (isAutoApprove) {
+      console.log(`Auto-push enabled. Syncing order ${order._id} with Shiprocket...`);
+      const syncResult = await pushOrderToShiprocket(order._id);
+      if (syncResult && syncResult.success) {
+        shiprocketSynced = true;
+      }
+    } else {
+      console.log(`Auto-push disabled. Order ${order._id} set to PENDING for Shiprocket.`);
+    }
+  } catch (err) {
+    console.error("Error triggering auto-push for Razorpay order:", err.message);
+  }
+
+  /* =========================
+   ✅ PROMO USAGE + INFLUENCER EARNING (committed only after payment)
+========================= */
+  if (order.promoCode) {
+    try {
+      const promo = await PromoCode.findOne({ code: order.promoCode }).populate(
+        "createdBy",
+        "email name"
+      );
+
+      if (promo) {
+        const totalUnits = (order.items || []).reduce(
+          (sum, item) => sum + Number(item.quantity || 0),
+          0
+        );
+
+        // Consume one use of the code now that the order is actually paid.
+        promo.usedCount = (promo.usedCount || 0) + 1;
+        await promo.save();
+
+        let earningGenerated = 0;
+        if (promo.promoType === "influencer" && promo.createdBy?._id) {
+          const earningPerUnit = promo.earningPerUnit || 5;
+          earningGenerated = totalUnits * earningPerUnit;
+
+          // Created as "pending"; the loop below moves it to "paid" and
+          // updates the influencer profile balances.
+          await InfluencerEarning.create({
+            influencerId: promo.createdBy._id,
+            promoCodeId: promo._id,
+            orderId: order._id,
+            customerId: order.userId,
+            totalUnits,
+            earningPerUnit,
+            totalEarning: earningGenerated,
+            orderAmount: order.amount,
+            status: "pending",
+          });
+
+          await PromoCode.findByIdAndUpdate(promo._id, {
+            $inc: { totalEarnings: earningGenerated, totalUnitsSold: totalUnits },
+          });
+
+          await User.findByIdAndUpdate(promo.createdBy._id, {
+            $inc: {
+              "influencerProfile.totalEarnings": earningGenerated,
+              "influencerProfile.pendingEarnings": earningGenerated,
+            },
+          });
+        }
+
+        await PromoCode.findByIdAndUpdate(promo._id, {
+          $push: {
+            usageHistory: {
+              userId: order.userId,
+              orderId: order._id,
+              discountApplied: order.discount || 0,
+              unitsSold: totalUnits,
+              earningGenerated,
+              usedAt: new Date(),
+            },
+          },
+        });
+
+        // Notify admin/influencer that their code was used on a PAID order.
+        if (promo.createdBy?.email) {
+          try {
+            await sendEmail({
+              to: promo.createdBy.email,
+              subject:
+                promo.promoType === "influencer"
+                  ? "You earned Rs" + earningGenerated + "! Code " + promo.code + " used"
+                  : "Promo Code " + promo.code + " Used!",
+              html: promoUsedEmailTemplate({
+                promoCode: promo.code,
+                discountApplied: order.discount || 0,
+                orderAmount: order.amount,
+                customerName: order.address?.name || "Customer",
+                customerEmail: order.userEmail || "",
+                usedCount: promo.usedCount,
+                usageLimit: promo.usageLimit,
+                orderId: order._id.toString(),
+                isInfluencer: promo.promoType === "influencer",
+                totalUnits,
+                earningPerUnit: promo.earningPerUnit || 5,
+                earningGenerated,
+              }),
+            });
+          } catch (mailErr) {
+            console.error("Promo notification email error:", mailErr.message);
+          }
+        }
+      }
+    } catch (promoErr) {
+      console.error("Promo/earning accounting error:", promoErr.message);
+    }
+  }
+
+  /* =========================
+   ✅ UPDATE INFLUENCER EARNING TO PAID
+========================= */
+
+const earnings = await InfluencerEarning.find({ orderId: order._id, status: "pending" });
+
+for (const earn of earnings) {
+  // change earning status
+  earn.status = "paid";
+  earn.paidAt = new Date();
+  await earn.save();
+
+  // move pending → paid in influencer profile
+  await User.findByIdAndUpdate(earn.influencerId, {
+  $inc: {
+    "influencerProfile.pendingEarnings": -earn.totalEarning,
+    "influencerProfile.paidEarnings": earn.totalEarning,
+  },
+  });
+}
+
+
+  // Create invoice
+  const lastInvoice = await Invoice.findOne().sort({ createdAt: -1 });
+  let invoiceNumber = "STK-0001";
+  if (lastInvoice && lastInvoice.invoiceNumber) {
+    const lastNum = parseInt(lastInvoice.invoiceNumber.split("-")[1]) || 0;
+    invoiceNumber = `STK-${String(lastNum + 1).padStart(4, "0")}`;
+  }
+
+  // Get user email (guest checkout has no user account; fall back to order email)
+  const user = order.userId ? await User.findById(order.userId) : null;
+  const buyerEmail = user?.email || order.userEmail || null;
+
+  const invoice = await Invoice.create({
+    orderId: order._id,
+    userId: order.userId,
+    email: buyerEmail,
+    invoiceNumber,
+    amount: order.amount,
+    currency: order.currency || "INR",
+    paymentMethod: "Razorpay",
+    paymentGateway: "razorpay",
+    address: order.address,
+    discount: order.discount || 0,
+    promoCode: order.promoCode || null,
+  });
+
+  // Update order with invoice ID
+  order.invoiceId = invoice._id;
+  await order.save();
+
+  // Update user orders (Mapping for the logged-in profile page).
+  // Guests have no account/profile, so skip this mapping for them.
+  if (order.userId) {
+    await UserOrders.create({
+      userId: order.userId,
+      orderId: order._id,
+      invoiceId: invoice._id,
+    });
+  }
+
+  // Generate Invoice PDF
+  let invoicePdfBuffer = null;
+  try {
+    // Populate invoice with user data for PDF generation
+    const populatedInvoice = await Invoice.findById(invoice._id)
+      .populate("userId", "name email phone");
+    
+    invoicePdfBuffer = await generateInvoicePDF({ invoice: populatedInvoice, order });
+    console.log("✅ Invoice PDF generated successfully");
+  } catch (pdfErr) {
+    console.error("Invoice PDF generation error:", pdfErr.message);
+  }
+
+  // Send confirmation email with Invoice to BUYER
+  if (buyerEmail) {
+    try {
+      const emailOptions = {
+        to: buyerEmail,
+        subject: `Order Confirmed! #${order._id.toString().slice(-8).toUpperCase()} - Invoice Attached`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #10b981;">Order Confirmed!</h1>
+            <p>Hi ${esc(order.address?.name || "Customer")},</p>
+            <p>Your order has been confirmed and will be shipped soon.</p>
+            <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0;"><strong>Order ID:</strong> ${order._id.toString().slice(-8).toUpperCase()}</p>
+              <p style="margin: 5px 0;"><strong>Invoice No:</strong> ${invoice.invoiceNumber}</p>
+              <p style="margin: 5px 0;"><strong>Amount:</strong> ₹${order.amount}</p>
+              <p style="margin: 0;"><strong>Items:</strong> ${order.items.length}</p>
+            </div>
+            <p>📎 Your invoice is attached to this email.</p>
+            <p>Thank you for shopping with StickToon!</p>
+          </div>
+        `,
+      };
+
+      // Add PDF attachment if generated successfully
+      if (invoicePdfBuffer) {
+        emailOptions.attachments = [
+          {
+            name: `Invoice-${invoice.invoiceNumber}.pdf`,
+            content: invoicePdfBuffer.toString("base64"),
+          },
+        ];
+      }
+
+      await sendEmail(emailOptions);
+      console.log("✅ Buyer email with invoice sent to:", buyerEmail);
+    } catch (emailErr) {
+      console.error("Buyer email error:", emailErr.message);
+    }
+  }
+
+  // Send order notification to OWNER (sticktoon.xyz@gmail.com)
+  const ownerEmail = process.env.ORDERS_EMAIL || process.env.ADMIN_EMAIL || "sticktoon.xyz@gmail.com";
+  const frontendUrl = process.env.FRONTEND_URL;
+  try {
+    const customBadges = order.items.filter(isCustomItem);
+
+    let badgeDocBuffer = null;
+    if (customBadges.length > 0) {
+      try {
+        badgeDocBuffer = await generateBadgeDoc({
+          orderId: order._id.toString().slice(-8).toUpperCase(),
+          customBadges: customBadges.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            image: item.image,
+            printImage: item.printImage,
+          })),
+        });
+        console.log("✅ Badge Word document generated for " + customBadges.length + " custom badges");
+      } catch (docErr) {
+        console.error("Badge doc generation error:", docErr.message);
+      }
+
+      /* Now that the print document is built from the inline copy, the artwork
+         can move to Cloudinary and the order can keep just the URL. Deliberately
+         here and not at order creation: a quarter of custom orders are never
+         paid for, and uploading those would fill the account with artwork for
+         badges nobody ordered - besides delaying the payment screen.
+
+         Left inline, each custom badge is ~1 MB inside the order document,
+         carried by every order query and every backup email for good. */
+      try {
+        await uploadCustomArtwork(order.items);
+        order.markModified("items");
+        await order.save();
+      } catch (artErr) {
+        // The order is paid and the print doc exists; a storage hiccup here is
+        // not worth failing the confirmation over. Next backup just stays fat.
+        console.error("Custom artwork upload error:", artErr.message);
+      }
+    }
+    const itemsList = order.items.map(item => {
+      // Build image URL - handle different image path formats
+      let imageUrl = '';
+      if (item.image) {
+        if (item.image.startsWith('http')) {
+          imageUrl = item.image;
+        } else if (item.image.startsWith('/')) {
+          imageUrl = `${frontendUrl}${item.image}`;
+        } else if (item.image.startsWith('data:image')) {
+          // For custom badges, show a placeholder text instead of embedding base64
+          imageUrl = ''; // Don't embed base64 in email, it's in the Word doc
+        } else {
+          imageUrl = `${frontendUrl}/${item.image}`;
+        }
+      }
+      
+      // Mark custom badges in the list. Not by the data: URI any more — the
+      // artwork has just been moved to Cloudinary a few lines above.
+      const isCustom = isCustomItem(item);
+      
+      return `<tr>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            ${imageUrl ? `<img src="${esc(imageUrl)}" alt="${esc(item.name)}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb;">` : (isCustom ? '<span style="display: inline-block; width: 60px; height: 60px; background: #fef3c7; border-radius: 8px; text-align: center; line-height: 60px; font-size: 24px;">🎨</span>' : '')}
+            <span style="font-weight: 500;">${esc(item.name)}${isCustom ? ' <span style="color: #f59e0b; font-size: 11px;">(CUSTOM - See Word Doc)</span>' : ''}</span>
+          </div>
+        </td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center; font-weight: bold;">${item.quantity}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold;">₹${item.price}</td>
+      </tr>`;
+    }).join('');
+
+    const adminAttachments = await buildAdminOrderAttachments({
+      order,
+      invoiceNumber: invoice.invoiceNumber,
+      invoicePdfBuffer,
+      frontendUrl,
+    });
+
+    const emailSubject = shiprocketSynced
+      ? `🛒 [Auto-Synced] New Order Received! #${order._id.toString().slice(-8).toUpperCase()} - ₹${order.amount}`
+      : `🛒 [Action Required] New Order Received! #${order._id.toString().slice(-8).toUpperCase()} - ₹${order.amount}`;
+
+    const syncStatusHtml = shiprocketSynced
+      ? `
+          <div style="background: #ecfdf5; border: 2px solid #10b981; padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #065f46; font-family: Arial, sans-serif;">
+            <h3 style="margin: 0; font-size: 16px;">✅ Auto-Synced to Shiprocket!</h3>
+            <p style="margin: 5px 0 0; font-size: 14px;">The order has been automatically pushed to Shiprocket. Go to your Shiprocket panel and ship the order.</p>
+          </div>
+        `
+      : `
+          <div style="background: #fffbeb; border: 2px solid #f59e0b; padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #92400e; font-family: Arial, sans-serif;">
+            <h3 style="margin: 0; font-size: 16px;">⚠️ Manual Action Required</h3>
+            <p style="margin: 5px 0 0; font-size: 14px;">This order is NOT auto-synced. Please open your Admin Panel, review the order, and click "Send to Shiprocket" to proceed with the shipment.</p>
+          </div>
+        `;
+
+    await sendEmail({
+      to: ownerEmail,
+      subject: emailSubject,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #3b82f6; margin-bottom: 20px;">🎉 New Order Received!</h1>
+          
+          ${syncStatusHtml}
+          
+          <div style="background: #f0fdf4; border: 2px solid #22c55e; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <h2 style="margin: 0; color: #166534;">Order ID: ${order._id.toString().slice(-8).toUpperCase()}</h2>
+            <p style="margin: 5px 0 0; font-size: 24px; font-weight: bold; color: #166534;">₹${order.amount}</p>
+          </div>
+
+          <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">📦 Order Details</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <thead>
+              <tr style="background: #f3f4f6;">
+                <th style="padding: 10px; text-align: left;">Item</th>
+                <th style="padding: 10px; text-align: center;">Qty</th>
+                <th style="padding: 10px; text-align: right;">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsList}
+            </tbody>
+          </table>
+
+          <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 5px 0;"><strong>Subtotal:</strong> ₹${order.subtotal}</p>
+            <p style="margin: 5px 0;"><strong>Delivery:</strong> ₹${order.deliveryCharges}</p>
+            ${order.discount > 0 ? `<p style="margin: 5px 0; color: #16a34a;"><strong>Discount:</strong> -₹${order.discount}</p>` : ''}
+            ${order.promoCode ? `<p style="margin: 5px 0;"><strong>Promo Code:</strong> ${esc(order.promoCode)}</p>` : ''}
+            <hr style="border: 1px solid #d1d5db; margin: 10px 0;">
+            <p style="margin: 5px 0; font-size: 18px;"><strong>Total:</strong> ₹${order.amount}</p>
+          </div>
+
+          <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">📍 Shipping Address</h3>
+          <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 5px 0;"><strong>Name:</strong> ${esc(order.address?.name || 'N/A')}</p>
+            <p style="margin: 5px 0;"><strong>Address:</strong> ${esc(order.address?.street || 'N/A')}</p>
+            <p style="margin: 5px 0;"><strong>Phone:</strong> ${esc(order.address?.phone || 'N/A')}</p>
+          </div>
+
+          <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">👤 Customer Info</h3>
+          <p><strong>Email:</strong> ${esc(buyerEmail || 'N/A')}</p>
+          <p><strong>Payment ID:</strong> ${razorpay_payment_id}</p>
+          <p><strong>Invoice:</strong> ${invoice.invoiceNumber}</p>
+
+          <p style="margin-top: 15px;">📎 Invoice PDF is attached below.</p>
+          ${badgeDocBuffer ? `<p style="color: #f59e0b; font-weight: bold;">📄 Custom Badge Print File (Word) is attached - Open for 70mm print-ready images!</p>` : ''}
+
+          <div style="margin-top: 20px; padding: 15px; background: #eff6ff; border-radius: 8px; text-align: center;">
+            <a href="${process.env.FRONTEND_URL}/#/admin/orders" style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">View in Admin Panel</a>
+          </div>
+        </div>
+      `,
+      attachments: await buildAdminOrderAttachments({
+        order,
+        invoiceNumber: invoice.invoiceNumber,
+        invoicePdfBuffer,
+        badgeDocBuffer,
+        frontendUrl,
+      }),
+    });
+    console.log("✅ Owner notification email with invoice sent to:", ownerEmail);
+    if (badgeDocBuffer) console.log("✅ Custom badge Word doc attached");
+  } catch (ownerEmailErr) {
+    console.error("Owner email error:", ownerEmailErr.message);
+  }
+
+  return order;
+}
+
+// The captured payment must be for this Razorpay order and for exactly the
+// amount we priced.
+async function paymentMatches({ razorpayOrderId, paymentId, totalAmount, strict }) {
+  try {
+    const payment = await razorpay.payments.fetch(paymentId);
+    return (
+      String(payment?.order_id) === razorpayOrderId &&
+      ["captured", "authorized"].includes(payment?.status) &&
+      Number(payment?.amount) === Math.round(totalAmount * 100)
+    );
+  } catch (err) {
+    // Razorpay API hiccup. With a saved checkout the price was fixed before
+    // payment, so the signature is enough; a cart sent by the browser is not.
+    console.error("Razorpay payment fetch failed:", err.message);
+    return !strict;
+  }
+}
+
+const CLAIM_STALE_MS = 2 * 60 * 1000;
+const findPaidOrder = (razorpayOrderId) => Order.findOne({ gatewayOrderId: razorpayOrderId });
+
+/**
+ * Turns a paid Razorpay order into our Order exactly once, whichever of the
+ * browser and the webhook gets here first. Returns the order, or null when
+ * another request is still building it (or there is nothing to build).
+ */
+async function completePaidOrder({ razorpayOrderId, paymentId, req, fallback = null, waitForOther = false }) {
+  const existing = await findPaidOrder(razorpayOrderId);
+  if (existing) return existing;
+
+  // A claim older than CLAIM_STALE_MS belongs to a request that died midway.
+  const pending = await PendingCheckout.findOneAndUpdate(
+    { razorpayOrderId, $or: [{ claimedAt: null }, { claimedAt: { $lt: new Date(Date.now() - CLAIM_STALE_MS) } }] },
+    { claimedAt: new Date() },
+    { new: true }
+  );
+
+  let checkout = pending?.checkout;
+  if (!pending) {
+    // The winner deletes the checkout only after creating the order.
+    const done = await findPaidOrder(razorpayOrderId);
+    if (done) return done;
+
+    if (await PendingCheckout.exists({ razorpayOrderId })) {
+      if (!waitForOther) return null;
+      for (let i = 0; i < 20; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        const order = await findPaidOrder(razorpayOrderId);
+        if (order) return order;
+      }
+      return null;
+    }
+
+    // Checkouts started before carts were saved: price what the browser sent.
+    if (!fallback) return null;
+    checkout = await fallback();
+  }
+
+  const ok = await paymentMatches({
+    razorpayOrderId,
+    paymentId,
+    totalAmount: checkout.totalAmount,
+    strict: !pending,
+  });
+  if (!ok) {
+    console.error("Payment/amount mismatch for Razorpay order", razorpayOrderId, paymentId);
+    throw { status: 400, message: "Payment verification failed (amount mismatch)" };
+  }
+
+  const order = await fulfilOrder({ checkout, razorpay_order_id: razorpayOrderId, razorpay_payment_id: paymentId, req });
+  await PendingCheckout.deleteOne({ razorpayOrderId });
+  return order;
+}
+
+const signatureOk = (expectedHex, given) => {
+  const expected = Buffer.from(expectedHex);
+  const actual = Buffer.from(String(given || ""));
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+};
 
 /* =========================
    VERIFY PAYMENT
@@ -322,521 +867,30 @@ router.post("/verify-payment", async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing payment parameters" });
     }
 
-    // 🔒 Idempotency: if already processed, return success without duplicate order creation
-    const existingOrder = await Order.findOne({
-      $or: [
-        { gatewayOrderId: razorpay_order_id },
-        { gatewayPaymentId: razorpay_payment_id },
-      ],
-    });
-
-    if (existingOrder) {
-      return res.json({
-        success: true,
-        message: "Payment already verified",
-        orderId: existingOrder._id,
-      });
-    }
-
-    // Verify signature
-    const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
       .createHmac("sha256", razorpayKeySecret)
-      .update(body.toString())
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
-
-    const isValid = expectedSignature === razorpay_signature;
-
-    if (!isValid) {
+    if (!signatureOk(expectedSignature, razorpay_signature)) {
       return res.status(400).json({ success: false, message: "Invalid signature" });
     }
 
-    // Re-verify order calculation on backend (source of truth)
-    const {
-      userId,
-      email,
-      verifiedItems,
-      subtotal,
-      deliveryCharges,
-      discount,
-      appliedPromoCode,
-      totalAmount,
-    } = await verifyAndCalculateOrder({
-      items,
-      address,
-      promoCode,
-      requestEmail,
-      reqAuthHeader,
-    });
-
-    // 🔒 Defense-in-depth: confirm the captured amount matches the order total.
-    try {
-      const payment = await razorpay.payments.fetch(razorpay_payment_id);
-      if (
-        String(payment?.order_id) !== razorpay_order_id ||
-        !paymentOk ||
-        amountPaid !== expectedPaise
-      ) {
-        return res.status(400).json({ success: false, message: "Payment verification failed (amount mismatch)" });
-      }
-    } catch (fetchErr) {
-      // Razorpay API hiccup: signature + gatewayOrderId binding already proved
-      // authenticity, so don't hard-fail a legitimate payment.
-      console.error("Razorpay payment fetch failed (continuing on signature):", fetchErr.message);
-    }
-
-    // ✅ CREATE THE ACTUAL APPLICATION ORDER IN MONGODB ONLY NOW AFTER VERIFICATION
-    const order = await Order.create({
-      userId,
-      userEmail: email,
-      items: verifiedItems,
-      subtotal,
-      deliveryCharges,
-      discount,
-      promoCode: appliedPromoCode,
-      amount: totalAmount,
-      gatewayOrderId: razorpay_order_id,
-      gatewayPaymentId: razorpay_payment_id,
-      address,
-      status: "SUCCESS",
-      paymentGateway: "razorpay",
-    });
-
-    // ✅ UPDATE / REDUCE PRODUCT STOCK AFTER SUCCESSFUL PAYMENT
-    for (const item of verifiedItems) {
-      if (item.badgeId && mongoose.Types.ObjectId.isValid(item.badgeId)) {
-        await Product.updateOne(
-          { _id: item.badgeId, stock: { $gt: 0 } },
-          { $inc: { stock: -item.quantity } }
-        );
-      }
-      if (Array.isArray(item.comboItems)) {
-        for (const comboItem of item.comboItems) {
-          if (comboItem.id && mongoose.Types.ObjectId.isValid(comboItem.id)) {
-            const comboQty = (Number(comboItem.quantity) || 1) * item.quantity;
-            await Product.updateOne(
-              { _id: comboItem.id, stock: { $gt: 0 } },
-              { $inc: { stock: -comboQty } }
-            );
-          }
-        }
-      }
-    }
-
-    logActivity({
+    const order = await completePaidOrder({
+      razorpayOrderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
       req,
-      actor: { id: order.userId, email: order.userEmail, role: "user" },
-      action: "order.paid",
-      category: "order",
-      message: `Order paid — ₹${order.amount} by ${order.userEmail || "guest"}`,
-      target: { type: "Order", id: order._id, label: String(order._id) },
-      meta: {
-        amount: order.amount,
-        itemCount: order.items?.length || 0,
-        gatewayPaymentId: razorpay_payment_id,
-      },
+      waitForOther: true,
+      fallback: async () => ({
+        ...(await verifyAndCalculateOrder({ items, address, promoCode, requestEmail, reqAuthHeader })),
+        address,
+      }),
     });
 
-    let shiprocketSynced = false;
-    // Auto-approve Shiprocket logic
-    try {
-      const Setting = require("../models/Setting");
-      const { pushOrderToShiprocket } = require("../services/shiprocketService");
-      const autoApproveSetting = await Setting.findOne({ key: "shiprocket_auto_approve" });
-      const isAutoApprove = autoApproveSetting ? autoApproveSetting.value === true : false;
-      if (isAutoApprove) {
-        console.log(`Auto-push enabled. Syncing order ${order._id} with Shiprocket...`);
-        const syncResult = await pushOrderToShiprocket(order._id);
-        if (syncResult && syncResult.success) {
-          shiprocketSynced = true;
-        }
-      } else {
-        console.log(`Auto-push disabled. Order ${order._id} set to PENDING for Shiprocket.`);
-      }
-    } catch (err) {
-      console.error("Error triggering auto-push for Razorpay order:", err.message);
-    }
-
-    /* =========================
-   ✅ PROMO USAGE + INFLUENCER EARNING (committed only after payment)
-========================= */
-    if (order.promoCode) {
-      try {
-        const promo = await PromoCode.findOne({ code: order.promoCode }).populate(
-          "createdBy",
-          "email name"
-        );
-
-        if (promo) {
-          const totalUnits = (order.items || []).reduce(
-            (sum, item) => sum + Number(item.quantity || 0),
-            0
-          );
-
-          // Consume one use of the code now that the order is actually paid.
-          promo.usedCount = (promo.usedCount || 0) + 1;
-          await promo.save();
-
-          let earningGenerated = 0;
-          if (promo.promoType === "influencer" && promo.createdBy?._id) {
-            const earningPerUnit = promo.earningPerUnit || 5;
-            earningGenerated = totalUnits * earningPerUnit;
-
-            // Created as "pending"; the loop below moves it to "paid" and
-            // updates the influencer profile balances.
-            await InfluencerEarning.create({
-              influencerId: promo.createdBy._id,
-              promoCodeId: promo._id,
-              orderId: order._id,
-              customerId: order.userId,
-              totalUnits,
-              earningPerUnit,
-              totalEarning: earningGenerated,
-              orderAmount: order.amount,
-              status: "pending",
-            });
-
-            await PromoCode.findByIdAndUpdate(promo._id, {
-              $inc: { totalEarnings: earningGenerated, totalUnitsSold: totalUnits },
-            });
-
-            await User.findByIdAndUpdate(promo.createdBy._id, {
-              $inc: {
-                "influencerProfile.totalEarnings": earningGenerated,
-                "influencerProfile.pendingEarnings": earningGenerated,
-              },
-            });
-          }
-
-          await PromoCode.findByIdAndUpdate(promo._id, {
-            $push: {
-              usageHistory: {
-                userId: order.userId,
-                orderId: order._id,
-                discountApplied: order.discount || 0,
-                unitsSold: totalUnits,
-                earningGenerated,
-                usedAt: new Date(),
-              },
-            },
-          });
-
-          // Notify admin/influencer that their code was used on a PAID order.
-          if (promo.createdBy?.email) {
-            try {
-              await sendEmail({
-                to: promo.createdBy.email,
-                subject:
-                  promo.promoType === "influencer"
-                    ? "You earned Rs" + earningGenerated + "! Code " + promo.code + " used"
-                    : "Promo Code " + promo.code + " Used!",
-                html: promoUsedEmailTemplate({
-                  promoCode: promo.code,
-                  discountApplied: order.discount || 0,
-                  orderAmount: order.amount,
-                  customerName: order.address?.name || "Customer",
-                  customerEmail: order.userEmail || "",
-                  usedCount: promo.usedCount,
-                  usageLimit: promo.usageLimit,
-                  orderId: order._id.toString(),
-                  isInfluencer: promo.promoType === "influencer",
-                  totalUnits,
-                  earningPerUnit: promo.earningPerUnit || 5,
-                  earningGenerated,
-                }),
-              });
-            } catch (mailErr) {
-              console.error("Promo notification email error:", mailErr.message);
-            }
-          }
-        }
-      } catch (promoErr) {
-        console.error("Promo/earning accounting error:", promoErr.message);
-      }
-    }
-
-    /* =========================
-   ✅ UPDATE INFLUENCER EARNING TO PAID
-========================= */
-
-const earnings = await InfluencerEarning.find({ orderId: order._id, status: "pending" });
-
-for (const earn of earnings) {
-  // change earning status
-  earn.status = "paid";
-  earn.paidAt = new Date();
-  await earn.save();
-
-  // move pending → paid in influencer profile
-  await User.findByIdAndUpdate(earn.influencerId, {
-    $inc: {
-      "influencerProfile.pendingEarnings": -earn.totalEarning,
-      "influencerProfile.paidEarnings": earn.totalEarning,
-    },
-  });
-}
-
-
-    // Create invoice
-    const lastInvoice = await Invoice.findOne().sort({ createdAt: -1 });
-    let invoiceNumber = "STK-0001";
-    if (lastInvoice && lastInvoice.invoiceNumber) {
-      const lastNum = parseInt(lastInvoice.invoiceNumber.split("-")[1]) || 0;
-      invoiceNumber = `STK-${String(lastNum + 1).padStart(4, "0")}`;
-    }
-
-    // Get user email (guest checkout has no user account; fall back to order email)
-    const user = order.userId ? await User.findById(order.userId) : null;
-    const buyerEmail = user?.email || order.userEmail || null;
-
-    const invoice = await Invoice.create({
-      orderId: order._id,
-      userId: order.userId,
-      email: buyerEmail,
-      invoiceNumber,
-      amount: order.amount,
-      currency: order.currency || "INR",
-      paymentMethod: "Razorpay",
-      paymentGateway: "razorpay",
-      address: order.address,
-      discount: order.discount || 0,
-      promoCode: order.promoCode || null,
-    });
-
-    // Update order with invoice ID
-    order.invoiceId = invoice._id;
-    await order.save();
-
-    // Update user orders (Mapping for the logged-in profile page).
-    // Guests have no account/profile, so skip this mapping for them.
-    if (order.userId) {
-      await UserOrders.create({
-        userId: order.userId,
-        orderId: order._id,
-        invoiceId: invoice._id,
+    if (!order) {
+      return res.status(202).json({
+        success: false,
+        message: "Payment received. Your order is being confirmed - you'll get an email shortly.",
       });
-    }
-
-    // Generate Invoice PDF
-    let invoicePdfBuffer = null;
-    try {
-      // Populate invoice with user data for PDF generation
-      const populatedInvoice = await Invoice.findById(invoice._id)
-        .populate("userId", "name email phone");
-      
-      invoicePdfBuffer = await generateInvoicePDF({ invoice: populatedInvoice, order });
-      console.log("✅ Invoice PDF generated successfully");
-    } catch (pdfErr) {
-      console.error("Invoice PDF generation error:", pdfErr.message);
-    }
-
-    // Send confirmation email with Invoice to BUYER
-    if (buyerEmail) {
-      try {
-        const emailOptions = {
-          to: buyerEmail,
-          subject: `Order Confirmed! #${order._id.toString().slice(-8).toUpperCase()} - Invoice Attached`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
-              <h1 style="color: #10b981;">Order Confirmed!</h1>
-              <p>Hi ${esc(order.address?.name || "Customer")},</p>
-              <p>Your order has been confirmed and will be shipped soon.</p>
-              <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 0;"><strong>Order ID:</strong> ${order._id.toString().slice(-8).toUpperCase()}</p>
-                <p style="margin: 5px 0;"><strong>Invoice No:</strong> ${invoice.invoiceNumber}</p>
-                <p style="margin: 5px 0;"><strong>Amount:</strong> ₹${order.amount}</p>
-                <p style="margin: 0;"><strong>Items:</strong> ${order.items.length}</p>
-              </div>
-              <p>📎 Your invoice is attached to this email.</p>
-              <p>Thank you for shopping with StickToon!</p>
-            </div>
-          `,
-        };
-
-        // Add PDF attachment if generated successfully
-        if (invoicePdfBuffer) {
-          emailOptions.attachments = [
-            {
-              name: `Invoice-${invoice.invoiceNumber}.pdf`,
-              content: invoicePdfBuffer.toString("base64"),
-            },
-          ];
-        }
-
-        await sendEmail(emailOptions);
-        console.log("✅ Buyer email with invoice sent to:", buyerEmail);
-      } catch (emailErr) {
-        console.error("Buyer email error:", emailErr.message);
-      }
-    }
-
-    // Send order notification to OWNER (sticktoon.xyz@gmail.com)
-    const ownerEmail = process.env.ORDERS_EMAIL || process.env.ADMIN_EMAIL || "sticktoon.xyz@gmail.com";
-    const frontendUrl = process.env.FRONTEND_URL;
-    try {
-      const customBadges = order.items.filter(isCustomItem);
-
-      let badgeDocBuffer = null;
-      if (customBadges.length > 0) {
-        try {
-          badgeDocBuffer = await generateBadgeDoc({
-            orderId: order._id.toString().slice(-8).toUpperCase(),
-            customBadges: customBadges.map(item => ({
-              name: item.name,
-              quantity: item.quantity,
-              image: item.image,
-              printImage: item.printImage,
-            })),
-          });
-          console.log("✅ Badge Word document generated for " + customBadges.length + " custom badges");
-        } catch (docErr) {
-          console.error("Badge doc generation error:", docErr.message);
-        }
-
-        /* Now that the print document is built from the inline copy, the artwork
-           can move to Cloudinary and the order can keep just the URL. Deliberately
-           here and not at order creation: a quarter of custom orders are never
-           paid for, and uploading those would fill the account with artwork for
-           badges nobody ordered - besides delaying the payment screen.
-
-           Left inline, each custom badge is ~1 MB inside the order document,
-           carried by every order query and every backup email for good. */
-        try {
-          await uploadCustomArtwork(order.items);
-          order.markModified("items");
-          await order.save();
-        } catch (artErr) {
-          // The order is paid and the print doc exists; a storage hiccup here is
-          // not worth failing the confirmation over. Next backup just stays fat.
-          console.error("Custom artwork upload error:", artErr.message);
-        }
-      }
-      const itemsList = order.items.map(item => {
-        // Build image URL - handle different image path formats
-        let imageUrl = '';
-        if (item.image) {
-          if (item.image.startsWith('http')) {
-            imageUrl = item.image;
-          } else if (item.image.startsWith('/')) {
-            imageUrl = `${frontendUrl}${item.image}`;
-          } else if (item.image.startsWith('data:image')) {
-            // For custom badges, show a placeholder text instead of embedding base64
-            imageUrl = ''; // Don't embed base64 in email, it's in the Word doc
-          } else {
-            imageUrl = `${frontendUrl}/${item.image}`;
-          }
-        }
-        
-        // Mark custom badges in the list. Not by the data: URI any more — the
-        // artwork has just been moved to Cloudinary a few lines above.
-        const isCustom = isCustomItem(item);
-        
-        return `<tr>
-          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              ${imageUrl ? `<img src="${esc(imageUrl)}" alt="${esc(item.name)}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb;">` : (isCustom ? '<span style="display: inline-block; width: 60px; height: 60px; background: #fef3c7; border-radius: 8px; text-align: center; line-height: 60px; font-size: 24px;">🎨</span>' : '')}
-              <span style="font-weight: 500;">${esc(item.name)}${isCustom ? ' <span style="color: #f59e0b; font-size: 11px;">(CUSTOM - See Word Doc)</span>' : ''}</span>
-            </div>
-          </td>
-          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center; font-weight: bold;">${item.quantity}</td>
-          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold;">₹${item.price}</td>
-        </tr>`;
-      }).join('');
-
-      const adminAttachments = await buildAdminOrderAttachments({
-        order,
-        invoiceNumber: invoice.invoiceNumber,
-        invoicePdfBuffer,
-        frontendUrl,
-      });
-
-      const emailSubject = shiprocketSynced
-        ? `🛒 [Auto-Synced] New Order Received! #${order._id.toString().slice(-8).toUpperCase()} - ₹${order.amount}`
-        : `🛒 [Action Required] New Order Received! #${order._id.toString().slice(-8).toUpperCase()} - ₹${order.amount}`;
-
-      const syncStatusHtml = shiprocketSynced
-        ? `
-            <div style="background: #ecfdf5; border: 2px solid #10b981; padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #065f46; font-family: Arial, sans-serif;">
-              <h3 style="margin: 0; font-size: 16px;">✅ Auto-Synced to Shiprocket!</h3>
-              <p style="margin: 5px 0 0; font-size: 14px;">The order has been automatically pushed to Shiprocket. Go to your Shiprocket panel and ship the order.</p>
-            </div>
-          `
-        : `
-            <div style="background: #fffbeb; border: 2px solid #f59e0b; padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #92400e; font-family: Arial, sans-serif;">
-              <h3 style="margin: 0; font-size: 16px;">⚠️ Manual Action Required</h3>
-              <p style="margin: 5px 0 0; font-size: 14px;">This order is NOT auto-synced. Please open your Admin Panel, review the order, and click "Send to Shiprocket" to proceed with the shipment.</p>
-            </div>
-          `;
-
-      await sendEmail({
-        to: ownerEmail,
-        subject: emailSubject,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h1 style="color: #3b82f6; margin-bottom: 20px;">🎉 New Order Received!</h1>
-            
-            ${syncStatusHtml}
-            
-            <div style="background: #f0fdf4; border: 2px solid #22c55e; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-              <h2 style="margin: 0; color: #166534;">Order ID: ${order._id.toString().slice(-8).toUpperCase()}</h2>
-              <p style="margin: 5px 0 0; font-size: 24px; font-weight: bold; color: #166534;">₹${order.amount}</p>
-            </div>
-
-            <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">📦 Order Details</h3>
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-              <thead>
-                <tr style="background: #f3f4f6;">
-                  <th style="padding: 10px; text-align: left;">Item</th>
-                  <th style="padding: 10px; text-align: center;">Qty</th>
-                  <th style="padding: 10px; text-align: right;">Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${itemsList}
-              </tbody>
-            </table>
-
-            <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-              <p style="margin: 5px 0;"><strong>Subtotal:</strong> ₹${order.subtotal}</p>
-              <p style="margin: 5px 0;"><strong>Delivery:</strong> ₹${order.deliveryCharges}</p>
-              ${order.discount > 0 ? `<p style="margin: 5px 0; color: #16a34a;"><strong>Discount:</strong> -₹${order.discount}</p>` : ''}
-              ${order.promoCode ? `<p style="margin: 5px 0;"><strong>Promo Code:</strong> ${esc(order.promoCode)}</p>` : ''}
-              <hr style="border: 1px solid #d1d5db; margin: 10px 0;">
-              <p style="margin: 5px 0; font-size: 18px;"><strong>Total:</strong> ₹${order.amount}</p>
-            </div>
-
-            <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">📍 Shipping Address</h3>
-            <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-              <p style="margin: 5px 0;"><strong>Name:</strong> ${esc(order.address?.name || 'N/A')}</p>
-              <p style="margin: 5px 0;"><strong>Address:</strong> ${esc(order.address?.street || 'N/A')}</p>
-              <p style="margin: 5px 0;"><strong>Phone:</strong> ${esc(order.address?.phone || 'N/A')}</p>
-            </div>
-
-            <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">👤 Customer Info</h3>
-            <p><strong>Email:</strong> ${esc(buyerEmail || 'N/A')}</p>
-            <p><strong>Payment ID:</strong> ${razorpay_payment_id}</p>
-            <p><strong>Invoice:</strong> ${invoice.invoiceNumber}</p>
-
-            <p style="margin-top: 15px;">📎 Invoice PDF is attached below.</p>
-            ${badgeDocBuffer ? `<p style="color: #f59e0b; font-weight: bold;">📄 Custom Badge Print File (Word) is attached - Open for 70mm print-ready images!</p>` : ''}
-
-            <div style="margin-top: 20px; padding: 15px; background: #eff6ff; border-radius: 8px; text-align: center;">
-              <a href="${process.env.FRONTEND_URL}/#/admin/orders" style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">View in Admin Panel</a>
-            </div>
-          </div>
-        `,
-        attachments: await buildAdminOrderAttachments({
-          order,
-          invoiceNumber: invoice.invoiceNumber,
-          invoicePdfBuffer,
-          badgeDocBuffer,
-          frontendUrl,
-        }),
-      });
-      console.log("✅ Owner notification email with invoice sent to:", ownerEmail);
-      if (badgeDocBuffer) console.log("✅ Custom badge Word doc attached");
-    } catch (ownerEmailErr) {
-      console.error("Owner email error:", ownerEmailErr.message);
     }
 
     res.json({
@@ -845,8 +899,45 @@ for (const earn of earnings) {
       orderId: order._id,
     });
   } catch (err) {
+    if (err.status && err.message) {
+      return res.status(err.status).json({ success: false, message: err.message });
+    }
     console.error("Verify payment error:", err);
     res.status(500).json({ message: "Payment verification failed" });
+  }
+});
+
+/* =========================
+   RAZORPAY WEBHOOK
+   Builds the order when the customer paid but the browser never reached
+   verify-payment (tab closed, network drop). Razorpay retries on non-2xx.
+========================= */
+router.post("/webhook", async (req, res) => {
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  if (!secret) return res.status(503).json({ message: "Webhook not configured" });
+
+  const expected = crypto.createHmac("sha256", secret).update(req.rawBody || "").digest("hex");
+  if (!signatureOk(expected, req.headers["x-razorpay-signature"])) {
+    return res.status(400).json({ message: "Invalid signature" });
+  }
+
+  const payment = req.body?.payload?.payment?.entity;
+  if (!["payment.captured", "order.paid"].includes(req.body?.event) || !payment?.order_id) {
+    return res.json({ ok: true });
+  }
+
+  try {
+    const order = await completePaidOrder({ razorpayOrderId: payment.order_id, paymentId: payment.id, req });
+    // Still being built by verify-payment: 409 makes Razorpay try again later,
+    // which also recovers a checkout whose builder crashed midway.
+    if (!order && (await PendingCheckout.exists({ razorpayOrderId: payment.order_id }))) {
+      return res.status(409).json({ message: "Order in progress" });
+    }
+    res.json({ ok: true, orderId: order?._id || null });
+  } catch (err) {
+    console.error("Razorpay webhook error:", err.message || err);
+    // An amount mismatch won't fix itself on retry; anything else might.
+    res.status(err.status === 400 ? 200 : 500).json({ message: err.message || "Webhook failed" });
   }
 });
 
@@ -858,8 +949,9 @@ router.post("/payment-failed", async (req, res) => {
     const { orderId, error } = req.body;
 
     if (orderId && mongoose.Types.ObjectId.isValid(orderId)) {
-      const order = await Order.findByIdAndUpdate(
-        orderId,
+      // Public endpoint: never let it mark a paid order as failed.
+      const order = await Order.findOneAndUpdate(
+        { _id: orderId, status: "PENDING" },
         {
           status: "FAILED",
           failureReason: error?.description || "Payment failed",

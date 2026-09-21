@@ -192,7 +192,9 @@ export default function Profile({
   const handleDownloadInvoice = async (orderId: string) => {
     setDownloadingInvoiceId(orderId);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/invoice/${orderId}/download`);
+      const res = await fetch(`${API_BASE_URL}/api/invoice/${orderId}/download`, {
+        headers: { Authorization: `Bearer ${getStoredToken()}` },
+      });
       if (!res.ok) {
         showToast("Invoice not available yet for this order.", "error");
         return;

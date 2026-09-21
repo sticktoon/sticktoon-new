@@ -46,9 +46,45 @@ app.use(
   })
 );
 
-// Increase JSON body size limit for base64 images & PDF catalogue uploads
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+// Render sits behind one proxy; without this every request has the proxy's IP
+// and the rate limits below would lump all customers together.
+app.set("trust proxy", 1);
+
+// Only routes that carry base64 artwork, avatars or PDFs get the big body
+// limit; everything else is capped so a huge body can't tie up the server.
+const BIG_BODY_PATHS = ["/api/admin", "/api/razorpay", "/api/cart", "/api/badge-doc", "/api/auth/upload-avatar"];
+// The Razorpay webhook signature covers the exact bytes sent.
+const keepRawBody = (req, res, buf) => {
+  if (req.originalUrl.startsWith("/api/razorpay/webhook")) req.rawBody = buf;
+};
+const bodyParsers = (limit) => [
+  express.json({ limit, verify: keepRawBody }),
+  express.urlencoded({ limit, extended: true }),
+];
+const bigBody = bodyParsers("50mb");
+const smallBody = bodyParsers("1mb");
+app.use((req, res, next) => {
+  const [json, form] = BIG_BODY_PATHS.some((p) => req.path.startsWith(p)) ? bigBody : smallBody;
+  json(req, res, (err) => (err ? next(err) : form(req, res, next)));
+});
+
+/* Rate limits on sign-in and public forms */
+const rateLimit = require("./middleware/rateLimit");
+const signInLimit = rateLimit({ max: 10, windowMs: 15 * 60 * 1000 });
+const formLimit = rateLimit({ max: 10, windowMs: 15 * 60 * 1000, message: "Too many requests. Please try again later." });
+[
+  "/api/auth/login",
+  "/api/auth/signup",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password/:token",
+  "/api/admin/login",
+  "/api/admin/login/2fa",
+  "/api/admin/login/email-code/resend",
+  "/api/admin/login/change-password",
+  "/api/influencer/login",
+].forEach((p) => app.post(p, signInLimit));
+["/api/contact", "/api/admin/leads"].forEach((p) => app.post(p, formLimit));
+app.post("/api/razorpay/create-order", rateLimit({ max: 30, windowMs: 15 * 60 * 1000 }));
 
 /* Database */
 connectDB();

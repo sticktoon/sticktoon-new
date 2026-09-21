@@ -2,7 +2,9 @@ const express = require("express");
 const router = express.Router();
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const Lead = require("../models/Lead");
+const Setting = require("../models/Setting");
 const auth = require("../middleware/auth");
 const { requirePermission } = require("../middleware/roleMiddleware");
 const sendEmail = require("../utils/sendEmail");
@@ -296,25 +298,48 @@ function getGmailOAuthClient(req = null) {
 }
 
 /* ===============================
-   GMAIL AUTH ROUTES FOR orders.sticktoon@gmail.com
+   GMAIL AUTH FOR orders.sticktoon@gmail.com
 ================================ */
-router.get("/gmail/auth", async (req, res) => {
-  try {
-    const { oauth2Client } = getGmailOAuthClient(req);
-    const authUrl = oauth2Client.generateAuthUrl({
-      access_type: "offline",
-      prompt: "consent",
-      scope: ["https://www.googleapis.com/auth/gmail.compose"],
-    });
-    return res.redirect(authUrl);
-  } catch (err) {
-    console.error("Gmail OAuth auth error:", err);
-    return res.status(500).send("Error generating Gmail authorization URL: " + err.message);
-  }
-});
+// The callback is hit by Google, so it can't carry an admin token. Instead the
+// consent link is only handed out to a signed-in admin, with a short-lived
+// signed `state` the callback checks - otherwise anyone could connect their
+// own inbox and receive lead drafts. Not a JWT on purpose: a JWT signed with
+// JWT_SECRET would also pass as a login token.
+const GMAIL_TOKEN_KEY = "gmail_refresh_token";
+const signGmailState = (exp) =>
+  crypto.createHmac("sha256", process.env.JWT_SECRET).update(`gmail-connect:${exp}`).digest("hex");
+
+function gmailConsentUrl(req) {
+  const exp = Date.now() + 15 * 60 * 1000;
+  const { oauth2Client } = getGmailOAuthClient(req);
+  return oauth2Client.generateAuthUrl({
+    access_type: "offline",
+    prompt: "consent",
+    scope: ["https://www.googleapis.com/auth/gmail.compose"],
+    state: `${exp}.${signGmailState(exp)}`,
+  });
+}
+
+function gmailStateValid(state) {
+  const [exp, sig] = String(state || "").split(".");
+  if (!exp || !sig || Number(exp) < Date.now()) return false;
+  const expected = Buffer.from(signGmailState(exp));
+  const given = Buffer.from(sig);
+  return expected.length === given.length && crypto.timingSafeEqual(expected, given);
+}
+
+// A token saved from the callback lives in the DB so it survives a redeploy;
+// it wins over the env var, which may be the older, revoked one.
+async function loadGmailToken() {
+  const saved = await Setting.findOne({ key: GMAIL_TOKEN_KEY }).lean();
+  if (saved?.value) process.env.GMAIL_REFRESH_TOKEN = saved.value;
+}
 
 router.get("/gmail/callback", async (req, res) => {
   try {
+    if (!gmailStateValid(req.query.state)) {
+      return res.status(403).send("This Gmail link has expired. Start again from the admin panel.");
+    }
     const code = req.query.code;
     if (!code) {
       return res.status(400).send("Authorization code missing");
@@ -324,18 +349,9 @@ router.get("/gmail/callback", async (req, res) => {
     const { tokens } = await oauth2Client.getToken(code);
 
     if (tokens.refresh_token) {
-      const envPath = path.resolve(__dirname, "../.env");
-      let envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf8") : "";
-      const keyRegex = /^GMAIL_REFRESH_TOKEN=.*$/m;
-      const newLine = `GMAIL_REFRESH_TOKEN=${tokens.refresh_token}`;
-      if (keyRegex.test(envContent)) {
-        envContent = envContent.replace(keyRegex, newLine);
-      } else {
-        envContent = `${envContent.trim()}\n${newLine}\n`;
-      }
-      fs.writeFileSync(envPath, envContent, "utf8");
+      await Setting.findOneAndUpdate({ key: GMAIL_TOKEN_KEY }, { value: tokens.refresh_token }, { upsert: true });
       process.env.GMAIL_REFRESH_TOKEN = tokens.refresh_token;
-      console.log("✅ Saved GMAIL_REFRESH_TOKEN to backend/.env");
+      console.log("✅ Saved Gmail refresh token");
     }
 
     return res.send(`
@@ -347,7 +363,7 @@ router.get("/gmail/callback", async (req, res) => {
     `);
   } catch (err) {
     console.error("Gmail OAuth callback error:", err);
-    return res.status(500).send("Error exchanging authorization code: " + err.message);
+    return res.status(500).send("Couldn't connect Gmail. Try again from the admin panel.");
   }
 });
 
@@ -398,17 +414,15 @@ router.post("/gmail/create-draft", ...leadsAccess, async (req, res) => {
   try {
     const { leadId, catalogueId, email, subject, body } = req.body || {};
 
+    await loadGmailToken();
     const { oauth2Client, hasRefreshToken } = getGmailOAuthClient(req);
 
     if (!hasRefreshToken) {
-      const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
-      const host = req.headers["x-forwarded-host"] || req.get("host") || "localhost:5000";
-      const authUrl = `${protocol}://${host}/api/admin/leads/gmail/auth`;
       return res.status(401).json({
         requiresGoogleAuth: true,
         errorCode: "GMAIL_REFRESH_TOKEN_MISSING",
         message: "Google Gmail authorization is required for orders.sticktoon@gmail.com.",
-        authUrl,
+        authUrl: gmailConsentUrl(req),
       });
     }
 
@@ -490,14 +504,11 @@ router.post("/gmail/create-draft", ...leadsAccess, async (req, res) => {
       err?.response?.data?.error === "invalid_grant";
 
     if (isInvalidGrant) {
-      const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
-      const host = req.headers["x-forwarded-host"] || req.get("host") || "localhost:5000";
-      const authUrl = `${protocol}://${host}/api/admin/leads/gmail/auth`;
       return res.status(401).json({
         requiresGoogleAuth: true,
         errorCode: "GMAIL_REFRESH_TOKEN_INVALID",
         message: "Gmail authorization has expired or been revoked. Please reconnect Gmail.",
-        authUrl,
+        authUrl: gmailConsentUrl(req),
       });
     }
 

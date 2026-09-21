@@ -1079,7 +1079,7 @@ export default function AdminDealSend() {
           setSendStatus({
             type: "error",
             message: data.message || "Google Gmail authorization is required for orders.sticktoon@gmail.com.",
-            authUrl: data.authUrl || `${API_BASE_URL}/api/admin/leads/gmail/auth`,
+            authUrl: data.authUrl,
           });
           return;
         }

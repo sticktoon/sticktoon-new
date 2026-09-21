@@ -998,7 +998,8 @@ export default function Checkout({
               // Redirect to home page with order confirmation modal
               window.location.href = `/#/?orderId=${verifyData.orderId}&orderSuccess=true`;
             } else {
-              setPaymentError("Payment verification failed");
+              // 202 = paid, order still being confirmed; the server says so.
+              setPaymentError(verifyData.message || "Payment verification failed");
               setIsProcessing(false);
             }
           } catch (verifyErr) {
