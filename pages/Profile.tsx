@@ -1102,6 +1102,8 @@ export default function Profile({
                                     )}
                                   </div>
                                 </div>
+                                {/* Old custom orders come back without their artwork; re-ordering them would print nothing. */}
+                                {(isCatalogueItem(item) || (item as any).image) && (
                                 <button
                                   type="button"
                                   onClick={() => handleBuyAgain(item)}
@@ -1109,6 +1111,7 @@ export default function Profile({
                                 >
                                   Buy Again
                                 </button>
+                                )}
                               </div>
                             );
                           })}

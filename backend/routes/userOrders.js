@@ -5,6 +5,20 @@ const User = require("../models/User");
 const Order = require("../models/Order");
 const UserOrders = require("../models/User_Orders");
 
+// Older custom orders kept artwork inline as base64 (several MB per order);
+// the order list only needs a thumbnail URL, so inline images are dropped and
+// the page falls back to its placeholder. printImage is for the print shop only.
+const slimOrder = (order) => {
+  const plain = typeof order.toObject === "function" ? order.toObject() : order;
+  return {
+    ...plain,
+    items: (plain.items || []).map(({ printImage, ...item }) => ({
+      ...item,
+      image: typeof item.image === "string" && item.image.startsWith("data:") ? null : item.image,
+    })),
+  };
+};
+
 /* =========================
    GET USER ORDERS
 ========================= */
@@ -50,7 +64,8 @@ router.get("/my-orders", auth, async (req, res) => {
 
     // 6. Convert to array and Sort by createdAt descending
     const sortedOrders = Array.from(allOrdersMap.values())
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map(slimOrder);
 
     res.json(sortedOrders);
   } catch (err) {
