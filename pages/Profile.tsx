@@ -588,27 +588,53 @@ export default function Profile({
     return "/images/STICKTOON_LONG.jpeg";
   };
 
-  const handleBuyAgain = (item: OrderItem) => {
-    const rawCart = localStorage.getItem("cart");
-    let currentCart: any[] = [];
+  // Catalogue items keep their product id on the order; combos and custom
+  // badges don't, so those can only be re-added as they were ordered.
+  const isCatalogueItem = (item: OrderItem) => /^[a-f\d]{24}$/i.test(item.badgeId || "");
+
+  const fetchOrderedProduct = async (item: OrderItem) => {
+    if (!isCatalogueItem(item)) return null;
     try {
-      currentCart = rawCart ? JSON.parse(rawCart) : [];
+      const res = await fetch(`${API_BASE_URL}/api/products/${item.badgeId}`);
+      return res.ok ? await res.json() : null;
     } catch {
-      currentCart = [];
+      return null;
     }
+  };
 
-    const newItem = {
-      id: `${item.badgeId || "item"}-${Date.now()}`,
-      title: item.title || item.name || "Badge Item",
-      price: item.price || 99,
-      quantity: 1,
-      image: getBadgeImage(item) || "",
-    };
+  const openProduct = async (item: OrderItem) => {
+    const product = await fetchOrderedProduct(item);
+    if (!product || product.isActive === false) {
+      showToast("This product is no longer available.", "error");
+      return;
+    }
+    navigate(product.type === "sticker" ? `/stickers/${product._id}` : `/badge/${product._id}`);
+  };
 
-    currentCart.push(newItem);
-    localStorage.setItem("cart", JSON.stringify(currentCart));
-    window.dispatchEvent(new Event("cartUpdated"));
-    showToast("Added item back to your cart!", "success");
+  // Goes through the app's cart (state + account cart), priced as it is today.
+  const handleBuyAgain = async (item: OrderItem) => {
+    if (!addToCart) return;
+    const badgeStyle = item.badgeStyle || "pin";
+
+    if (isCatalogueItem(item)) {
+      const product = await fetchOrderedProduct(item);
+      if (!product || product.isActive === false) {
+        showToast("This product is no longer available.", "error");
+        return;
+      }
+      addToCart(
+        {
+          ...product,
+          id: product._id,
+          price: product.price + (badgeStyle === "magnetic" ? 10 : 0),
+          basePrice: product.price,
+          badgeStyle,
+        },
+        1
+      );
+    } else {
+      addToCart({ ...item, id: item.badgeId, name: item.name || item.title, badgeStyle }, 1);
+    }
     navigate("/checkout");
   };
 
@@ -1043,7 +1069,15 @@ export default function Profile({
                             const badgeImg = getBadgeImage(item);
                             return (
                               <div key={idx} className="py-3 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
-                                <div className="flex items-center gap-3">
+                                <div
+                                  className={`flex items-center gap-3 ${isCatalogueItem(item) ? "cursor-pointer group" : ""}`}
+                                  {...(isCatalogueItem(item) && {
+                                    role: "link",
+                                    tabIndex: 0,
+                                    onClick: () => openProduct(item),
+                                    onKeyDown: (e: React.KeyboardEvent) => e.key === "Enter" && openProduct(item),
+                                  })}
+                                >
                                   {badgeImg ? (
                                     <img
                                       src={badgeImg}
@@ -1059,7 +1093,7 @@ export default function Profile({
                                     </div>
                                   )}
                                   <div>
-                                    <p className="text-slate-900 font-bold text-sm">{item.title || item.name || "Sticker Badge"}</p>
+                                    <p className="text-slate-900 font-bold text-sm group-hover:underline">{item.title || item.name || "Sticker Badge"}</p>
                                     <p className="text-slate-500 text-xs font-medium">Qty: {item.quantity} × ₹{item.price}</p>
                                     {item.badgeStyle && (
                                       <p className="text-[10px] font-black uppercase text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block mt-0.5">
