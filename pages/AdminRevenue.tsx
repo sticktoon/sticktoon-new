@@ -42,6 +42,7 @@ type Entry = {
   breakdown?: { salesPaise: number; feesPaise: number; refundsPaise: number };
   settlementId?: string | null;
   orderRef?: string | null;
+  utr?: string | null;
   note?: string;
   attachments?: Doc[];
   attachment?: { url?: string; name?: string }; // older entries: one document
@@ -158,6 +159,7 @@ type ReceiptFields = {
   fees: string | null;
   settlementId: string | null;
   orderRef: string | null;
+  utr: string | null;
   note: string | null;
   notRupees: boolean;
   confidence: "high" | "medium" | "low";
@@ -256,7 +258,8 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (typeof init.body === "string") headers["Content-Type"] = "application/json";
   const res = await fetch(`${API_BASE_URL}/api/admin/revenue${path}`, { ...init, headers });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || "Something went wrong");
+  // The body rides along on the error, e.g. { possibleDuplicate } from a save.
+  if (!res.ok) throw Object.assign(new Error(data.message || "Something went wrong"), { data });
   return data as T;
 }
 
@@ -433,7 +436,7 @@ function describe(item: Item): Described {
 
   return {
     title: e.note || TYPE_LABEL[e.type],
-    meta: [CHANNEL_LABEL[e.channel], e.orderRef, entered].filter(Boolean).join(" · "),
+    meta: [CHANNEL_LABEL[e.channel], e.orderRef, e.utr && `UTR ${e.utr}`, entered].filter(Boolean).join(" · "),
     icon: e.type === "refund" ? <Undo2 className="w-5 h-5" /> : <Pencil className="w-5 h-5" />,
     tone: "man",
     chips,
@@ -636,6 +639,7 @@ function Overview({
   onTab,
   onUpload,
   onManual,
+  showBank,
   onBank,
   onBook,
 }: {
@@ -645,13 +649,14 @@ function Overview({
   onTab: (t: Tab) => void;
   onUpload: () => void;
   onManual: () => void;
+  showBank: boolean;
   onBank: (check: BankCheck | null) => void;
   onBook: (preset: Preset) => void;
 }) {
   const summary = useData<Summary>(`/summary${qs(range)}`, refreshKey);
   const sync = useData<SyncStatus>("/amazon/status", refreshKey);
   const timeline = useData<TimelineData>(`/timeline${qs(range)}`, refreshKey);
-  const bank = useData<{ check: BankCheck | null }>("/bank", refreshKey);
+  const bank = useData<{ check: BankCheck | null }>(showBank ? "/bank" : null, refreshKey);
 
   if (summary.error) return <Failed message={summary.error} />;
   if (!summary.data) return <Loading />;
@@ -1026,7 +1031,7 @@ function Timeline({
       if (type !== "all" && (type === "sales" ? item.kind === "entry" : item.entry?.type !== type)) return false;
       if (!q) return true;
       const e = item.entry;
-      return [item.settlementId, e?.settlementId, e?.orderRef, e?.note, describe(item).title]
+      return [item.settlementId, e?.settlementId, e?.orderRef, e?.utr, e?.note, describe(item).title]
         .filter(Boolean)
         .some((text) => String(text).toLowerCase().includes(q));
     });
@@ -1064,12 +1069,13 @@ function Timeline({
         i.counted ? "yes" : "no",
         i.settlementId || i.entry?.settlementId || "",
         i.entry?.orderRef || "",
+        i.entry?.utr || "",
         i.entry?.note || "",
         i.entry?.createdBy?.name || "",
         i.entry ? istDay(i.entry.createdAt) : "",
       ];
     });
-    const header = ["Date", "Source", "Type", "Description", "Amount (INR)", "Counted in totals", "Settlement ID", "Order ref", "Note", "Entered by", "Entered on"];
+    const header = ["Date", "Source", "Type", "Description", "Amount (INR)", "Counted in totals", "Settlement ID", "Order ref", "UTR", "Note", "Entered by", "Entered on"];
     const csv = [header, ...rows].map((r) => r.map(cell).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = document.createElement("a");
@@ -1609,6 +1615,7 @@ function EntryModal({
     fees: entry?.type === "payout" ? String(-(entry.breakdown?.feesPaise || 0) / 100) : "",
     amount: entry && entry.type !== "payout" ? String(Math.abs(entry.amountPaise) / 100) : "",
     orderRef: entry?.orderRef || "",
+    utr: entry?.utr || "",
     note: entry?.note || "",
     ...preset,
   }));
@@ -1616,9 +1623,13 @@ function EntryModal({
   const [kept, setKept] = useState<Doc[]>(() => docsOf(entry)); // documents already on the entry
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [possibleDup, setPossibleDup] = useState(""); // server's warning, answered with "Save anyway"
   const [reading, setReading] = useState({ busy: false, message: "", failed: false });
 
-  const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  const set = (key: keyof typeof form) => (e: { target: { value: string } }) => {
+    setForm((f) => ({ ...f, [key]: e.target.value }));
+    setPossibleDup(""); // a changed form is checked afresh on save
+  };
   const defaultChannel = (type: EntryType): Channel =>
     type === "payout" ? "amazon" : type === "refund" ? "website" : "offline";
   const pickType = (type: EntryType) => setForm((f) => ({ ...f, type, channel: defaultChannel(type) }));
@@ -1649,6 +1660,7 @@ function EntryModal({
           : {
               ...(found.amount ? { amount: found.amount } : {}),
               ...(found.orderRef ? { orderRef: found.orderRef } : {}),
+              ...(found.utr ? { utr: found.utr } : {}),
             }),
         ...(found.note ? { note: found.note } : {}),
       }));
@@ -1659,6 +1671,7 @@ function EntryModal({
         (payout ? found.gross || found.amount : found.amount) && "amount",
         payout && found.settlementId && "settlement ID",
         !payout && found.orderRef && "ref",
+        !payout && found.utr && "UTR",
         found.note && "note",
       ].filter(Boolean);
       const warnings = [
@@ -1742,18 +1755,22 @@ function EntryModal({
           }
         : { text: "Dated today, so it shows at the top of the timeline.", className: "bg-slate-50 text-slate-600" };
 
-  const submit = async () => {
+  const submit = async (confirmDuplicate = false) => {
     setSaving(true);
     setError("");
+    setPossibleDup("");
     const body = new FormData();
     Object.entries(form).forEach(([k, v]) => body.append(k, v));
     files.forEach((f) => body.append("attachments", f));
     if (editing) kept.forEach((d) => body.append("keep", d.url));
+    if (confirmDuplicate) body.append("confirmDuplicate", "1");
     try {
       await api(editing ? `/entries/${entry!._id}` : "/entries", { method: editing ? "PATCH" : "POST", body });
       onSaved(editing ? "Entry updated" : `Added to the timeline on ${fmtDay(form.date, true)}`);
     } catch (e) {
-      setError((e as Error).message);
+      const err = e as Error & { data?: { possibleDuplicate?: boolean } };
+      if (err.data?.possibleDuplicate) setPossibleDup(err.message);
+      else setError(err.message);
       setSaving(false);
     }
   };
@@ -1774,7 +1791,7 @@ function EntryModal({
             </button>
             <button
               type="button"
-              onClick={submit}
+              onClick={() => submit()}
               disabled={!canSave || saving || reading.busy}
               className="px-5 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -1930,7 +1947,7 @@ function EntryModal({
             </div>
           </>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <label>
               <span className={LABEL}>Amount (₹)</span>
               <input value={form.amount} onChange={set("amount")} inputMode="decimal" placeholder="0" className={`${FIELD} tabular-nums`} />
@@ -1938,6 +1955,10 @@ function EntryModal({
             <label>
               <span className={LABEL}>Order or invoice ref (optional)</span>
               <input value={form.orderRef} onChange={set("orderRef")} placeholder="e.g. #ST-10411" className={FIELD} />
+            </label>
+            <label>
+              <span className={LABEL}>UTR / UPI ref (optional)</span>
+              <input value={form.utr} onChange={set("utr")} placeholder="e.g. 872239728910" className={`${FIELD} tabular-nums`} />
             </label>
           </div>
         )}
@@ -1995,6 +2016,24 @@ function EntryModal({
           <p className={`px-4 py-2.5 border-t border-slate-200 text-xs font-semibold ${notice.className}`}>{notice.text}</p>
         </div>
 
+        {possibleDup && (
+          <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-3">
+            <p className="text-sm font-bold text-amber-800">{possibleDup}</p>
+            <div className="mt-2.5 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => submit(true)}
+                disabled={saving}
+                className="px-3.5 py-1.5 rounded-lg bg-amber-600 text-white admin-zoho-keep-white text-xs font-bold disabled:opacity-50"
+              >
+                {saving ? "Saving…" : "Save anyway"}
+              </button>
+              <button type="button" onClick={() => setPossibleDup("")} className="text-xs font-bold text-amber-800 hover:underline">
+                Don't save, let me check
+              </button>
+            </div>
+          </div>
+        )}
         {error && <p className="text-sm font-bold text-red-600">{error}</p>}
       </div>
     </Modal>
@@ -2554,7 +2593,8 @@ function SearchResults({
                       )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-slate-600 font-mono text-xs">
-                      {entry.orderRef || entry.settlementId || "—"}
+                      {entry.orderRef || entry.settlementId || (entry.utr ? null : "—")}
+                      {entry.utr && <span className="block text-[11px] text-slate-400">UTR {entry.utr}</span>}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap capitalize text-slate-600 text-xs">
                       {entry.channel}
@@ -2640,7 +2680,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "website", label: "Website orders" },
 ];
 
-export default function AdminRevenue() {
+// isSuperAdmin only decides whether the bank panel is shown; the server enforces it.
+export default function AdminRevenue({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
   const [tab, setTab] = useState<Tab>("overview");
   const [rangeKey, setRangeKey] = useState("month");
   const range = useMemo(() => rangeFor(rangeKey), [rangeKey]);
@@ -2762,6 +2803,7 @@ export default function AdminRevenue() {
               onTab={setTab}
               onUpload={() => setUploadOpen(true)}
               onManual={() => setEntryModal({})}
+              showBank={isSuperAdmin}
               onBank={(check) => setBankModal({ check })}
               onBook={(preset) => setEntryModal({ preset })}
             />

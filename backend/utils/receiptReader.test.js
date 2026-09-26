@@ -27,6 +27,7 @@ assert.deepStrictEqual(
     fees: null,
     settlementId: null,
     orderRef: "555",
+    utr: null,
     note: "Badge machine from Shree Traders",
     notRupees: false,
     confidence: "high",
@@ -68,6 +69,13 @@ assert.strictEqual(cleanReceipt({ currency: "USD", amount: 10 }, today).notRupee
 assert.strictEqual(cleanReceipt({ currency: "Rs." }, today).notRupees, false);
 assert.strictEqual(cleanReceipt(null, today).confidence, "low");
 assert.strictEqual(cleanReceipt({ description: "x".repeat(300) }, today).note.length, 120);
+
+// UTRs are normalised so the same payment matches however it was printed or typed.
+assert.strictEqual(cleanReceipt({ utr: "8722 3972 8910" }, today).utr, "872239728910");
+assert.strictEqual(cleanReceipt({ utr: 872239728910 }, today).utr, "872239728910", "number from the model");
+assert.strictEqual(cleanReceipt({ utr: "sbin-0123456789" }, today).utr, "SBIN0123456789");
+assert.strictEqual(cleanReceipt({ utr: "UTR: 1234" }, today).utr, null, "label or too short");
+assert.strictEqual(cleanReceipt({ utr: "<script>" }, today).utr, null);
 
 // PDFs: invoices with a text layer are read; scans and broken files are refused.
 const makePdf = (write) =>

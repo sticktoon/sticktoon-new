@@ -6,11 +6,11 @@ const LedgerEntry = require("../models/LedgerEntry");
 const AmazonSettlement = require("../models/AmazonSettlement");
 const BankCheck = require("../models/BankCheck");
 const auth = require("../middleware/auth");
-const { adminOnly } = require("../middleware/roleMiddleware");
+const { adminOnly, superAdminOnly } = require("../middleware/roleMiddleware");
 const { logActivity } = require("../utils/activityLogger");
 const { uploadToCloudinary } = require("../utils/cloudinaryService");
 const { parseSettlementReport } = require("../utils/amazonSettlement");
-const { readReceipt, ReceiptReadError } = require("../utils/receiptReader");
+const { readReceipt, ReceiptReadError, normalizeUtr } = require("../utils/receiptReader");
 const { storeSettlement } = require("../utils/amazonSettlementStore");
 const { syncSettlements, getSyncStatus } = require("../services/amazonSync");
 
@@ -126,35 +126,70 @@ function readEntry(body, type) {
 
   const amount = inputPaise(body.amount);
   if (!(amount > 0 && amount <= MAX_PAISE)) return { error: "Enter an amount" };
+  const utrTyped = String(body.utr || "").trim();
+  const utr = utrTyped ? normalizeUtr(utrTyped) : null;
+  if (utrTyped && !utr) return { error: "Enter the UTR as printed: letters and digits only" };
   return {
     fields: {
       ...common,
       settlementId: null,
       orderRef: String(body.orderRef || "").trim().slice(0, 100) || null,
+      utr,
       amountPaise: type === "income" ? amount : -amount,
     },
   };
 }
 
-// The same money must not go in twice: an Amazon settlement, or a manual entry
-// with the same type, reference (UTR, transaction or invoice number) and amount.
-// Instalments against one invoice differ in amount, so they still go in.
-const duplicateOf = async (fields, ignoreId) => {
-  const filter = fields.dedupeKey
-    ? { dedupeKey: fields.dedupeKey }
-    : fields.orderRef
-      ? { voidedAt: null, type: fields.type, orderRef: fields.orderRef, amountPaise: fields.amountPaise }
-      : null;
-  if (!filter) return null;
-  const clash = await LedgerEntry.findOne({ ...filter, _id: { $ne: ignoreId } })
-    .collation({ locale: "en", strength: 2 }) // reference match ignores case
-    .select("occurredAt")
+// The same money must not go in twice. Blocked outright: an Amazon settlement
+// already on the timeline, or a manual entry of the same type and amount with
+// the same reference or UTR. Only warned about, because they can be genuine:
+// the same type and amount on the same day (two identical purchases, or one
+// receipt whose reference was misread), or a UTR already on an entry of another
+// amount (one payment split across entries).
+// Returns null, { message } (blocked) or { message, possible: true } (warn).
+async function duplicateOf(fields, ignoreId) {
+  if (fields.dedupeKey) {
+    const clash = await LedgerEntry.findOne({ dedupeKey: fields.dedupeKey, _id: { $ne: ignoreId } })
+      .select("occurredAt")
+      .lean();
+    return clash ? { message: `Settlement ${fields.settlementId} is already on the timeline (${istDay(clash.occurredAt)})` } : null;
+  }
+
+  const or = [{ amountPaise: fields.amountPaise, occurredAt: fields.occurredAt }];
+  if (fields.orderRef) or.push({ orderRef: fields.orderRef, amountPaise: fields.amountPaise });
+  if (fields.utr) or.push({ utr: fields.utr });
+  const found = await LedgerEntry.find({ _id: { $ne: ignoreId }, voidedAt: null, type: fields.type, $or: or })
+    .collation({ locale: "en", strength: 2 }) // references match ignoring case
+    .select("occurredAt amountPaise orderRef utr note")
     .lean();
-  if (!clash) return null;
-  return fields.dedupeKey
-    ? `Settlement ${fields.settlementId} is already on the timeline (${istDay(clash.occurredAt)})`
-    : `Already on the timeline: a ${fields.type} of ${rupees(Math.abs(fields.amountPaise))} with ref ${fields.orderRef}, dated ${istDay(clash.occurredAt)}. Edit that entry instead.`;
-};
+  return judgeDuplicate(fields, found);
+}
+
+// Sorts what duplicateOf found into blocked or warn. Kept apart so it can be tested.
+function judgeDuplicate(fields, found) {
+  if (!found.length) return null;
+  const same = (a, b) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
+  const amount = rupees(Math.abs(fields.amountPaise));
+  const kind = `${/^[aeiou]/.test(fields.type) ? "an" : "a"} ${fields.type}`; // "an expense", "a refund"
+
+  const exact = found.find(
+    (e) => e.amountPaise === fields.amountPaise && (same(e.orderRef, fields.orderRef) || same(e.utr, fields.utr))
+  );
+  if (exact) {
+    const by = same(exact.utr, fields.utr) ? `UTR ${fields.utr}` : `ref ${fields.orderRef}`;
+    return {
+      message: `Already on the timeline: ${kind} of ${amount} with ${by}, dated ${istDay(exact.occurredAt)}. Edit that entry instead.`,
+    };
+  }
+
+  const e = found[0];
+  return {
+    possible: true,
+    message: same(e.utr, fields.utr)
+      ? `UTR ${fields.utr} is already on ${kind} of ${rupees(Math.abs(e.amountPaise))} dated ${istDay(e.occurredAt)}. Save anyway if one payment is split across entries.`
+      : `Possible duplicate: ${kind} of ${amount} is already on ${istDay(e.occurredAt)}${e.note ? ` (${e.note})` : ""}. Save anyway if this is a different payment.`,
+  };
+}
 
 const loggable = (e) => ({
   date: istDay(e.occurredAt),
@@ -162,6 +197,7 @@ const loggable = (e) => ({
   channel: e.channel,
   settlementId: e.settlementId,
   orderRef: e.orderRef,
+  utr: e.utr,
   note: e.note,
 });
 
@@ -300,7 +336,8 @@ router.get("/summary", async (req, res) => {
 // plus every tracked money move after that day is what the bank should show
 // now. What the tracked entries up to that day don't explain, once the owner's
 // own money is taken out, is "untracked": a forgotten bill, gateway fees, etc.
-router.get("/bank", async (req, res) => {
+// The bank balance is for super admins only, on top of the revenue permission.
+router.get("/bank", superAdminOnly, async (req, res) => {
   try {
     const check = await BankCheck.findOne().sort({ createdAt: -1 }).lean();
     if (!check) return res.json({ check: null });
@@ -330,7 +367,7 @@ router.get("/bank", async (req, res) => {
 });
 
 // Every save is a new check, so earlier readings stay as history.
-router.post("/bank", async (req, res) => {
+router.post("/bank", superAdminOnly, async (req, res) => {
   const date = String(req.body?.date || "");
   if (!YMD.test(date) || istDay(dayStart(date)) !== date) return res.status(400).json({ message: "Pick the day of the balance" });
   if (date > istDay(new Date())) return res.status(400).json({ message: "The date can't be in the future" });
@@ -342,13 +379,15 @@ router.post("/bank", async (req, res) => {
   try {
     const check = await BankCheck.create({ asOf: date, balancePaise: balance, ownPaise: own, createdBy: req.user.id });
 
+    // No amounts here: admins with the logs permission read this, and the
+    // balance is for super admins. The BankCheck itself keeps the figures.
     logActivity({
       req,
       action: "revenue.bank_check",
       category: "revenue",
-      message: `Bank balance ${rupees(balance)} at the end of ${date}`,
+      message: `Updated the bank balance for ${date}`,
       target: { type: "BankCheck", id: check._id, label: date },
-      meta: { asOf: date, balancePaise: balance, ownPaise: own },
+      meta: { asOf: date },
     });
 
     res.status(201).json({ ok: true });
@@ -378,6 +417,7 @@ router.get("/search", async (req, res) => {
       $or: [
         { note: regex },
         { orderRef: regex },
+        { utr: regex },
         { settlementId: regex },
         { "attachment.name": regex },
         { "attachments.name": regex },
@@ -523,8 +563,11 @@ router.post("/entries", receiptUpload("attachments", MAX_DOCS), async (req, res)
   if (error) return res.status(400).json({ message: error });
 
   try {
-    const clash = await duplicateOf(fields);
-    if (clash) return res.status(409).json({ message: clash });
+    // A likely duplicate goes in only when the admin confirms it's a different payment.
+    const dup = await duplicateOf(fields);
+    if (dup && !(dup.possible && req.body.confirmDuplicate === "1")) {
+      return res.status(409).json({ message: dup.message, possibleDuplicate: !!dup.possible });
+    }
 
     let attachments;
     try {
@@ -565,8 +608,10 @@ router.patch("/entries/:id", receiptUpload("attachments", MAX_DOCS), async (req,
     const { error, fields } = readEntry(req.body, entry.type);
     if (error) return res.status(400).json({ message: error });
 
-    const clash = await duplicateOf(fields, entry._id);
-    if (clash) return res.status(409).json({ message: clash });
+    // Edits are only held to the outright blocks: warning again on every edit of
+    // an entry already confirmed as a different payment would just be noise.
+    const dup = await duplicateOf(fields, entry._id);
+    if (dup && !dup.possible) return res.status(409).json({ message: dup.message });
 
     // The form sends back the URLs of the documents it kept; the rest are unlinked
     // (the files stay in Cloudinary). Only documents already on this entry can be kept.
@@ -834,3 +879,4 @@ module.exports = router;
 // server.js serves these same totals to AYUS ops on a read-only token route.
 module.exports.totalsFor = totalsFor;
 module.exports.readRange = readRange;
+module.exports.judgeDuplicate = judgeDuplicate; // for adminRevenue.test.js
