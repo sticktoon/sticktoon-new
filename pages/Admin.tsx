@@ -9092,7 +9092,7 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
           {/* REVENUE VIEW */}
           {currentView === "revenue" && (
             <div>
-              <AdminRevenue isSuperAdmin={isSuperAdmin} />
+              <AdminRevenue />
             </div>
           )}
 

@@ -6,7 +6,7 @@ const LedgerEntry = require("../models/LedgerEntry");
 const AmazonSettlement = require("../models/AmazonSettlement");
 const BankCheck = require("../models/BankCheck");
 const auth = require("../middleware/auth");
-const { adminOnly, superAdminOnly } = require("../middleware/roleMiddleware");
+const { adminOnly, superAdminOnly, checkIsSuperAdmin } = require("../middleware/roleMiddleware");
 const { logActivity } = require("../utils/activityLogger");
 const { uploadToCloudinary } = require("../utils/cloudinaryService");
 const { parseSettlementReport } = require("../utils/amazonSettlement");
@@ -337,8 +337,13 @@ router.get("/summary", async (req, res) => {
 // now. What the tracked entries up to that day don't explain, once the owner's
 // own money is taken out, is "untracked": a forgotten bill, gateway fees, etc.
 // The bank balance is for super admins only, on top of the revenue permission.
-router.get("/bank", superAdminOnly, async (req, res) => {
+// Other admins get { hidden: true } rather than a 403, so the page just leaves
+// the panel out; the server decides, since the browser's idea of who is a
+// super admin comes from separate VITE_ settings.
+router.get("/bank", async (req, res) => {
   try {
+    if (!(await checkIsSuperAdmin(req.user))) return res.json({ check: null, hidden: true });
+
     const check = await BankCheck.findOne().sort({ createdAt: -1 }).lean();
     if (!check) return res.json({ check: null });
 

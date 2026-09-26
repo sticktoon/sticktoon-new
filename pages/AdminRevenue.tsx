@@ -639,7 +639,6 @@ function Overview({
   onTab,
   onUpload,
   onManual,
-  showBank,
   onBank,
   onBook,
 }: {
@@ -649,14 +648,14 @@ function Overview({
   onTab: (t: Tab) => void;
   onUpload: () => void;
   onManual: () => void;
-  showBank: boolean;
   onBank: (check: BankCheck | null) => void;
   onBook: (preset: Preset) => void;
 }) {
   const summary = useData<Summary>(`/summary${qs(range)}`, refreshKey);
   const sync = useData<SyncStatus>("/amazon/status", refreshKey);
   const timeline = useData<TimelineData>(`/timeline${qs(range)}`, refreshKey);
-  const bank = useData<{ check: BankCheck | null }>(showBank ? "/bank" : null, refreshKey);
+  // hidden: this admin isn't a super admin, so there's no bank panel at all.
+  const bank = useData<{ check: BankCheck | null; hidden?: boolean }>("/bank", refreshKey);
 
   if (summary.error) return <Failed message={summary.error} />;
   if (!summary.data) return <Loading />;
@@ -712,7 +711,7 @@ function Overview({
       </div>
 
       {bank.error && <Failed message={bank.error} />}
-      {bank.data && (
+      {bank.data && !bank.data.hidden && (
         <BankPanel check={bank.data.check} onSet={() => onBank(bank.data!.check)} onAdd={onManual} onBook={onBook} />
       )}
 
@@ -2680,8 +2679,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "website", label: "Website orders" },
 ];
 
-// isSuperAdmin only decides whether the bank panel is shown; the server enforces it.
-export default function AdminRevenue({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
+export default function AdminRevenue() {
   const [tab, setTab] = useState<Tab>("overview");
   const [rangeKey, setRangeKey] = useState("month");
   const range = useMemo(() => rangeFor(rangeKey), [rangeKey]);
@@ -2803,7 +2801,6 @@ export default function AdminRevenue({ isSuperAdmin = false }: { isSuperAdmin?: 
               onTab={setTab}
               onUpload={() => setUploadOpen(true)}
               onManual={() => setEntryModal({})}
-              showBank={isSuperAdmin}
               onBank={(check) => setBankModal({ check })}
               onBook={(preset) => setEntryModal({ preset })}
             />
