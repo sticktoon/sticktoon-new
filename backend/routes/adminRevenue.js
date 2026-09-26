@@ -4,6 +4,7 @@ const multer = require("multer");
 const Order = require("../models/Order");
 const LedgerEntry = require("../models/LedgerEntry");
 const AmazonSettlement = require("../models/AmazonSettlement");
+const BankCheck = require("../models/BankCheck");
 const auth = require("../middleware/auth");
 const { adminOnly } = require("../middleware/roleMiddleware");
 const { logActivity } = require("../utils/activityLogger");
@@ -289,6 +290,71 @@ router.get("/summary", async (req, res) => {
   } catch (err) {
     console.error("Revenue summary error:", err);
     res.status(500).json({ message: "Failed to load the revenue summary" });
+  }
+});
+
+/* =========================
+   BANK CHECK (expected balance + untracked)
+========================= */
+// The newest check anchors the balance. The bank figure at the end of its day
+// plus every tracked money move after that day is what the bank should show
+// now. What the tracked entries up to that day don't explain, once the owner's
+// own money is taken out, is "untracked": a forgotten bill, gateway fees, etc.
+router.get("/bank", async (req, res) => {
+  try {
+    const check = await BankCheck.findOne().sort({ createdAt: -1 }).lean();
+    if (!check) return res.json({ check: null });
+
+    const cut = new Date(dayStart(check.asOf).getTime() + DAY_MS);
+    const [till, since] = await Promise.all([
+      totalsFor(new Date(0), cut),
+      totalsFor(cut, new Date(Date.now() + DAY_MS)),
+    ]);
+
+    res.json({
+      check: {
+        asOf: check.asOf,
+        checkedAt: check.createdAt,
+        balancePaise: check.balancePaise,
+        ownPaise: check.ownPaise,
+        trackedPaise: till.netPaise,
+        sincePaise: since.netPaise,
+        expectedPaise: check.balancePaise + since.netPaise,
+        untrackedPaise: check.balancePaise - check.ownPaise - till.netPaise,
+      },
+    });
+  } catch (err) {
+    console.error("Bank check error:", err);
+    res.status(500).json({ message: "Failed to load the bank balance" });
+  }
+});
+
+// Every save is a new check, so earlier readings stay as history.
+router.post("/bank", async (req, res) => {
+  const date = String(req.body?.date || "");
+  if (!YMD.test(date) || istDay(dayStart(date)) !== date) return res.status(400).json({ message: "Pick the day of the balance" });
+  if (date > istDay(new Date())) return res.status(400).json({ message: "The date can't be in the future" });
+  const balance = inputPaise(req.body?.balance);
+  const own = String(req.body?.own ?? "").trim() === "" ? 0 : inputPaise(req.body.own);
+  if (!(balance >= 0 && balance <= MAX_PAISE)) return res.status(400).json({ message: "Enter the balance your bank shows" });
+  if (!(own >= 0 && own <= MAX_PAISE)) return res.status(400).json({ message: "Enter your own money, or leave it empty" });
+
+  try {
+    const check = await BankCheck.create({ asOf: date, balancePaise: balance, ownPaise: own, createdBy: req.user.id });
+
+    logActivity({
+      req,
+      action: "revenue.bank_check",
+      category: "revenue",
+      message: `Bank balance ${rupees(balance)} at the end of ${date}`,
+      target: { type: "BankCheck", id: check._id, label: date },
+      meta: { asOf: date, balancePaise: balance, ownPaise: own },
+    });
+
+    res.status(201).json({ ok: true });
+  } catch (err) {
+    console.error("Save bank check error:", err);
+    res.status(500).json({ message: "Failed to save the bank balance" });
   }
 });
 

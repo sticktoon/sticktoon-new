@@ -20,6 +20,7 @@ import {
   Sparkles,
   Undo2,
   Upload,
+  Wallet,
   X,
 } from "lucide-react";
 import { API_BASE_URL } from "../config/api";
@@ -84,6 +85,21 @@ type Summary = {
     manualBackdated: number;
   };
 };
+
+// The newest bank check and what follows from it (GET /bank).
+type BankCheck = {
+  asOf: string; // IST day; the balance is at its end
+  checkedAt: string;
+  balancePaise: number;
+  ownPaise: number;
+  trackedPaise: number; // net of every tracked entry up to asOf
+  sincePaise: number; // net of tracked entries after asOf
+  expectedPaise: number;
+  untrackedPaise: number;
+};
+
+// Values a new manual entry starts with, e.g. "Book as miscellaneous".
+type Preset = Partial<{ type: EntryType; channel: Channel; date: string; amount: string; note: string }>;
 
 type SettlementMeta = {
   settlementId: string;
@@ -620,6 +636,8 @@ function Overview({
   onTab,
   onUpload,
   onManual,
+  onBank,
+  onBook,
 }: {
   range: Range;
   rangeKey: string;
@@ -627,10 +645,13 @@ function Overview({
   onTab: (t: Tab) => void;
   onUpload: () => void;
   onManual: () => void;
+  onBank: (check: BankCheck | null) => void;
+  onBook: (preset: Preset) => void;
 }) {
   const summary = useData<Summary>(`/summary${qs(range)}`, refreshKey);
   const sync = useData<SyncStatus>("/amazon/status", refreshKey);
   const timeline = useData<TimelineData>(`/timeline${qs(range)}`, refreshKey);
+  const bank = useData<{ check: BankCheck | null }>("/bank", refreshKey);
 
   if (summary.error) return <Failed message={summary.error} />;
   if (!summary.data) return <Loading />;
@@ -684,6 +705,11 @@ function Overview({
           chip={change(c.amazonNetPaise, p.amazonNetPaise)}
         />
       </div>
+
+      {bank.error && <Failed message={bank.error} />}
+      {bank.data && (
+        <BankPanel check={bank.data.check} onSet={() => onBank(bank.data!.check)} onAdd={onManual} onBook={onBook} />
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2 bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
@@ -815,6 +841,124 @@ function Overview({
               action={<LinkButton onClick={onManual}>Add</LinkButton>}
             />
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Expected balance and untracked money. Always all time, whatever range is picked.
+function BankPanel({
+  check: c,
+  onSet,
+  onAdd,
+  onBook,
+}: {
+  check: BankCheck | null;
+  onSet: () => void;
+  onAdd: () => void;
+  onBook: (preset: Preset) => void;
+}) {
+  if (!c) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-start gap-3 max-w-2xl">
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${TILE.man}`}>
+            <Wallet className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-lg font-black text-slate-900">Bank balance</h4>
+            <p className="mt-0.5 text-sm text-slate-500">
+              Enter what your bank shows, once. From then on the expected balance moves with every entry, and money your
+              entries don't explain shows up as untracked, so a forgotten bill is easy to find.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onSet}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold"
+        >
+          <Wallet className="w-4 h-4" />
+          Set bank balance
+        </button>
+      </div>
+    );
+  }
+
+  const gap = c.untrackedPaise;
+  const settled = Math.abs(gap) < 100; // under ₹1
+  const minus = (paise: number) => (paise < 0 ? "−" : "");
+  const rows: [string, string][] = [
+    [`In the bank, end of ${fmtDay(c.asOf)}`, rupees(c.balancePaise)],
+    ["Explained by entries till then", `${minus(c.trackedPaise)}${rupees(c.trackedPaise)}`],
+    ["Your own money", rupees(c.ownPaise)],
+  ];
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h4 className="text-lg font-black text-slate-900">Bank balance</h4>
+          <p className="text-xs text-gray-500 font-medium mt-0.5">
+            All time, whatever range is picked · last matched with the bank for {fmtDay(c.asOf, true)}
+          </p>
+        </div>
+        <LinkButton onClick={onSet}>Update from bank</LinkButton>
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <p className="text-gray-600 text-xs font-bold uppercase mb-1">Expected in bank now</p>
+          <p className="text-2xl xl:text-3xl font-black text-gray-900 tabular-nums">
+            {minus(c.expectedPaise)}
+            {rupees(c.expectedPaise, 0)}
+          </p>
+          <p className="text-xs text-gray-500 mt-1 font-medium">
+            {rupees(c.balancePaise, 0)} at the end of {fmtDay(c.asOf)},{" "}
+            {c.sincePaise ? `${signed(c.sincePaise)} from entries since` : "no entries since"}
+          </p>
+        </div>
+
+        <div className="md:border-l md:border-slate-100 md:pl-6">
+          <dl className="space-y-1.5 text-[13px]">
+            {rows.map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-3">
+                <dt className="text-slate-600">{label}</dt>
+                <dd className="font-semibold text-slate-900 tabular-nums">{value}</dd>
+              </div>
+            ))}
+            <div className="flex justify-between gap-3 pt-2 mt-1 border-t border-slate-200 font-black">
+              <dt className="text-slate-900">Untracked</dt>
+              <dd className={`tabular-nums ${settled ? "text-green-600" : "text-amber-700"}`}>{settled ? "₹0" : signed(gap)}</dd>
+            </div>
+          </dl>
+          <p className="mt-2 text-xs text-slate-500">
+            {settled
+              ? "Everything in the bank is explained by your entries."
+              : gap > 0
+                ? "More in the bank than your entries explain: missing income, or your own money not counted above."
+                : "Less in the bank than your entries explain: a missing expense, gateway fees, or money you took out."}
+            {!settled && ` Add forgotten entries with their real date (${fmtDay(c.asOf)} or earlier) and this shrinks.`}
+          </p>
+          {!settled && (
+            <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1">
+              <LinkButton onClick={onAdd}>Add missing entry</LinkButton>
+              <LinkButton
+                onClick={() =>
+                  onBook({
+                    type: gap < 0 ? "expense" : "income",
+                    channel: "other",
+                    date: c.asOf,
+                    amount: String(Math.abs(gap) / 100),
+                    note: "Miscellaneous: bank difference not matched to an entry",
+                  })
+                }
+              >
+                Book as miscellaneous
+              </LinkButton>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1444,7 +1588,17 @@ function Modal({
 const FIELD = "block w-full px-3 py-2.5 border rounded-lg text-sm text-slate-900";
 const LABEL = "block text-xs font-bold text-slate-700 mb-1.5";
 
-function EntryModal({ entry, onClose, onSaved }: { entry?: Entry; onClose: () => void; onSaved: (message: string) => void }) {
+function EntryModal({
+  entry,
+  preset,
+  onClose,
+  onSaved,
+}: {
+  entry?: Entry;
+  preset?: Preset;
+  onClose: () => void;
+  onSaved: (message: string) => void;
+}) {
   const editing = !!entry;
   const [form, setForm] = useState(() => ({
     type: (entry?.type || "payout") as EntryType,
@@ -1456,6 +1610,7 @@ function EntryModal({ entry, onClose, onSaved }: { entry?: Entry; onClose: () =>
     amount: entry && entry.type !== "payout" ? String(Math.abs(entry.amountPaise) / 100) : "",
     orderRef: entry?.orderRef || "",
     note: entry?.note || "",
+    ...preset,
   }));
   const [files, setFiles] = useState<File[]>([]); // new documents to upload
   const [kept, setKept] = useState<Doc[]>(() => docsOf(entry)); // documents already on the entry
@@ -1840,6 +1995,90 @@ function EntryModal({ entry, onClose, onSaved }: { entry?: Entry; onClose: () =>
           <p className={`px-4 py-2.5 border-t border-slate-200 text-xs font-semibold ${notice.className}`}>{notice.text}</p>
         </div>
 
+        {error && <p className="text-sm font-bold text-red-600">{error}</p>}
+      </div>
+    </Modal>
+  );
+}
+
+function BankModal({ check, onClose, onSaved }: { check: BankCheck | null; onClose: () => void; onSaved: (message: string) => void }) {
+  const today = todayIst();
+  const [date, setDate] = useState(today);
+  const [balance, setBalance] = useState("");
+  const [own, setOwn] = useState(check?.ownPaise ? String(check.ownPaise / 100) : "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const canSave =
+    /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+    date <= today &&
+    Number.isFinite(inputPaise(balance)) &&
+    (!own.trim() || Number.isFinite(inputPaise(own)));
+
+  const save = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      await api("/bank", { method: "POST", body: JSON.stringify({ date, balance, own }) });
+      onSaved("Bank balance saved");
+    } catch (e) {
+      setError((e as Error).message);
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      title={check ? "Update from bank" : "Set bank balance"}
+      subtitle="What your bank account shows. Update it whenever you check the bank; earlier checks are kept."
+      onClose={onClose}
+      footer={
+        <>
+          <span className="text-xs text-slate-500">Recorded in Activity Logs</span>
+          <div className="flex gap-3">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-sm font-bold">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={!canSave || saving}
+              className="px-5 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label>
+            <span className={LABEL}>Balance in the bank (₹)</span>
+            <input
+              value={balance}
+              onChange={(e) => setBalance(e.target.value)}
+              inputMode="decimal"
+              placeholder="0"
+              className={`${FIELD} tabular-nums`}
+            />
+          </label>
+          <label>
+            <span className={LABEL}>At the end of</span>
+            <input type="date" max={today} value={date} onChange={(e) => setDate(e.target.value)} className={FIELD} />
+          </label>
+        </div>
+        <label className="block">
+          <span className={LABEL}>Your own money in it (₹, optional)</span>
+          <input value={own} onChange={(e) => setOwn(e.target.value)} inputMode="decimal" placeholder="0" className={`${FIELD} tabular-nums`} />
+          <span className="mt-1.5 block text-xs text-slate-500">
+            Money you put in yourself, or that was already there before your first entry. It isn't revenue, so it's kept out
+            of untracked instead of being booked as income.
+          </span>
+        </label>
+        <p className="rounded-lg bg-slate-50 px-3.5 py-2.5 text-xs text-slate-600">
+          Use that day's closing balance from your bank statement or app. Website sales from the last two days may still be
+          on their way from Razorpay.
+        </p>
         {error && <p className="text-sm font-bold text-red-600">{error}</p>}
       </div>
     </Modal>
@@ -2407,7 +2646,8 @@ export default function AdminRevenue() {
   const range = useMemo(() => rangeFor(rangeKey), [rangeKey]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
-  const [entryModal, setEntryModal] = useState<{ entry?: Entry } | null>(null);
+  const [entryModal, setEntryModal] = useState<{ entry?: Entry; preset?: Preset } | null>(null);
+  const [bankModal, setBankModal] = useState<{ check: BankCheck | null } | null>(null);
   const [voiding, setVoiding] = useState<Entry | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [toast, setToast] = useState("");
@@ -2420,6 +2660,7 @@ export default function AdminRevenue() {
 
   const finished = (message: string) => {
     setEntryModal(null);
+    setBankModal(null);
     setVoiding(null);
     setUploadOpen(false);
     setToast(message);
@@ -2521,6 +2762,8 @@ export default function AdminRevenue() {
               onTab={setTab}
               onUpload={() => setUploadOpen(true)}
               onManual={() => setEntryModal({})}
+              onBank={(check) => setBankModal({ check })}
+              onBook={(preset) => setEntryModal({ preset })}
             />
           )}
           {tab === "timeline" && (
@@ -2531,7 +2774,10 @@ export default function AdminRevenue() {
         </>
       )}
 
-      {entryModal && <EntryModal entry={entryModal.entry} onClose={() => setEntryModal(null)} onSaved={finished} />}
+      {entryModal && (
+        <EntryModal entry={entryModal.entry} preset={entryModal.preset} onClose={() => setEntryModal(null)} onSaved={finished} />
+      )}
+      {bankModal && <BankModal check={bankModal.check} onClose={() => setBankModal(null)} onSaved={finished} />}
       {voiding && <VoidModal entry={voiding} onClose={() => setVoiding(null)} onDone={finished} />}
       {uploadOpen && <UploadModal onClose={() => setUploadOpen(false)} onImported={finished} />}
 
