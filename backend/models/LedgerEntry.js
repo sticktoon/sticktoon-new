@@ -42,6 +42,9 @@ const ledgerEntrySchema = new mongoose.Schema(
     settlementId: { type: String, default: null, index: true },
     orderRef: { type: String, default: null },
     note: { type: String, default: "", maxlength: 500 },
+    // Receipt, invoice and any other proof, up to 5.
+    attachments: [{ _id: false, url: String, name: String }],
+    // Older entries hold one document here; editing one moves it into attachments.
     attachment: {
       url: { type: String },
       name: { type: String },

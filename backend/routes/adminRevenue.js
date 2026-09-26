@@ -42,12 +42,20 @@ const readRange = (query) => {
   return { from, to, start, end };
 };
 
-const upload = (options) => (field) => (req, res, next) =>
-  multer({ storage: multer.memoryStorage(), ...options }).single(field)(req, res, (err) => {
+// upload(options)(field) takes one file; upload(options)(field, max) takes up to max.
+const upload = (options) => (field, max) => (req, res, next) => {
+  const m = multer({ storage: multer.memoryStorage(), ...options });
+  (max ? m.array(field, max) : m.single(field))(req, res, (err) => {
     if (!err) return next();
-    const message = err.code === "LIMIT_FILE_SIZE" ? "That file is too large" : err.message;
+    const message =
+      err.code === "LIMIT_FILE_SIZE"
+        ? "That file is too large"
+        : err.code === "LIMIT_UNEXPECTED_FILE" && max
+          ? `Attach up to ${max} documents`
+          : err.message;
     res.status(400).json({ message });
   });
+};
 
 const reportUpload = upload({ limits: { fileSize: 10 * 1024 * 1024 } });
 const receiptUpload = upload({
@@ -58,10 +66,12 @@ const receiptUpload = upload({
       : cb(new Error("Attach an image or a PDF")),
 });
 
-const saveReceipt = async (file) => {
-  if (!file) return undefined;
+const MAX_DOCS = 5;
+
+// The index keeps two same-named files saved in the same millisecond apart.
+const saveReceipt = async (file, index = 0) => {
   const safeName = file.originalname.replace(/[^\w.-]+/g, "-");
-  const { url } = await uploadToCloudinary(file.buffer, "revenue-receipts", `${Date.now()}-${safeName}`);
+  const { url } = await uploadToCloudinary(file.buffer, "revenue-receipts", `${Date.now()}-${index}-${safeName}`);
   return { url, name: file.originalname };
 };
 
@@ -125,12 +135,24 @@ function readEntry(body, type) {
   };
 }
 
-const settlementClash = async (fields, ignoreId) => {
-  if (!fields.dedupeKey) return null;
-  const clash = await LedgerEntry.findOne({ dedupeKey: fields.dedupeKey, _id: { $ne: ignoreId } })
+// The same money must not go in twice: an Amazon settlement, or a manual entry
+// with the same type, reference (UTR, transaction or invoice number) and amount.
+// Instalments against one invoice differ in amount, so they still go in.
+const duplicateOf = async (fields, ignoreId) => {
+  const filter = fields.dedupeKey
+    ? { dedupeKey: fields.dedupeKey }
+    : fields.orderRef
+      ? { voidedAt: null, type: fields.type, orderRef: fields.orderRef, amountPaise: fields.amountPaise }
+      : null;
+  if (!filter) return null;
+  const clash = await LedgerEntry.findOne({ ...filter, _id: { $ne: ignoreId } })
+    .collation({ locale: "en", strength: 2 }) // reference match ignores case
     .select("occurredAt")
     .lean();
-  return clash ? `Settlement ${fields.settlementId} is already on the timeline (${istDay(clash.occurredAt)})` : null;
+  if (!clash) return null;
+  return fields.dedupeKey
+    ? `Settlement ${fields.settlementId} is already on the timeline (${istDay(clash.occurredAt)})`
+    : `Already on the timeline: a ${fields.type} of ${rupees(Math.abs(fields.amountPaise))} with ref ${fields.orderRef}, dated ${istDay(clash.occurredAt)}. Edit that entry instead.`;
 };
 
 const loggable = (e) => ({
@@ -287,7 +309,13 @@ router.get("/search", async (req, res) => {
 
     const filter = {
       voidedAt: null,
-      $or: [{ note: regex }, { orderRef: regex }, { settlementId: regex }, { "attachment.name": regex }],
+      $or: [
+        { note: regex },
+        { orderRef: regex },
+        { settlementId: regex },
+        { "attachment.name": regex },
+        { "attachments.name": regex },
+      ],
     };
     // "expense" or "amazon" should mean the type or channel, not every note containing the word.
     const exact = q.toLowerCase();
@@ -424,22 +452,22 @@ router.post("/receipts/read", receiptUpload("file"), async (req, res) => {
 /* =========================
    MANUAL ENTRIES
 ========================= */
-router.post("/entries", receiptUpload("attachment"), async (req, res) => {
+router.post("/entries", receiptUpload("attachments", MAX_DOCS), async (req, res) => {
   const { error, fields } = readEntry(req.body, req.body.type);
   if (error) return res.status(400).json({ message: error });
 
   try {
-    const clash = await settlementClash(fields);
+    const clash = await duplicateOf(fields);
     if (clash) return res.status(409).json({ message: clash });
 
-    let attachment;
+    let attachments;
     try {
-      attachment = await saveReceipt(req.file);
+      attachments = await Promise.all((req.files || []).map(saveReceipt));
     } catch (err) {
-      return res.status(502).json({ message: "Couldn't upload the attachment. Try again, or save without it." });
+      return res.status(502).json({ message: "Couldn't upload the documents. Try again, or save without them." });
     }
 
-    const entry = await LedgerEntry.create({ ...fields, source: "manual", attachment, createdBy: req.user.id });
+    const entry = await LedgerEntry.create({ ...fields, source: "manual", attachments, createdBy: req.user.id });
 
     logActivity({
       req,
@@ -458,7 +486,7 @@ router.post("/entries", receiptUpload("attachment"), async (req, res) => {
   }
 });
 
-router.patch("/entries/:id", receiptUpload("attachment"), async (req, res) => {
+router.patch("/entries/:id", receiptUpload("attachments", MAX_DOCS), async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ message: "Entry not found" });
 
   try {
@@ -471,18 +499,29 @@ router.patch("/entries/:id", receiptUpload("attachment"), async (req, res) => {
     const { error, fields } = readEntry(req.body, entry.type);
     if (error) return res.status(400).json({ message: error });
 
-    const clash = await settlementClash(fields, entry._id);
+    const clash = await duplicateOf(fields, entry._id);
     if (clash) return res.status(409).json({ message: clash });
 
-    let attachment;
+    // The form sends back the URLs of the documents it kept; the rest are unlinked
+    // (the files stay in Cloudinary). Only documents already on this entry can be kept.
+    const keep = new Set([].concat(req.body.keep || []));
+    const kept = [...(entry.attachment?.url ? [entry.attachment] : []), ...entry.attachments]
+      .filter((d) => keep.has(d.url))
+      .map(({ url, name }) => ({ url, name }));
+    const files = req.files || [];
+    if (kept.length + files.length > MAX_DOCS) {
+      return res.status(400).json({ message: `An entry can hold up to ${MAX_DOCS} documents` });
+    }
+
+    let added;
     try {
-      attachment = await saveReceipt(req.file);
+      added = await Promise.all(files.map(saveReceipt));
     } catch (err) {
-      return res.status(502).json({ message: "Couldn't upload the attachment. Try again, or save without a new one." });
+      return res.status(502).json({ message: "Couldn't upload the documents. Try again, or save without new ones." });
     }
 
     const before = loggable(entry);
-    entry.set(attachment ? { ...fields, attachment } : fields);
+    entry.set({ ...fields, attachment: undefined, attachments: [...kept, ...added] });
     await entry.save();
 
     logActivity({

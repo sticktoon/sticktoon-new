@@ -1,7 +1,8 @@
 // Receipt reader guard: run with `node utils/receiptReader.test.js`
 // Fails if untrusted model output can reach the entry form unchecked.
 const assert = require("assert");
-const { cleanReceipt } = require("./receiptReader");
+const PDFDocument = require("pdfkit");
+const { cleanReceipt, pdfText, ReceiptReadError } = require("./receiptReader");
 
 const today = "2026-09-15";
 
@@ -68,4 +69,21 @@ assert.strictEqual(cleanReceipt({ currency: "Rs." }, today).notRupees, false);
 assert.strictEqual(cleanReceipt(null, today).confidence, "low");
 assert.strictEqual(cleanReceipt({ description: "x".repeat(300) }, today).note.length, 120);
 
-console.log("receiptReader ok");
+// PDFs: invoices with a text layer are read; scans and broken files are refused.
+const makePdf = (write) =>
+  new Promise((resolve) => {
+    const doc = new PDFDocument();
+    const chunks = [];
+    doc.on("data", (c) => chunks.push(c));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    write(doc);
+    doc.end();
+  });
+
+(async () => {
+  const text = await pdfText(await makePdf((doc) => doc.text("Tax Invoice 555 Shree Traders Total Rs 10,030.00")));
+  assert.ok(text.includes("Total Rs 10,030.00"), text);
+  await assert.rejects(pdfText(await makePdf(() => {})), ReceiptReadError, "scan with no text");
+  await assert.rejects(pdfText(Buffer.from("not a pdf")), ReceiptReadError, "broken file");
+  console.log("receiptReader ok");
+})();

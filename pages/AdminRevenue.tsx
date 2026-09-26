@@ -42,9 +42,17 @@ type Entry = {
   settlementId?: string | null;
   orderRef?: string | null;
   note?: string;
-  attachment?: { url?: string; name?: string };
+  attachments?: Doc[];
+  attachment?: { url?: string; name?: string }; // older entries: one document
   createdBy?: { name?: string; email?: string } | null;
 };
+type Doc = { url: string; name?: string };
+
+const MAX_DOCS = 5; // same limit as the server
+const docsOf = (e?: Entry): Doc[] => [
+  ...(e?.attachment?.url ? [{ url: e.attachment.url, name: e.attachment.name }] : []),
+  ...(e?.attachments || []),
+];
 
 type TimelineData = {
   entries: Entry[];
@@ -469,20 +477,21 @@ function ItemRow({
         </p>
         <p className="mt-0.5 text-xs text-slate-500 break-words">
           {d.meta}
-          {item.entry?.attachment?.url && (
-            <>
+          {docsOf(item.entry).map((doc, i) => (
+            <Fragment key={doc.url}>
               {" · "}
               <a
-                href={item.entry.attachment.url}
+                href={doc.url}
                 target="_blank"
                 rel="noreferrer"
+                title={doc.name}
                 className="inline-flex items-center gap-1 font-bold text-indigo-600 hover:underline"
               >
                 <Paperclip className="w-3 h-3" />
-                Receipt
+                <span className="max-w-[140px] truncate">{doc.name || `Document ${i + 1}`}</span>
               </a>
-            </>
-          )}
+            </Fragment>
+          ))}
         </p>
       </div>
       <div className="text-right">
@@ -1448,7 +1457,8 @@ function EntryModal({ entry, onClose, onSaved }: { entry?: Entry; onClose: () =>
     orderRef: entry?.orderRef || "",
     note: entry?.note || "",
   }));
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]); // new documents to upload
+  const [kept, setKept] = useState<Doc[]>(() => docsOf(entry)); // documents already on the entry
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [reading, setReading] = useState({ busy: false, message: "", failed: false });
@@ -1514,17 +1524,20 @@ function EntryModal({ entry, onClose, onSaved }: { entry?: Entry; onClose: () =>
     }
   };
 
-  // The reader works on photos and screenshots; PDFs are still attached, just not read.
-  const readable = (f: File | null) => !!f && /^image\/(jpeg|png|webp)$/.test(f.type);
+  // The reader works on photos, screenshots and PDFs; anything else is only attached.
+  const readable = (f: File) => /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(f.type);
 
-  const pickFile = (picked: File | null) => {
-    setFile(picked);
-    setReading({
-      busy: false,
-      failed: false,
-      message: picked && !readable(picked) ? "PDF attached. To fill the form automatically, attach a photo or screenshot instead." : "",
-    });
-    if (readable(picked) && !editing) readReceipt(picked!);
+  const addFiles = (picked: File[]) => {
+    const room = MAX_DOCS - kept.length - files.length;
+    setFiles((list) => [...list, ...picked.slice(0, room)]);
+    if (picked.length > room) {
+      setReading({ busy: false, failed: true, message: `An entry can hold up to ${MAX_DOCS} documents.` });
+      return;
+    }
+    // A new entry fills itself from the first readable document, once; the
+    // invoice added after the payment receipt doesn't overwrite what was read.
+    const first = picked.find(readable);
+    if (first && !editing && !reading.message) readReceipt(first);
   };
 
   const today = todayIst();
@@ -1579,7 +1592,8 @@ function EntryModal({ entry, onClose, onSaved }: { entry?: Entry; onClose: () =>
     setError("");
     const body = new FormData();
     Object.entries(form).forEach(([k, v]) => body.append(k, v));
-    if (file) body.append("attachment", file);
+    files.forEach((f) => body.append("attachments", f));
+    if (editing) kept.forEach((d) => body.append("keep", d.url));
     try {
       await api(editing ? `/entries/${entry!._id}` : "/entries", { method: editing ? "PATCH" : "POST", body });
       onSaved(editing ? "Entry updated" : `Added to the timeline on ${fmtDay(form.date, true)}`);
@@ -1616,48 +1630,78 @@ function EntryModal({ entry, onClose, onSaved }: { entry?: Entry; onClose: () =>
       }
     >
       <div className="space-y-4">
-        <div className="rounded-lg border border-dashed border-slate-300">
-          <label className="flex items-center gap-2.5 px-3.5 py-3 rounded-lg text-[13px] text-slate-500 cursor-pointer hover:bg-slate-50">
-            <Paperclip className="w-4 h-4 shrink-0" />
-            <span className="min-w-0 flex-1 truncate">
-              {file ? (
-                <b className="text-slate-700">{file.name}</b>
-              ) : entry?.attachment?.url ? (
-                <>
-                  <b className="text-slate-700">Replace receipt</b> · current: {entry.attachment.name}
-                </>
-              ) : (
-                <>
-                  <b className="text-slate-700">Have a receipt?</b> Attach a photo or screenshot and the details fill in
-                </>
-              )}
-            </span>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              className="sr-only"
-              onChange={(e) => pickFile(e.target.files?.[0] || null)}
-            />
-          </label>
-          {file && (
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3.5 py-2 border-t border-dashed border-slate-300 text-xs">
-              <span role="status" className={reading.failed ? "font-bold text-red-600" : "text-slate-600"}>
-                {reading.message || "Attached. It's saved with this entry."}
-              </span>
-              {readable(file) && (
+        <div className="rounded-lg border border-dashed border-slate-300 divide-y divide-dashed divide-slate-300">
+          {kept.map((doc, i) => (
+            <div key={doc.url} className="flex items-center gap-2.5 px-3.5 py-2 text-xs">
+              <Paperclip className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+              <a href={doc.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate font-bold text-slate-700 hover:underline">
+                {doc.name || `Document ${i + 1}`}
+              </a>
+              <button
+                type="button"
+                onClick={() => setKept((list) => list.filter((d) => d !== doc))}
+                aria-label={`Remove ${doc.name || "document"}`}
+                className="p-0.5 rounded hover:bg-slate-100"
+              >
+                <X className="w-3.5 h-3.5 text-slate-500" />
+              </button>
+            </div>
+          ))}
+          {files.map((f, i) => (
+            <div key={`${i}-${f.name}`} className="flex items-center gap-2.5 px-3.5 py-2 text-xs">
+              <Paperclip className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+              <span className="min-w-0 flex-1 truncate font-bold text-slate-700">{f.name}</span>
+              {readable(f) && (
                 <button
                   type="button"
-                  onClick={() => readReceipt(file)}
+                  onClick={() => readReceipt(f)}
                   disabled={reading.busy}
                   className="inline-flex items-center gap-1.5 font-bold disabled:opacity-50"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                  <span className="text-indigo-600">
-                    {reading.busy ? "Reading…" : reading.message ? "Read again" : "Fill from receipt"}
-                  </span>
+                  <span className="text-indigo-600">Fill form</span>
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => setFiles((list) => list.filter((x) => x !== f))}
+                aria-label={`Remove ${f.name}`}
+                className="p-0.5 rounded hover:bg-slate-100"
+              >
+                <X className="w-3.5 h-3.5 text-slate-500" />
+              </button>
             </div>
+          ))}
+          {kept.length + files.length < MAX_DOCS && (
+            <label className="flex items-center gap-2.5 px-3.5 py-3 rounded-lg text-[13px] text-slate-500 cursor-pointer hover:bg-slate-50">
+              <Paperclip className="w-4 h-4 shrink-0" />
+              <span className="min-w-0 flex-1">
+                {kept.length + files.length ? (
+                  <>
+                    <b className="text-slate-700">Add another document</b> · invoice, payment receipt, anything for reference
+                  </>
+                ) : (
+                  <>
+                    <b className="text-slate-700">Have a receipt?</b> Attach photos, screenshots or PDFs and the details fill in
+                  </>
+                )}
+              </span>
+              <input
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                className="sr-only"
+                onChange={(e) => {
+                  addFiles(Array.from(e.target.files || []));
+                  e.target.value = ""; // lets the same file be picked again after removing it
+                }}
+              />
+            </label>
+          )}
+          {reading.message && (
+            <p role="status" className={`px-3.5 py-2 text-xs ${reading.failed ? "font-bold text-red-600" : "text-slate-600"}`}>
+              {reading.message}
+            </p>
           )}
         </div>
 
@@ -2284,17 +2328,22 @@ function SearchResults({
                       {signed(isOut ? -Math.abs(entry.amountPaise) : Math.abs(entry.amountPaise))}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      {entry.attachment?.url ? (
-                        <a
-                          href={entry.attachment.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition"
-                          title={entry.attachment.name || "View receipt"}
-                        >
-                          <Paperclip className="w-3.5 h-3.5" />
-                          Receipt
-                        </a>
+                      {docsOf(entry).length ? (
+                        <div className="flex flex-col items-start gap-1">
+                          {docsOf(entry).map((doc, i) => (
+                            <a
+                              key={doc.url}
+                              href={doc.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition"
+                              title={doc.name || "View document"}
+                            >
+                              <Paperclip className="w-3.5 h-3.5" />
+                              <span className="max-w-[140px] truncate">{doc.name || `Document ${i + 1}`}</span>
+                            </a>
+                          ))}
+                        </div>
                       ) : (
                         <span className="text-slate-400 text-xs">—</span>
                       )}
