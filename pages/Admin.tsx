@@ -64,23 +64,6 @@ import { useGoogleLogin } from "@react-oauth/google";
 import AdminLoginSteps, { type AdminLoginStep } from "../components/AdminLoginSteps";
 import PasswordRules, { ADMIN_PASSWORD_HINT, meetsAdminPasswordRules } from "../components/PasswordRules";
 
-// Developer email (full access) configured through Vite env variables and super admin emails
-const DEV_EMAILS = [
-  import.meta.env.VITE_DEV_EMAIL || "",
-  import.meta.env.VITE_SUPER_ADMIN_EMAILS || "",
-  import.meta.env.VITE_SUPER_ADMIN_EMAIL || "",
-  "anishpatankar974@gmail.com",
-]
-  .join(",")
-  .split(",")
-  .map((email) => email.toLowerCase().trim())
-  .filter(Boolean);
-
-const isSuperAdminEmail = (email?: string | null) => {
-  const normalized = email?.toLowerCase().trim();
-  return normalized ? DEV_EMAILS.includes(normalized) : false;
-};
-
 // Grantable admin sections. Mirrors ADMIN_PERMISSIONS in
 // backend/middleware/roleMiddleware.js - keep the two lists in step.
 // ponytail: duplicated constant, fetch /api/admin/permissions instead if a
@@ -141,7 +124,7 @@ const canAccessView = (
   view: string,
 ) => {
   if (!account) return false;
-  if (account.role === "superadmin" || isSuperAdminEmail(account.email)) return true;
+  if (account.role === "superadmin") return true;
 
   const required = VIEW_PERMISSIONS[view];
   if (!required) return true;
@@ -2790,8 +2773,11 @@ const Admin: React.FC = () => {
     }
   };
 
-  // Check if current user is super admin
-  const isSuperAdmin = isSuperAdminEmail(user?.email) || user?.role === "superadmin";
+  // Super admin is the server's call: /api/admin/stats refreshes user.role on
+  // every load and sends "superadmin" only when SUPER_ADMIN_EMAILS (or the
+  // stored role) says so. A browser-side email list from VITE_ settings could
+  // disagree and show buttons the server then refuses.
+  const isSuperAdmin = user?.role === "superadmin";
   const authToastShownRef = useRef(false);
 
   // Section access for the signed-in admin. Super admins get everything.
