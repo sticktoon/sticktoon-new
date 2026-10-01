@@ -35,3 +35,35 @@ assert.match(split.message, /split across entries/);
 assert.match(judgeDuplicate({ ...again, type: "refund" }, [existing]).message, /a refund of/);
 
 console.log("adminRevenue duplicates ok");
+
+/* Month-end balances carried forward from each bank check. */
+const { walkBalances } = require("./adminRevenue");
+
+// ₹1,000 in the bank as June (the check's month) began; June earns ₹100,
+// July spends ₹300. A second check in August restates the balance at ₹500.
+const net = { "2026-05": 20000, "2026-06": 10000, "2026-07": -30000, "2026-08": 4000, "2026-09": 1000 };
+const months = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09"];
+const balances = walkBalances(months, [{ month: "2026-06", atMonthStart: 100000 }], (k) => net[k] || 0);
+
+assert.deepStrictEqual(balances, {
+  "2026-06": 110000,
+  "2026-07": 80000,
+  "2026-08": 84000,
+  "2026-09": 85000,
+});
+assert.ok(!("2026-05" in balances), "months before the first check get no balance");
+
+const twoChecks = walkBalances(
+  months,
+  [{ month: "2026-06", atMonthStart: 100000 }, { month: "2026-08", atMonthStart: 50000 }],
+  (k) => net[k] || 0
+);
+assert.strictEqual(twoChecks["2026-07"], 80000, "the first check still covers July");
+assert.strictEqual(twoChecks["2026-08"], 54000, "August onwards follows the newer check");
+assert.strictEqual(twoChecks["2026-09"], 55000);
+
+// Across a year end, and when the check sits before the range.
+const yearEnd = walkBalances(["2026-01", "2026-02"], [{ month: "2025-12", atMonthStart: 50000 }], () => 1000);
+assert.deepStrictEqual(yearEnd, { "2026-01": 52000, "2026-02": 53000 });
+
+console.log("adminRevenue balances ok");

@@ -201,6 +201,80 @@ const loggable = (e) => ({
   note: e.note,
 });
 
+// Month keys are "YYYY-MM"; step moves whole months, across years.
+const shiftMonth = (key, step) => {
+  const [y, m] = key.split("-").map(Number);
+  const total = y * 12 + (m - 1) + step;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`;
+};
+
+/**
+ * Closing balance per month, each bank check carrying forward until the next
+ * one takes over. Months before the first check get none: walking backwards
+ * would only show how much of the past the entries don't explain (the
+ * untracked gap), which reads like a wrong balance.
+ */
+function walkBalances(months, anchors, netOfMonth) {
+  const balances = {};
+  const last = months[months.length - 1];
+
+  anchors.forEach((anchor, i) => {
+    const handOver = anchors[i + 1]?.month || null;
+    let running = anchor.atMonthStart;
+    for (let key = anchor.month; key <= last && (!handOver || key < handOver); key = shiftMonth(key, 1)) {
+      running += netOfMonth(key);
+      balances[key] = running;
+    }
+  });
+
+  return Object.fromEntries(months.filter((key) => key in balances).map((key) => [key, balances[key]]));
+}
+
+/**
+ * What the bank should hold at the end of each month in the range: the same
+ * arithmetic as the bank panel's expected balance, stopped at each month end
+ * instead of today.
+ *
+ * Tracked net for a stretch is website sales plus every ledger amount, since
+ * expenses and refunds are already stored negative.
+ */
+async function monthEndBalances(months, checks) {
+  const last = months[months.length - 1];
+  const used = checks.filter((check) => check.asOf.slice(0, 7) <= last);
+  if (!months.length || !used.length) return null;
+
+  const monthStart = (key) => dayStart(`${key}-01`);
+  // Each check splits its own month at the checked day, so the part before it
+  // is taken back off to get the balance as that month began.
+  const anchors = await Promise.all(
+    used.map(async (check) => {
+      const month = check.asOf.slice(0, 7);
+      const before = await totalsFor(monthStart(month), new Date(dayStart(check.asOf).getTime() + DAY_MS));
+      return { month, atMonthStart: check.balancePaise - before.netPaise };
+    })
+  );
+
+  const first = anchors[0].month;
+  const spanStart = monthStart(months[0] < first ? months[0] : first);
+  const spanEnd = monthStart(shiftMonth(last, 1));
+
+  const [orders, ledger] = await Promise.all([
+    Order.aggregate([
+      { $match: { status: "SUCCESS", createdAt: { $gte: spanStart, $lt: spanEnd } } },
+      { $group: { _id: monthOf("$createdAt"), paise: { $sum: ORDER_PAISE } } },
+    ]),
+    LedgerEntry.aggregate([
+      { $match: { voidedAt: null, occurredAt: { $gte: spanStart, $lt: spanEnd } } },
+      { $group: { _id: monthOf("$occurredAt"), paise: { $sum: "$amountPaise" } } },
+    ]),
+  ]);
+
+  const net = new Map();
+  for (const row of [...orders, ...ledger]) net.set(row._id, (net.get(row._id) || 0) + row.paise);
+
+  return walkBalances(months, anchors, (key) => net.get(key) || 0);
+}
+
 /* =========================
    SUMMARY (overview tab)
 ========================= */
@@ -511,8 +585,20 @@ router.get("/timeline", async (req, res) => {
       ]),
     ]);
 
+    // The running balance comes from the bank check, which is super-admin only.
+    let balances = null;
+    if (await checkIsSuperAdmin(req.user)) {
+      const checks = await BankCheck.find().sort({ asOf: 1, createdAt: 1 }).lean();
+      if (checks.length) {
+        const months = [];
+        for (let key = range.from.slice(0, 7); key <= range.to.slice(0, 7); key = shiftMonth(key, 1)) months.push(key);
+        balances = await monthEndBalances(months, checks);
+      }
+    }
+
     res.json({
       range: { from: range.from, to: range.to },
+      balances,
       entries,
       websiteDays: websiteDays.map(({ _id, methods, ...day }) => {
         const counts = {};
@@ -885,3 +971,4 @@ module.exports = router;
 module.exports.totalsFor = totalsFor;
 module.exports.readRange = readRange;
 module.exports.judgeDuplicate = judgeDuplicate; // for adminRevenue.test.js
+module.exports.walkBalances = walkBalances; // for adminRevenue.test.js

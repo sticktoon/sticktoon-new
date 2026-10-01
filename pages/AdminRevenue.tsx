@@ -57,6 +57,9 @@ const docsOf = (e?: Entry): Doc[] => [
 ];
 
 type TimelineData = {
+  // What the bank should hold at each month end, from the bank checks. Super
+  // admins only, and only for months a bank check covers.
+  balances?: Record<string, number> | null;
   entries: Entry[];
   websiteDays: { day: string; paise: number; orders: number; methods: string }[];
   amazonDays: { day: string; settlementId: string; paise: number; orders: number; depositDate: string }[];
@@ -1160,6 +1163,11 @@ function Timeline({
             <span>
               Net <b className="font-black text-slate-900">{rupees(moneyIn(all) + moneyOut(all), 0)}</b>
             </span>
+            {data?.balances?.[month.key] != null && (
+              <span title="What your bank should hold at the end of this month, from your last bank balance and the entries since.">
+                Balance <b className="font-black text-slate-900">{rupees(data.balances[month.key], 0)}</b>
+              </span>
+            )}
           </div>
         );
 
