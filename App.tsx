@@ -27,6 +27,7 @@ import { CATEGORIES, STICKER_CATEGORIES, fetchBackendCategories, fetchBackendSti
 import { API_BASE_URL } from "./config/api";
 import { migrateOldUserSession } from "./utils/apiClient";
 import ToastNotification, { ToastItem } from "./ToastNotification";
+import { Chatbot } from "./components/Chatbot";
 
 const Home = lazy(() => import("./pages/Home"));
 const Categories = lazy(() => import("./pages/Categories"));
@@ -1227,12 +1228,18 @@ function App() {
       }
     };
 
+    const handleCartSync = () => {
+      syncCartWithDatabase();
+    };
+
     window.addEventListener("auth-change", handleAuthChange);
     window.addEventListener("storage", handleAuthChange);
+    window.addEventListener("cart-updated", handleCartSync);
 
     return () => {
       window.removeEventListener("auth-change", handleAuthChange);
       window.removeEventListener("storage", handleAuthChange);
+      window.removeEventListener("cart-updated", handleCartSync);
     };
   }, []);
 
@@ -1779,6 +1786,10 @@ function App() {
       </main>
       <Footer />
       <ToastNotification item={toastItem} onClose={() => setToastItem(null)} />
+      <Chatbot
+        addToCart={addToCart}
+        onOpenCart={() => setCartDrawerOpen(true)}
+      />
     </BrowserRouter>
   );
 }

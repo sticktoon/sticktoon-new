@@ -144,6 +144,7 @@ app.use("/api/admin/logs", auth, requirePermission("logs"), require("./routes/ad
 app.use("/api/admin/backup", require("./routes/adminBackup"));
 app.use("/api/contact", require("./routes/contact"));
 app.use("/api/reviews", require("./routes/reviews"));
+app.use("/api/chat", require("./routes/chatbot.routes"));
 
 /* Startup: Catch-up upload for offline-added images */
 async function scanAndUploadOfflineImages() {
