@@ -8,6 +8,40 @@ function escapeRegex(string) {
   return String(string).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// In-memory cache for catalog searches with 60-second TTL to avoid duplicate DB hits
+const searchCache = new Map();
+const CACHE_TTL_MS = 60 * 1000;
+const MAX_CACHE_ENTRIES = 200;
+
+function getCacheKey(filters, limit) {
+  return JSON.stringify({
+    q: (filters.query || "").trim().toLowerCase(),
+    c: (filters.category || "").trim().toLowerCase(),
+    t: (filters.type || "").trim().toLowerCase(),
+    min: filters.minPrice || 0,
+    max: filters.maxPrice || 0,
+    l: limit || 10,
+  });
+}
+
+function getFromCache(key) {
+  const entry = searchCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+    searchCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setInCache(key, data) {
+  if (searchCache.size >= MAX_CACHE_ENTRIES) {
+    const firstKey = searchCache.keys().next().value;
+    if (firstKey) searchCache.delete(firstKey);
+  }
+  searchCache.set(key, { data, timestamp: Date.now() });
+}
+
 /**
  * Search the MongoDB Product catalog based on extracted filters.
  *
@@ -21,6 +55,14 @@ function escapeRegex(string) {
  * @returns {Promise<Array<Object>>} Formatted product results
  */
 async function searchProducts(filters = {}, limit = 10) {
+  const startTime = Date.now();
+  const cacheKey = getCacheKey(filters, limit);
+  const cached = getFromCache(cacheKey);
+  if (cached) {
+    console.log(`[ProductSearch] Cache hit for "${filters.query || filters.category || 'all'}" (${Date.now() - startTime}ms)`);
+    return cached;
+  }
+
   try {
     const filter = {
       isActive: { $ne: false },
@@ -83,13 +125,15 @@ async function searchProducts(filters = {}, limit = 10) {
 
     const cappedLimit = Math.min(Math.max(1, limit || 10), 10);
 
+    // Optimized query with strict field projections and lean execution
     const products = await Product.find(filter)
+      .select("name type price description category subcategory stock image images")
       .sort({ createdAt: -1 })
       .limit(cappedLimit)
       .lean();
 
     // Map to clean, safe structure without exposing backend internals
-    return products.map((product) => ({
+    const results = products.map((product) => ({
       id: String(product._id),
       name: product.name,
       type: product.type || "badge",
@@ -99,6 +143,10 @@ async function searchProducts(filters = {}, limit = 10) {
       stock: typeof product.stock === "number" ? product.stock : 0,
       image: product.image || (Array.isArray(product.images) && product.images[0]) || "",
     }));
+
+    setInCache(cacheKey, results);
+    console.log(`[ProductSearch] DB search took ${Date.now() - startTime}ms, returned ${results.length} items`);
+    return results;
   } catch (error) {
     console.error("Product Search Service Error:", error.message || error);
     return [];
