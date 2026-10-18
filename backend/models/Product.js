@@ -129,5 +129,8 @@ ProductSchema.index({ category: 1, isActive: 1 }); // For category filtering
 ProductSchema.index({ category: 1, subcategory: 1, isActive: 1 }); // For category + subcategory filtering
 ProductSchema.index({ isActive: 1 }); // For active products
 ProductSchema.index({ createdAt: -1 }); // For sorting by newest
+ProductSchema.index({ type: 1, isActive: 1, createdAt: -1 }); // For type filtering
+ProductSchema.index({ isActive: 1, price: 1 }); // For price range filtering
+ProductSchema.index({ name: 1, isActive: 1 }); // For direct product name lookup
 
 module.exports = mongoose.model("Product", ProductSchema);

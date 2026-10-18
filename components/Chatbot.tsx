@@ -1,7 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, X, Send, Bot, Sparkles, Loader2, ExternalLink, ShoppingCart, Package, Truck, Clock } from 'lucide-react';
-import { sendChatMessage, ChatProduct, CartSummary, ChatOrder } from '../services/chatService';
+import {
+  MessageSquare,
+  X,
+  Send,
+  Bot,
+  Sparkles,
+  Loader2,
+  ExternalLink,
+  ShoppingCart,
+  Package,
+  Truck,
+  Clock,
+} from 'lucide-react';
+import {
+  sendChatMessage,
+  streamChatMessage,
+  ChatProduct,
+  CartSummary,
+  ChatOrder,
+  ChatHistoryMessage,
+} from '../services/chatService';
 
 interface Message {
   id: string;
@@ -80,46 +99,118 @@ export const Chatbot: React.FC<ChatbotProps> = ({ addToCart, onOpenCart }) => {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    // Extract recent conversation history (sliding window of max 6 messages)
+    const history: ChatHistoryMessage[] = messages
+      .filter((m) => m.id !== 'welcome')
+      .slice(-6)
+      .map((m) => ({
+        role: (m.sender === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+        content: m.text,
+      }));
+
+    const botMsgId = `bot-${Date.now()}`;
+    let accumulatedText = '';
+    let hasStreamed = false;
+
+    // Create a streaming bot placeholder
+    const streamingBotMessage: Message = {
+      id: botMsgId,
+      sender: 'bot',
+      text: '',
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage, streamingBotMessage]);
     setInputMessage('');
     setLoading(true);
 
     try {
-      const data = await sendChatMessage(text);
+      await streamChatMessage(text, history, {
+        onChunk: (chunk) => {
+          hasStreamed = true;
+          accumulatedText += chunk;
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === botMsgId ? { ...msg, text: cleanMarkdownText(accumulatedText) } : msg
+            )
+          );
+        },
+        onDone: (data) => {
+          if (data.cart) {
+            window.dispatchEvent(new Event('cart-updated'));
+          }
 
-      // If cart action occurred, notify App to sync its cart state
-      if (data.cart) {
-        window.dispatchEvent(new Event('cart-updated'));
-      }
+          const rawText =
+            accumulatedText ||
+            data.reply ||
+            (data.products && data.products.length > 0
+              ? 'Here are some products from our catalog.'
+              : data.orders && data.orders.length > 0
+              ? `I found ${data.orders.length === 1 ? 'your order' : 'your recent orders'}.`
+              : data.cart
+              ? `Your cart currently has ${data.cart.totalItems || 0} item${data.cart.totalItems === 1 ? '' : 's'}.`
+              : "I couldn't find any information matching your request.");
 
-      const rawText = data.reply || (data.products && data.products.length > 0
-        ? "I found some products that match your search."
-        : data.orders && data.orders.length > 0
-        ? `I found ${data.orders.length === 1 ? "your order" : "your recent orders"}.`
-        : data.cart
-        ? `Your cart currently has ${data.cart.totalItems || 0} item${data.cart.totalItems === 1 ? '' : 's'}.`
-        : "I couldn't find any information matching your request.");
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === botMsgId
+                ? {
+                    ...msg,
+                    text: cleanMarkdownText(rawText),
+                    products: Array.isArray(data.products) ? data.products : [],
+                    cart: data.cart || null,
+                    orders: Array.isArray(data.orders) && data.orders.length > 0 ? data.orders : undefined,
+                  }
+                : msg
+            )
+          );
+        },
+        onError: async (err) => {
+          console.warn('Stream failed or unavailable, falling back to standard POST:', err);
+          if (!hasStreamed) {
+            const data = await sendChatMessage(text, history);
+            if (data.cart) {
+              window.dispatchEvent(new Event('cart-updated'));
+            }
 
-      const botMessage: Message = {
-        id: `bot-${Date.now()}`,
-        sender: 'bot',
-        text: cleanMarkdownText(rawText),
-        products: Array.isArray(data.products) ? data.products : [],
-        cart: data.cart || null,
-        orders: Array.isArray(data.orders) && data.orders.length > 0 ? data.orders : undefined,
-        timestamp: new Date(),
-      };
+            const rawText =
+              data.reply ||
+              (data.products && data.products.length > 0
+                ? 'Here are some products from our catalog.'
+                : data.orders && data.orders.length > 0
+                ? `I found ${data.orders.length === 1 ? 'your order' : 'your recent orders'}.`
+                : data.cart
+                ? `Your cart currently has ${data.cart.totalItems || 0} item${data.cart.totalItems === 1 ? '' : 's'}.`
+                : "I couldn't find any information matching your request.");
 
-      setMessages((prev) => [...prev, botMessage]);
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === botMsgId
+                  ? {
+                      ...msg,
+                      text: cleanMarkdownText(rawText),
+                      products: Array.isArray(data.products) ? data.products : [],
+                      cart: data.cart || null,
+                      orders: Array.isArray(data.orders) && data.orders.length > 0 ? data.orders : undefined,
+                    }
+                  : msg
+              )
+            );
+          }
+        },
+      });
     } catch (error) {
       console.error('Chat error:', error);
-      const errorMessage: Message = {
-        id: `err-${Date.now()}`,
-        sender: 'bot',
-        text: 'Sorry, I am having trouble connecting right now. Please try again in a moment!',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === botMsgId
+            ? {
+                ...msg,
+                text: 'Sorry, I am having trouble connecting right now. Please try again in a moment!',
+              }
+            : msg
+        )
+      );
     } finally {
       setLoading(false);
     }
@@ -213,7 +304,15 @@ export const Chatbot: React.FC<ChatbotProps> = ({ addToCart, onOpenCart }) => {
                       : 'bg-white text-slate-900 border border-slate-200 shadow-xs rounded-bl-xs'
                   }`}
                 >
-                  <p className="whitespace-pre-line">{cleanMarkdownText(msg.text)}</p>
+                  {msg.sender === 'bot' && !msg.text ? (
+                    <div className="flex items-center gap-1.5 py-1 px-1">
+                      <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+                      <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse [animation-delay:150ms]" />
+                      <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse [animation-delay:300ms]" />
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-line">{cleanMarkdownText(msg.text)}</p>
+                  )}
                 </div>
 
                 {/* Structured Orders Container (rendered when msg.orders is present) */}
