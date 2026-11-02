@@ -1351,6 +1351,7 @@ function Settlements({ range, refreshKey, onUpload }: { range: Range; refreshKey
   // Bumped after a manual sync so the list and status reload.
   const [syncKey, setSyncKey] = useState(0);
   const { data, error } = useData<SettlementRow[]>(`/amazon/settlements${qs(range)}`, refreshKey + syncKey);
+  const summary = useData<Summary>(`/summary${qs(range)}`, refreshKey + syncKey);
   const status = useData<SyncStatus>("/amazon/status", refreshKey + syncKey);
   const [open, setOpen] = useState<string | null>(null);
   // Hand-typed payouts, and ones Amazon only gave us a total for, have no
@@ -1597,57 +1598,70 @@ function Settlements({ range, refreshKey, onUpload }: { range: Range; refreshKey
         )}
       </div>
 
-      {data && data.length > 0 && (
-        <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5 sm:p-6 text-white shadow-xl border border-slate-700">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700/60 pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                <h3 className="text-lg font-black tracking-tight text-white">
-                  Total Amazon Settlements
-                </h3>
+      {data && data.length > 0 && (() => {
+        const totalGross = data.reduce((sum, r) => sum + (r.breakdown?.salesPaise || 0), 0);
+        const totalFees = data.reduce((sum, r) => sum + (r.breakdown?.feesPaise || 0), 0);
+        const totalRefunds = data.reduce((sum, r) => sum + (r.breakdown?.refundsPaise || 0), 0);
+        const totalPayout = data.reduce((sum, r) => sum + (r.amountPaise || 0), 0);
+        const expenses = summary.data ? summary.data.current.manualOutPaise : 0;
+        const netRevenue = totalPayout - expenses;
+
+        return (
+          <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5 sm:p-6 text-white shadow-xl border border-slate-700">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700/60 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                  <h3 className="text-lg font-black tracking-tight text-white">
+                    Settlements & Revenue Summary
+                  </h3>
+                </div>
+                <p className="mt-1 text-xs text-slate-300">
+                  {fmtDay(range.from, true)} to {fmtDay(range.to, true)} · {data.length} {data.length === 1 ? "settlement" : "settlements"} deposited
+                </p>
               </div>
-              <p className="mt-1 text-xs text-slate-300">
-                {fmtDay(range.from, true)} to {fmtDay(range.to, true)} · {data.length} {data.length === 1 ? "settlement" : "settlements"} deposited
-              </p>
+              <div className="text-right">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Revenue (Total Payout − Expenses)</p>
+                <p className={`text-2xl sm:text-3xl font-black tabular-nums ${netRevenue >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                  {signed(netRevenue)}
+                </p>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Net Payout</p>
-              <p className="text-2xl sm:text-3xl font-black text-emerald-400 tabular-nums">
-                {rupees(data.reduce((sum, r) => sum + (r.amountPaise || 0), 0))}
-              </p>
+
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Payout (In Bank)</p>
+                <p className="mt-1 text-xl sm:text-2xl font-black text-emerald-400 tabular-nums">
+                  +{rupees(totalPayout, 0)}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  Gross: {rupees(totalGross, 0)} {totalFees ? `· Fees: ${signed(totalFees)}` : ""}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Expenses (Kharche)</p>
+                <p className="mt-1 text-xl sm:text-2xl font-black text-rose-400 tabular-nums">
+                  −{rupees(expenses, 0)}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  Recorded business expenses for this period
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Revenue (Payout − Expenses)</p>
+                <p className={`mt-1 text-xl sm:text-2xl font-black tabular-nums ${netRevenue >= 0 ? "text-white" : "text-rose-400"}`}>
+                  {signed(netRevenue)}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  Net in-hand profit after all expenses
+                </p>
+              </div>
             </div>
           </div>
-
-          <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Gross Sales</p>
-              <p className="mt-1 text-xl sm:text-2xl font-black text-white tabular-nums">
-                {rupees(data.reduce((sum, r) => sum + (r.breakdown?.salesPaise || 0), 0))}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                {data.reduce((sum, r) => sum + (r.settlement?.orderCount || 0), 0)} total Amazon orders
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Amazon Fees & Deductions</p>
-              <p className="mt-1 text-xl sm:text-2xl font-black text-rose-400 tabular-nums">
-                {signed(data.reduce((sum, r) => sum + (r.breakdown?.feesPaise || 0), 0))}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">Commission, shipping, pick & pack fees</p>
-            </div>
-
-            <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Net In Bank (Deposited)</p>
-              <p className="mt-1 text-xl sm:text-2xl font-black text-emerald-400 tabular-nums">
-                {rupees(data.reduce((sum, r) => sum + (r.amountPaise || 0), 0))}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">Actual amount received in bank account</p>
-            </div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
@@ -1719,6 +1733,7 @@ function SettlementBreakdown({ d }: { d: SettlementDetail }) {
 ========================= */
 function WebsiteOrders({ range, refreshKey }: { range: Range; refreshKey: number }) {
   const { data, error } = useData<{ _id: string; totalRevenue: number; ordersCount: number }[]>("/daily", refreshKey);
+  const summary = useData<Summary>(`/summary${qs(range)}`, refreshKey);
   const days = (data || []).filter((d) => d._id >= range.from && d._id <= range.to);
 
   if (error) return <Failed message={error} />;
@@ -1726,6 +1741,9 @@ function WebsiteOrders({ range, refreshKey }: { range: Range; refreshKey: number
 
   const totalOrders = days.reduce((sum, d) => sum + (d.ordersCount || 0), 0);
   const totalRevenue = days.reduce((sum, d) => sum + (d.totalRevenue || 0), 0);
+  const totalRevenuePaise = totalRevenue * 100;
+  const expenses = summary.data ? summary.data.current.manualOutPaise : 0;
+  const netRevenue = totalRevenuePaise - expenses;
 
   return (
     <div className="space-y-6">
@@ -1777,7 +1795,7 @@ function WebsiteOrders({ range, refreshKey }: { range: Range; refreshKey: number
               <div className="flex items-center gap-2">
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400" />
                 <h3 className="text-lg font-black tracking-tight text-white">
-                  Total Website Revenue
+                  Website Revenue & Expenses Summary
                 </h3>
               </div>
               <p className="mt-1 text-xs text-slate-300">
@@ -1785,10 +1803,36 @@ function WebsiteOrders({ range, refreshKey }: { range: Range; refreshKey: number
               </p>
             </div>
             <div className="text-right">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Website Sales</p>
-              <p className="text-2xl sm:text-3xl font-black text-emerald-400 tabular-nums">
-                ₹{totalRevenue.toLocaleString("en-IN")}
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Revenue (Sales − Expenses)</p>
+              <p className={`text-2xl sm:text-3xl font-black tabular-nums ${netRevenue >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                {signed(netRevenue)}
               </p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Website Sales</p>
+              <p className="mt-1 text-xl sm:text-2xl font-black text-emerald-400 tabular-nums">
+                +₹{totalRevenue.toLocaleString("en-IN")}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">{totalOrders} paid customer orders</p>
+            </div>
+
+            <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Expenses (Kharche)</p>
+              <p className="mt-1 text-xl sm:text-2xl font-black text-rose-400 tabular-nums">
+                −{rupees(expenses, 0)}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">Recorded business expenses for this period</p>
+            </div>
+
+            <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Revenue (Sales − Expenses)</p>
+              <p className={`mt-1 text-xl sm:text-2xl font-black tabular-nums ${netRevenue >= 0 ? "text-white" : "text-rose-400"}`}>
+                {signed(netRevenue)}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">Net in-hand profit after expenses</p>
             </div>
           </div>
         </div>
