@@ -91,7 +91,7 @@ connectDB();
 
 /* Routes */
 const auth = require("./middleware/auth");
-const { requirePermission } = require("./middleware/roleMiddleware");
+const { requirePermission, superAdminOnly } = require("./middleware/roleMiddleware");
 
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/addresses", require("./routes/addresses"));
@@ -99,6 +99,7 @@ app.use("/api/razorpay", require("./routes/razorpayPayment"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/admin/orders", auth, requirePermission("orders"), require("./routes/adminOrders"));
 app.use("/api/admin/revenue", auth, requirePermission("revenue"), require("./routes/adminRevenue"));
+app.use("/api/admin/finance", auth, superAdminOnly, require("./routes/adminFinance"));
 
 // Read-only revenue totals for AYUS ops (Anish's command center). A static token,
 // not an admin JWT, so whoever holds it can read this one summary and nothing else.

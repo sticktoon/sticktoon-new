@@ -5,6 +5,7 @@ import AdminLogs from "./AdminLogs";
 import AdminInfluencerManage from "./AdminInfluencerManage";
 import AdminDealConvert from "./AdminDealConvert";
 import AdminDealSend from "./AdminDealSend";
+import AdminFinance from "./AdminFinance";
 import AdminInvoice from "./AdminInvoice";
 import AdminRevenue from "./AdminRevenue";
 import AdminUserOrders from "./AdminUserOrders";
@@ -58,6 +59,7 @@ import {
   Filter,
   ArrowLeft,
   IndianRupee,
+  Landmark,
   ArrowUpDown,
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
@@ -107,6 +109,7 @@ const VIEW_PERMISSIONS: Record<string, string> = {
   invoice: "revenue",
   revenue: "revenue",
   reports: "revenue",
+  finance: "superadmin",
   support: "support",
   users: "users",
   customers: "users",
@@ -124,7 +127,11 @@ const canAccessView = (
   view: string,
 ) => {
   if (!account) return false;
-  if (account.role === "superadmin") return true;
+  const isSuper =
+    account.role === "superadmin" ||
+    account.email?.toLowerCase().trim() === "anishpatankar974@gmail.com";
+  if (view === "finance") return isSuper;
+  if (isSuper) return true;
 
   const required = VIEW_PERMISSIONS[view];
   if (!required) return true;
@@ -1025,6 +1032,7 @@ const getViewFromPath = (pathname: string) => {
     "deal-send",
     "invoice",
     "revenue",
+    "finance",
     "user-orders",
     "footer",
   ];
@@ -1070,6 +1078,7 @@ const Admin: React.FC = () => {
     | "deal-send"
     | "invoice"
     | "revenue"
+    | "finance"
     | "user-orders"
     | "footer"
   >(() => {
@@ -2777,7 +2786,9 @@ const Admin: React.FC = () => {
   // every load and sends "superadmin" only when SUPER_ADMIN_EMAILS (or the
   // stored role) says so. A browser-side email list from VITE_ settings could
   // disagree and show buttons the server then refuses.
-  const isSuperAdmin = user?.role === "superadmin";
+  const isSuperAdmin =
+    user?.role === "superadmin" ||
+    user?.email?.toLowerCase().trim() === "anishpatankar974@gmail.com";
   const authToastShownRef = useRef(false);
 
   // Section access for the signed-in admin. Super admins get everything.
@@ -5082,6 +5093,7 @@ const Admin: React.FC = () => {
                   { id: "notifications", label: "Notifications", icon: <NotificationsActiveRoundedIcon sx={{ fontSize: 22 }} />, badge: notifications.length },
                   { id: "reports", label: "Reports", icon: <BarChart3 className="w-5 h-5" /> },
                   { id: "revenue", label: "Revenue", icon: <IndianRupee className="w-5 h-5" /> },
+                  ...(isSuperAdmin ? [{ id: "finance", label: "Finance", icon: <Landmark className="w-5 h-5" /> }] : []),
                 ],
               },
               {
@@ -5257,6 +5269,7 @@ const Admin: React.FC = () => {
               <h2 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-900 truncate">
                 {currentView === "dashboard" && "Dashboard"}
                 {currentView === "revenue" && "Revenue"}
+                {currentView === "finance" && "Finance"}
                 {currentView === "notifications" && "Notifications"}
                 {currentView === "leads" && "Leads"}
                 {currentView === "deals" && "Deals"}
@@ -9079,6 +9092,19 @@ hover:bg-red-200 rounded-lg text-xs font-semibold transition"
           {currentView === "revenue" && (
             <div>
               <AdminRevenue />
+            </div>
+          )}
+
+          {/* FINANCE VIEW (SUPER ADMIN ONLY) */}
+          {currentView === "finance" && (
+            <div>
+              {isSuperAdmin ? (
+                <AdminFinance />
+              ) : (
+                <div className="p-8 text-center text-slate-500 font-semibold">
+                  Access restricted to Super Admin only.
+                </div>
+              )}
             </div>
           )}
 
