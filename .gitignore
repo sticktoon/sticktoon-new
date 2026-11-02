@@ -68,3 +68,18 @@ REMAINING.md
 
 # Generated catalogue files
 backend/tmp/catalogues/
+
+# Reconciliation & Private Receipts / Images
+WhatsApp Image 2026-10-19 at 13.55.06.jpeg
+*.jpeg
+*.jpg
+*.csv
+*.xlsx
+
+# Scratch reconciliation, PDFs & temporary dumps
+*.pdf
+*.ps1
+*.zip
+*.txt
+pdf_tool_result.json
+xlsx_extracted/
