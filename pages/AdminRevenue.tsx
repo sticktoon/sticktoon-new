@@ -864,57 +864,6 @@ function Overview({
           </div>
         </div>
       </div>
-
-      {/* 🏁 Bottom Total for Overview */}
-      <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5 sm:p-6 text-white shadow-xl border border-slate-700">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700/60 pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400" />
-              <h3 className="text-lg font-black tracking-tight text-white">
-                Total for {getRangeLabel(rangeKey, range)}
-              </h3>
-            </div>
-            <p className="mt-1 text-xs text-slate-300">
-              {fmtDay(range.from, true)} to {fmtDay(range.to, true)}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Net Period Revenue</p>
-            <p className={`text-2xl sm:text-3xl font-black tabular-nums ${c.netPaise >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-              {signed(c.netPaise)}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Money In</p>
-            <p className="mt-1 text-xl sm:text-2xl font-black text-emerald-400 tabular-nums">
-              +{rupees(c.websitePaise + c.amazonNetPaise + c.manualInPaise, 0)}
-            </p>
-            <p className="mt-1 text-xs text-slate-400">
-              Website: {rupees(c.websitePaise, 0)} · Amazon: {rupees(c.amazonNetPaise, 0)} · Income: {rupees(c.manualInPaise, 0)}
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Money Out</p>
-            <p className="mt-1 text-xl sm:text-2xl font-black text-rose-400 tabular-nums">
-              −{rupees(c.manualOutPaise, 0)}
-            </p>
-            <p className="mt-1 text-xs text-slate-400">Recorded expenses & refunds</p>
-          </div>
-
-          <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Net Profit / Revenue</p>
-            <p className={`mt-1 text-xl sm:text-2xl font-black tabular-nums ${c.netPaise >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-              {signed(c.netPaise)}
-            </p>
-            <p className="mt-1 text-xs text-slate-400">Total In minus Total Out for this period</p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1073,13 +1022,11 @@ function SourceRow({
 ========================= */
 function Timeline({
   range,
-  rangeKey,
   refreshKey,
   onEdit,
   onVoid,
 }: {
   range: Range;
-  rangeKey: string;
   refreshKey: number;
   onEdit: (e: Entry) => void;
   onVoid: (e: Entry) => void;
@@ -1281,58 +1228,6 @@ function Timeline({
           </section>
         );
       })}
-
-      {/* 🏁 GRAND TOTAL AT THE BOTTOM OF TIMELINE */}
-      {data && items.length > 0 && (
-        <div className="mt-8 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5 sm:p-6 text-white shadow-xl border border-slate-700">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700/60 pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                <h3 className="text-lg font-black tracking-tight text-white">
-                  Total for {getRangeLabel(rangeKey, range)}
-                </h3>
-              </div>
-              <p className="mt-1 text-xs text-slate-300">
-                {fmtDay(range.from, true)} to {fmtDay(range.to, true)} · {items.filter((i) => i.counted).length} counted entries across {months.length} {months.length === 1 ? "month" : "months"}
-                {(source !== "all" || type !== "all" || query.trim()) && " (filtered view)"}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Net Period Revenue</p>
-              <p className={`text-2xl sm:text-3xl font-black tabular-nums ${moneyIn(items) + moneyOut(items) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                {signed(moneyIn(items) + moneyOut(items))}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Money In (Received)</p>
-              <p className="mt-1 text-xl sm:text-2xl font-black text-emerald-400 tabular-nums">
-                +{rupees(moneyIn(items), 0)}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">Website sales, Amazon payouts & income</p>
-            </div>
-
-            <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Money Out (Expenses)</p>
-              <p className="mt-1 text-xl sm:text-2xl font-black text-rose-400 tabular-nums">
-                {rupees(moneyOut(items), 0)}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">Expenses, refunds & manual payouts</p>
-            </div>
-
-            <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Net Profit / Revenue</p>
-              <p className={`mt-1 text-xl sm:text-2xl font-black tabular-nums ${moneyIn(items) + moneyOut(items) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                {signed(moneyIn(items) + moneyOut(items))}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">Total In minus Total Out for this period</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1347,7 +1242,17 @@ const SETUP_STEPS = [
   ["Add the keys", "Put the client ID, secret and refresh token in the backend settings (the AMAZON_ variables). No AWS account needed."],
 ];
 
-function Settlements({ range, refreshKey, onUpload }: { range: Range; refreshKey: number; onUpload: () => void }) {
+function Settlements({
+  range,
+  rangeKey,
+  refreshKey,
+  onUpload,
+}: {
+  range: Range;
+  rangeKey: string;
+  refreshKey: number;
+  onUpload: () => void;
+}) {
   // Bumped after a manual sync so the list and status reload.
   const [syncKey, setSyncKey] = useState(0);
   const { data, error } = useData<SettlementRow[]>(`/amazon/settlements${qs(range)}`, refreshKey + syncKey);
@@ -1598,13 +1503,14 @@ function Settlements({ range, refreshKey, onUpload }: { range: Range; refreshKey
         )}
       </div>
 
-      {data && data.length > 0 && (() => {
-        const totalGross = data.reduce((sum, r) => sum + (r.breakdown?.salesPaise || 0), 0);
-        const totalFees = data.reduce((sum, r) => sum + (r.breakdown?.feesPaise || 0), 0);
-        const totalRefunds = data.reduce((sum, r) => sum + (r.breakdown?.refundsPaise || 0), 0);
-        const totalPayout = data.reduce((sum, r) => sum + (r.amountPaise || 0), 0);
+      {(data || summary.data) && (() => {
+        const totalGross = data ? data.reduce((sum, r) => sum + (r.breakdown?.salesPaise || 0), 0) : 0;
+        const totalFees = data ? data.reduce((sum, r) => sum + (r.breakdown?.feesPaise || 0), 0) : 0;
+        const totalRefunds = data ? data.reduce((sum, r) => sum + (r.breakdown?.refundsPaise || 0), 0) : 0;
+        const totalPayout = data ? data.reduce((sum, r) => sum + (r.amountPaise || 0), 0) : 0;
         const expenses = summary.data ? summary.data.current.manualOutPaise : 0;
         const netRevenue = totalPayout - expenses;
+        const count = data ? data.length : 0;
 
         return (
           <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5 sm:p-6 text-white shadow-xl border border-slate-700">
@@ -1615,9 +1521,12 @@ function Settlements({ range, refreshKey, onUpload }: { range: Range; refreshKey
                   <h3 className="text-lg font-black tracking-tight text-white">
                     Settlements & Revenue Summary
                   </h3>
+                  <span className="rounded-full bg-slate-700/80 px-2.5 py-0.5 text-xs font-bold text-slate-300">
+                    {getRangeLabel(rangeKey, range)}
+                  </span>
                 </div>
                 <p className="mt-1 text-xs text-slate-300">
-                  {fmtDay(range.from, true)} to {fmtDay(range.to, true)} · {data.length} {data.length === 1 ? "settlement" : "settlements"} deposited
+                  {fmtDay(range.from, true)} to {fmtDay(range.to, true)} · {count} {count === 1 ? "settlement" : "settlements"} deposited
                 </p>
               </div>
               <div className="text-right">
@@ -1635,7 +1544,7 @@ function Settlements({ range, refreshKey, onUpload }: { range: Range; refreshKey
                   +{rupees(totalPayout, 0)}
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Gross: {rupees(totalGross, 0)} {totalFees ? `· Fees: ${signed(totalFees)}` : ""}
+                  Amazon deductions deduct hoke bank me aaya
                 </p>
               </div>
 
@@ -1645,7 +1554,7 @@ function Settlements({ range, refreshKey, onUpload }: { range: Range; refreshKey
                   −{rupees(expenses, 0)}
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Recorded business expenses for this period
+                  Iss period me manually dale gaye kharche
                 </p>
               </div>
 
@@ -1655,7 +1564,7 @@ function Settlements({ range, refreshKey, onUpload }: { range: Range; refreshKey
                   {signed(netRevenue)}
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Net in-hand profit after all expenses
+                  Total Payout minus Expenses
                 </p>
               </div>
             </div>
@@ -1733,7 +1642,6 @@ function SettlementBreakdown({ d }: { d: SettlementDetail }) {
 ========================= */
 function WebsiteOrders({ range, refreshKey }: { range: Range; refreshKey: number }) {
   const { data, error } = useData<{ _id: string; totalRevenue: number; ordersCount: number }[]>("/daily", refreshKey);
-  const summary = useData<Summary>(`/summary${qs(range)}`, refreshKey);
   const days = (data || []).filter((d) => d._id >= range.from && d._id <= range.to);
 
   if (error) return <Failed message={error} />;
@@ -1741,102 +1649,47 @@ function WebsiteOrders({ range, refreshKey }: { range: Range; refreshKey: number
 
   const totalOrders = days.reduce((sum, d) => sum + (d.ordersCount || 0), 0);
   const totalRevenue = days.reduce((sum, d) => sum + (d.totalRevenue || 0), 0);
-  const totalRevenuePaise = totalRevenue * 100;
-  const expenses = summary.data ? summary.data.current.manualOutPaise : 0;
-  const netRevenue = totalRevenuePaise - expenses;
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50">
-            <tr className="text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
-              <th className="px-5 py-3">Date</th>
-              <th className="px-5 py-3 text-right">Orders</th>
-              <th className="px-5 py-3 text-right">Revenue</th>
+    <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50">
+          <tr className="text-left text-[11px] font-black uppercase tracking-wide text-slate-500">
+            <th className="px-5 py-3">Date</th>
+            <th className="px-5 py-3 text-right">Orders</th>
+            <th className="px-5 py-3 text-right">Revenue</th>
+          </tr>
+        </thead>
+        <tbody>
+          {days.map((day) => (
+            <tr key={day._id} className="border-t border-slate-100">
+              <td className="px-5 py-3 text-slate-700">
+                {fmtWeekday(day._id)}, {fmtDay(day._id, true)}
+              </td>
+              <td className="px-5 py-3 text-right font-medium tabular-nums">{day.ordersCount}</td>
+              <td className="px-5 py-3 text-right font-bold text-green-600 tabular-nums">
+                ₹{day.totalRevenue.toLocaleString("en-IN")}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {days.map((day) => (
-              <tr key={day._id} className="border-t border-slate-100">
-                <td className="px-5 py-3 text-slate-700">
-                  {fmtWeekday(day._id)}, {fmtDay(day._id, true)}
-                </td>
-                <td className="px-5 py-3 text-right font-medium tabular-nums">{day.ordersCount}</td>
-                <td className="px-5 py-3 text-right font-bold text-green-600 tabular-nums">
-                  ₹{day.totalRevenue.toLocaleString("en-IN")}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          {days.length > 0 && (
-            <tfoot className="bg-slate-100 border-t-2 border-slate-300 font-black text-slate-900">
-              <tr>
-                <td className="px-5 py-3.5 font-black text-slate-900">
-                  Total ({days.length} active {days.length === 1 ? "day" : "days"})
-                </td>
-                <td className="px-5 py-3.5 text-right tabular-nums text-slate-900">
-                  {totalOrders}
-                </td>
-                <td className="px-5 py-3.5 text-right font-black text-green-600 tabular-nums text-base">
-                  ₹{totalRevenue.toLocaleString("en-IN")}
-                </td>
-              </tr>
-            </tfoot>
-          )}
-        </table>
-        {days.length === 0 && <p className="p-6 text-center text-slate-500">No website orders in this range</p>}
-      </div>
-
-      {days.length > 0 && (
-        <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5 sm:p-6 text-white shadow-xl border border-slate-700">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700/60 pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                <h3 className="text-lg font-black tracking-tight text-white">
-                  Website Revenue & Expenses Summary
-                </h3>
-              </div>
-              <p className="mt-1 text-xs text-slate-300">
-                {fmtDay(range.from, true)} to {fmtDay(range.to, true)} · {totalOrders} paid orders
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Revenue (Sales − Expenses)</p>
-              <p className={`text-2xl sm:text-3xl font-black tabular-nums ${netRevenue >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                {signed(netRevenue)}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Website Sales</p>
-              <p className="mt-1 text-xl sm:text-2xl font-black text-emerald-400 tabular-nums">
-                +₹{totalRevenue.toLocaleString("en-IN")}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">{totalOrders} paid customer orders</p>
-            </div>
-
-            <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Expenses (Kharche)</p>
-              <p className="mt-1 text-xl sm:text-2xl font-black text-rose-400 tabular-nums">
-                −{rupees(expenses, 0)}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">Recorded business expenses for this period</p>
-            </div>
-
-            <div className="rounded-xl bg-slate-800/80 border border-slate-700/50 p-4">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Revenue (Sales − Expenses)</p>
-              <p className={`mt-1 text-xl sm:text-2xl font-black tabular-nums ${netRevenue >= 0 ? "text-white" : "text-rose-400"}`}>
-                {signed(netRevenue)}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">Net in-hand profit after expenses</p>
-            </div>
-          </div>
-        </div>
-      )}
+          ))}
+        </tbody>
+        {days.length > 0 && (
+          <tfoot className="bg-slate-100 border-t-2 border-slate-300 font-black text-slate-900">
+            <tr>
+              <td className="px-5 py-3.5 font-black text-slate-900">
+                Total ({days.length} active {days.length === 1 ? "day" : "days"})
+              </td>
+              <td className="px-5 py-3.5 text-right tabular-nums text-slate-900">
+                {totalOrders}
+              </td>
+              <td className="px-5 py-3.5 text-right font-black text-green-600 tabular-nums text-base">
+                ₹{totalRevenue.toLocaleString("en-IN")}
+              </td>
+            </tr>
+          </tfoot>
+        )}
+      </table>
+      {days.length === 0 && <p className="p-6 text-center text-slate-500">No website orders in this range</p>}
     </div>
   );
 }
@@ -3136,13 +2989,19 @@ export default function AdminRevenue() {
           {tab === "timeline" && (
             <Timeline
               range={range}
-              rangeKey={rangeKey}
               refreshKey={refreshKey}
               onEdit={(entry) => setEntryModal({ entry })}
               onVoid={setVoiding}
             />
           )}
-          {tab === "settlements" && <Settlements range={range} refreshKey={refreshKey} onUpload={() => setUploadOpen(true)} />}
+          {tab === "settlements" && (
+            <Settlements
+              range={range}
+              rangeKey={rangeKey}
+              refreshKey={refreshKey}
+              onUpload={() => setUploadOpen(true)}
+            />
+          )}
           {tab === "website" && <WebsiteOrders range={range} refreshKey={refreshKey} />}
         </>
       )}
