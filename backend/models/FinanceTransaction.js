@@ -2,6 +2,13 @@ const mongoose = require("mongoose");
 
 const financeTransactionSchema = new mongoose.Schema(
   {
+    // business = StickToon, personal = founder's own money
+    ledger: {
+      type: String,
+      enum: ["business", "personal"],
+      default: "business",
+      index: true,
+    },
     type: {
       type: String,
       enum: ["income", "expense", "capital", "transfer"],
@@ -24,6 +31,19 @@ const financeTransactionSchema = new mongoose.Schema(
         "capital_infusion",
         "refund",
         "miscellaneous",
+        // personal
+        "salary_income",
+        "food_dining",
+        "rent_housing",
+        "bills_utilities",
+        "travel_transport",
+        "shopping",
+        "health_medical",
+        "education",
+        "investment",
+        "loan_emi",
+        "family_gifts",
+        "entertainment",
       ],
       default: "miscellaneous",
       index: true,

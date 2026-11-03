@@ -31,6 +31,7 @@ import { API_BASE_URL } from "../config/api";
    TYPES & CONSTANTS
 ========================================================================== */
 export type FinanceType = "income" | "expense" | "capital" | "transfer";
+export type Ledger = "business" | "personal";
 
 export type FinanceCategory =
   | "sales"
@@ -45,7 +46,19 @@ export type FinanceCategory =
   | "partner_payout"
   | "capital_infusion"
   | "refund"
-  | "miscellaneous";
+  | "miscellaneous"
+  | "salary_income"
+  | "food_dining"
+  | "rent_housing"
+  | "bills_utilities"
+  | "travel_transport"
+  | "shopping"
+  | "health_medical"
+  | "education"
+  | "investment"
+  | "loan_emi"
+  | "family_gifts"
+  | "entertainment";
 
 export type PaymentMode =
   | "upi"
@@ -58,6 +71,7 @@ export type PaymentMode =
 
 export interface FinanceTransaction {
   _id: string;
+  ledger?: Ledger;
   type: FinanceType;
   category: FinanceCategory;
   amountPaise: number;
@@ -115,7 +129,41 @@ const CATEGORY_LABELS: Record<FinanceCategory, string> = {
   capital_infusion: "Founder Capital Infusion",
   refund: "Customer Refund",
   miscellaneous: "Miscellaneous",
+  salary_income: "Salary / Personal Income",
+  food_dining: "Food & Dining",
+  rent_housing: "Rent & Housing",
+  bills_utilities: "Bills & Recharges",
+  travel_transport: "Travel & Fuel",
+  shopping: "Shopping",
+  health_medical: "Health & Medical",
+  education: "Education & Courses",
+  investment: "Investments / SIP / Savings",
+  loan_emi: "Loan / EMI",
+  family_gifts: "Family & Gifts",
+  entertainment: "Entertainment & Subscriptions",
 };
+
+const LEDGER_CATEGORIES: Record<Ledger, FinanceCategory[]> = {
+  business: [
+    "sales", "amazon_payout", "raw_material", "printing_press", "courier_shipping", "packaging",
+    "marketing_ads", "tools_software", "office_equipment", "partner_payout", "capital_infusion",
+    "refund", "miscellaneous",
+  ],
+  personal: [
+    "salary_income", "partner_payout", "food_dining", "rent_housing", "bills_utilities",
+    "travel_transport", "shopping", "health_medical", "education", "investment", "loan_emi",
+    "family_gifts", "entertainment", "capital_infusion", "refund", "miscellaneous",
+  ],
+};
+
+const LEDGER_LABELS: Record<Ledger, string> = { business: "StickToon", personal: "Personal" };
+
+function defaultCategory(ledger: Ledger, type: FinanceType): FinanceCategory {
+  if (type === "capital") return "capital_infusion";
+  if (type === "transfer") return "miscellaneous";
+  if (type === "income") return ledger === "personal" ? "salary_income" : "sales";
+  return ledger === "personal" ? "food_dining" : "raw_material";
+}
 
 const CATEGORY_COLORS: Record<FinanceCategory, string> = {
   sales: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -131,6 +179,18 @@ const CATEGORY_COLORS: Record<FinanceCategory, string> = {
   capital_infusion: "bg-violet-50 text-violet-700 border-violet-200",
   refund: "bg-red-50 text-red-700 border-red-200",
   miscellaneous: "bg-gray-100 text-gray-700 border-gray-300",
+  salary_income: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  food_dining: "bg-orange-50 text-orange-700 border-orange-200",
+  rent_housing: "bg-stone-100 text-stone-700 border-stone-300",
+  bills_utilities: "bg-sky-50 text-sky-700 border-sky-200",
+  travel_transport: "bg-blue-50 text-blue-700 border-blue-200",
+  shopping: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200",
+  health_medical: "bg-red-50 text-red-700 border-red-200",
+  education: "bg-teal-50 text-teal-700 border-teal-200",
+  investment: "bg-lime-50 text-lime-700 border-lime-200",
+  loan_emi: "bg-rose-50 text-rose-700 border-rose-200",
+  family_gifts: "bg-pink-50 text-pink-700 border-pink-200",
+  entertainment: "bg-purple-50 text-purple-700 border-purple-200",
 };
 
 const PAYMENT_MODE_LABELS: Record<PaymentMode, string> = {
@@ -245,6 +305,9 @@ export default function AdminFinance() {
   const [customFrom, setCustomFrom] = useState<string>(getMonthStartYmd());
   const [customTo, setCustomTo] = useState<string>(getTodayYmd());
 
+  // Which book: StickToon (business), Personal, or both
+  const [ledgerView, setLedgerView] = useState<Ledger | "all">("business");
+
   // Filter & Search states
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -266,6 +329,7 @@ export default function AdminFinance() {
 
   // Form fields
   const [formData, setFormData] = useState<{
+    ledger: Ledger;
     type: FinanceType;
     category: FinanceCategory;
     amountRupees: string;
@@ -275,6 +339,7 @@ export default function AdminFinance() {
     utr: string;
     paymentMode: PaymentMode;
   }>({
+    ledger: "business",
     type: "expense",
     category: "raw_material",
     amountRupees: "",
@@ -319,6 +384,7 @@ export default function AdminFinance() {
       const queryParams = new URLSearchParams({
         from: activeRange.from,
         to: activeRange.to,
+        ledger: ledgerView,
       });
 
       const summaryData = await fetchFinanceApi<FinanceSummary>(
@@ -331,6 +397,7 @@ export default function AdminFinance() {
         to: activeRange.to,
         page: String(page),
         limit: "50",
+        ledger: ledgerView,
       });
       if (typeFilter !== "all") txParams.set("type", typeFilter);
       if (categoryFilter !== "all") txParams.set("category", categoryFilter);
@@ -353,7 +420,7 @@ export default function AdminFinance() {
 
   useEffect(() => {
     loadData();
-  }, [activeRange.from, activeRange.to, page, typeFilter, categoryFilter]);
+  }, [activeRange.from, activeRange.to, page, typeFilter, categoryFilter, ledgerView]);
 
   // Handle Search on Enter or debounce
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -366,9 +433,12 @@ export default function AdminFinance() {
   const handleOpenCreateModal = (defaultType?: FinanceType) => {
     setEditingTx(null);
     setFormError(null);
+    const ledger: Ledger = ledgerView === "all" ? "business" : ledgerView;
+    const type = defaultType || "expense";
     setFormData({
-      type: defaultType || "expense",
-      category: defaultType === "capital" ? "capital_infusion" : defaultType === "income" ? "sales" : "raw_material",
+      ledger,
+      type,
+      category: defaultCategory(ledger, type),
       amountRupees: "",
       occurredAt: getTodayYmd(),
       title: "",
@@ -384,6 +454,7 @@ export default function AdminFinance() {
     setEditingTx(tx);
     setFormError(null);
     setFormData({
+      ledger: tx.ledger || "business",
       type: tx.type,
       category: tx.category,
       amountRupees: (tx.amountPaise / 100).toString(),
@@ -414,6 +485,7 @@ export default function AdminFinance() {
     try {
       setFormSubmitting(true);
       const payload = {
+        ledger: formData.ledger,
         type: formData.type,
         category: formData.category,
         amountPaise: Math.round(amountNum * 100),
@@ -508,6 +580,7 @@ export default function AdminFinance() {
 
     const headers = [
       "Date",
+      "Ledger",
       "Type",
       "Category",
       "Title",
@@ -519,6 +592,7 @@ export default function AdminFinance() {
 
     const rows = transactions.map((t) => [
       t.occurredAt.slice(0, 10),
+      LEDGER_LABELS[t.ledger || "business"],
       t.type,
       CATEGORY_LABELS[t.category] || t.category,
       `"${(t.title || "").replace(/"/g, '""')}"`,
@@ -537,7 +611,7 @@ export default function AdminFinance() {
     link.setAttribute("href", encodedUri);
     link.setAttribute(
       "download",
-      `sticktoon_finance_${activeRange.from}_to_${activeRange.to}.csv`
+      `finance_${ledgerView}_${activeRange.from}_to_${activeRange.to}.csv`
     );
     document.body.appendChild(link);
     link.click();
@@ -559,14 +633,16 @@ export default function AdminFinance() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-                  StickToon Finance & Treasury
+                  {ledgerView === "personal" ? "Personal Finance" : ledgerView === "all" ? "Personal + StickToon Finance" : "StickToon Finance & Treasury"}
                 </h1>
                 <span className="bg-amber-400/20 text-amber-300 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-amber-400/30">
                   Super Admin Only
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-300 mt-0.5">
-                Private ledger for total business inflows, expenses, profit/loss, and founder capital reconciliation.
+                {ledgerView === "personal"
+                  ? "Private record of your own income, spending, savings and EMIs."
+                  : "Private ledger for business inflows, expenses, profit/loss, and founder capital reconciliation."}
               </p>
             </div>
           </div>
@@ -596,6 +672,27 @@ export default function AdminFinance() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* ====================================================================
+          LEDGER SWITCH
+      ==================================================================== */}
+      <div className="flex items-center gap-1.5 bg-white rounded-2xl p-1.5 shadow-sm border border-slate-200/80 w-full sm:w-fit">
+        {(["business", "personal", "all"] as const).map((l) => (
+          <button
+            key={l}
+            onClick={() => {
+              setLedgerView(l);
+              setCategoryFilter("all");
+              setPage(1);
+            }}
+            className={`flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-xl transition whitespace-nowrap ${
+              ledgerView === l ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            {l === "all" ? "Combined" : LEDGER_LABELS[l]}
+          </button>
+        ))}
       </div>
 
       {/* ====================================================================
@@ -687,7 +784,7 @@ export default function AdminFinance() {
       {/* ====================================================================
           FOUNDER CAPITAL CALLOUT (IF NEEDED)
       ==================================================================== */}
-      {summary && summary.balance.allTimeCapital === 0 && (
+      {ledgerView === "business" && summary && summary.balance.allTimeCapital === 0 && (
         <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl">
@@ -924,9 +1021,12 @@ export default function AdminFinance() {
               className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 font-medium max-w-[150px] truncate"
             >
               <option value="all">All Categories</option>
-              {Object.entries(CATEGORY_LABELS).map(([catKey, catLabel]) => (
+              {(ledgerView === "all"
+                ? (Object.keys(CATEGORY_LABELS) as FinanceCategory[])
+                : LEDGER_CATEGORIES[ledgerView]
+              ).map((catKey) => (
                 <option key={catKey} value={catKey}>
-                  {catLabel}
+                  {CATEGORY_LABELS[catKey]}
                 </option>
               ))}
             </select>
@@ -995,6 +1095,15 @@ export default function AdminFinance() {
                     {/* Title & Notes */}
                     <td className="py-3.5 px-4 max-w-xs">
                       <div className="font-bold text-slate-900 truncate">
+                        {ledgerView === "all" && (
+                          <span
+                            className={`mr-1.5 inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase align-middle ${
+                              tx.ledger === "personal" ? "bg-amber-100 text-amber-800" : "bg-indigo-100 text-indigo-800"
+                            }`}
+                          >
+                            {LEDGER_LABELS[tx.ledger || "business"]}
+                          </span>
+                        )}
                         {tx.title}
                       </div>
                       {tx.note && (
@@ -1151,6 +1260,35 @@ export default function AdminFinance() {
             )}
 
             <form onSubmit={handleSaveTransaction} className="mt-4 space-y-4 text-xs">
+              {/* Ledger */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1.5">Whose money?</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(["business", "personal"] as Ledger[]).map((l) => (
+                    <button
+                      type="button"
+                      key={l}
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ledger: l,
+                          category: LEDGER_CATEGORIES[l].includes(prev.category)
+                            ? prev.category
+                            : defaultCategory(l, prev.type),
+                        }))
+                      }
+                      className={`py-2 text-center rounded-xl font-bold text-[11px] transition ${
+                        formData.ledger === l
+                          ? "bg-slate-900 text-white shadow-sm"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      {LEDGER_LABELS[l]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Type Switcher */}
               <div>
                 <label className="block font-semibold text-slate-700 mb-1.5">
@@ -1165,14 +1303,7 @@ export default function AdminFinance() {
                         setFormData((prev) => ({
                           ...prev,
                           type: t,
-                          category:
-                            t === "capital"
-                              ? "capital_infusion"
-                              : t === "income"
-                              ? "sales"
-                              : prev.category === "capital_infusion"
-                              ? "raw_material"
-                              : prev.category,
+                          category: defaultCategory(prev.ledger, t),
                         }));
                       }}
                       className={`py-2 text-center rounded-xl font-bold uppercase tracking-wider text-[11px] transition ${
@@ -1245,9 +1376,9 @@ export default function AdminFinance() {
                   }
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-900 focus:outline-none text-slate-900"
                 >
-                  {Object.entries(CATEGORY_LABELS).map(([catKey, catLabel]) => (
+                  {LEDGER_CATEGORIES[formData.ledger].map((catKey) => (
                     <option key={catKey} value={catKey}>
-                      {catLabel}
+                      {CATEGORY_LABELS[catKey]}
                     </option>
                   ))}
                 </select>
