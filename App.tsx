@@ -1761,6 +1761,7 @@ function App() {
             <Route path="/admin/footer" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/settings/footer" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/revenue" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
+            <Route path="/admin/finance" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/user-orders" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/invoice/:id" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
             <Route path="/admin/deal-convert" element={<ProtectedAdminRoute user={user}><Admin /></ProtectedAdminRoute>} />
