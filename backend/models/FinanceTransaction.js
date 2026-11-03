@@ -19,6 +19,7 @@ const financeTransactionSchema = new mongoose.Schema(
       type: String,
       enum: [
         "sales",
+        "b2b_order",
         "amazon_payout",
         "raw_material",
         "printing_press",

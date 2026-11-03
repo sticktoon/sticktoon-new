@@ -18,7 +18,6 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
-  Sparkles,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -35,6 +34,7 @@ export type Ledger = "business" | "personal";
 
 export type FinanceCategory =
   | "sales"
+  | "b2b_order"
   | "amazon_payout"
   | "raw_material"
   | "printing_press"
@@ -117,6 +117,7 @@ export interface FinanceSummary {
 
 const CATEGORY_LABELS: Record<FinanceCategory, string> = {
   sales: "Website / Direct Sales",
+  b2b_order: "B2B / Bulk Client Order",
   amazon_payout: "Amazon Settlement",
   raw_material: "Raw Material",
   printing_press: "Printing Press & Production",
@@ -145,7 +146,7 @@ const CATEGORY_LABELS: Record<FinanceCategory, string> = {
 
 const LEDGER_CATEGORIES: Record<Ledger, FinanceCategory[]> = {
   business: [
-    "sales", "amazon_payout", "raw_material", "printing_press", "courier_shipping", "packaging",
+    "sales", "b2b_order", "amazon_payout", "raw_material", "printing_press", "courier_shipping", "packaging",
     "marketing_ads", "tools_software", "office_equipment", "partner_payout", "capital_infusion",
     "refund", "miscellaneous",
   ],
@@ -167,6 +168,7 @@ function defaultCategory(ledger: Ledger, type: FinanceType): FinanceCategory {
 
 const CATEGORY_COLORS: Record<FinanceCategory, string> = {
   sales: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  b2b_order: "bg-green-50 text-green-700 border-green-200",
   amazon_payout: "bg-amber-50 text-amber-700 border-amber-200",
   raw_material: "bg-rose-50 text-rose-700 border-rose-200",
   printing_press: "bg-orange-50 text-orange-700 border-orange-200",
@@ -529,48 +531,6 @@ export default function AdminFinance() {
     }
   };
 
-  // Quick Seed Capital button for Anish (₹2,70,000 + ₹64,000)
-  const handleQuickAddCapitalPresets = async () => {
-    const confirmAdd = window.confirm(
-      "Quick Add Founder Capital:\nThis will add 2 Capital Infusion entries:\n1) ₹2,70,000 (Initial Capital)\n2) ₹64,000 (Supplementary Capital)\n\nDo you want to proceed?"
-    );
-    if (!confirmAdd) return;
-
-    try {
-      setLoading(true);
-      await fetchFinanceApi("/transactions/bulk", {
-        method: "POST",
-        body: JSON.stringify({
-          items: [
-            {
-              type: "capital",
-              category: "capital_infusion",
-              amountPaise: 27000000,
-              occurredAt: new Date().toISOString(),
-              title: "Founder Capital Infusion (Anish)",
-              note: "Initial core capital investment for StickToon inventory & operations",
-              paymentMode: "bank_transfer",
-            },
-            {
-              type: "capital",
-              category: "capital_infusion",
-              amountPaise: 6400000,
-              occurredAt: new Date().toISOString(),
-              title: "Founder Supplementary Capital (Anish)",
-              note: "Working capital infusion",
-              paymentMode: "bank_transfer",
-            },
-          ],
-        }),
-      });
-      alert("Successfully recorded ₹2,70,000 and ₹64,000 Capital Infusions!");
-      loadData();
-    } catch (err: any) {
-      alert(err.message || "Failed to add capital entries");
-      setLoading(false);
-    }
-  };
-
   // Export CSV
   const handleExportCsv = () => {
     if (!transactions.length) {
@@ -780,33 +740,6 @@ export default function AdminFinance() {
           </button>
         </div>
       </div>
-
-      {/* ====================================================================
-          FOUNDER CAPITAL CALLOUT (IF NEEDED)
-      ==================================================================== */}
-      {ledgerView === "business" && summary && summary.balance.allTimeCapital === 0 && (
-        <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-indigo-900">
-                Record Founder Capital Infusion (₹2,70,000 + ₹64,000)
-              </h4>
-              <p className="text-xs text-indigo-700">
-                No founder capital is recorded yet. Click below to add the ₹2.7L and ₹64K capital infusions into the treasury.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={handleQuickAddCapitalPresets}
-            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-sm transition whitespace-nowrap"
-          >
-            Quick Add Capital
-          </button>
-        </div>
-      )}
 
       {/* ====================================================================
           CORE KPI METRICS CARDS
